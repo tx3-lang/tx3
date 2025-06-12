@@ -561,8 +561,8 @@ pub enum AssetExpr {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PropertyAccess {
-    pub object: Identifier,
-    pub path: Vec<Identifier>,
+    pub object: Box<DataExpr>, // hacerlo expression asi pueden ser property access y así tiene su scope
+    pub field: Box<Identifier>, // o data expr ?
     pub span: Span,
 
     // analysis
@@ -571,31 +571,17 @@ pub struct PropertyAccess {
 }
 
 impl PropertyAccess {
-    pub fn new(object: &str, path: &[&str]) -> Self {
+    pub fn new(object: &str, field: &str) -> Self {
         Self {
-            object: Identifier::new(object),
-            path: path.iter().map(|x| Identifier::new(*x)).collect(),
+            object: Box::new(DataExpr::Identifier(Identifier::new(object))),
+            field: Box::new(Identifier::new(field)),
             scope: None,
             span: Span::DUMMY,
         }
     }
 
     pub fn target_type(&self) -> Option<Type> {
-        self.path.last().and_then(|x| x.target_type())
-    }
-}
-
-impl PropertyAccess {
-    /// Shift the property access to the next property in the path.
-    pub fn shift(mut self) -> Option<Self> {
-        if self.path.is_empty() {
-            return None;
-        }
-
-        let new_object = self.path.remove(0);
-        self.object = new_object;
-
-        Some(self)
+        self.field.target_type()
     }
 }
 

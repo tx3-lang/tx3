@@ -1051,7 +1051,7 @@ impl Apply for ir::Expression {
                 // field names from the struct, making this impossible. We need to refactor
                 // either the StructExpr so that it retains field names or the PropertyAccess
                 // so that the path gets turned into field indexes.
-                todo!("fix this")
+                todo!("todo")
             }
             _ => Ok(self),
         }

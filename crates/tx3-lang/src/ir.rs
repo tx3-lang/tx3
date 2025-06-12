@@ -107,7 +107,7 @@ pub enum Type {
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct PropertyAccess {
     pub object: Box<Expression>,
-    pub field: String,
+    pub field: u64,
 }
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]

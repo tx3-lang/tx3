@@ -49,7 +49,9 @@ async fn eval_pass<L: Ledger>(
         attempt.set_input(&name, utxos);
     }
 
+    dbg!(&attempt);
     let attempt = attempt.apply()?;
+    dbg!(&attempt);
 
     if !attempt.as_ref().is_constant() {
         return Err(Error::CantCompileNonConstantTir);

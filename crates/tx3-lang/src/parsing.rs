@@ -887,24 +887,31 @@ impl AstNode for PropertyAccess {
     const RULE: Rule = Rule::property_access;
 
     fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
-        let span = pair.as_span().into();
+        let span: Span = pair.as_span().into();
         let mut inner = pair.into_inner();
 
-        let object = Identifier::parse(inner.next().unwrap())?;
+        let object = DataExpr::parse(inner.next().unwrap())?;
+        let field = Identifier::parse(inner.next().unwrap())?;
 
-        let mut identifiers = Vec::new();
-        identifiers.push(Identifier::parse(inner.next().unwrap())?);
+        let mut property_access = PropertyAccess {
+            object: Box::new(object),
+            field: Box::new(field),
+            scope: None,
+            span: span.clone(),
+        };
 
-        for identifier in inner {
-            identifiers.push(Identifier::parse(identifier)?);
+        for new_field in inner {
+            let field = Identifier::parse(new_field)?;
+            property_access = PropertyAccess {
+                object: Box::new(DataExpr::PropertyAccess(property_access)),
+                field: Box::new(field),
+                scope: None,
+                // TODO: figure out what the span of this is
+                span: span.clone(),
+            };
         }
 
-        Ok(PropertyAccess {
-            object,
-            path: identifiers,
-            scope: None,
-            span,
-        })
+        Ok(property_access)
     }
 
     fn span(&self) -> &Span {

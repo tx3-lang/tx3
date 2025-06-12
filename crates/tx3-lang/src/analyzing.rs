@@ -5,7 +5,7 @@
 
 use std::{collections::HashMap, rc::Rc};
 
-use crate::{ast::*, parsing::AstNode};
+use crate::ast::*;
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic, PartialEq, Eq)]
 #[error("not in scope: {name}")]
