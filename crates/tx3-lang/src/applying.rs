@@ -922,7 +922,9 @@ impl Apply for ir::Expression {
                     None => Ok(ir::Expression::EvalParameter(name, ty)),
                 }
             }
-
+            ir::Expression::EvalProperty(x) => {
+                Ok(ir::Expression::EvalProperty(x.apply_args(args)?))
+            }
             // the remaining cases are constants, so we can just return them
             x => Ok(x),
         }
@@ -962,6 +964,9 @@ impl Apply for ir::Expression {
             ir::Expression::List(x) => Ok(ir::Expression::List(x.apply_inputs(args)?)),
             ir::Expression::Assets(x) => Ok(ir::Expression::Assets(x.apply_inputs(args)?)),
             ir::Expression::EvalCustom(x) => Ok(ir::Expression::EvalCustom(x.apply_inputs(args)?)),
+            ir::Expression::EvalProperty(x) => {
+                Ok(ir::Expression::EvalProperty(x.apply_inputs(args)?))
+            }
             _ => Ok(self),
         }
     }
@@ -1067,6 +1072,7 @@ impl Apply for ir::Expression {
             ir::Expression::Struct(x) => Ok(ir::Expression::Struct(x.reduce()?)),
             ir::Expression::Assets(x) => Ok(ir::Expression::Assets(x.reduce()?)),
             ir::Expression::EvalCustom(x) => Ok(ir::Expression::EvalCustom(x.reduce()?)),
+            ir::Expression::EvalProperty(x) => Ok(ir::Expression::EvalProperty(x.reduce()?)),
             _ => Ok(self),
         }
     }
