@@ -582,19 +582,19 @@ impl Analyzable for PropertyAccess {
 
         let mut scope = Scope::new(parent);
 
-        if let Some(ty) = self.object.symbol.as_ref().and_then(|s| s.target_type()) {
+        if let Some(ty) = self.object.target_type() {
             scope.track_record_fields_for_type(&ty);
         }
 
         self.scope = Some(Rc::new(scope));
 
-        let path = self.path.analyze(self.scope.clone());
+        let path = self.field.analyze(self.scope.clone());
 
         object + path
     }
 
     fn is_resolved(&self) -> bool {
-        self.object.is_resolved() && self.path.is_resolved()
+        self.object.is_resolved() && self.field.is_resolved()
     }
 }
 

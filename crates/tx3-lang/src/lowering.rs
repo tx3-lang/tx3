@@ -172,7 +172,7 @@ impl IntoLower for ast::StructConstructor {
 
         let mut fields = vec![];
 
-        for field_def in case_def.fields.iter() {
+        for (index, field_def) in case_def.fields.iter().enumerate() {
             let value = self.case.find_field_value(&field_def.name);
 
             if let Some(value) = value {
@@ -187,7 +187,7 @@ impl IntoLower for ast::StructConstructor {
 
                 fields.push(ir::Expression::EvalProperty(Box::new(ir::PropertyAccess {
                     object: Box::new(spread_target),
-                    field: field_def.name.clone(),
+                    field: index as u64,
                 })));
             }
         }
@@ -294,12 +294,32 @@ impl IntoLower for ast::PropertyAccess {
     type Output = ir::Expression;
 
     fn into_lower(&self) -> Result<Self::Output, Error> {
-        let mut object = self.object.into_lower()?;
-        let target_type = object.target_type();
+        let object = self.object.into_lower()?;
+        let ty = self
+            .object
+            .target_type()
+            .ok_or(Error::MissingAnalyzePhase)?;
+        let field_name = &self.field.value;
+        let field_index = match ty {
+            ast::Type::Custom(ref ident) => {
+                let type_def = expect_type_def(ident)?;
+                let case = &type_def.cases[0];
+                case.fields
+                    .iter()
+                    .position(|f| f.name == *field_name)
+                    .ok_or_else(|| Error::InvalidAst(format!("field '{}' not found", field_name)))?
+            }
+            _ => {
+                return Err(Error::InvalidAst(format!(
+                    "Property access not supported for type: {:?}",
+                    ty
+                )))
+            }
+        };
 
         Ok(ir::Expression::EvalProperty(Box::new(ir::PropertyAccess {
             object: Box::new(object),
-            field: self.field,
+            field: field_index as u64,
         })))
     }
 }
