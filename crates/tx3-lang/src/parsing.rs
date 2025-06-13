@@ -890,11 +890,11 @@ impl AstNode for PropertyAccess {
         let span: Span = pair.as_span().into();
         let mut inner = pair.into_inner();
 
-        let object = DataExpr::parse(inner.next().unwrap())?;
+        let object = Identifier::parse(inner.next().unwrap())?;
         let field = Identifier::parse(inner.next().unwrap())?;
 
         let mut property_access = PropertyAccess {
-            object: Box::new(object),
+            object: Box::new(DataExpr::Identifier(object)),
             field: Box::new(field),
             scope: None,
             span: span.clone(),
