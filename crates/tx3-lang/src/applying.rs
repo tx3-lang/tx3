@@ -1465,6 +1465,8 @@ impl Apply for ir::Tx {
             && self.fees.is_constant()
             && self.metadata.is_constant()
             && self.validity.is_constant()
+            && self.references.is_constant()
+            && self.collateral.is_constant()
             && self.adhoc.iter().all(|x| x.is_constant())
             && self.signers.is_constant()
     }
@@ -1480,11 +1482,12 @@ impl Apply for ir::Tx {
         params.extend(self.signers.params());
         params.extend(self.validity.params());
         params.extend(self.metadata.params());
+        params.extend(self.references.params());
+        params.extend(self.collateral.params());
         params
     }
 
     fn queries(&self) -> BTreeMap<String, ir::InputQuery> {
-        // TODO: analyze if necessary to add ref_inputs
         let mut queries = BTreeMap::new();
         queries.extend(self.inputs.queries());
         queries.extend(self.outputs.queries());
@@ -1494,6 +1497,8 @@ impl Apply for ir::Tx {
         queries.extend(self.signers.queries());
         queries.extend(self.validity.queries());
         queries.extend(self.metadata.queries());
+        queries.extend(self.collateral.queries());
+        queries.extend(self.references.queries());
         queries
     }
 

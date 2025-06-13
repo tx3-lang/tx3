@@ -301,7 +301,7 @@ impl AstNode for CollateralBlockField {
             }
             Rule::input_block_ref => {
                 let pair = pair.into_inner().next().unwrap();
-                let x = CollateralBlockField::Ref(DataExpr::UtxoRef(UtxoRef::parse(pair)?));
+                let x = CollateralBlockField::Ref(DataExpr::parse(pair)?);
                 Ok(x)
             }
             x => unreachable!("Unexpected rule in collateral_block: {:?}", x),

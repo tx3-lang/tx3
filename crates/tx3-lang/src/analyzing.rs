@@ -877,6 +877,44 @@ impl Analyzable for SignersBlock {
     }
 }
 
+impl Analyzable for ReferenceBlock {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+        self.r#ref.analyze(parent)
+    }
+
+    fn is_resolved(&self) -> bool {
+        self.r#ref.is_resolved()
+    }
+}
+
+impl Analyzable for CollateralBlockField {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+        match self {
+            CollateralBlockField::From(x) => x.analyze(parent),
+            CollateralBlockField::MinAmount(x) => x.analyze(parent),
+            CollateralBlockField::Ref(x) => x.analyze(parent),
+        }
+    }
+
+    fn is_resolved(&self) -> bool {
+        match self {
+            CollateralBlockField::From(x) => x.is_resolved(),
+            CollateralBlockField::MinAmount(x) => x.is_resolved(),
+            CollateralBlockField::Ref(x) => x.is_resolved(),
+        }
+    }
+}
+
+impl Analyzable for CollateralBlock {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+        self.fields.analyze(parent)
+    }
+
+    fn is_resolved(&self) -> bool {
+        self.fields.is_resolved()
+    }
+}
+
 impl Analyzable for ChainSpecificBlock {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
         match self {
@@ -947,7 +985,21 @@ impl Analyzable for TxDef {
 
         let signers = self.signers.analyze(self.scope.clone());
 
-        params + input_types + inputs + outputs + mints + adhoc + validity + metadata + signers
+        let references = self.references.analyze(self.scope.clone());
+
+        let collateral = self.collateral.analyze(self.scope.clone());
+
+        params
+            + input_types
+            + inputs
+            + outputs
+            + mints
+            + adhoc
+            + validity
+            + metadata
+            + signers
+            + references
+            + collateral
     }
 
     fn is_resolved(&self) -> bool {

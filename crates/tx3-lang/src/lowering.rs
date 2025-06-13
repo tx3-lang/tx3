@@ -533,8 +533,8 @@ impl IntoLower for ast::ValidityBlock {
 
     fn into_lower(&self) -> Result<Self::Output, Error> {
         Ok(ir::Validity {
-            since: self.find("valid_since").into_lower()?,
-            until: self.find("valid_until").into_lower()?,
+            since: self.find("since_slot").into_lower()?,
+            until: self.find("until_slot").into_lower()?,
         })
     }
 }

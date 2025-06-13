@@ -156,8 +156,15 @@
     }
   ],
   "validity": {
-    "since": null,
-    "until": null
+    "since": {
+      "Number": 1735700400000
+    },
+    "until": {
+      "EvalParameter": [
+        "validuntil",
+        "Int"
+      ]
+    }
   },
   "mints": [
     {
