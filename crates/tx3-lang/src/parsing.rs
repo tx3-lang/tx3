@@ -901,13 +901,13 @@ impl AstNode for PropertyAccess {
         };
 
         for new_field in inner {
+            let span = new_field.as_span().into();
             let field = Identifier::parse(new_field)?;
             property_access = PropertyAccess {
                 object: Box::new(DataExpr::PropertyAccess(property_access)),
                 field: Box::new(field),
                 scope: None,
-                // TODO: figure out what the span of this is
-                span: span.clone(),
+                span,
             };
         }
 
@@ -1627,20 +1627,19 @@ mod tests {
 
     input_to_ast_check!(DataExpr, "number_value", "123", DataExpr::Number(123));
 
-    // TODO: corregir esto
-    //    input_to_ast_check!(
-    //        PropertyAccess,
-    //        "single_property",
-    //        "subject.property",
-    //        PropertyAccess::new("subject", &["property"])
-    //    );
-    //
-    //    input_to_ast_check!(
-    //        PropertyAccess,
-    //        "multiple_properties",
-    //        "subject.property.subproperty",
-    //        PropertyAccess::new("subject", &["property", "subproperty"])
-    //    );
+    input_to_ast_check!(
+        PropertyAccess,
+        "single_property",
+        "subject.property",
+        PropertyAccess::new("subject", "property")
+    );
+
+    input_to_ast_check!(
+        PropertyAccess,
+        "multiple_properties",
+        "subject.property.subproperty",
+        PropertyAccess::new("subject", "property.subproperty")
+    );
 
     input_to_ast_check!(
         PolicyDef,

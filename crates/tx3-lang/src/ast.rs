@@ -11,6 +11,8 @@
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, rc::Rc};
 
+use crate::parsing::AstNode;
+
 #[derive(Debug, PartialEq, Eq)]
 pub struct Scope {
     pub(crate) symbols: HashMap<String, Symbol>,
@@ -561,8 +563,8 @@ pub enum AssetExpr {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PropertyAccess {
-    pub object: Box<DataExpr>, // hacerlo expression asi pueden ser property access y así tiene su scope
-    pub field: Box<Identifier>, // o data expr ?
+    pub object: Box<DataExpr>,
+    pub field: Box<Identifier>,
     pub span: Span,
 
     // analysis
@@ -571,13 +573,25 @@ pub struct PropertyAccess {
 }
 
 impl PropertyAccess {
-    pub fn new(object: &str, field: &str) -> Self {
-        Self {
+    pub fn new(object: &str, path: &str) -> Self {
+        let mut fields = path.split('.');
+        let mut object = Self {
             object: Box::new(DataExpr::Identifier(Identifier::new(object))),
-            field: Box::new(Identifier::new(field)),
+            field: Box::new(Identifier::new(fields.next().unwrap())),
             scope: None,
             span: Span::DUMMY,
+        };
+
+        for field in fields {
+            let field = Box::new(Identifier::new(field));
+            object = Self {
+                object: Box::new(DataExpr::PropertyAccess(object)),
+                field,
+                scope: None,
+                span: Span::DUMMY,
+            };
         }
+        object
     }
 
     pub fn target_type(&self) -> Option<Type> {

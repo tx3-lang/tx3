@@ -234,7 +234,7 @@
                     "object": {
                       "EvalInputDatum": "ship"
                     },
-                    "field": "pos_x"
+                    "field": 0
                   }
                 },
                 "right": {
@@ -253,7 +253,7 @@
                     "object": {
                       "EvalInputDatum": "ship"
                     },
-                    "field": "pos_y"
+                    "field": 1
                   }
                 },
                 "right": {
@@ -270,7 +270,7 @@
                 "object": {
                   "EvalInputDatum": "ship"
                 },
-                "field": "ship_token_name"
+                "field": 2
               }
             },
             {
@@ -278,7 +278,7 @@
                 "object": {
                   "EvalInputDatum": "ship"
                 },
-                "field": "pilot_token_name"
+                "field": 3
               }
             },
             {
@@ -286,7 +286,7 @@
                 "object": {
                   "EvalInputDatum": "ship"
                 },
-                "field": "last_move_latest_time"
+                "field": 4
               }
             }
           ]
@@ -373,6 +373,6 @@
   "mints": [],
   "adhoc": [],
   "collateral": [],
-  "req_signers": [],
+  "signers": null,
   "metadata": []
 }

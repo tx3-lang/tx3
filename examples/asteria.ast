@@ -405,23 +405,23 @@
                             "left": {
                               "PropertyAccess": {
                                 "object": {
-                                  "value": "ship",
-                                  "span": {
-                                    "dummy": false,
-                                    "start": 1276,
-                                    "end": 1280
-                                  }
-                                },
-                                "path": [
-                                  {
-                                    "value": "pos_x",
+                                  "Identifier": {
+                                    "value": "ship",
                                     "span": {
                                       "dummy": false,
-                                      "start": 1281,
-                                      "end": 1286
+                                      "start": 1276,
+                                      "end": 1280
                                     }
                                   }
-                                ],
+                                },
+                                "field": {
+                                  "value": "pos_x",
+                                  "span": {
+                                    "dummy": false,
+                                    "start": 1281,
+                                    "end": 1286
+                                  }
+                                },
                                 "span": {
                                   "dummy": false,
                                   "start": 1276,
@@ -467,23 +467,23 @@
                             "left": {
                               "PropertyAccess": {
                                 "object": {
-                                  "value": "ship",
-                                  "span": {
-                                    "dummy": false,
-                                    "start": 1319,
-                                    "end": 1323
-                                  }
-                                },
-                                "path": [
-                                  {
-                                    "value": "pos_y",
+                                  "Identifier": {
+                                    "value": "ship",
                                     "span": {
                                       "dummy": false,
-                                      "start": 1324,
-                                      "end": 1329
+                                      "start": 1319,
+                                      "end": 1323
                                     }
                                   }
-                                ],
+                                },
+                                "field": {
+                                  "value": "pos_y",
+                                  "span": {
+                                    "dummy": false,
+                                    "start": 1324,
+                                    "end": 1329
+                                  }
+                                },
                                 "span": {
                                   "dummy": false,
                                   "start": 1319,
@@ -642,7 +642,7 @@
         }
       },
       "mints": [],
-      "req_signers": [],
+      "signers": null,
       "adhoc": [],
       "span": {
         "dummy": false,

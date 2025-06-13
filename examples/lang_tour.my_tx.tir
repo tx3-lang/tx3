@@ -80,7 +80,7 @@
                 "object": {
                   "EvalInputDatum": "source"
                 },
-                "field": "field3"
+                "field": 2
               }
             },
             {
@@ -99,7 +99,7 @@
                     "object": {
                       "EvalInputDatum": "source"
                     },
-                    "field": "field1"
+                    "field": 0
                   }
                 }
               ]
@@ -117,7 +117,7 @@
                     "object": {
                       "EvalInputDatum": "source"
                     },
-                    "field": "field3"
+                    "field": 2
                   }
                 },
                 "asset_name": {
@@ -125,7 +125,7 @@
                     "object": {
                       "EvalInputDatum": "source"
                     },
-                    "field": "field2"
+                    "field": 1
                   }
                 },
                 "amount": {
@@ -133,7 +133,7 @@
                     "object": {
                       "EvalInputDatum": "source"
                     },
-                    "field": "field1"
+                    "field": 0
                   }
                 }
               }

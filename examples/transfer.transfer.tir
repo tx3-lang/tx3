@@ -98,6 +98,6 @@
   "mints": [],
   "adhoc": [],
   "collateral": [],
-  "req_signers": [],
+  "signers": null,
   "metadata": []
 }

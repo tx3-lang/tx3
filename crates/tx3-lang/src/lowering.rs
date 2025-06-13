@@ -126,7 +126,6 @@ impl IntoLower for ast::Identifier {
 
     fn into_lower(&self) -> Result<Self::Output, Error> {
         let symbol = self.symbol.as_ref().expect("analyze phase must be run");
-        dbg!(&symbol);
 
         match symbol {
             ast::Symbol::ParamVar(n, ty) => Ok(ir::Expression::EvalParameter(
@@ -309,6 +308,7 @@ impl IntoLower for ast::PropertyAccess {
                     .position(|f| f.name == *field_name)
                     .ok_or_else(|| Error::InvalidAst(format!("field '{}' not found", field_name)))?
             }
+            ast::Type::AnyAsset => todo!("Feature not yet implemented"),
             _ => {
                 return Err(Error::InvalidAst(format!(
                     "Property access not supported for type: {:?}",
@@ -351,10 +351,7 @@ impl IntoLower for ast::DataExpr {
             ast::DataExpr::StructConstructor(x) => ir::Expression::Struct(x.into_lower()?),
             ast::DataExpr::ListConstructor(x) => ir::Expression::List(x.into_lower()?),
             ast::DataExpr::Unit => ir::Expression::Struct(ir::StructExpr::unit()),
-            ast::DataExpr::Identifier(x) => {
-                println!("AN IDENTIFIER WAS HERE \n\n\n***********************************************************88");
-                x.into_lower()?
-            }
+            ast::DataExpr::Identifier(x) => x.into_lower()?,
             ast::DataExpr::BinaryOp(x) => ir::Expression::EvalCustom(Box::new(x.into_lower()?)),
             ast::DataExpr::PropertyAccess(x) => x.into_lower()?,
             ast::DataExpr::UtxoRef(x) => x.into_lower()?,
@@ -428,7 +425,7 @@ impl IntoLower for ast::AssetExpr {
                 Ok(ir::Expression::EvalCustom(Box::new(x.into_lower()?)))
             }
             ast::AssetExpr::Identifier(x) => coerce_identifier_into_asset_expr(x),
-            ast::AssetExpr::PropertyAccess(_x) => todo!(),
+            ast::AssetExpr::PropertyAccess(x) => x.into_lower(),
         }
     }
 }
@@ -638,7 +635,6 @@ impl IntoLower for ast::SignersBlock {
     type Output = ir::Signers;
 
     fn into_lower(&self) -> Result<Self::Output, Error> {
-        println!("INTO LOWER SIGNERS BLOCK");
         Ok(ir::Signers {
             signers: self
                 .signers
@@ -650,7 +646,6 @@ impl IntoLower for ast::SignersBlock {
 }
 
 pub fn lower_tx(ast: &ast::TxDef) -> Result<ir::Tx, Error> {
-    dbg!(&ast);
     let ir = ir::Tx {
         references: ast
             .references
@@ -667,14 +662,7 @@ pub fn lower_tx(ast: &ast::TxDef) -> Result<ir::Tx, Error> {
             .iter()
             .map(|x| x.into_lower())
             .collect::<Result<Vec<_>, _>>()?,
-        validity: ast
-            .validity
-            .as_ref()
-            .map(|x| {
-                println!("COMO QUE NO LLAMA AL LOWER DEL VALIDITY CARLOS??! {:?}", x);
-                x.into_lower()
-            })
-            .transpose()?,
+        validity: ast.validity.as_ref().map(|x| x.into_lower()).transpose()?,
         mints: ast
             .mints
             .iter()
@@ -699,13 +687,6 @@ pub fn lower_tx(ast: &ast::TxDef) -> Result<ir::Tx, Error> {
             .transpose()?
             .unwrap_or(vec![]),
     };
-    dbg!(ast
-        .validity
-        .as_ref()
-        .map(|x| x.into_lower())
-        .transpose()
-        .unwrap());
-    dbg!(&ir);
 
     Ok(ir)
 }
