@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use crate::{
-    ir::{self, BinaryOp},
+    ir::{self, BinaryOp, PropertyAccess},
     ArgValue, Utxo,
 };
 
@@ -15,6 +15,9 @@ pub enum Error {
 
     #[error("property {0} not found in {1}")]
     PropertyNotFound(String, String),
+
+    #[error("invalid eval property")]
+    InvalidEvalProperty,
 }
 
 fn arg_value_into_expr(arg: ArgValue) -> ir::Expression {
@@ -1046,12 +1049,14 @@ impl Apply for ir::Expression {
                 }
                 _ => Err(Error::InvalidBinaryOp(Box::new(*op))),
             },
-            ir::Expression::EvalProperty(_x) => {
-                //TODO: property access of constant objects should be reduced but we're erasing
-                // field names from the struct, making this impossible. We need to refactor
-                // either the StructExpr so that it retains field names or the PropertyAccess
-                // so that the path gets turned into field indexes.
-                todo!("todo")
+            ir::Expression::EvalProperty(property_access) => {
+                let object = property_access.object.reduce()?;
+                match *object {
+                    ir::Expression::Struct(struct_expr) => {
+                        Ok(struct_expr.fields[property_access.field as usize].clone())
+                    }
+                    _ => Err(Error::InvalidEvalProperty),
+                }
             }
             _ => Ok(self),
         }
