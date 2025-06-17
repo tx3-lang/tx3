@@ -156,23 +156,6 @@ pub fn expr_into_bytes(ir: &ir::Expression) -> Result<primitives::Bytes, Error> 
     }
 }
 
-pub fn stake_credential_into_credential(
-    credential: primitives::StakeCredential,
-) -> Result<pallas::ledger::configs::shelley::Credential, Error> {
-    match credential {
-        primitives::StakeCredential::AddrKeyhash(x) => {
-            Ok(pallas::ledger::configs::shelley::Credential::KeyHash(
-                String::from_utf8_lossy(x.as_ref()).to_string(),
-            ))
-        }
-        primitives::StakeCredential::ScriptHash(x) => {
-            Ok(pallas::ledger::configs::shelley::Credential::ScriptHash(
-                String::from_utf8_lossy(x.as_ref()).to_string(),
-            ))
-        }
-    }
-}
-
 pub fn expr_into_hash<const SIZE: usize>(
     ir: &ir::Expression,
 ) -> Result<primitives::Hash<SIZE>, Error> {
