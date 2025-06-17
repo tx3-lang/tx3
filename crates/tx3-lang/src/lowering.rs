@@ -512,8 +512,8 @@ impl IntoLower for ast::ValidityBlock {
 
     fn into_lower(&self) -> Result<Self::Output, Error> {
         Ok(ir::Validity {
-            since: self.find("valid_since").into_lower()?,
-            until: self.find("valid_until").into_lower()?,
+            since: self.find("since_slot").into_lower()?,
+            until: self.find("until_slot").into_lower()?,
         })
     }
 }
@@ -661,11 +661,7 @@ pub fn lower_tx(ast: &ast::TxDef) -> Result<ir::Tx, Error> {
             .iter()
             .map(|x| x.into_lower())
             .collect::<Result<Vec<_>, _>>()?,
-        signers: ast
-            .signers
-            .as_ref()
-            .map(|x| x.into_lower())
-            .transpose()?,
+        signers: ast.signers.as_ref().map(|x| x.into_lower()).transpose()?,
         metadata: ast
             .metadata
             .as_ref()
