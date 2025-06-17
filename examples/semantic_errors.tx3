@@ -1,0 +1,8 @@
+asset BadPolicyType = 1234."ABC";
+asset BadAssetNameType = 0xABC.333;
+
+tx tx1() {
+    output {
+        to: missing_symbol,
+    }
+}

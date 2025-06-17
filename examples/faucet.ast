@@ -15,8 +15,8 @@
         ],
         "span": {
           "dummy": false,
-          "start": 210,
-          "end": 252
+          "start": 212,
+          "end": 254
         }
       },
       "references": [],
@@ -31,8 +31,8 @@
                   "value": "Requester",
                   "span": {
                     "dummy": false,
-                    "start": 294,
-                    "end": 303
+                    "start": 296,
+                    "end": 305
                   }
                 }
               }
@@ -43,8 +43,8 @@
                   "value": "fees",
                   "span": {
                     "dummy": false,
-                    "start": 325,
-                    "end": 329
+                    "start": 327,
+                    "end": 331
                   }
                 }
               }
@@ -52,8 +52,8 @@
           ],
           "span": {
             "dummy": false,
-            "start": 259,
-            "end": 336
+            "start": 261,
+            "end": 338
           }
         }
       ],
@@ -67,8 +67,8 @@
                   "value": "Requester",
                   "span": {
                     "dummy": false,
-                    "start": 448,
-                    "end": 457
+                    "start": 450,
+                    "end": 459
                   }
                 }
               }
@@ -83,8 +83,8 @@
                           "value": "provided_gas",
                           "span": {
                             "dummy": false,
-                            "start": 475,
-                            "end": 487
+                            "start": 477,
+                            "end": 489
                           }
                         }
                       },
@@ -94,15 +94,15 @@
                           "value": "fees",
                           "span": {
                             "dummy": false,
-                            "start": 490,
-                            "end": 494
+                            "start": 492,
+                            "end": 496
                           }
                         }
                       },
                       "span": {
                         "dummy": false,
-                        "start": 488,
-                        "end": 489
+                        "start": 490,
+                        "end": 491
                       }
                     }
                   },
@@ -113,8 +113,8 @@
                         "value": "MyToken",
                         "span": {
                           "dummy": false,
-                          "start": 497,
-                          "end": 504
+                          "start": 499,
+                          "end": 506
                         }
                       },
                       "amount": {
@@ -122,22 +122,22 @@
                           "value": "quantity",
                           "span": {
                             "dummy": false,
-                            "start": 505,
-                            "end": 513
+                            "start": 507,
+                            "end": 515
                           }
                         }
                       },
                       "span": {
                         "dummy": false,
-                        "start": 497,
-                        "end": 514
+                        "start": 499,
+                        "end": 516
                       }
                     }
                   },
                   "span": {
                     "dummy": false,
-                    "start": 495,
-                    "end": 496
+                    "start": 497,
+                    "end": 498
                   }
                 }
               }
@@ -145,8 +145,8 @@
           ],
           "span": {
             "dummy": false,
-            "start": 427,
-            "end": 521
+            "start": 429,
+            "end": 523
           }
         }
       ],
@@ -162,8 +162,8 @@
                     "value": "MyToken",
                     "span": {
                       "dummy": false,
-                      "start": 365,
-                      "end": 372
+                      "start": 367,
+                      "end": 374
                     }
                   },
                   "amount": {
@@ -171,15 +171,15 @@
                       "value": "quantity",
                       "span": {
                         "dummy": false,
-                        "start": 373,
-                        "end": 381
+                        "start": 375,
+                        "end": 383
                       }
                     }
                   },
                   "span": {
                     "dummy": false,
-                    "start": 365,
-                    "end": 382
+                    "start": 367,
+                    "end": 384
                   }
                 }
               }
@@ -190,8 +190,8 @@
                   "value": "password",
                   "span": {
                     "dummy": false,
-                    "start": 402,
-                    "end": 410
+                    "start": 404,
+                    "end": 412
                   }
                 }
               }
@@ -199,16 +199,17 @@
           ],
           "span": {
             "dummy": false,
-            "start": 342,
-            "end": 417
+            "start": 344,
+            "end": 419
           }
         }
       ],
+      "req_signers": [],
       "adhoc": [],
       "span": {
         "dummy": false,
-        "start": 188,
-        "end": 523
+        "start": 190,
+        "end": 525
       },
       "collateral": [],
       "metadata": null
@@ -219,18 +220,29 @@
     {
       "name": "MyToken",
       "policy": {
-        "value": "ef7a1cebb2dc7de884ddf82f8fcbc91fe9750dcd8c12ec7643a99bbe",
-        "span": {
-          "dummy": false,
-          "start": 101,
-          "end": 159
+        "HexString": {
+          "value": "ef7a1cebb2dc7de884ddf82f8fcbc91fe9750dcd8c12ec7643a99bbe",
+          "span": {
+            "dummy": false,
+            "start": 101,
+            "end": 159
+          }
         }
       },
-      "asset_name": "MYTOKEN",
+      "asset_name": {
+        "String": {
+          "value": "MYTOKEN",
+          "span": {
+            "dummy": false,
+            "start": 160,
+            "end": 169
+          }
+        }
+      },
       "span": {
         "dummy": false,
         "start": 85,
-        "end": 168
+        "end": 170
       }
     }
   ],
@@ -239,8 +251,8 @@
       "name": "Requester",
       "span": {
         "dummy": false,
-        "start": 170,
-        "end": 186
+        "start": 172,
+        "end": 188
       }
     }
   ],
@@ -267,6 +279,6 @@
   "span": {
     "dummy": false,
     "start": 0,
-    "end": 525
+    "end": 527
   }
 }

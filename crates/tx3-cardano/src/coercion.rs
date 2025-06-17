@@ -151,11 +151,25 @@ pub fn expr_into_address(
 pub fn expr_into_bytes(ir: &ir::Expression) -> Result<primitives::Bytes, Error> {
     match ir {
         ir::Expression::Bytes(x) => Ok(primitives::Bytes::from(x.clone())),
-        ir::Expression::String(s) => match hex::decode(s) {
-            Ok(x) => Ok(primitives::Bytes::from(x)),
-            Err(_) => Err(Error::CoerceError(format!("{:?}", ir), "Bytes".to_string())),
-        },
+        ir::Expression::String(s) => Ok(primitives::Bytes::from(s.as_bytes().to_vec())),
         _ => Err(Error::CoerceError(format!("{:?}", ir), "Bytes".to_string())),
+    }
+}
+
+pub fn stake_credential_into_credential(
+    credential: primitives::StakeCredential,
+) -> Result<pallas::ledger::configs::shelley::Credential, Error> {
+    match credential {
+        primitives::StakeCredential::AddrKeyhash(x) => {
+            Ok(pallas::ledger::configs::shelley::Credential::KeyHash(
+                String::from_utf8_lossy(x.as_ref()).to_string(),
+            ))
+        }
+        primitives::StakeCredential::ScriptHash(x) => {
+            Ok(pallas::ledger::configs::shelley::Credential::ScriptHash(
+                String::from_utf8_lossy(x.as_ref()).to_string(),
+            ))
+        }
     }
 }
 

@@ -10,13 +10,14 @@
 
 use std::collections::{HashMap, HashSet};
 
+use bincode::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
 use crate::{Utxo, UtxoRef};
 
-pub const IR_VERSION: &str = "v1alpha4";
+pub const IR_VERSION: &str = "v1alpha5";
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct StructExpr {
     pub constructor: usize,
     pub fields: Vec<Expression>,
@@ -31,20 +32,20 @@ impl StructExpr {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum BinaryOpKind {
     Add,
     Sub,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct BinaryOp {
     pub left: Expression,
     pub right: Expression,
     pub op: BinaryOpKind,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct AssetExpr {
     pub policy: Expression,
     pub asset_name: Expression,
@@ -57,13 +58,13 @@ pub struct AssetExpr {
 /// compiler can use to compile custom structures. Tx3 won't attempt to process
 /// this IR structure for anything other than trying to apply / reduce its
 /// expressions.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct AdHocDirective {
     pub name: String,
     pub data: HashMap<String, Expression>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum ScriptSource {
     Embedded(Expression),
     UtxoRef {
@@ -82,14 +83,14 @@ impl ScriptSource {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct PolicyExpr {
     pub name: String,
     pub hash: Expression,
     pub script: Option<ScriptSource>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum Type {
     Undefined,
     Unit,
@@ -103,13 +104,13 @@ pub enum Type {
     Custom(String),
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct PropertyAccess {
     pub object: Box<Expression>,
     pub field: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum Expression {
     None,
     List(Vec<Expression>),
@@ -144,14 +145,14 @@ impl Expression {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Default)]
 pub struct InputQuery {
     pub address: Option<Expression>,
     pub min_amount: Option<Expression>,
     pub r#ref: Option<Expression>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Input {
     pub name: String,
     pub query: Option<InputQuery>,
@@ -160,36 +161,48 @@ pub struct Input {
     pub policy: Option<PolicyExpr>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]
 pub struct Output {
     pub address: Option<Expression>,
     pub datum: Option<Expression>,
     pub amount: Option<Expression>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]
 pub struct Validity {
     pub since: Option<Expression>,
     pub until: Option<Expression>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]
 pub struct Mint {
     pub amount: Option<Expression>,
     pub redeemer: Option<Expression>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]
 pub struct Collateral {
     pub query: InputQuery,
 }
-#[derive(Serialize, Deserialize, Debug, Clone)]
+
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]
 pub struct Metadata {
     pub key: Expression,
     pub value: Expression,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]
+pub struct Withdraw {
+    pub key: Expression,
+    pub value: Expression,
+}
+
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]
+pub struct Signers {
+    pub signers: Vec<Expression>,
+}
+
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]
 pub struct Tx {
     pub fees: Expression,
     pub references: Vec<Expression>,
@@ -199,5 +212,7 @@ pub struct Tx {
     pub mints: Vec<Mint>,
     pub adhoc: Vec<AdHocDirective>,
     pub collateral: Vec<Collateral>,
+    pub signers: Option<Signers>,
     pub metadata: Vec<Metadata>,
+    pub withdraw: Vec<Withdraw>,
 }

@@ -2,11 +2,11 @@ party Player;
 
 party Game;
 
-asset Fuel = 0x6b9c456aa650cb808a9ab54326e039d5235ed69f069c9664a8fe5b69.FUEL;
+asset Fuel = 0x6b9c456aa650cb808a9ab54326e039d5235ed69f069c9664a8fe5b69."FUEL";
 
-asset Ship = 0x6b9c456aa650cb808a9ab54326e039d5235ed69f069c9664a8fe5b69.SHIP;
+asset Ship = 0x6b9c456aa650cb808a9ab54326e039d5235ed69f069c9664a8fe5b69."SHIP";
 
-asset Pilot = 0x6b9c456aa650cb808a9ab54326e039d5235ed69f069c9664a8fe5b69.PILOT;
+asset Pilot = 0x6b9c456aa650cb808a9ab54326e039d5235ed69f069c9664a8fe5b69."PILOT";
 
 type ShipState {
     pos_x: Int,

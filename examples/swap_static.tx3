@@ -1,5 +1,5 @@
-asset A = 0xabc123.A;
-asset B = 0xabc123.B;
+asset A = 0xabc123."A";
+asset B = 0xabc123."B";
 
 type PoolState {
     pair_a: Int,

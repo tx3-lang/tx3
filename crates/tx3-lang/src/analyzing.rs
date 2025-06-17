@@ -4,11 +4,10 @@
 //! duplicate definitions, unknown symbols, and other semantic errors.
 
 use std::{collections::HashMap, rc::Rc};
-use thiserror::Error;
 
 use crate::ast::*;
 
-#[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[derive(Debug, thiserror::Error, miette::Diagnostic, PartialEq, Eq)]
 #[error("not in scope: {name}")]
 #[diagnostic(code(tx3::not_in_scope))]
 pub struct NotInScopeError {
@@ -21,7 +20,7 @@ pub struct NotInScopeError {
     span: Span,
 }
 
-#[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[derive(Debug, thiserror::Error, miette::Diagnostic, PartialEq, Eq)]
 #[error("invalid symbol, expected {expected}, got {got}")]
 #[diagnostic(code(tx3::invalid_symbol))]
 pub struct InvalidSymbolError {
@@ -35,7 +34,21 @@ pub struct InvalidSymbolError {
     span: Span,
 }
 
-#[derive(Error, Debug, miette::Diagnostic)]
+#[derive(Debug, thiserror::Error, miette::Diagnostic, PartialEq, Eq)]
+#[error("invalid type ({got}), expected: {expected}")]
+#[diagnostic(code(tx3::invalid_type))]
+pub struct InvalidTargetTypeError {
+    pub expected: &'static str,
+    pub got: String,
+
+    #[source_code]
+    src: Option<String>,
+
+    #[label]
+    span: Span,
+}
+
+#[derive(thiserror::Error, Debug, miette::Diagnostic, PartialEq, Eq)]
 pub enum Error {
     #[error("duplicate definition: {0}")]
     #[diagnostic(code(tx3::duplicate_definition))]
@@ -52,6 +65,11 @@ pub enum Error {
     #[error(transparent)]
     #[diagnostic(transparent)]
     InvalidSymbol(#[from] InvalidSymbolError),
+
+    // Invalid type for extension
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    InvalidTargetType(#[from] InvalidTargetTypeError),
 }
 
 impl Error {
@@ -59,6 +77,7 @@ impl Error {
         match self {
             Self::NotInScope(x) => &x.span,
             Self::InvalidSymbol(x) => &x.span,
+            Self::InvalidTargetType(x) => &x.span,
             _ => &Span::DUMMY,
         }
     }
@@ -84,6 +103,19 @@ impl Error {
         ast: &impl crate::parsing::AstNode,
     ) -> Self {
         Self::InvalidSymbol(InvalidSymbolError {
+            expected,
+            got: format!("{:?}", got),
+            src: None,
+            span: ast.span().clone(),
+        })
+    }
+
+    pub fn invalid_target_type(
+        expected: &'static str,
+        got: &Type,
+        ast: &impl crate::parsing::AstNode,
+    ) -> Self {
+        Self::InvalidTargetType(InvalidTargetTypeError {
             expected,
             got: format!("{:?}", got),
             src: None,
@@ -603,6 +635,43 @@ impl Analyzable for AddressExpr {
         }
     }
 }
+
+impl Analyzable for AssetDef {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+        let policy = self.policy.analyze(parent.clone());
+        let asset_name = self.asset_name.analyze(parent.clone());
+
+        let policy_type = self.policy.target_type();
+        let asset_name_type = self.asset_name.target_type();
+
+        let policy_type = if policy_type != Some(Type::Bytes) {
+            AnalyzeReport::from(Error::invalid_target_type(
+                "Bytes",
+                policy_type.as_ref().unwrap_or(&Type::Undefined),
+                &self.policy,
+            ))
+        } else {
+            AnalyzeReport::default()
+        };
+
+        let asset_name_type = if asset_name_type != Some(Type::Bytes) {
+            AnalyzeReport::from(Error::invalid_target_type(
+                "Bytes",
+                asset_name_type.as_ref().unwrap_or(&Type::Undefined),
+                &self.asset_name,
+            ))
+        } else {
+            AnalyzeReport::default()
+        };
+
+        policy + asset_name + policy_type + asset_name_type
+    }
+
+    fn is_resolved(&self) -> bool {
+        self.policy.is_resolved() && self.asset_name.is_resolved()
+    }
+}
+
 impl Analyzable for Identifier {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
         let symbol = parent.and_then(|p| p.resolve(&self.value));
@@ -682,6 +751,47 @@ impl Analyzable for MetadataBlockField {
 }
 
 impl Analyzable for MetadataBlock {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+        self.fields.analyze(parent)
+    }
+    fn is_resolved(&self) -> bool {
+        self.fields.is_resolved()
+    }
+}
+
+impl Analyzable for WithdrawBlockField {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+        let key = self.key.analyze(parent.clone());
+        let value = self.value.analyze(parent.clone());
+
+        // Validate that the value is a number
+        let value_validation = match &self.value {
+            DataExpr::Number(_) => AnalyzeReport::default(),
+            DataExpr::Identifier(id) => match id.symbol.as_ref().and_then(|s| s.target_type()) {
+                Some(Type::Int) => AnalyzeReport::default(),
+                Some(other_type) => AnalyzeReport::from(Error::invalid_target_type(
+                    "Int (number)",
+                    &other_type,
+                    &self.value,
+                )),
+                None => AnalyzeReport::default(),
+            },
+            _ => AnalyzeReport::from(Error::invalid_target_type(
+                "Int (number)",
+                &Type::Undefined,
+                &self.value,
+            )),
+        };
+
+        key + value + value_validation
+    }
+
+    fn is_resolved(&self) -> bool {
+        self.key.is_resolved() && self.value.is_resolved()
+    }
+}
+
+impl Analyzable for WithdrawBlock {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
         self.fields.analyze(parent)
     }
@@ -798,6 +908,16 @@ impl Analyzable for MintBlock {
     }
 }
 
+impl Analyzable for SignersBlock {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+        self.signers.analyze(parent)
+    }
+
+    fn is_resolved(&self) -> bool {
+        self.signers.is_resolved()
+    }
+}
+
 impl Analyzable for ChainSpecificBlock {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
         match self {
@@ -866,7 +986,20 @@ impl Analyzable for TxDef {
 
         let metadata = self.metadata.analyze(self.scope.clone());
 
-        params + input_types + inputs + outputs + mints + adhoc + validity + metadata
+        let withdraw = self.withdraw.analyze(self.scope.clone());
+
+        let signers = self.signers.analyze(self.scope.clone());
+
+        params
+            + input_types
+            + inputs
+            + outputs
+            + mints
+            + adhoc
+            + validity
+            + metadata
+            + withdraw
+            + signers
     }
 
     fn is_resolved(&self) -> bool {
@@ -877,12 +1010,14 @@ impl Analyzable for TxDef {
     }
 }
 
-static ADA: std::sync::LazyLock<AssetDef> = std::sync::LazyLock::new(|| AssetDef {
-    name: "Ada".to_string(),
-    policy: None,
-    asset_name: None,
-    span: Span::DUMMY,
-});
+fn ada_asset_def() -> AssetDef {
+    AssetDef {
+        name: "Ada".to_string(),
+        policy: DataExpr::None,
+        asset_name: DataExpr::None,
+        span: Span::DUMMY,
+    }
+}
 
 impl Analyzable for Program {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
@@ -896,7 +1031,7 @@ impl Analyzable for Program {
             scope.track_policy_def(policy);
         }
 
-        scope.track_asset_def(&ADA);
+        scope.track_asset_def(&ada_asset_def());
 
         for asset in self.assets.iter() {
             scope.track_asset_def(asset);
@@ -913,18 +1048,20 @@ impl Analyzable for Program {
 
         let policies = self.policies.analyze(self.scope.clone());
 
-        // TODO: Add assets
-        // let assets = self.assets.analyze(self.scope.clone());
+        let assets = self.assets.analyze(self.scope.clone());
 
         let types = self.types.analyze(self.scope.clone());
 
         let txs = self.txs.analyze(self.scope.clone());
 
-        policies + types + txs
+        policies + types + txs + assets
     }
 
     fn is_resolved(&self) -> bool {
-        self.policies.is_resolved() && self.types.is_resolved() && self.txs.is_resolved()
+        self.policies.is_resolved()
+            && self.types.is_resolved()
+            && self.txs.is_resolved()
+            && self.assets.is_resolved()
     }
 }
 
@@ -943,4 +1080,49 @@ impl Analyzable for Program {
 /// * `AnalyzeReport` of the analysis. Empty if no errors are found.
 pub fn analyze(ast: &mut Program) -> AnalyzeReport {
     ast.analyze(None)
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::parsing::parse_well_known_example;
+
+    use super::*;
+
+    #[test]
+    fn test_program_with_semantic_errors() {
+        let mut ast = parse_well_known_example("semantic_errors");
+
+        let report = analyze(&mut ast);
+
+        assert_eq!(report.errors.len(), 3);
+
+        assert_eq!(
+            report.errors[0],
+            Error::NotInScope(NotInScopeError {
+                name: "missing_symbol".to_string(),
+                src: None,
+                span: Span::DUMMY,
+            })
+        );
+
+        assert_eq!(
+            report.errors[1],
+            Error::InvalidTargetType(InvalidTargetTypeError {
+                expected: "Bytes",
+                got: "Int".to_string(),
+                src: None,
+                span: Span::DUMMY,
+            })
+        );
+
+        assert_eq!(
+            report.errors[2],
+            Error::InvalidTargetType(InvalidTargetTypeError {
+                expected: "Bytes",
+                got: "Int".to_string(),
+                src: None,
+                span: Span::DUMMY,
+            })
+        );
+    }
 }

@@ -93,7 +93,6 @@ fn lower_into_address_expr(identifier: &ast::Identifier) -> Result<ir::Expressio
         )),
     }
 }
-
 pub(crate) trait IntoLower {
     type Output;
 
@@ -350,15 +349,8 @@ impl IntoLower for ast::StaticAssetConstructor {
     fn into_lower(&self) -> Result<Self::Output, Error> {
         let asset_def = coerce_identifier_into_asset_def(&self.r#type)?;
 
-        let policy = match asset_def.policy {
-            Some(x) => ir::Expression::Bytes(hex::decode(&x.value)?),
-            None => ir::Expression::None,
-        };
-
-        let asset_name = match asset_def.asset_name {
-            Some(x) => ir::Expression::Bytes(x.as_bytes().to_vec()),
-            None => ir::Expression::None,
-        };
+        let policy = asset_def.policy.into_lower()?;
+        let asset_name = asset_def.asset_name.into_lower()?;
 
         let amount = self.amount.into_lower()?;
 
@@ -621,6 +613,44 @@ impl IntoLower for ast::CollateralBlock {
     }
 }
 
+impl IntoLower for ast::SignersBlock {
+    type Output = ir::Signers;
+
+    fn into_lower(&self) -> Result<Self::Output, Error> {
+        Ok(ir::Signers {
+            signers: self
+                .signers
+                .iter()
+                .map(|x| x.into_lower())
+                .collect::<Result<Vec<_>, _>>()?,
+        })
+    }
+}
+
+impl IntoLower for ast::WithdrawBlockField {
+    type Output = ir::Withdraw;
+    fn into_lower(&self) -> Result<Self::Output, Error> {
+        Ok(ir::Withdraw {
+            key: self.key.into_lower()?,
+            value: self.value.into_lower()?,
+        })
+    }
+}
+
+impl IntoLower for ast::WithdrawBlock {
+    type Output = Vec<ir::Withdraw>;
+
+    fn into_lower(&self) -> Result<Self::Output, Error> {
+        let fields = self
+            .fields
+            .iter()
+            .map(|withdraw_field| withdraw_field.into_lower())
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(fields)
+    }
+}
+
 pub fn lower_tx(ast: &ast::TxDef) -> Result<ir::Tx, Error> {
     let ir = ir::Tx {
         references: ast
@@ -655,8 +685,15 @@ pub fn lower_tx(ast: &ast::TxDef) -> Result<ir::Tx, Error> {
             .iter()
             .map(|x| x.into_lower())
             .collect::<Result<Vec<_>, _>>()?,
+        signers: ast.signers.as_ref().map(|x| x.into_lower()).transpose()?,
         metadata: ast
             .metadata
+            .as_ref()
+            .map(|x| x.into_lower())
+            .transpose()?
+            .unwrap_or(vec![]),
+        withdraw: ast
+            .withdraw
             .as_ref()
             .map(|x| x.into_lower())
             .transpose()?

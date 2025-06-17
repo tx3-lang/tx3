@@ -10,6 +10,7 @@
 //! The JSON-RPC server is implemented as a Warp application and adheres to
 //! the JSON-RPC 2.0 spec.
 
+use base64::Engine;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::net::SocketAddr;
@@ -115,9 +116,9 @@ async fn handle_resolve_proto_tx(
     let request = ResolveProtoTxRequest::try_from(request)?;
 
     let tx = match request.tir.encoding {
-        IrEncoding::Base64 => {
-            base64::decode(request.tir.bytecode).map_err(|x| Error::InvalidIr(x.to_string()))?
-        }
+        IrEncoding::Base64 => base64::engine::general_purpose::STANDARD
+            .decode(request.tir.bytecode)
+            .map_err(|x| Error::InvalidIr(x.to_string()))?,
         IrEncoding::Hex => {
             hex::decode(request.tir.bytecode).map_err(|x| Error::InvalidIr(x.to_string()))?
         }

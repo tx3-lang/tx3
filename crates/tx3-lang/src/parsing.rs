@@ -2,8 +2,6 @@
 //!
 //! This module takes a string and parses it into Tx3 AST.
 
-use std::hash::Hash;
-
 use miette::SourceOffset;
 use pest::{iterators::Pair, Parser};
 use pest_derive::Parser;
@@ -154,7 +152,9 @@ impl AstNode for TxDef {
         let mut mints = Vec::new();
         let mut adhoc = Vec::new();
         let mut collateral = Vec::new();
+        let mut signers = None;
         let mut metadata = None;
+        let mut withdraw = None;
 
         for item in inner {
             match item.as_rule() {
@@ -166,7 +166,9 @@ impl AstNode for TxDef {
                 Rule::mint_block => mints.push(MintBlock::parse(item)?),
                 Rule::chain_specific_block => adhoc.push(ChainSpecificBlock::parse(item)?),
                 Rule::collateral_block => collateral.push(CollateralBlock::parse(item)?),
+                Rule::signers_block => signers = Some(SignersBlock::parse(item)?),
                 Rule::metadata_block => metadata = Some(MetadataBlock::parse(item)?),
+                Rule::withdraw_block => withdraw = Some(WithdrawBlock::parse(item)?),
                 x => unreachable!("Unexpected rule in tx_def: {:?}", x),
             }
         }
@@ -180,11 +182,13 @@ impl AstNode for TxDef {
             validity,
             burn,
             mints,
+            signers,
             adhoc,
             scope: None,
             span,
             collateral,
             metadata,
+            withdraw,
         })
     }
 
@@ -579,6 +583,25 @@ impl AstNode for MintBlockField {
             Self::Amount(x) => x.span(),
             Self::Redeemer(x) => x.span(),
         }
+    }
+}
+
+impl AstNode for SignersBlock {
+    const RULE: Rule = Rule::signers_block;
+
+    fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
+        let span = pair.as_span().into();
+        let inner = pair.into_inner();
+
+        let signers = inner
+            .map(|x| DataExpr::parse(x))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(SignersBlock { signers, span })
+    }
+
+    fn span(&self) -> &Span {
+        &self.span
     }
 }
 
@@ -1299,13 +1322,13 @@ impl AstNode for AssetDef {
         let mut inner = pair.into_inner();
 
         let identifier = inner.next().unwrap().as_str().to_string();
-        let policy = HexStringLiteral::parse(inner.next().unwrap())?;
-        let asset_name = inner.next().unwrap().as_str().to_string();
+        let policy = DataExpr::parse(inner.next().unwrap())?;
+        let asset_name = DataExpr::parse(inner.next().unwrap())?;
 
         Ok(AssetDef {
             name: identifier,
-            policy: Some(policy),
-            asset_name: Some(asset_name),
+            policy,
+            asset_name,
             span,
         })
     }
@@ -1336,6 +1359,50 @@ impl AstNode for ChainSpecificBlock {
         match self {
             Self::Cardano(x) => x.span(),
         }
+    }
+}
+
+impl AstNode for WithdrawBlockField {
+    const RULE: Rule = Rule::withdraw_block_field;
+
+    fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
+        let span = pair.as_span().into();
+        match pair.as_rule() {
+            Rule::withdraw_block_field => {
+                let mut inner = pair.into_inner();
+                let key = inner.next().unwrap();
+                let value = inner.next().unwrap();
+                Ok(WithdrawBlockField {
+                    key: DataExpr::parse(key)?,
+                    value: DataExpr::parse(value)?,
+                    span,
+                })
+            }
+            x => unreachable!("Unexpected rule in withdraw_block: {:?}", x),
+        }
+    }
+
+    fn span(&self) -> &Span {
+        &self.span
+    }
+}
+
+impl AstNode for WithdrawBlock {
+    const RULE: Rule = Rule::withdraw_block;
+
+    fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
+        let span = pair.as_span().into();
+        let inner = pair.into_inner();
+
+        let fields = inner
+            .map(|x| WithdrawBlockField::parse(x))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(WithdrawBlock { fields, span })
+    }
+
+    fn span(&self) -> &Span {
+        &self.span
     }
 }
 
@@ -1659,24 +1726,24 @@ mod tests {
         "asset MyToken = 0xef7a1cebb2dc7de884ddf82f8fcbc91fe9750dcd8c12ec7643a99bbe.0xef7a1ceb;",
         AssetDef {
             name: "MyToken".to_string(),
-            policy: Some(HexStringLiteral::new(
+            policy: DataExpr::HexString(HexStringLiteral::new(
                 "ef7a1cebb2dc7de884ddf82f8fcbc91fe9750dcd8c12ec7643a99bbe".to_string()
             )),
-            asset_name: Some("0xef7a1ceb".to_string()),
+            asset_name: DataExpr::HexString(HexStringLiteral::new("ef7a1ceb".to_string())),
             span: Span::DUMMY,
         }
     );
 
     input_to_ast_check!(
         AssetDef,
-        "hex_ascii",
-        "asset MyToken = 0xef7a1cebb2dc7de884ddf82f8fcbc91fe9750dcd8c12ec7643a99bbe.MYTOKEN;",
+        "hex_string",
+        "asset MyToken = 0xef7a1cebb2dc7de884ddf82f8fcbc91fe9750dcd8c12ec7643a99bbe.\"MY TOKEN\";",
         AssetDef {
             name: "MyToken".to_string(),
-            policy: Some(HexStringLiteral::new(
+            policy: DataExpr::HexString(HexStringLiteral::new(
                 "ef7a1cebb2dc7de884ddf82f8fcbc91fe9750dcd8c12ec7643a99bbe".to_string()
             )),
-            asset_name: Some("MYTOKEN".to_string()),
+            asset_name: DataExpr::String(StringLiteral::new("MY TOKEN".to_string())),
             span: Span::DUMMY,
         }
     );
@@ -1917,7 +1984,7 @@ mod tests {
     #[test]
     fn test_spans_are_respected() {
         let program = parse_well_known_example("lang_tour");
-        assert_eq!(program.span, Span::new(0, 1320));
+        assert_eq!(program.span, Span::new(0, 1428));
 
         assert_eq!(program.parties[0].span, Span::new(0, 14));
 

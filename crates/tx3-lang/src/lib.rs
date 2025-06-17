@@ -42,13 +42,13 @@ macro_rules! include_tx3_build {
     };
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct UtxoRef {
     pub txid: Vec<u8>,
     pub index: u32,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]
 pub struct Utxo {
     pub r#ref: UtxoRef,
     pub address: Vec<u8>,
@@ -164,6 +164,7 @@ impl Protocol {
 use std::collections::HashSet;
 
 pub use applying::{apply_args, apply_fees, apply_inputs, find_params, find_queries, reduce};
+use bincode::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -228,11 +229,13 @@ impl ProtoTx {
     }
 
     pub fn ir_bytes(&self) -> Vec<u8> {
-        bincode::serialize(&self.ir).unwrap()
+        let config = bincode::config::standard();
+        bincode::encode_to_vec(&self.ir, config).unwrap()
     }
 
-    pub fn from_ir_bytes(bytes: &[u8]) -> Result<Self, bincode::Error> {
-        let ir: ir::Tx = bincode::deserialize(bytes)?;
+    pub fn from_ir_bytes(bytes: &[u8]) -> Result<Self, bincode::error::DecodeError> {
+        let config = bincode::config::standard();
+        let (ir, _) = bincode::decode_from_slice::<ir::Tx, _>(bytes, config)?;
         Ok(Self::from(ir))
     }
 }

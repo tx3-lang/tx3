@@ -49,12 +49,7 @@
                     ]
                   },
                   "asset_name": {
-                    "Bytes": [
-                      83,
-                      72,
-                      73,
-                      80
-                    ]
+                    "String": "SHIP"
                   },
                   "amount": {
                     "EvalParameter": [
@@ -101,12 +96,7 @@
                     ]
                   },
                   "asset_name": {
-                    "Bytes": [
-                      70,
-                      85,
-                      69,
-                      76
-                    ]
+                    "String": "FUEL"
                   },
                   "amount": {
                     "EvalParameter": [
@@ -189,13 +179,7 @@
                 ]
               },
               "asset_name": {
-                "Bytes": [
-                  80,
-                  73,
-                  76,
-                  79,
-                  84
-                ]
+                "String": "PILOT"
               },
               "amount": {
                 "EvalParameter": [
@@ -349,12 +333,7 @@
                   ]
                 },
                 "asset_name": {
-                  "Bytes": [
-                    70,
-                    85,
-                    69,
-                    76
-                  ]
+                  "String": "FUEL"
                 },
                 "amount": {
                   "EvalParameter": [
@@ -394,5 +373,6 @@
   "mints": [],
   "adhoc": [],
   "collateral": [],
+  "req_signers": [],
   "metadata": []
 }

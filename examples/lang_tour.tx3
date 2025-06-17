@@ -18,7 +18,7 @@ type MyVariant {
 
 policy OnlyHashPolicy = 0xABCDEF1234;
 
-asset StaticAsset = 0xABCDEF1234.MYTOKEN;
+asset StaticAsset = 0xABCDEF1234."MYTOKEN";
 
 policy FullyDefinedPolicy {
     hash: 0xABCDEF1234,
@@ -61,6 +61,11 @@ tx my_tx(
             ...source
         },
         amount: AnyAsset(source.field3, source.field2, source.field1) + Ada(40),
+    }
+
+    signers {
+        MyParty,
+        0x0F5B22E57FEEB5B4FD1D501B007A427C56A76884D4978FAFEF979D9C,
     }
 
     validity {

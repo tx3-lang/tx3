@@ -37,6 +37,12 @@ pub struct Span {
     pub end: usize,
 }
 
+impl Default for Span {
+    fn default() -> Self {
+        Self::DUMMY
+    }
+}
+
 impl Eq for Span {}
 
 impl PartialEq for Span {
@@ -139,6 +145,10 @@ impl Identifier {
             None => Err(crate::lowering::Error::MissingAnalyzePhase),
         }
     }
+
+    pub fn target_type(&self) -> Option<Type> {
+        self.symbol.as_ref().and_then(|x| x.target_type())
+    }
 }
 
 impl AsRef<str> for Identifier {
@@ -147,7 +157,7 @@ impl AsRef<str> for Identifier {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct Program {
     pub txs: Vec<TxDef>,
     pub types: Vec<TypeDef>,
@@ -177,10 +187,12 @@ pub struct TxDef {
     pub validity: Option<ValidityBlock>,
     pub burn: Option<BurnBlock>,
     pub mints: Vec<MintBlock>,
+    pub signers: Option<SignersBlock>,
     pub adhoc: Vec<ChainSpecificBlock>,
     pub span: Span,
     pub collateral: Vec<CollateralBlock>,
     pub metadata: Option<MetadataBlock>,
+    pub withdraw: Option<WithdrawBlock>,
 
     // analysis
     #[serde(skip)]
@@ -338,6 +350,19 @@ pub struct MetadataBlock {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct WithdrawBlockField {
+    pub key: DataExpr,
+    pub value: DataExpr,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct WithdrawBlock {
+    pub fields: Vec<WithdrawBlockField>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct InputBlock {
     pub name: String,
     pub is_many: bool,
@@ -430,6 +455,12 @@ impl MintBlockField {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct MintBlock {
     pub fields: Vec<MintBlockField>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SignersBlock {
+    pub signers: Vec<DataExpr>,
     pub span: Span,
 }
 
@@ -562,6 +593,10 @@ impl PropertyAccess {
             span: Span::DUMMY,
         }
     }
+
+    pub fn target_type(&self) -> Option<Type> {
+        self.path.last().and_then(|x| x.target_type())
+    }
 }
 
 impl PropertyAccess {
@@ -596,6 +631,12 @@ pub struct StructConstructor {
     pub scope: Option<Rc<Scope>>,
 }
 
+impl StructConstructor {
+    pub fn target_type(&self) -> Option<Type> {
+        self.r#type.symbol.as_ref().and_then(|x| x.target_type())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct VariantCaseConstructor {
     pub name: Identifier,
@@ -623,6 +664,12 @@ pub struct ListConstructor {
     pub span: Span,
 }
 
+impl ListConstructor {
+    pub fn target_type(&self) -> Option<Type> {
+        self.elements.first().and_then(|x| x.target_type())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct UtxoRef {
     pub txid: Vec<u8>,
@@ -636,6 +683,12 @@ pub struct DataBinaryOp {
     pub operator: BinaryOperator,
     pub right: Box<DataExpr>,
     pub span: Span,
+}
+
+impl DataBinaryOp {
+    pub fn target_type(&self) -> Option<Type> {
+        self.left.target_type()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -661,6 +714,23 @@ impl DataExpr {
             _ => None,
         }
     }
+
+    pub fn target_type(&self) -> Option<Type> {
+        match self {
+            DataExpr::Identifier(x) => x.target_type(),
+            DataExpr::None => None,
+            DataExpr::Unit => Some(Type::Unit),
+            DataExpr::Number(_) => Some(Type::Int),
+            DataExpr::Bool(_) => Some(Type::Bool),
+            DataExpr::String(_) => Some(Type::Bytes),
+            DataExpr::HexString(_) => Some(Type::Bytes),
+            DataExpr::StructConstructor(x) => x.target_type(),
+            DataExpr::ListConstructor(x) => x.target_type(),
+            DataExpr::PropertyAccess(x) => x.target_type(),
+            DataExpr::BinaryOp(x) => x.target_type(),
+            DataExpr::UtxoRef(_) => Some(Type::UtxoRef),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -678,6 +748,7 @@ impl AddressExpr {
         }
     }
 }
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum BinaryOperator {
     Add,
@@ -741,11 +812,11 @@ impl VariantCase {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AssetDef {
     pub name: String,
-    pub policy: Option<HexStringLiteral>,
-    pub asset_name: Option<String>,
+    pub policy: DataExpr,
+    pub asset_name: DataExpr,
     pub span: Span,
 }
 
