@@ -384,7 +384,7 @@ fn compile_tx_body(
         network_id: Some(network),
         ttl: until,
         validity_interval_start: since,
-        withdrawals: compile_withdawals(tx)?,
+        withdrawals: compile_cardano_adhoc(tx)?,
         auxiliary_data_hash: None,
         script_data_hash: None,
         collateral: compile_collateral(tx),
@@ -615,21 +615,54 @@ pub fn compile_tx(tx: &ir::Tx, pparams: &PParams) -> Result<primitives::Tx<'stat
     })
 }
 
-pub fn compile_withdawals(tx: &ir::Tx) -> Result<Option<BTreeMap<primitives::Bytes, Coin>>, Error> {
+pub fn compile_cardano_adhoc(
+    tx: &ir::Tx,
+) -> Result<Option<BTreeMap<primitives::Bytes, Coin>>, Error> {
     let mut withdrawals = BTreeMap::new();
-    for withdrawal in tx.withdraw.iter() {
-        let hash_bytes = coercion::expr_into_bytes(&withdrawal.key)?;
 
-        let amount = coercion::expr_into_number(&withdrawal.value);
+    for adhoc in tx.adhoc.iter() {
+        match adhoc.name.as_str() {
+            "withdraw" => {
+                for (key, value) in adhoc.data.iter() {
+                    if key.starts_with("withdraw_") {
+                        let index = key.strip_prefix("withdraw_").unwrap();
+                        let amount_key = format!("amount_{}", index);
 
-        if let Ok(amount) = amount {
-            let amount = primitives::Coin::try_from(amount as u64).unwrap();
-            withdrawals.insert(hash_bytes, amount);
-        } else {
-            return Err(Error::CoerceError(
-                format!("{:?}", withdrawal),
-                "Number".to_string(),
-            ));
+                        if let Some(amount_expr) = adhoc.data.get(&amount_key) {
+                            let stake_credential = coercion::expr_into_stake_credential(value)?;
+                            let hash_bytes = match stake_credential {
+                                primitives::StakeCredential::AddrKeyhash(x) => {
+                                    primitives::Bytes::from(x.to_vec())
+                                }
+                                primitives::StakeCredential::ScriptHash(x) => {
+                                    primitives::Bytes::from(x.to_vec())
+                                }
+                            };
+
+                            let amount = coercion::expr_into_number(amount_expr);
+
+                            if let Ok(amount) = amount {
+                                let amount = primitives::Coin::try_from(amount as u64).unwrap();
+                                withdrawals.insert(hash_bytes, amount);
+                            } else {
+                                return Err(Error::CoerceError(
+                                    format!("{:?}", amount_expr),
+                                    "Number".to_string(),
+                                ));
+                            }
+                        }
+                    }
+                }
+            }
+            "vote_delegation_certificate" => {
+                todo!()
+            }
+            "stake_delegation_certificate" => {
+                todo!()
+            }
+            _ => {
+                todo!()
+            }
         }
     }
 

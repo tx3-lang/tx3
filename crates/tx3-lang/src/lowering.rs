@@ -637,20 +637,6 @@ impl IntoLower for ast::WithdrawBlockField {
     }
 }
 
-impl IntoLower for ast::WithdrawBlock {
-    type Output = Vec<ir::Withdraw>;
-
-    fn into_lower(&self) -> Result<Self::Output, Error> {
-        let fields = self
-            .fields
-            .iter()
-            .map(|withdraw_field| withdraw_field.into_lower())
-            .collect::<Result<Vec<_>, _>>()?;
-
-        Ok(fields)
-    }
-}
-
 pub fn lower_tx(ast: &ast::TxDef) -> Result<ir::Tx, Error> {
     let ir = ir::Tx {
         references: ast
@@ -688,12 +674,6 @@ pub fn lower_tx(ast: &ast::TxDef) -> Result<ir::Tx, Error> {
         signers: ast.signers.as_ref().map(|x| x.into_lower()).transpose()?,
         metadata: ast
             .metadata
-            .as_ref()
-            .map(|x| x.into_lower())
-            .transpose()?
-            .unwrap_or(vec![]),
-        withdraw: ast
-            .withdraw
             .as_ref()
             .map(|x| x.into_lower())
             .transpose()?

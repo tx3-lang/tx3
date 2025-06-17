@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     analyzing::{Analyzable, AnalyzeReport},
-    ast::{DataExpr, Scope, Span},
+    ast::{DataExpr, Scope, Span, WithdrawBlock},
     ir,
     lowering::IntoLower,
     parsing::{AstNode, Error, Rule},
@@ -64,6 +64,30 @@ impl IntoLower for VoteDelegationCertificate {
     }
 }
 
+impl IntoLower for WithdrawBlock {
+    type Output = ir::AdHocDirective;
+
+    fn into_lower(&self) -> Result<Self::Output, crate::lowering::Error> {
+        let fields = self
+            .fields
+            .iter()
+            .map(|withdraw_field| withdraw_field.into_lower())
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let mut data = HashMap::new();
+
+        for (index, withdraw) in fields.into_iter().enumerate() {
+            data.insert(format!("withdraw_{}", index), withdraw.key);
+            data.insert(format!("amount_{}", index), withdraw.value);
+        }
+
+        Ok(ir::AdHocDirective {
+            name: "withdraw".to_string(),
+            data,
+        })
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct StakeDelegationCertificate {
     pub pool: DataExpr,
@@ -103,10 +127,20 @@ impl Analyzable for StakeDelegationCertificate {
     }
 }
 
+impl IntoLower for StakeDelegationCertificate {
+    type Output = ir::AdHocDirective;
+
+    fn into_lower(&self) -> Result<Self::Output, crate::lowering::Error> {
+        // TODO: Implement StakeDelegationCertificate lowering
+        todo!("StakeDelegationCertificate lowering not implemented")
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum CardanoBlock {
     VoteDelegationCertificate(VoteDelegationCertificate),
     StakeDelegationCertificate(StakeDelegationCertificate),
+    Withdraw(WithdrawBlock),
 }
 
 impl AstNode for CardanoBlock {
@@ -114,16 +148,25 @@ impl AstNode for CardanoBlock {
 
     fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
         let mut inner = pair.into_inner();
+        let item = inner.next().unwrap();
 
-        Ok(CardanoBlock::VoteDelegationCertificate(
-            VoteDelegationCertificate::parse(inner.next().unwrap())?,
-        ))
+        match item.as_rule() {
+            Rule::cardano_vote_delegation_certificate => Ok(
+                CardanoBlock::VoteDelegationCertificate(VoteDelegationCertificate::parse(item)?),
+            ),
+            Rule::cardano_stake_delegation_certificate => Ok(
+                CardanoBlock::StakeDelegationCertificate(StakeDelegationCertificate::parse(item)?),
+            ),
+            Rule::withdraw_block => Ok(CardanoBlock::Withdraw(WithdrawBlock::parse(item)?)),
+            x => unreachable!("Unexpected rule in cardano_block: {:?}", x),
+        }
     }
 
     fn span(&self) -> &Span {
         match self {
             CardanoBlock::VoteDelegationCertificate(x) => x.span(),
             CardanoBlock::StakeDelegationCertificate(x) => x.span(),
+            CardanoBlock::Withdraw(x) => x.span(),
         }
     }
 }
@@ -132,14 +175,16 @@ impl Analyzable for CardanoBlock {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
         match self {
             CardanoBlock::VoteDelegationCertificate(x) => x.analyze(parent),
-            _ => todo!(),
+            CardanoBlock::StakeDelegationCertificate(x) => x.analyze(parent),
+            CardanoBlock::Withdraw(x) => x.analyze(parent),
         }
     }
 
     fn is_resolved(&self) -> bool {
         match self {
             CardanoBlock::VoteDelegationCertificate(x) => x.is_resolved(),
-            _ => false,
+            CardanoBlock::StakeDelegationCertificate(x) => x.is_resolved(),
+            CardanoBlock::Withdraw(x) => x.is_resolved(),
         }
     }
 }
@@ -150,7 +195,8 @@ impl IntoLower for CardanoBlock {
     fn into_lower(&self) -> Result<Self::Output, crate::lowering::Error> {
         match self {
             CardanoBlock::VoteDelegationCertificate(x) => x.into_lower(),
-            _ => todo!(),
+            CardanoBlock::StakeDelegationCertificate(x) => x.into_lower(),
+            CardanoBlock::Withdraw(x) => x.into_lower(),
         }
     }
 }

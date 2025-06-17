@@ -291,7 +291,7 @@ cardano_vote_delegation_certificate = {
 }
 
 cardano_block = {
-    "cardano" ~ "::" ~ (cardano_stake_delegation_certificate | cardano_vote_delegation_certificate)
+    "cardano" ~ "::" ~ (cardano_stake_delegation_certificate | cardano_vote_delegation_certificate | withdraw_block)
 }
 
 bitcoin_block = {
@@ -329,8 +329,7 @@ tx_body_block = _{
     chain_specific_block |
     signers_block |
     metadata_block |
-    validity_block |
-    withdraw_block
+    validity_block
 }
 
 // Transaction definition

@@ -192,7 +192,6 @@ pub struct TxDef {
     pub span: Span,
     pub collateral: Vec<CollateralBlock>,
     pub metadata: Option<MetadataBlock>,
-    pub withdraw: Option<WithdrawBlock>,
 
     // analysis
     #[serde(skip)]

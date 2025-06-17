@@ -154,7 +154,6 @@ impl AstNode for TxDef {
         let mut collateral = Vec::new();
         let mut signers = None;
         let mut metadata = None;
-        let mut withdraw = None;
 
         for item in inner {
             match item.as_rule() {
@@ -168,7 +167,6 @@ impl AstNode for TxDef {
                 Rule::collateral_block => collateral.push(CollateralBlock::parse(item)?),
                 Rule::signers_block => signers = Some(SignersBlock::parse(item)?),
                 Rule::metadata_block => metadata = Some(MetadataBlock::parse(item)?),
-                Rule::withdraw_block => withdraw = Some(WithdrawBlock::parse(item)?),
                 x => unreachable!("Unexpected rule in tx_def: {:?}", x),
             }
         }
@@ -188,7 +186,6 @@ impl AstNode for TxDef {
             span,
             collateral,
             metadata,
-            withdraw,
         })
     }
 

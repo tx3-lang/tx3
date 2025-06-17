@@ -1476,7 +1476,6 @@ impl Apply for ir::Tx {
             collateral: self.collateral.apply_args(args)?,
             signers: self.signers.apply_args(args)?,
             metadata: self.metadata.apply_args(args)?,
-            withdraw: self.withdraw.apply_args(args)?,
         };
 
         Ok(tx)
@@ -1494,7 +1493,6 @@ impl Apply for ir::Tx {
             collateral: self.collateral.apply_inputs(args)?,
             signers: self.signers.apply_inputs(args)?,
             metadata: self.metadata.apply_inputs(args)?,
-            withdraw: self.withdraw.apply_inputs(args)?,
         })
     }
 
@@ -1510,7 +1508,6 @@ impl Apply for ir::Tx {
             collateral: self.collateral.apply_fees(fees)?,
             signers: self.signers.apply_fees(fees)?,
             metadata: self.metadata.apply_fees(fees)?,
-            withdraw: self.withdraw.apply_fees(fees)?,
         })
     }
 
@@ -1520,7 +1517,6 @@ impl Apply for ir::Tx {
             && self.mints.iter().all(|x| x.is_constant())
             && self.fees.is_constant()
             && self.metadata.is_constant()
-            && self.withdraw.is_constant()
             && self.validity.is_constant()
             && self.adhoc.iter().all(|x| x.is_constant())
             && self.signers.is_constant()
@@ -1537,7 +1533,6 @@ impl Apply for ir::Tx {
         params.extend(self.signers.params());
         params.extend(self.validity.params());
         params.extend(self.metadata.params());
-        params.extend(self.withdraw.params());
         params
     }
 
@@ -1552,7 +1547,6 @@ impl Apply for ir::Tx {
         queries.extend(self.signers.queries());
         queries.extend(self.validity.queries());
         queries.extend(self.metadata.queries());
-        queries.extend(self.withdraw.queries());
         queries
     }
 
@@ -1572,7 +1566,6 @@ impl Apply for ir::Tx {
             collateral: self.collateral.reduce()?,
             signers: self.signers.reduce()?,
             metadata: self.metadata.reduce()?,
-            withdraw: self.withdraw.reduce()?,
         })
     }
 }

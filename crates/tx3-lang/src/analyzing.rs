@@ -986,20 +986,9 @@ impl Analyzable for TxDef {
 
         let metadata = self.metadata.analyze(self.scope.clone());
 
-        let withdraw = self.withdraw.analyze(self.scope.clone());
-
         let signers = self.signers.analyze(self.scope.clone());
 
-        params
-            + input_types
-            + inputs
-            + outputs
-            + mints
-            + adhoc
-            + validity
-            + metadata
-            + withdraw
-            + signers
+        params + input_types + inputs + outputs + mints + adhoc + validity + metadata + signers
     }
 
     fn is_resolved(&self) -> bool {

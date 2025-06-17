@@ -214,5 +214,4 @@ pub struct Tx {
     pub collateral: Vec<Collateral>,
     pub signers: Option<Signers>,
     pub metadata: Vec<Metadata>,
-    pub withdraw: Vec<Withdraw>,
 }
