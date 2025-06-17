@@ -7,6 +7,62 @@ use std::{collections::HashMap, rc::Rc};
 
 use crate::ast::*;
 
+#[derive(Clone, Debug)]
+pub struct AnalyzeContext {
+    pub source: Option<ropey::Rope>,
+}
+
+impl AnalyzeContext {
+    pub fn new(source: Option<ropey::Rope>) -> Self {
+        Self {
+            source,
+        }
+    }
+
+    pub fn get_source_slice_context(&self, span: &Span) -> Option<(String, Span)> {
+        if self.source.is_none() || span.is_dummy() {
+            return None;
+        }
+
+        let source = self.source.as_ref().unwrap();
+
+        if span.start >= source.len_chars() {
+            return None;
+        }
+
+        // Search line for error
+        let error_line = source.char_to_line(span.start);
+        // Get the previous line if it exists
+        let start_line = error_line.saturating_sub(1); 
+        // Get the next line if it exists
+        let end_line = std::cmp::min(error_line + 1, source.len_lines().saturating_sub(1));
+
+        // Original start/end positions on the source code using prev and next lines
+        let context_start = source.line_to_char(start_line);
+        let context_end = if end_line < source.len_lines() - 1 {
+            source.line_to_char(end_line + 1)
+        } else {
+            source.len_chars()
+        };
+
+        // Extract the context text
+        let context_text = source.slice(context_start..context_end).to_string();
+
+        // To the original span, we need to adjust the start position to the new context_text
+        let relative_start = span.start.saturating_sub(context_start);
+        let relative_end = std::cmp::min(
+            span.end.saturating_sub(context_start),
+            context_text.len()
+        );
+
+        // We create a new span relative to the context text
+        let context_span = Span::new(relative_start, relative_end);
+
+        Some((context_text, context_span))
+
+    }
+}
+
 #[derive(Debug, thiserror::Error, miette::Diagnostic, PartialEq, Eq)]
 #[error("not in scope: {name}")]
 #[diagnostic(code(tx3::not_in_scope))]
@@ -89,11 +145,15 @@ impl Error {
         }
     }
 
-    pub fn not_in_scope(name: String, ast: &impl crate::parsing::AstNode) -> Self {
+    pub fn not_in_scope(name: String, ast: &impl crate::parsing::AstNode, ctx: &AnalyzeContext) -> Self {
+        let (src, span) = ctx.get_source_slice_context(&ast.span())
+            .map(|(src, span)| (Some(src), span))
+            .unwrap_or_else(|| (None, ast.span().clone()));
+
         Self::NotInScope(NotInScopeError {
             name,
-            src: None,
-            span: ast.span().clone(),
+            src,
+            span,
         })
     }
 
@@ -101,12 +161,17 @@ impl Error {
         expected: &'static str,
         got: &Symbol,
         ast: &impl crate::parsing::AstNode,
+        ctx: &AnalyzeContext,
     ) -> Self {
+        let (src, span) = ctx.get_source_slice_context(&ast.span())
+            .map(|(src, span)| (Some(src), span))
+            .unwrap_or_else(|| (None, ast.span().clone()));
+
         Self::InvalidSymbol(InvalidSymbolError {
             expected,
             got: format!("{:?}", got),
-            src: None,
-            span: ast.span().clone(),
+            src,
+            span,
         })
     }
 
@@ -114,12 +179,17 @@ impl Error {
         expected: &'static str,
         got: &Type,
         ast: &impl crate::parsing::AstNode,
+        ctx: &AnalyzeContext,
     ) -> Self {
+        let (src, span) = ctx.get_source_slice_context(&ast.span())
+            .map(|(src, span)| (Some(src), span))
+            .unwrap_or_else(|| (None, ast.span().clone()));
+
         Self::InvalidTargetType(InvalidTargetTypeError {
             expected,
             got: format!("{:?}", got),
-            src: None,
-            span: ast.span().clone(),
+            src,
+            span,
         })
     }
 }
@@ -333,16 +403,16 @@ pub trait Analyzable {
     ///
     /// # Returns
     /// * `AnalyzeReport` of the analysis. Empty if no errors are found.
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport;
+    fn analyze(&mut self, parent: Option<Rc<Scope>>, ctx: &AnalyzeContext) -> AnalyzeReport;
 
     /// Returns true if all of the symbols have been resolved .
     fn is_resolved(&self) -> bool;
 }
 
 impl<T: Analyzable> Analyzable for Option<T> {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>, ctx: &AnalyzeContext) -> AnalyzeReport {
         if let Some(item) = self {
-            item.analyze(parent)
+            item.analyze(parent, ctx)
         } else {
             AnalyzeReport::default()
         }
@@ -354,8 +424,8 @@ impl<T: Analyzable> Analyzable for Option<T> {
 }
 
 impl<T: Analyzable> Analyzable for Box<T> {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        self.as_mut().analyze(parent)
+    fn analyze(&mut self, parent: Option<Rc<Scope>>, ctx: &AnalyzeContext) -> AnalyzeReport {
+        self.as_mut().analyze(parent, ctx)
     }
 
     fn is_resolved(&self) -> bool {
@@ -364,9 +434,9 @@ impl<T: Analyzable> Analyzable for Box<T> {
 }
 
 impl<T: Analyzable> Analyzable for Vec<T> {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>, ctx: &AnalyzeContext) -> AnalyzeReport {
         self.iter_mut()
-            .map(|item| item.analyze(parent.clone()))
+            .map(|item| item.analyze(parent.clone(), ctx))
             .collect()
     }
 
@@ -376,11 +446,11 @@ impl<T: Analyzable> Analyzable for Vec<T> {
 }
 
 impl Analyzable for PolicyField {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>, ctx: &AnalyzeContext) -> AnalyzeReport {
         match self {
-            PolicyField::Hash(x) => x.analyze(parent),
-            PolicyField::Script(x) => x.analyze(parent),
-            PolicyField::Ref(x) => x.analyze(parent),
+            PolicyField::Hash(x) => x.analyze(parent, ctx),
+            PolicyField::Script(x) => x.analyze(parent, ctx),
+            PolicyField::Ref(x) => x.analyze(parent, ctx),
         }
     }
 
@@ -393,8 +463,8 @@ impl Analyzable for PolicyField {
     }
 }
 impl Analyzable for PolicyConstructor {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        self.fields.analyze(parent)
+    fn analyze(&mut self, parent: Option<Rc<Scope>>, ctx: &AnalyzeContext) -> AnalyzeReport {
+        self.fields.analyze(parent, ctx)
     }
 
     fn is_resolved(&self) -> bool {
@@ -403,9 +473,9 @@ impl Analyzable for PolicyConstructor {
 }
 
 impl Analyzable for PolicyDef {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>, ctx: &AnalyzeContext) -> AnalyzeReport {
         match &mut self.value {
-            PolicyValue::Constructor(x) => x.analyze(parent),
+            PolicyValue::Constructor(x) => x.analyze(parent, ctx),
             PolicyValue::Assign(_) => AnalyzeReport::default(),
         }
     }
@@ -419,9 +489,9 @@ impl Analyzable for PolicyDef {
 }
 
 impl Analyzable for DataBinaryOp {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        let left = self.left.analyze(parent.clone());
-        let right = self.right.analyze(parent.clone());
+    fn analyze(&mut self, parent: Option<Rc<Scope>>, ctx: &AnalyzeContext) -> AnalyzeReport {
+        let left = self.left.analyze(parent.clone(), ctx);
+        let right = self.right.analyze(parent.clone(), ctx);
 
         left + right
     }
@@ -432,9 +502,9 @@ impl Analyzable for DataBinaryOp {
 }
 
 impl Analyzable for RecordConstructorField {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        let name = self.name.analyze(parent.clone());
-        let value = self.value.analyze(parent.clone());
+    fn analyze(&mut self, parent: Option<Rc<Scope>>, ctx: &AnalyzeContext) -> AnalyzeReport {
+        let name = self.name.analyze(parent.clone(), ctx);
+        let value = self.value.analyze(parent.clone(), ctx);
 
         name + value
     }
@@ -445,15 +515,15 @@ impl Analyzable for RecordConstructorField {
 }
 
 impl Analyzable for VariantCaseConstructor {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        let name = self.name.analyze(parent.clone());
+    fn analyze(&mut self, parent: Option<Rc<Scope>>, ctx: &AnalyzeContext) -> AnalyzeReport {
+        let name = self.name.analyze(parent.clone(), ctx);
 
         let mut scope = Scope::new(parent);
 
         let case = match &self.name.symbol {
             Some(Symbol::VariantCase(x)) => x,
-            Some(x) => bail_report!(Error::invalid_symbol("VariantCase", x, &self.name)),
-            None => bail_report!(Error::not_in_scope(self.name.value.clone(), &self.name)),
+            Some(x) => bail_report!(Error::invalid_symbol("VariantCase", x, &self.name, ctx)),
+            None => bail_report!(Error::not_in_scope(self.name.value.clone(), &self.name, ctx)),
         };
 
         for field in case.fields.iter() {
@@ -462,9 +532,9 @@ impl Analyzable for VariantCaseConstructor {
 
         self.scope = Some(Rc::new(scope));
 
-        let fields = self.fields.analyze(self.scope.clone());
+        let fields = self.fields.analyze(self.scope.clone(), ctx);
 
-        let spread = self.spread.analyze(self.scope.clone());
+        let spread = self.spread.analyze(self.scope.clone(), ctx);
 
         name + fields + spread
     }
@@ -475,14 +545,14 @@ impl Analyzable for VariantCaseConstructor {
 }
 
 impl Analyzable for StructConstructor {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        let r#type = self.r#type.analyze(parent.clone());
+    fn analyze(&mut self, parent: Option<Rc<Scope>>, ctx: &AnalyzeContext) -> AnalyzeReport {
+        let r#type = self.r#type.analyze(parent.clone(), ctx);
 
         let mut scope = Scope::new(parent);
 
         let type_def = match &self.r#type.symbol {
             Some(Symbol::TypeDef(x)) => x,
-            Some(x) => bail_report!(Error::invalid_symbol("TypeDef", x, &self.r#type)),
+            Some(x) => bail_report!(Error::invalid_symbol("TypeDef", x, &self.r#type, ctx)),
             _ => unreachable!(),
         };
 
@@ -492,7 +562,7 @@ impl Analyzable for StructConstructor {
 
         self.scope = Some(Rc::new(scope));
 
-        let case = self.case.analyze(self.scope.clone());
+        let case = self.case.analyze(self.scope.clone(), ctx);
 
         r#type + case
     }
@@ -503,8 +573,8 @@ impl Analyzable for StructConstructor {
 }
 
 impl Analyzable for ListConstructor {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        self.elements.analyze(parent)
+    fn analyze(&mut self, parent: Option<Rc<Scope>>, ctx: &AnalyzeContext) -> AnalyzeReport {
+        self.elements.analyze(parent, ctx)
     }
 
     fn is_resolved(&self) -> bool {
@@ -513,13 +583,13 @@ impl Analyzable for ListConstructor {
 }
 
 impl Analyzable for DataExpr {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>, ctx: &AnalyzeContext) -> AnalyzeReport {
         match self {
-            DataExpr::StructConstructor(x) => x.analyze(parent),
-            DataExpr::ListConstructor(x) => x.analyze(parent),
-            DataExpr::Identifier(x) => x.analyze(parent),
-            DataExpr::PropertyAccess(x) => x.analyze(parent),
-            DataExpr::BinaryOp(x) => x.analyze(parent),
+            DataExpr::StructConstructor(x) => x.analyze(parent, ctx),
+            DataExpr::ListConstructor(x) => x.analyze(parent, ctx),
+            DataExpr::Identifier(x) => x.analyze(parent, ctx),
+            DataExpr::PropertyAccess(x) => x.analyze(parent, ctx),
+            DataExpr::BinaryOp(x) => x.analyze(parent, ctx),
             _ => AnalyzeReport::default(),
         }
     }
@@ -537,9 +607,9 @@ impl Analyzable for DataExpr {
 }
 
 impl Analyzable for AssetBinaryOp {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        let left = self.left.analyze(parent.clone());
-        let right = self.right.analyze(parent.clone());
+    fn analyze(&mut self, parent: Option<Rc<Scope>>, ctx: &AnalyzeContext) -> AnalyzeReport {
+        let left = self.left.analyze(parent.clone(), ctx);
+        let right = self.right.analyze(parent.clone(), ctx);
 
         left + right
     }
@@ -550,9 +620,9 @@ impl Analyzable for AssetBinaryOp {
 }
 
 impl Analyzable for StaticAssetConstructor {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        let amount = self.amount.analyze(parent.clone());
-        let r#type = self.r#type.analyze(parent.clone());
+    fn analyze(&mut self, parent: Option<Rc<Scope>>, ctx: &AnalyzeContext) -> AnalyzeReport {
+        let amount = self.amount.analyze(parent.clone(), ctx);
+        let r#type = self.r#type.analyze(parent.clone(), ctx);
 
         amount + r#type
     }
@@ -563,10 +633,10 @@ impl Analyzable for StaticAssetConstructor {
 }
 
 impl Analyzable for AnyAssetConstructor {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        let policy = self.policy.analyze(parent.clone());
-        let asset_name = self.asset_name.analyze(parent.clone());
-        let amount = self.amount.analyze(parent.clone());
+    fn analyze(&mut self, parent: Option<Rc<Scope>>, ctx: &AnalyzeContext) -> AnalyzeReport {
+        let policy = self.policy.analyze(parent.clone(), ctx);
+        let asset_name = self.asset_name.analyze(parent.clone(), ctx);
+        let amount = self.amount.analyze(parent.clone(), ctx);
 
         policy + asset_name + amount
     }
@@ -577,8 +647,8 @@ impl Analyzable for AnyAssetConstructor {
 }
 
 impl Analyzable for PropertyAccess {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        let object = self.object.analyze(parent.clone());
+    fn analyze(&mut self, parent: Option<Rc<Scope>>, ctx: &AnalyzeContext) -> AnalyzeReport {
+        let object = self.object.analyze(parent.clone(), ctx);
 
         let mut scope = Scope::new(parent);
 
@@ -588,7 +658,7 @@ impl Analyzable for PropertyAccess {
 
         self.scope = Some(Rc::new(scope));
 
-        let path = self.path.analyze(self.scope.clone());
+        let path = self.path.analyze(self.scope.clone(), ctx);
 
         object + path
     }
@@ -599,13 +669,13 @@ impl Analyzable for PropertyAccess {
 }
 
 impl Analyzable for AssetExpr {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>, ctx: &AnalyzeContext) -> AnalyzeReport {
         match self {
-            AssetExpr::Identifier(x) => x.analyze(parent),
-            AssetExpr::StaticConstructor(x) => x.analyze(parent),
-            AssetExpr::AnyConstructor(x) => x.analyze(parent),
-            AssetExpr::BinaryOp(x) => x.analyze(parent),
-            AssetExpr::PropertyAccess(x) => x.analyze(parent),
+            AssetExpr::Identifier(x) => x.analyze(parent, ctx),
+            AssetExpr::StaticConstructor(x) => x.analyze(parent, ctx),
+            AssetExpr::AnyConstructor(x) => x.analyze(parent, ctx),
+            AssetExpr::BinaryOp(x) => x.analyze(parent, ctx),
+            AssetExpr::PropertyAccess(x) => x.analyze(parent, ctx),
         }
     }
 
@@ -621,9 +691,9 @@ impl Analyzable for AssetExpr {
 }
 
 impl Analyzable for AddressExpr {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>, ctx: &AnalyzeContext) -> AnalyzeReport {
         match self {
-            AddressExpr::Identifier(x) => x.analyze(parent),
+            AddressExpr::Identifier(x) => x.analyze(parent, ctx),
             _ => AnalyzeReport::default(),
         }
     }
@@ -637,9 +707,9 @@ impl Analyzable for AddressExpr {
 }
 
 impl Analyzable for AssetDef {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        let policy = self.policy.analyze(parent.clone());
-        let asset_name = self.asset_name.analyze(parent.clone());
+    fn analyze(&mut self, parent: Option<Rc<Scope>>, ctx: &AnalyzeContext) -> AnalyzeReport {
+        let policy = self.policy.analyze(parent.clone(), ctx);
+        let asset_name = self.asset_name.analyze(parent.clone(), ctx);
 
         let policy_type = self.policy.target_type();
         let asset_name_type = self.asset_name.target_type();
@@ -649,6 +719,7 @@ impl Analyzable for AssetDef {
                 "Bytes",
                 policy_type.as_ref().unwrap_or(&Type::Undefined),
                 &self.policy,
+                ctx,
             ))
         } else {
             AnalyzeReport::default()
@@ -659,6 +730,7 @@ impl Analyzable for AssetDef {
                 "Bytes",
                 asset_name_type.as_ref().unwrap_or(&Type::Undefined),
                 &self.asset_name,
+                ctx,
             ))
         } else {
             AnalyzeReport::default()
@@ -673,11 +745,11 @@ impl Analyzable for AssetDef {
 }
 
 impl Analyzable for Identifier {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>, ctx: &AnalyzeContext) -> AnalyzeReport {
         let symbol = parent.and_then(|p| p.resolve(&self.value));
 
         if symbol.is_none() {
-            bail_report!(Error::not_in_scope(self.value.clone(), self));
+            bail_report!(Error::not_in_scope(self.value.clone(), self, ctx));
         }
 
         self.symbol = symbol;
@@ -691,10 +763,10 @@ impl Analyzable for Identifier {
 }
 
 impl Analyzable for Type {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>, ctx: &AnalyzeContext) -> AnalyzeReport {
         match self {
-            Type::Custom(x) => x.analyze(parent),
-            Type::List(x) => x.analyze(parent),
+            Type::Custom(x) => x.analyze(parent, ctx),
+            Type::List(x) => x.analyze(parent, ctx),
             _ => AnalyzeReport::default(),
         }
     }
@@ -709,13 +781,13 @@ impl Analyzable for Type {
 }
 
 impl Analyzable for InputBlockField {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>, ctx: &AnalyzeContext) -> AnalyzeReport {
         match self {
-            InputBlockField::From(x) => x.analyze(parent),
-            InputBlockField::DatumIs(x) => x.analyze(parent),
-            InputBlockField::MinAmount(x) => x.analyze(parent),
-            InputBlockField::Redeemer(x) => x.analyze(parent),
-            InputBlockField::Ref(x) => x.analyze(parent),
+            InputBlockField::From(x) => x.analyze(parent, ctx),
+            InputBlockField::DatumIs(x) => x.analyze(parent, ctx),
+            InputBlockField::MinAmount(x) => x.analyze(parent, ctx),
+            InputBlockField::Redeemer(x) => x.analyze(parent, ctx),
+            InputBlockField::Ref(x) => x.analyze(parent, ctx),
         }
     }
 
@@ -731,8 +803,8 @@ impl Analyzable for InputBlockField {
 }
 
 impl Analyzable for InputBlock {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        self.fields.analyze(parent)
+    fn analyze(&mut self, parent: Option<Rc<Scope>>, ctx: &AnalyzeContext) -> AnalyzeReport {
+        self.fields.analyze(parent, ctx)
     }
 
     fn is_resolved(&self) -> bool {
@@ -741,9 +813,9 @@ impl Analyzable for InputBlock {
 }
 
 impl Analyzable for MetadataBlockField {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>, ctx: &AnalyzeContext) -> AnalyzeReport {
         // TODO: check keys are actually numbers
-        self.key.analyze(parent.clone()) + self.value.analyze(parent.clone())
+        self.key.analyze(parent.clone(), ctx) + self.value.analyze(parent.clone(), ctx)
     }
     fn is_resolved(&self) -> bool {
         self.key.is_resolved() && self.value.is_resolved()
@@ -751,8 +823,8 @@ impl Analyzable for MetadataBlockField {
 }
 
 impl Analyzable for MetadataBlock {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        self.fields.analyze(parent)
+    fn analyze(&mut self, parent: Option<Rc<Scope>>, ctx: &AnalyzeContext) -> AnalyzeReport {
+        self.fields.analyze(parent, ctx)
     }
     fn is_resolved(&self) -> bool {
         self.fields.is_resolved()
@@ -760,10 +832,10 @@ impl Analyzable for MetadataBlock {
 }
 
 impl Analyzable for ValidityBlockField {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>, ctx: &AnalyzeContext) -> AnalyzeReport {
         match self {
-            ValidityBlockField::SinceSlot(x) => x.analyze(parent),
-            ValidityBlockField::UntilSlot(x) => x.analyze(parent),
+            ValidityBlockField::SinceSlot(x) => x.analyze(parent, ctx),
+            ValidityBlockField::UntilSlot(x) => x.analyze(parent, ctx),
         }
     }
     fn is_resolved(&self) -> bool {
@@ -775,8 +847,8 @@ impl Analyzable for ValidityBlockField {
 }
 
 impl Analyzable for ValidityBlock {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        self.fields.analyze(parent)
+    fn analyze(&mut self, parent: Option<Rc<Scope>>, ctx: &AnalyzeContext) -> AnalyzeReport {
+        self.fields.analyze(parent, ctx)
     }
     fn is_resolved(&self) -> bool {
         self.fields.is_resolved()
@@ -784,11 +856,11 @@ impl Analyzable for ValidityBlock {
 }
 
 impl Analyzable for OutputBlockField {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>, ctx: &AnalyzeContext) -> AnalyzeReport {
         match self {
-            OutputBlockField::To(x) => x.analyze(parent),
-            OutputBlockField::Amount(x) => x.analyze(parent),
-            OutputBlockField::Datum(x) => x.analyze(parent),
+            OutputBlockField::To(x) => x.analyze(parent, ctx),
+            OutputBlockField::Amount(x) => x.analyze(parent, ctx),
+            OutputBlockField::Datum(x) => x.analyze(parent, ctx),
         }
     }
 
@@ -802,8 +874,8 @@ impl Analyzable for OutputBlockField {
 }
 
 impl Analyzable for OutputBlock {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        self.fields.analyze(parent)
+    fn analyze(&mut self, parent: Option<Rc<Scope>>, ctx: &AnalyzeContext) -> AnalyzeReport {
+        self.fields.analyze(parent, ctx)
     }
 
     fn is_resolved(&self) -> bool {
@@ -812,8 +884,8 @@ impl Analyzable for OutputBlock {
 }
 
 impl Analyzable for RecordField {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        self.r#type.analyze(parent)
+    fn analyze(&mut self, parent: Option<Rc<Scope>>, ctx: &AnalyzeContext) -> AnalyzeReport {
+        self.r#type.analyze(parent, ctx)
     }
 
     fn is_resolved(&self) -> bool {
@@ -822,8 +894,8 @@ impl Analyzable for RecordField {
 }
 
 impl Analyzable for VariantCase {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        self.fields.analyze(parent)
+    fn analyze(&mut self, parent: Option<Rc<Scope>>, ctx: &AnalyzeContext) -> AnalyzeReport {
+        self.fields.analyze(parent, ctx)
     }
 
     fn is_resolved(&self) -> bool {
@@ -832,8 +904,8 @@ impl Analyzable for VariantCase {
 }
 
 impl Analyzable for TypeDef {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        self.cases.analyze(parent)
+    fn analyze(&mut self, parent: Option<Rc<Scope>>, ctx: &AnalyzeContext) -> AnalyzeReport {
+        self.cases.analyze(parent, ctx)
     }
 
     fn is_resolved(&self) -> bool {
@@ -842,10 +914,10 @@ impl Analyzable for TypeDef {
 }
 
 impl Analyzable for MintBlockField {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>, ctx: &AnalyzeContext) -> AnalyzeReport {
         match self {
-            MintBlockField::Amount(x) => x.analyze(parent),
-            MintBlockField::Redeemer(x) => x.analyze(parent),
+            MintBlockField::Amount(x) => x.analyze(parent, ctx),
+            MintBlockField::Redeemer(x) => x.analyze(parent, ctx),
         }
     }
 
@@ -858,8 +930,8 @@ impl Analyzable for MintBlockField {
 }
 
 impl Analyzable for MintBlock {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        self.fields.analyze(parent)
+    fn analyze(&mut self, parent: Option<Rc<Scope>>, ctx: &AnalyzeContext) -> AnalyzeReport {
+        self.fields.analyze(parent, ctx)
     }
 
     fn is_resolved(&self) -> bool {
@@ -868,8 +940,8 @@ impl Analyzable for MintBlock {
 }
 
 impl Analyzable for SignersBlock {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        self.signers.analyze(parent)
+    fn analyze(&mut self, parent: Option<Rc<Scope>>, ctx: &AnalyzeContext) -> AnalyzeReport {
+        self.signers.analyze(parent, ctx)
     }
 
     fn is_resolved(&self) -> bool {
@@ -916,9 +988,9 @@ impl Analyzable for CollateralBlock {
 }
 
 impl Analyzable for ChainSpecificBlock {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>, ctx: &AnalyzeContext) -> AnalyzeReport {
         match self {
-            ChainSpecificBlock::Cardano(x) => x.analyze(parent),
+            ChainSpecificBlock::Cardano(x) => x.analyze(parent, ctx),
         }
     }
 
@@ -930,14 +1002,14 @@ impl Analyzable for ChainSpecificBlock {
 }
 
 impl Analyzable for TxDef {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>, ctx: &AnalyzeContext) -> AnalyzeReport {
         // analyze static types before anything else
 
         let params = self
             .parameters
             .parameters
             .iter_mut()
-            .map(|param| param.r#type.analyze(parent.clone()))
+            .map(|param| param.r#type.analyze(parent.clone(), ctx))
             .collect::<AnalyzeReport>();
 
         let input_types = self
@@ -945,7 +1017,7 @@ impl Analyzable for TxDef {
             .iter_mut()
             .flat_map(|input| input.fields.iter_mut())
             .map(|field| match field {
-                InputBlockField::DatumIs(x) => x.analyze(parent.clone()),
+                InputBlockField::DatumIs(x) => x.analyze(parent.clone(), ctx),
                 _ => AnalyzeReport::default(),
             })
             .collect::<AnalyzeReport>();
@@ -971,19 +1043,19 @@ impl Analyzable for TxDef {
 
         self.scope = Some(Rc::new(scope));
 
-        let inputs = self.inputs.analyze(self.scope.clone());
+        let inputs = self.inputs.analyze(self.scope.clone(), ctx);
 
-        let outputs = self.outputs.analyze(self.scope.clone());
+        let outputs = self.outputs.analyze(self.scope.clone(), ctx);
 
-        let mints = self.mints.analyze(self.scope.clone());
+        let mints = self.mints.analyze(self.scope.clone(), ctx);
 
-        let adhoc = self.adhoc.analyze(self.scope.clone());
+        let adhoc = self.adhoc.analyze(self.scope.clone(), ctx);
 
-        let validity = self.validity.analyze(self.scope.clone());
+        let validity = self.validity.analyze(self.scope.clone(), ctx);
 
-        let metadata = self.metadata.analyze(self.scope.clone());
+        let metadata = self.metadata.analyze(self.scope.clone(), ctx);
 
-        let signers = self.signers.analyze(self.scope.clone());
+        let signers = self.signers.analyze(self.scope.clone(), ctx);
 
         let references = self.references.analyze(self.scope.clone());
 
@@ -1020,7 +1092,7 @@ fn ada_asset_def() -> AssetDef {
 }
 
 impl Analyzable for Program {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>, ctx: &AnalyzeContext) -> AnalyzeReport {
         let mut scope = Scope::new(parent);
 
         for party in self.parties.iter() {
@@ -1046,13 +1118,13 @@ impl Analyzable for Program {
         // TODO: Add parties
         // let parties = self.parties.analyze(self.scope.clone());
 
-        let policies = self.policies.analyze(self.scope.clone());
+        let policies = self.policies.analyze(self.scope.clone(), ctx);
 
-        let assets = self.assets.analyze(self.scope.clone());
+        let assets = self.assets.analyze(self.scope.clone(), ctx);
 
-        let types = self.types.analyze(self.scope.clone());
+        let types = self.types.analyze(self.scope.clone(), ctx);
 
-        let txs = self.txs.analyze(self.scope.clone());
+        let txs = self.txs.analyze(self.scope.clone(), ctx);
 
         policies + types + txs + assets
     }
@@ -1079,7 +1151,11 @@ impl Analyzable for Program {
 /// # Returns
 /// * `AnalyzeReport` of the analysis. Empty if no errors are found.
 pub fn analyze(ast: &mut Program) -> AnalyzeReport {
-    ast.analyze(None)
+    // Create a new analysis context with the source code
+    // This context can be used to retrieve source code slices for error reporting
+    let ctx = AnalyzeContext::new(ast.source_code.clone());
+
+    ast.analyze(None, &ctx)
 }
 
 #[cfg(test)]
@@ -1100,8 +1176,8 @@ mod tests {
             report.errors[0],
             Error::NotInScope(NotInScopeError {
                 name: "missing_symbol".to_string(),
-                src: None,
-                span: Span::DUMMY,
+                src: Some("    output {\n        to: missing_symbol,\n    }\n".to_string()),
+                span: Span::new(25, 39),
             })
         );
 

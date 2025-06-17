@@ -4,7 +4,7 @@ use pest::iterators::Pair;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    analyzing::{Analyzable, AnalyzeReport},
+    analyzing::{Analyzable, AnalyzeReport, AnalyzeContext},
     ast::{DataExpr, Scope, Span},
     ir,
     lowering::IntoLower,
@@ -38,9 +38,9 @@ impl AstNode for VoteDelegationCertificate {
 }
 
 impl Analyzable for VoteDelegationCertificate {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        let drep = self.drep.analyze(parent.clone());
-        let stake = self.stake.analyze(parent.clone());
+    fn analyze(&mut self, parent: Option<Rc<Scope>>, ctx: &AnalyzeContext) -> AnalyzeReport {
+        let drep = self.drep.analyze(parent.clone(), ctx);
+        let stake = self.stake.analyze(parent.clone(), ctx);
 
         drep + stake
     }
@@ -91,9 +91,9 @@ impl AstNode for StakeDelegationCertificate {
 }
 
 impl Analyzable for StakeDelegationCertificate {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        let pool = self.pool.analyze(parent.clone());
-        let stake = self.stake.analyze(parent.clone());
+    fn analyze(&mut self, parent: Option<Rc<Scope>>, ctx: &AnalyzeContext) -> AnalyzeReport {
+        let pool = self.pool.analyze(parent.clone(), ctx);
+        let stake = self.stake.analyze(parent.clone(), ctx);
 
         pool + stake
     }
@@ -129,9 +129,9 @@ impl AstNode for CardanoBlock {
 }
 
 impl Analyzable for CardanoBlock {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>, ctx: &AnalyzeContext) -> AnalyzeReport {
         match self {
-            CardanoBlock::VoteDelegationCertificate(x) => x.analyze(parent),
+            CardanoBlock::VoteDelegationCertificate(x) => x.analyze(parent, ctx),
             _ => todo!(),
         }
     }

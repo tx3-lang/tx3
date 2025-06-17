@@ -76,6 +76,10 @@ impl Span {
             end,
         }
     }
+
+    pub fn is_dummy(&self) -> bool {
+        self.dummy || (self.start == 0 && self.end == 0)
+    }
 }
 
 impl Symbol {
@@ -169,6 +173,9 @@ pub struct Program {
     // analysis
     #[serde(skip)]
     pub(crate) scope: Option<Rc<Scope>>,
+
+    #[serde(skip)]
+    pub source_code: Option<ropey::Rope>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

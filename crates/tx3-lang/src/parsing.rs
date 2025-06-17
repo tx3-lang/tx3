@@ -86,6 +86,7 @@ impl AstNode for Program {
             policies: Vec::new(),
             scope: None,
             span,
+            source_code: None,
         };
 
         for pair in inner {
@@ -1383,7 +1384,11 @@ impl AstNode for ChainSpecificBlock {
 /// ```
 pub fn parse_string(input: &str) -> Result<Program, Error> {
     let pairs = Tx3Grammar::parse(Rule::program, input)?;
-    Program::parse(pairs.into_iter().next().unwrap())
+    let mut program = Program::parse(pairs.into_iter().next().unwrap())?;
+
+    program.source_code = Some(ropey::Rope::from_str(input));
+
+    Ok(program)
 }
 
 #[cfg(test)]
