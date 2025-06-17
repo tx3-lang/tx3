@@ -11,8 +11,6 @@
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, rc::Rc};
 
-use crate::parsing::AstNode;
-
 #[derive(Debug, PartialEq, Eq)]
 pub struct Scope {
     pub(crate) symbols: HashMap<String, Symbol>,

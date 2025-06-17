@@ -308,7 +308,20 @@ impl IntoLower for ast::PropertyAccess {
                     .position(|f| f.name == *field_name)
                     .ok_or_else(|| Error::InvalidAst(format!("field '{}' not found", field_name)))?
             }
-            ast::Type::AnyAsset => todo!("Feature not yet implemented"),
+            ast::Type::AnyAsset => {
+                // TODO: improve this for each native type
+                match field_name.as_str() {
+                    "amount" => 0,
+                    "policy" => 1,
+                    "asset_name" => 2,
+                    _ => {
+                        return Err(Error::InvalidAst(format!(
+                            "field '{}' not found",
+                            field_name
+                        )))
+                    }
+                }
+            }
             _ => {
                 return Err(Error::InvalidAst(format!(
                     "Property access not supported for type: {:?}",

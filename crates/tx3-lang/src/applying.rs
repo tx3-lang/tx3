@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use crate::{
-    ir::{self, BinaryOp, PropertyAccess},
+    ir::{self, BinaryOp},
     ArgValue, Utxo,
 };
 
