@@ -1745,26 +1745,24 @@ mod tests {
         }
     );
 
-    //input_to_ast_check!(
-    //    AnyAssetConstructor,
-    //    "any_asset_property_access",
-    //    "AnyAsset(input1.policy, input1.asset_name, input1.amount)",
-    //    AnyAssetConstructor {
-    //        policy: Box::new(DataExpr::PropertyAccess(PropertyAccess::new(
-    //            "input1",
-    //            &["policy"],
-    //        ))),
-    //        asset_name: Box::new(DataExpr::PropertyAccess(PropertyAccess::new(
-    //            "input1",
-    //            &["asset_name"],
-    //        ))),
-    //        amount: Box::new(DataExpr::PropertyAccess(PropertyAccess::new(
-    //            "input1",
-    //            &["amount"],
-    //        ))),
-    //        span: Span::DUMMY,
-    //    }
-    //);
+    input_to_ast_check!(
+        AnyAssetConstructor,
+        "any_asset_property_access",
+        "AnyAsset(input1.policy, input1.asset_name, input1.amount)",
+        AnyAssetConstructor {
+            policy: Box::new(DataExpr::PropertyAccess(PropertyAccess::new(
+                "input1", &"policy",
+            ))),
+            asset_name: Box::new(DataExpr::PropertyAccess(PropertyAccess::new(
+                "input1",
+                &"asset_name",
+            ))),
+            amount: Box::new(DataExpr::PropertyAccess(PropertyAccess::new(
+                "input1", &"amount",
+            ))),
+            span: Span::DUMMY,
+        }
+    );
 
     input_to_ast_check!(
         DataExpr,
