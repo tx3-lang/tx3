@@ -5,7 +5,7 @@
 
 use std::{collections::HashMap, rc::Rc};
 
-use crate::{ast::*, parsing::AstNode};
+use crate::ast::*;
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic, PartialEq, Eq)]
 #[error("not in scope: {name}")]
@@ -759,6 +759,47 @@ impl Analyzable for MetadataBlock {
     }
 }
 
+impl Analyzable for WithdrawBlockField {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+        let key = self.key.analyze(parent.clone());
+        let value = self.value.analyze(parent.clone());
+
+        // Validate that the value is a number
+        let value_validation = match &self.value {
+            DataExpr::Number(_) => AnalyzeReport::default(),
+            DataExpr::Identifier(id) => match id.symbol.as_ref().and_then(|s| s.target_type()) {
+                Some(Type::Int) => AnalyzeReport::default(),
+                Some(other_type) => AnalyzeReport::from(Error::invalid_target_type(
+                    "Int (number)",
+                    &other_type,
+                    &self.value,
+                )),
+                None => AnalyzeReport::default(),
+            },
+            _ => AnalyzeReport::from(Error::invalid_target_type(
+                "Int (number)",
+                &Type::Undefined,
+                &self.value,
+            )),
+        };
+
+        key + value + value_validation
+    }
+
+    fn is_resolved(&self) -> bool {
+        self.key.is_resolved() && self.value.is_resolved()
+    }
+}
+
+impl Analyzable for WithdrawBlock {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+        self.fields.analyze(parent)
+    }
+    fn is_resolved(&self) -> bool {
+        self.fields.is_resolved()
+    }
+}
+
 impl Analyzable for ValidityBlockField {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
         match self {
@@ -945,9 +986,20 @@ impl Analyzable for TxDef {
 
         let metadata = self.metadata.analyze(self.scope.clone());
 
+        let withdraw = self.withdraw.analyze(self.scope.clone());
+
         let signers = self.signers.analyze(self.scope.clone());
 
-        params + input_types + inputs + outputs + mints + adhoc + validity + metadata + signers
+        params
+            + input_types
+            + inputs
+            + outputs
+            + mints
+            + adhoc
+            + validity
+            + metadata
+            + withdraw
+            + signers
     }
 
     fn is_resolved(&self) -> bool {

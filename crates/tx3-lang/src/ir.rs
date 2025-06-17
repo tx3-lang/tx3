@@ -184,8 +184,15 @@ pub struct Mint {
 pub struct Collateral {
     pub query: InputQuery,
 }
+
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]
 pub struct Metadata {
+    pub key: Expression,
+    pub value: Expression,
+}
+
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]
+pub struct Withdraw {
     pub key: Expression,
     pub value: Expression,
 }
@@ -207,4 +214,5 @@ pub struct Tx {
     pub collateral: Vec<Collateral>,
     pub signers: Option<Signers>,
     pub metadata: Vec<Metadata>,
+    pub withdraw: Vec<Withdraw>,
 }

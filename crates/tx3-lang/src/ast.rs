@@ -192,6 +192,7 @@ pub struct TxDef {
     pub span: Span,
     pub collateral: Vec<CollateralBlock>,
     pub metadata: Option<MetadataBlock>,
+    pub withdraw: Option<WithdrawBlock>,
 
     // analysis
     #[serde(skip)]
@@ -345,6 +346,19 @@ pub struct MetadataBlockField {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct MetadataBlock {
     pub fields: Vec<MetadataBlockField>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct WithdrawBlockField {
+    pub key: DataExpr,
+    pub value: DataExpr,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct WithdrawBlock {
+    pub fields: Vec<WithdrawBlockField>,
     pub span: Span,
 }
 
