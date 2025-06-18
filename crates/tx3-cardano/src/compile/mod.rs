@@ -5,8 +5,8 @@ use pallas::{
     ledger::{
         addresses::{Address, ShelleyPaymentPart},
         primitives::{
-            conway::{self as primitives, NonEmptySet, Redeemers},
-            Coin, TransactionInput,
+            conway::{self as primitives, Redeemers},
+            TransactionInput,
         },
         traverse::ComputeHash,
     },
@@ -293,23 +293,18 @@ fn compile_reference_inputs(tx: &ir::Tx) -> Result<Vec<primitives::TransactionIn
     Ok(refs)
 }
 
-fn compile_collateral(tx: &ir::Tx) -> Option<NonEmptySet<TransactionInput>> {
-    tx.collateral
+fn compile_collateral(tx: &ir::Tx) -> Result<Vec<TransactionInput>, Error> {
+    Ok(tx
+        .collateral
         .iter()
         .filter_map(|collateral| collateral.query.r#ref.as_ref())
-        .find_map(|r#ref| match r#ref {
-            ir::Expression::UtxoRefs(refs) => refs.first().map(|utxo_ref| {
-                let index = utxo_ref.index;
-                let hash = primitives::Hash::from(utxo_ref.txid.as_slice());
-
-                NonEmptySet::from_vec(vec![TransactionInput {
-                    transaction_id: hash,
-                    index: index as u64,
-                }])
-            }),
-            _ => None,
-        })
+        .flat_map(|expr| coercion::expr_into_utxo_refs(expr))
         .flatten()
+        .map(|x| primitives::TransactionInput {
+            transaction_id: x.txid.as_slice().into(),
+            index: x.index as u64,
+        })
+        .collect())
 }
 
 fn compile_required_signers(tx: &ir::Tx) -> Result<Option<primitives::RequiredSigners>, Error> {
@@ -387,7 +382,7 @@ fn compile_tx_body(
         withdrawals: compile_withdrawals(tx)?,
         auxiliary_data_hash: None,
         script_data_hash: None,
-        collateral: compile_collateral(tx),
+        collateral: primitives::NonEmptySet::from_vec(compile_collateral(tx)?),
         required_signers: compile_required_signers(tx)?,
         collateral_return: None,
         total_collateral: None,
@@ -448,7 +443,10 @@ fn compile_single_spend_redeemer(
     let redeemer = primitives::Redeemer {
         tag: primitives::RedeemerTag::Spend,
         index: index as u32,
-        ex_units: primitives::ExUnits { mem: 0, steps: 0 },
+        ex_units: primitives::ExUnits {
+            mem: 2000000,
+            steps: 2000000000,
+        },
         data: redeemer.try_as_data()?,
     };
 
@@ -515,8 +513,8 @@ fn compile_mint_redeemer(
         tag: primitives::RedeemerTag::Mint,
         index: mint_redeemer_index(compiled_body, policy)?,
         ex_units: primitives::ExUnits {
-            mem: 2000,
-            steps: 200000,
+            mem: 10000000,
+            steps: 2000000000,
         },
         data: red.try_as_data()?,
     };
@@ -617,7 +615,7 @@ pub fn compile_tx(tx: &ir::Tx, pparams: &PParams) -> Result<primitives::Tx<'stat
 
 pub fn compile_withdrawals(
     tx: &ir::Tx,
-) -> Result<Option<BTreeMap<primitives::Bytes, Coin>>, Error> {
+) -> Result<Option<BTreeMap<primitives::Bytes, primitives::Coin>>, Error> {
     let mut withdrawals = BTreeMap::new();
 
     for adhoc in tx.adhoc.iter().filter(|x| x.name.as_str() == "withdraw") {

@@ -18,7 +18,7 @@ pub trait Ledger {
 }
 
 fn eval_size_fees(tx: &[u8], pparams: &PParams) -> Result<u64, Error> {
-    Ok(tx.len() as u64 * pparams.min_fee_coefficient + pparams.min_fee_constant + 200_000)
+    Ok(tx.len() as u64 * pparams.min_fee_coefficient + pparams.min_fee_constant + 1_200_000)
 }
 
 #[allow(dead_code)]
