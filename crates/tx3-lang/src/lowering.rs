@@ -96,7 +96,7 @@ fn lower_into_address_expr(identifier: &ast::Identifier) -> Result<ir::Expressio
     match identifier.try_symbol()? {
         ast::Symbol::PolicyDef(x) => Ok(x.into_lower()?.hash),
         ast::Symbol::PartyDef(x) => Ok(ir::Expression::EvalParameter(
-            x.name.to_lowercase().clone(),
+            x.name.value.to_lowercase().clone(),
             ir::Type::Address,
         )),
         _ => Err(Error::InvalidSymbol(
@@ -145,7 +145,7 @@ impl IntoLower for ast::Identifier {
                 ty.into_lower()?,
             )),
             ast::Symbol::PartyDef(x) => Ok(ir::Expression::EvalParameter(
-                x.name.to_lowercase().clone(),
+                x.name.value.to_lowercase().clone(),
                 ir::Type::Address,
             )),
             ast::Symbol::Input(n, _) => Ok(ir::Expression::EvalInput(n.clone())),

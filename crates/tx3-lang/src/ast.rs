@@ -496,9 +496,9 @@ impl RecordField {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PartyDef {
-    pub name: String,
+    pub name: Identifier,
     pub span: Span,
 }
 

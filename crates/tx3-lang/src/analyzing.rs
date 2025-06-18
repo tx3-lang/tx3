@@ -234,7 +234,7 @@ impl Scope {
 
     pub fn track_party_def(&mut self, party: &PartyDef) {
         self.symbols.insert(
-            party.name.clone(),
+            party.name.value.clone(),
             Symbol::PartyDef(Box::new(party.clone())),
         );
     }

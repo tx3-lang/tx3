@@ -252,7 +252,7 @@ impl AstNode for PartyDef {
     fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
         let span = pair.as_span().into();
         let mut inner = pair.into_inner();
-        let identifier = inner.next().unwrap().as_str().to_string();
+        let identifier = Identifier::parse(inner.next().unwrap())?;
 
         Ok(PartyDef {
             name: identifier,
