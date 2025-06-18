@@ -125,6 +125,10 @@ pub fn expr_into_stake_credential(
             let address = bytes_into_address(x)?;
             address_into_stake_credential(&address)
         }
+        ir::Expression::String(x) => {
+            let address = string_into_address(x)?;
+            address_into_stake_credential(&address)
+        }
         _ => Err(Error::CoerceError(
             format!("{:?}", expr),
             "StakeCredential".to_string(),
