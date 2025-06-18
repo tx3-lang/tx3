@@ -624,8 +624,8 @@ pub fn compile_withdrawals(
         for (_, value) in adhoc.data.iter() {
             match value {
                 ir::Expression::Tuple(x) => {
-                    let (key, amount) = x.as_ref();
-                    let stake_credential = coercion::expr_into_stake_credential(key)?;
+                    let (credential, amount) = x.as_ref();
+                    let stake_credential = coercion::expr_into_stake_credential(credential)?;
                     let hash_bytes = match stake_credential {
                         primitives::StakeCredential::AddrKeyhash(x) => {
                             primitives::Bytes::from(x.to_vec())
