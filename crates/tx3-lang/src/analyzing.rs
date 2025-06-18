@@ -764,7 +764,6 @@ impl Analyzable for WithdrawBlockField {
         let key = self.key.analyze(parent.clone());
         let value = self.value.analyze(parent.clone());
 
-        // Validate that the value is a number
         let value_validation = match &self.value {
             DataExpr::Number(_) => AnalyzeReport::default(),
             DataExpr::Identifier(id) => match id.symbol.as_ref().and_then(|s| s.target_type()) {

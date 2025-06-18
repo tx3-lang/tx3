@@ -131,7 +131,6 @@ impl IntoLower for StakeDelegationCertificate {
     type Output = ir::AdHocDirective;
 
     fn into_lower(&self) -> Result<Self::Output, crate::lowering::Error> {
-        // TODO: Implement StakeDelegationCertificate lowering
         todo!("StakeDelegationCertificate lowering not implemented")
     }
 }
