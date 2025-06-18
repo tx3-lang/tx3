@@ -77,8 +77,10 @@ impl IntoLower for WithdrawBlock {
         let mut data = HashMap::new();
 
         for (index, withdraw) in fields.into_iter().enumerate() {
-            data.insert(format!("withdraw_{}", index), withdraw.key);
-            data.insert(format!("amount_{}", index), withdraw.value);
+            data.insert(
+                format!("withdraw_{}", index),
+                ir::Expression::Tuple(Box::new((withdraw.key, withdraw.value))),
+            );
         }
 
         Ok(ir::AdHocDirective {

@@ -621,13 +621,11 @@ pub fn compile_withdrawals(
     let mut withdrawals = BTreeMap::new();
 
     for adhoc in tx.adhoc.iter().filter(|x| x.name.as_str() == "withdraw") {
-        for (key, value) in adhoc.data.iter() {
-            if key.starts_with("withdraw_") {
-                let index = key.strip_prefix("withdraw_").unwrap();
-                let amount_key = format!("amount_{}", index);
-
-                if let Some(amount_expr) = adhoc.data.get(&amount_key) {
-                    let stake_credential = coercion::expr_into_stake_credential(value)?;
+        for (_, value) in adhoc.data.iter() {
+            match value {
+                ir::Expression::Tuple(x) => {
+                    let (key, amount) = x.as_ref();
+                    let stake_credential = coercion::expr_into_stake_credential(key)?;
                     let hash_bytes = match stake_credential {
                         primitives::StakeCredential::AddrKeyhash(x) => {
                             primitives::Bytes::from(x.to_vec())
@@ -637,22 +635,20 @@ pub fn compile_withdrawals(
                         }
                     };
 
-                    let amount = coercion::expr_into_number(amount_expr);
+                    let amount = coercion::expr_into_number(amount)?;
 
-                    if let Ok(amount) = amount {
-                        let amount = primitives::Coin::try_from(amount as u64).unwrap();
-                        withdrawals.insert(hash_bytes, amount);
-                    } else {
-                        return Err(Error::CoerceError(
-                            format!("{:?}", amount_expr),
-                            "Number".to_string(),
-                        ));
-                    }
+                    let amount = primitives::Coin::try_from(amount as u64).unwrap();
+                    withdrawals.insert(hash_bytes, amount);
+                }
+                _ => {
+                    return Err(Error::CoerceError(
+                        format!("{:?}", value),
+                        "Withdraw".to_string(),
+                    ));
                 }
             }
         }
     }
-
     if withdrawals.is_empty() {
         Ok(None)
     } else {
