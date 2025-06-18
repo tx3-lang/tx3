@@ -1414,40 +1414,40 @@ impl Apply for ir::Metadata {
 impl Apply for ir::Withdraw {
     fn apply_args(self, args: &BTreeMap<String, ArgValue>) -> Result<Self, Error> {
         Ok(Self {
-            key: self.key.apply_args(args)?,
-            value: self.value.apply_args(args)?,
+            credential: self.credential.apply_args(args)?,
+            amount: self.amount.apply_args(args)?,
         })
     }
 
     fn apply_inputs(self, args: &BTreeMap<String, HashSet<Utxo>>) -> Result<Self, Error> {
         Ok(Self {
-            key: self.key.apply_inputs(args)?,
-            value: self.value.apply_inputs(args)?,
+            credential: self.credential.apply_inputs(args)?,
+            amount: self.amount.apply_inputs(args)?,
         })
     }
 
     fn apply_fees(self, fees: u64) -> Result<Self, Error> {
         Ok(Self {
-            key: self.key.apply_fees(fees)?,
-            value: self.value.apply_fees(fees)?,
+            credential: self.credential.apply_fees(fees)?,
+            amount: self.amount.apply_fees(fees)?,
         })
     }
 
     fn is_constant(&self) -> bool {
-        self.key.is_constant() && self.value.is_constant()
+        self.credential.is_constant() && self.amount.is_constant()
     }
 
     fn params(&self) -> BTreeMap<String, ir::Type> {
         let mut params = BTreeMap::new();
-        params.extend(self.key.params());
-        params.extend(self.value.params());
+        params.extend(self.credential.params());
+        params.extend(self.amount.params());
         params
     }
 
     fn queries(&self) -> BTreeMap<String, ir::InputQuery> {
         let mut queries = BTreeMap::new();
-        queries.extend(self.key.queries());
-        queries.extend(self.value.queries());
+        queries.extend(self.credential.queries());
+        queries.extend(self.amount.queries());
         queries
     }
 
@@ -1457,8 +1457,8 @@ impl Apply for ir::Withdraw {
 
     fn reduce_nested(self) -> Result<Self, Error> {
         Ok(Self {
-            key: self.key.reduce()?,
-            value: self.value.reduce()?,
+            credential: self.credential.reduce()?,
+            amount: self.amount.reduce()?,
         })
     }
 }

@@ -631,8 +631,8 @@ impl IntoLower for ast::WithdrawBlockField {
     type Output = ir::Withdraw;
     fn into_lower(&self) -> Result<Self::Output, Error> {
         Ok(ir::Withdraw {
-            key: self.key.into_lower()?,
-            value: self.value.into_lower()?,
+            credential: self.credential.into_lower()?,
+            amount: self.amount.into_lower()?,
         })
     }
 }

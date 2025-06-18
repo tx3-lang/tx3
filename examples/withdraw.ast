@@ -224,7 +224,7 @@
             "Withdraw": {
               "fields": [
                 {
-                  "key": {
+                  "credential": {
                     "String": {
                       "value": "stake_test1upl0rw5czklxn4d4cr9mftes45u32pngf6gn8znvmf6szrsn3ggkg",
                       "span": {
@@ -234,7 +234,7 @@
                       }
                     }
                   },
-                  "value": {
+                  "amount": {
                     "Number": 0
                   },
                   "span": {

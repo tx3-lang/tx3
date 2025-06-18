@@ -193,8 +193,8 @@ pub struct Metadata {
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]
 pub struct Withdraw {
-    pub key: Expression,
-    pub value: Expression,
+    pub credential: Expression,
+    pub amount: Expression,
 }
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]

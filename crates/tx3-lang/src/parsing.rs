@@ -1367,11 +1367,11 @@ impl AstNode for WithdrawBlockField {
         match pair.as_rule() {
             Rule::withdraw_block_field => {
                 let mut inner = pair.into_inner();
-                let key = inner.next().unwrap();
-                let value = inner.next().unwrap();
+                let credential = inner.next().unwrap();
+                let amount = inner.next().unwrap();
                 Ok(WithdrawBlockField {
-                    key: DataExpr::parse(key)?,
-                    value: DataExpr::parse(value)?,
+                    credential: DataExpr::parse(credential)?,
+                    amount: DataExpr::parse(amount)?,
                     span,
                 })
             }

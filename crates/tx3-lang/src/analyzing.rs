@@ -761,32 +761,32 @@ impl Analyzable for MetadataBlock {
 
 impl Analyzable for WithdrawBlockField {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        let key = self.key.analyze(parent.clone());
-        let value = self.value.analyze(parent.clone());
+        let credential = self.credential.analyze(parent.clone());
+        let amount = self.amount.analyze(parent.clone());
 
-        let value_validation = match &self.value {
+        let amount_validation = match &self.amount {
             DataExpr::Number(_) => AnalyzeReport::default(),
             DataExpr::Identifier(id) => match id.symbol.as_ref().and_then(|s| s.target_type()) {
                 Some(Type::Int) => AnalyzeReport::default(),
                 Some(other_type) => AnalyzeReport::from(Error::invalid_target_type(
                     "Int (number)",
                     &other_type,
-                    &self.value,
+                    &self.amount,
                 )),
                 None => AnalyzeReport::default(),
             },
             _ => AnalyzeReport::from(Error::invalid_target_type(
                 "Int (number)",
                 &Type::Undefined,
-                &self.value,
+                &self.amount,
             )),
         };
 
-        key + value + value_validation
+        credential + amount + amount_validation
     }
 
     fn is_resolved(&self) -> bool {
-        self.key.is_resolved() && self.value.is_resolved()
+        self.credential.is_resolved() && self.amount.is_resolved()
     }
 }
 

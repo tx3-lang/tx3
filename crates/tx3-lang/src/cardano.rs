@@ -79,7 +79,7 @@ impl IntoLower for WithdrawBlock {
         for (index, withdraw) in fields.into_iter().enumerate() {
             data.insert(
                 format!("withdraw_{}", index),
-                ir::Expression::Tuple(Box::new((withdraw.key, withdraw.value))),
+                ir::Expression::Tuple(Box::new((withdraw.credential, withdraw.amount))),
             );
         }
 

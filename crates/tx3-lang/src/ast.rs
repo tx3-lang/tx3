@@ -350,8 +350,8 @@ pub struct MetadataBlock {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct WithdrawBlockField {
-    pub key: DataExpr,
-    pub value: DataExpr,
+    pub credential: DataExpr,
+    pub amount: DataExpr,
     pub span: Span,
 }
 
