@@ -311,8 +311,23 @@ metadata_block = {
     "metadata" ~ "{" ~  (metadata_block_field ~ ",")+ ~ "}"
 }
 
-withdraw_block_field = {
-    data_expr ~ ":" ~ data_expr
+
+withdraw_block_from = {
+    "from" ~ ":" ~ data_expr
+}
+
+withdraw_block_amount = {
+    "amount" ~ ":" ~ data_expr
+}
+
+withdraw_block_redeemer = {
+    "redeemer" ~ ":" ~ data_expr
+}
+
+withdraw_block_field = _{
+    withdraw_block_from |
+    withdraw_block_amount |
+    withdraw_block_redeemer
 }
 
 withdraw_block = {

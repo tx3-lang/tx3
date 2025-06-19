@@ -349,16 +349,32 @@ pub struct MetadataBlock {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct WithdrawBlockField {
-    pub credential: DataExpr,
-    pub amount: DataExpr,
-    pub span: Span,
+pub enum WithdrawBlockField {
+    From(Box<DataExpr>),
+    Amount(Box<DataExpr>),
+    Redeemer(Box<DataExpr>),
+}
+
+impl WithdrawBlockField {
+    fn key(&self) -> &str {
+        match self {
+            WithdrawBlockField::From(_) => "from",
+            WithdrawBlockField::Amount(_) => "amount",
+            WithdrawBlockField::Redeemer(_) => "redeemer",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct WithdrawBlock {
     pub fields: Vec<WithdrawBlockField>,
     pub span: Span,
+}
+
+impl WithdrawBlock {
+    pub(crate) fn find(&self, key: &str) -> Option<&WithdrawBlockField> {
+        self.fields.iter().find(|x| x.key() == key)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

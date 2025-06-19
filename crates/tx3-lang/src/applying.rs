@@ -1411,58 +1411,6 @@ impl Apply for ir::Metadata {
     }
 }
 
-impl Apply for ir::Withdraw {
-    fn apply_args(self, args: &BTreeMap<String, ArgValue>) -> Result<Self, Error> {
-        Ok(Self {
-            credential: self.credential.apply_args(args)?,
-            amount: self.amount.apply_args(args)?,
-        })
-    }
-
-    fn apply_inputs(self, args: &BTreeMap<String, HashSet<Utxo>>) -> Result<Self, Error> {
-        Ok(Self {
-            credential: self.credential.apply_inputs(args)?,
-            amount: self.amount.apply_inputs(args)?,
-        })
-    }
-
-    fn apply_fees(self, fees: u64) -> Result<Self, Error> {
-        Ok(Self {
-            credential: self.credential.apply_fees(fees)?,
-            amount: self.amount.apply_fees(fees)?,
-        })
-    }
-
-    fn is_constant(&self) -> bool {
-        self.credential.is_constant() && self.amount.is_constant()
-    }
-
-    fn params(&self) -> BTreeMap<String, ir::Type> {
-        let mut params = BTreeMap::new();
-        params.extend(self.credential.params());
-        params.extend(self.amount.params());
-        params
-    }
-
-    fn queries(&self) -> BTreeMap<String, ir::InputQuery> {
-        let mut queries = BTreeMap::new();
-        queries.extend(self.credential.queries());
-        queries.extend(self.amount.queries());
-        queries
-    }
-
-    fn reduce_self(self) -> Result<Self, Error> {
-        Ok(self)
-    }
-
-    fn reduce_nested(self) -> Result<Self, Error> {
-        Ok(Self {
-            credential: self.credential.reduce()?,
-            amount: self.amount.reduce()?,
-        })
-    }
-}
-
 impl Apply for ir::Tx {
     fn apply_args(self, args: &BTreeMap<String, ArgValue>) -> Result<Self, Error> {
         let tx = ir::Tx {

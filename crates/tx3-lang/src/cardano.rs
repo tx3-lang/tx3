@@ -64,32 +64,6 @@ impl IntoLower for VoteDelegationCertificate {
     }
 }
 
-impl IntoLower for WithdrawBlock {
-    type Output = ir::AdHocDirective;
-
-    fn into_lower(&self) -> Result<Self::Output, crate::lowering::Error> {
-        let fields = self
-            .fields
-            .iter()
-            .map(|withdraw_field| withdraw_field.into_lower())
-            .collect::<Result<Vec<_>, _>>()?;
-
-        let mut data = HashMap::new();
-
-        for (index, withdraw) in fields.into_iter().enumerate() {
-            data.insert(
-                format!("withdraw_{}", index),
-                ir::Expression::Tuple(Box::new((withdraw.credential, withdraw.amount))),
-            );
-        }
-
-        Ok(ir::AdHocDirective {
-            name: "withdraw".to_string(),
-            data,
-        })
-    }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct StakeDelegationCertificate {
     pub pool: DataExpr,

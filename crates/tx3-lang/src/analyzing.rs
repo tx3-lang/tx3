@@ -761,32 +761,43 @@ impl Analyzable for MetadataBlock {
 
 impl Analyzable for WithdrawBlockField {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        let credential = self.credential.analyze(parent.clone());
-        let amount = self.amount.analyze(parent.clone());
+        match self {
+            WithdrawBlockField::From(x) => x.analyze(parent),
+            WithdrawBlockField::Amount(x) => {
+                let amount = x.analyze(parent.clone());
 
-        let amount_validation = match &self.amount {
-            DataExpr::Number(_) => AnalyzeReport::default(),
-            DataExpr::Identifier(id) => match id.symbol.as_ref().and_then(|s| s.target_type()) {
-                Some(Type::Int) => AnalyzeReport::default(),
-                Some(other_type) => AnalyzeReport::from(Error::invalid_target_type(
-                    "Int (number)",
-                    &other_type,
-                    &self.amount,
-                )),
-                None => AnalyzeReport::default(),
-            },
-            _ => AnalyzeReport::from(Error::invalid_target_type(
-                "Int (number)",
-                &Type::Undefined,
-                &self.amount,
-            )),
-        };
+                let amount_validation = match x.as_ref() {
+                    DataExpr::Number(_) => AnalyzeReport::default(),
+                    DataExpr::Identifier(id) => {
+                        match id.symbol.as_ref().and_then(|s| s.target_type()) {
+                            Some(Type::Int) => AnalyzeReport::default(),
+                            Some(other_type) => AnalyzeReport::from(Error::invalid_target_type(
+                                "Int (number)",
+                                &other_type,
+                                x.as_ref(),
+                            )),
+                            None => AnalyzeReport::default(),
+                        }
+                    }
+                    _ => AnalyzeReport::from(Error::invalid_target_type(
+                        "Int (number)",
+                        &Type::Undefined,
+                        x.as_ref(),
+                    )),
+                };
 
-        credential + amount + amount_validation
+                amount + amount_validation
+            }
+            WithdrawBlockField::Redeemer(x) => x.analyze(parent),
+        }
     }
 
     fn is_resolved(&self) -> bool {
-        self.credential.is_resolved() && self.amount.is_resolved()
+        match self {
+            WithdrawBlockField::From(x) => x.is_resolved(),
+            WithdrawBlockField::Amount(x) => x.is_resolved(),
+            WithdrawBlockField::Redeemer(x) => x.is_resolved(),
+        }
     }
 }
 

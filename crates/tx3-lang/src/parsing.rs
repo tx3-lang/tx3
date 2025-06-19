@@ -1363,24 +1363,29 @@ impl AstNode for WithdrawBlockField {
     const RULE: Rule = Rule::withdraw_block_field;
 
     fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
-        let span = pair.as_span().into();
         match pair.as_rule() {
-            Rule::withdraw_block_field => {
-                let mut inner = pair.into_inner();
-                let credential = inner.next().unwrap();
-                let amount = inner.next().unwrap();
-                Ok(WithdrawBlockField {
-                    credential: DataExpr::parse(credential)?,
-                    amount: DataExpr::parse(amount)?,
-                    span,
-                })
+            Rule::withdraw_block_from => {
+                let pair = pair.into_inner().next().unwrap();
+                Ok(WithdrawBlockField::From(DataExpr::parse(pair)?.into()))
             }
-            x => unreachable!("Unexpected rule in withdraw_block: {:?}", x),
+            Rule::withdraw_block_amount => {
+                let pair = pair.into_inner().next().unwrap();
+                Ok(WithdrawBlockField::Amount(DataExpr::parse(pair)?.into()))
+            }
+            Rule::withdraw_block_redeemer => {
+                let pair = pair.into_inner().next().unwrap();
+                Ok(WithdrawBlockField::Redeemer(DataExpr::parse(pair)?.into()))
+            }
+            x => unreachable!("Unexpected rule in withdraw_block_field: {:?}", x),
         }
     }
 
     fn span(&self) -> &Span {
-        &self.span
+        match self {
+            Self::From(x) => x.span(),
+            Self::Amount(x) => x.span(),
+            Self::Redeemer(x) => x.span(),
+        }
     }
 }
 
