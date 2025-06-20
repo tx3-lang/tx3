@@ -16,8 +16,54 @@ pub enum Error {
     #[error("property {0} not found in {1}")]
     PropertyNotFound(String, String),
 
-    #[error("invalid eval property")]
-    InvalidEvalProperty,
+    #[error("property index {0} not found in {1}")]
+    PropertyIndexNotFound(usize, String),
+}
+
+pub trait Indexable: std::fmt::Debug {
+    fn index(&self, index: usize) -> Option<ir::Expression>;
+
+    fn index_or_err(&self, index: usize) -> Result<ir::Expression, Error> {
+        self.index(index)
+            .ok_or(Error::PropertyIndexNotFound(index, format!("{:?}", self)))
+    }
+}
+
+impl Indexable for ir::StructExpr {
+    fn index(&self, index: usize) -> Option<ir::Expression> {
+        self.fields.get(index).cloned()
+    }
+}
+
+impl Indexable for ir::Expression {
+    fn index(&self, index: usize) -> Option<ir::Expression> {
+        match self {
+            ir::Expression::None => None,
+            ir::Expression::List(x) => x.get(index).cloned(),
+            ir::Expression::Tuple(x) => match index {
+                0 => Some(x.0.clone()),
+                1 => Some(x.1.clone()),
+                _ => None,
+            },
+            ir::Expression::Struct(x) => x.index(index),
+            ir::Expression::Bytes(_) => None,
+            ir::Expression::Number(_) => None,
+            ir::Expression::Bool(_) => None,
+            ir::Expression::String(_) => None,
+            ir::Expression::Address(_) => None,
+            ir::Expression::Hash(_) => None,
+            ir::Expression::UtxoRefs(_) => None,
+            ir::Expression::UtxoSet(_) => None,
+            ir::Expression::Assets(_) => None,
+            ir::Expression::EvalParameter(_, _) => None,
+            ir::Expression::EvalProperty(_) => None,
+            ir::Expression::EvalInputDatum(_) => None,
+            ir::Expression::EvalInputAssets(_) => None,
+            ir::Expression::EvalCustom(_) => None,
+            ir::Expression::FeeQuery => None,
+            ir::Expression::AdHocDirective(_) => None,
+        }
+    }
 }
 
 fn arg_value_into_expr(arg: ArgValue) -> ir::Expression {
@@ -1054,15 +1100,7 @@ impl Apply for ir::Expression {
                 }
                 _ => Err(Error::InvalidBinaryOp(Box::new(*op))),
             },
-            ir::Expression::EvalProperty(property_access) => {
-                let object = property_access.object.reduce()?;
-                match *object {
-                    ir::Expression::Struct(struct_expr) => {
-                        Ok(struct_expr.fields[property_access.field as usize].clone())
-                    }
-                    _ => Err(Error::InvalidEvalProperty),
-                }
-            }
+            ir::Expression::EvalProperty(x) => x.object.index_or_err(x.field as usize),
             _ => Ok(self),
         }
     }
@@ -1728,6 +1766,65 @@ mod tests {
                 }
             }
             _ => panic!("Expected assets"),
+        };
+    }
+
+    #[test]
+    fn test_reduce_struct_property_access() {
+        let op = ir::Expression::EvalProperty(Box::new(ir::PropertyAccess {
+            object: Box::new(ir::Expression::Struct(ir::StructExpr {
+                constructor: 0,
+                fields: vec![
+                    ir::Expression::Number(1),
+                    ir::Expression::Number(2),
+                    ir::Expression::Number(3),
+                ],
+            })),
+            field: 1,
+        }));
+
+        let reduced = op.reduce().unwrap();
+
+        match reduced {
+            ir::Expression::Number(2) => (),
+            _ => panic!("Expected number 2"),
+        };
+    }
+
+    #[test]
+    fn test_reduce_list_property_access() {
+        let op = ir::Expression::EvalProperty(Box::new(ir::PropertyAccess {
+            object: Box::new(ir::Expression::List(vec![
+                ir::Expression::Number(1),
+                ir::Expression::Number(2),
+                ir::Expression::Number(3),
+            ])),
+            field: 1,
+        }));
+
+        let reduced = op.reduce().unwrap();
+
+        match reduced {
+            ir::Expression::Number(2) => (),
+            _ => panic!("Expected number 2"),
+        };
+    }
+
+    #[test]
+    fn test_reduce_tuple_property_access() {
+        let op = ir::Expression::EvalProperty(Box::new(ir::PropertyAccess {
+            object: Box::new(ir::Expression::Tuple(Box::new((
+                ir::Expression::Number(1),
+                ir::Expression::Number(2),
+            )))),
+            field: 1,
+        }));
+
+        let reduced = op.reduce().unwrap();
+
+        match reduced {
+            ir::Expression::Number(2) => (),
+            _ => panic!("Expected number 2"),
         };
     }
 }
