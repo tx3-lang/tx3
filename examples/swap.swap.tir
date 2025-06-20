@@ -83,7 +83,7 @@
                     "object": {
                       "EvalInputDatum": "pool"
                     },
-                    "field": "pair_a"
+                    "field": 0
                   }
                 },
                 "right": {
@@ -94,7 +94,7 @@
                         "AnyAsset"
                       ]
                     },
-                    "field": "amount"
+                    "field": 0
                   }
                 },
                 "op": "Sub"
@@ -107,7 +107,7 @@
                     "object": {
                       "EvalInputDatum": "pool"
                     },
-                    "field": "pair_b"
+                    "field": 1
                   }
                 },
                 "right": {
@@ -118,7 +118,7 @@
                         "AnyAsset"
                       ]
                     },
-                    "field": "amount"
+                    "field": 0
                   }
                 },
                 "op": "Add"
@@ -176,6 +176,6 @@
   "mints": [],
   "adhoc": [],
   "collateral": [],
-  "req_signers": [],
+  "signers": null,
   "metadata": []
 }

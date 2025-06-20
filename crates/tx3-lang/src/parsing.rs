@@ -887,24 +887,31 @@ impl AstNode for PropertyAccess {
     const RULE: Rule = Rule::property_access;
 
     fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
-        let span = pair.as_span().into();
+        let span: Span = pair.as_span().into();
         let mut inner = pair.into_inner();
 
         let object = Identifier::parse(inner.next().unwrap())?;
+        let field = Identifier::parse(inner.next().unwrap())?;
 
-        let mut identifiers = Vec::new();
-        identifiers.push(Identifier::parse(inner.next().unwrap())?);
+        let mut property_access = PropertyAccess {
+            object: Box::new(DataExpr::Identifier(object)),
+            field: Box::new(field),
+            scope: None,
+            span: span.clone(),
+        };
 
-        for identifier in inner {
-            identifiers.push(Identifier::parse(identifier)?);
+        for new_field in inner {
+            let span = new_field.as_span().into();
+            let field = Identifier::parse(new_field)?;
+            property_access = PropertyAccess {
+                object: Box::new(DataExpr::PropertyAccess(property_access)),
+                field: Box::new(field),
+                scope: None,
+                span,
+            };
         }
 
-        Ok(PropertyAccess {
-            object,
-            path: identifiers,
-            scope: None,
-            span,
-        })
+        Ok(property_access)
     }
 
     fn span(&self) -> &Span {
@@ -1624,14 +1631,14 @@ mod tests {
         PropertyAccess,
         "single_property",
         "subject.property",
-        PropertyAccess::new("subject", &["property"])
+        PropertyAccess::new("subject", "property")
     );
 
     input_to_ast_check!(
         PropertyAccess,
         "multiple_properties",
         "subject.property.subproperty",
-        PropertyAccess::new("subject", &["property", "subproperty"])
+        PropertyAccess::new("subject", "property.subproperty")
     );
 
     input_to_ast_check!(
@@ -1744,16 +1751,14 @@ mod tests {
         "AnyAsset(input1.policy, input1.asset_name, input1.amount)",
         AnyAssetConstructor {
             policy: Box::new(DataExpr::PropertyAccess(PropertyAccess::new(
-                "input1",
-                &["policy"],
+                "input1", &"policy",
             ))),
             asset_name: Box::new(DataExpr::PropertyAccess(PropertyAccess::new(
                 "input1",
-                &["asset_name"],
+                &"asset_name",
             ))),
             amount: Box::new(DataExpr::PropertyAccess(PropertyAccess::new(
-                "input1",
-                &["amount"],
+                "input1", &"amount",
             ))),
             span: Span::DUMMY,
         }

@@ -15,6 +15,55 @@ pub enum Error {
 
     #[error("property {0} not found in {1}")]
     PropertyNotFound(String, String),
+
+    #[error("property index {0} not found in {1}")]
+    PropertyIndexNotFound(usize, String),
+}
+
+pub trait Indexable: std::fmt::Debug {
+    fn index(&self, index: usize) -> Option<ir::Expression>;
+
+    fn index_or_err(&self, index: usize) -> Result<ir::Expression, Error> {
+        self.index(index)
+            .ok_or(Error::PropertyIndexNotFound(index, format!("{:?}", self)))
+    }
+}
+
+impl Indexable for ir::StructExpr {
+    fn index(&self, index: usize) -> Option<ir::Expression> {
+        self.fields.get(index).cloned()
+    }
+}
+
+impl Indexable for ir::Expression {
+    fn index(&self, index: usize) -> Option<ir::Expression> {
+        match self {
+            ir::Expression::None => None,
+            ir::Expression::List(x) => x.get(index).cloned(),
+            ir::Expression::Tuple(x) => match index {
+                0 => Some(x.0.clone()),
+                1 => Some(x.1.clone()),
+                _ => None,
+            },
+            ir::Expression::Struct(x) => x.index(index),
+            ir::Expression::Bytes(_) => None,
+            ir::Expression::Number(_) => None,
+            ir::Expression::Bool(_) => None,
+            ir::Expression::String(_) => None,
+            ir::Expression::Address(_) => None,
+            ir::Expression::Hash(_) => None,
+            ir::Expression::UtxoRefs(_) => None,
+            ir::Expression::UtxoSet(_) => None,
+            ir::Expression::Assets(_) => None,
+            ir::Expression::EvalParameter(_, _) => None,
+            ir::Expression::EvalProperty(_) => None,
+            ir::Expression::EvalInputDatum(_) => None,
+            ir::Expression::EvalInputAssets(_) => None,
+            ir::Expression::EvalCustom(_) => None,
+            ir::Expression::FeeQuery => None,
+            ir::Expression::AdHocDirective(_) => None,
+        }
+    }
 }
 
 fn arg_value_into_expr(arg: ArgValue) -> ir::Expression {
@@ -919,7 +968,9 @@ impl Apply for ir::Expression {
                     None => Ok(ir::Expression::EvalParameter(name, ty)),
                 }
             }
-
+            ir::Expression::EvalProperty(x) => {
+                Ok(ir::Expression::EvalProperty(x.apply_args(args)?))
+            }
             // the remaining cases are constants, so we can just return them
             x => Ok(x),
         }
@@ -959,6 +1010,9 @@ impl Apply for ir::Expression {
             ir::Expression::List(x) => Ok(ir::Expression::List(x.apply_inputs(args)?)),
             ir::Expression::Assets(x) => Ok(ir::Expression::Assets(x.apply_inputs(args)?)),
             ir::Expression::EvalCustom(x) => Ok(ir::Expression::EvalCustom(x.apply_inputs(args)?)),
+            ir::Expression::EvalProperty(x) => {
+                Ok(ir::Expression::EvalProperty(x.apply_inputs(args)?))
+            }
             _ => Ok(self),
         }
     }
@@ -1046,13 +1100,7 @@ impl Apply for ir::Expression {
                 }
                 _ => Err(Error::InvalidBinaryOp(Box::new(*op))),
             },
-            ir::Expression::EvalProperty(_x) => {
-                //TODO: property access of constant objects should be reduced but we're erasing
-                // field names from the struct, making this impossible. We need to refactor
-                // either the StructExpr so that it retains field names or the PropertyAccess
-                // so that the path gets turned into field indexes.
-                todo!("fix this")
-            }
+            ir::Expression::EvalProperty(x) => x.object.index_or_err(x.field as usize),
             _ => Ok(self),
         }
     }
@@ -1062,6 +1110,7 @@ impl Apply for ir::Expression {
             ir::Expression::Struct(x) => Ok(ir::Expression::Struct(x.reduce()?)),
             ir::Expression::Assets(x) => Ok(ir::Expression::Assets(x.reduce()?)),
             ir::Expression::EvalCustom(x) => Ok(ir::Expression::EvalCustom(x.reduce()?)),
+            ir::Expression::EvalProperty(x) => Ok(ir::Expression::EvalProperty(x.reduce()?)),
             _ => Ok(self),
         }
     }
@@ -1717,6 +1766,107 @@ mod tests {
                 }
             }
             _ => panic!("Expected assets"),
+        };
+    }
+
+    #[test]
+    fn test_reduce_struct_property_access() {
+        let object = Box::new(ir::Expression::Struct(ir::StructExpr {
+            constructor: 0,
+            fields: vec![
+                ir::Expression::Number(1),
+                ir::Expression::Number(2),
+                ir::Expression::Number(3),
+            ],
+        }));
+
+        let op = ir::Expression::EvalProperty(Box::new(ir::PropertyAccess {
+            object: object.clone(),
+            field: 1,
+        }));
+
+        let reduced = op.reduce();
+
+        match reduced {
+            Ok(ir::Expression::Number(2)) => (),
+            _ => panic!("Expected number 2"),
+        };
+
+        let op = ir::Expression::EvalProperty(Box::new(ir::PropertyAccess {
+            object: object.clone(),
+            field: 100,
+        }));
+
+        let reduced = op.reduce();
+
+        match reduced {
+            Err(Error::PropertyIndexNotFound(100, _)) => (),
+            _ => panic!("Expected property index not found"),
+        };
+    }
+
+    #[test]
+    fn test_reduce_list_property_access() {
+        let object = Box::new(ir::Expression::List(vec![
+            ir::Expression::Number(1),
+            ir::Expression::Number(2),
+            ir::Expression::Number(3),
+        ]));
+
+        let op = ir::Expression::EvalProperty(Box::new(ir::PropertyAccess {
+            object: object.clone(),
+            field: 1,
+        }));
+
+        let reduced = op.reduce();
+
+        match reduced {
+            Ok(ir::Expression::Number(2)) => (),
+            _ => panic!("Expected number 2"),
+        };
+
+        let op = ir::Expression::EvalProperty(Box::new(ir::PropertyAccess {
+            object: object.clone(),
+            field: 100,
+        }));
+
+        let reduced = op.reduce();
+
+        match reduced {
+            Err(Error::PropertyIndexNotFound(100, _)) => (),
+            _ => panic!("Expected property index not found"),
+        };
+    }
+
+    #[test]
+    fn test_reduce_tuple_property_access() {
+        let object = Box::new(ir::Expression::Tuple(Box::new((
+            ir::Expression::Number(1),
+            ir::Expression::Number(2),
+        ))));
+
+        let op = ir::Expression::EvalProperty(Box::new(ir::PropertyAccess {
+            object: object.clone(),
+            field: 1,
+        }));
+
+        let reduced = op.reduce();
+
+        match reduced {
+            Ok(ir::Expression::Number(2)) => (),
+            _ => panic!("Expected number 2"),
+        };
+
+        let op = ir::Expression::EvalProperty(Box::new(ir::PropertyAccess {
+            object: object.clone(),
+            field: 100,
+        }));
+
+        let reduced = op.reduce();
+
+        match reduced {
+            Err(Error::PropertyIndexNotFound(100, _)) => (),
+            _ => panic!("Expected property index not found"),
         };
     }
 }

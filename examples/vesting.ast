@@ -333,7 +333,7 @@
       "validity": null,
       "burn": null,
       "mints": [],
-      "req_signers": [],
+      "signers": null,
       "adhoc": [],
       "span": {
         "dummy": false,
@@ -513,7 +513,7 @@
       "validity": null,
       "burn": null,
       "mints": [],
-      "req_signers": [],
+      "signers": null,
       "adhoc": [],
       "span": {
         "dummy": false,

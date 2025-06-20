@@ -561,8 +561,8 @@ pub enum AssetExpr {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PropertyAccess {
-    pub object: Identifier,
-    pub path: Vec<Identifier>,
+    pub object: Box<DataExpr>,
+    pub field: Box<Identifier>,
     pub span: Span,
 
     // analysis
@@ -571,31 +571,29 @@ pub struct PropertyAccess {
 }
 
 impl PropertyAccess {
-    pub fn new(object: &str, path: &[&str]) -> Self {
-        Self {
-            object: Identifier::new(object),
-            path: path.iter().map(|x| Identifier::new(*x)).collect(),
+    pub fn new(object: &str, path: &str) -> Self {
+        let mut fields = path.split('.');
+        let mut object = Self {
+            object: Box::new(DataExpr::Identifier(Identifier::new(object))),
+            field: Box::new(Identifier::new(fields.next().unwrap())),
             scope: None,
             span: Span::DUMMY,
+        };
+
+        for field in fields {
+            let field = Box::new(Identifier::new(field));
+            object = Self {
+                object: Box::new(DataExpr::PropertyAccess(object)),
+                field,
+                scope: None,
+                span: Span::DUMMY,
+            };
         }
+        object
     }
 
     pub fn target_type(&self) -> Option<Type> {
-        self.path.last().and_then(|x| x.target_type())
-    }
-}
-
-impl PropertyAccess {
-    /// Shift the property access to the next property in the path.
-    pub fn shift(mut self) -> Option<Self> {
-        if self.path.is_empty() {
-            return None;
-        }
-
-        let new_object = self.path.remove(0);
-        self.object = new_object;
-
-        Some(self)
+        self.field.target_type()
     }
 }
 

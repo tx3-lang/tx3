@@ -171,7 +171,7 @@ impl IntoLower for ast::StructConstructor {
 
         let mut fields = vec![];
 
-        for field_def in case_def.fields.iter() {
+        for (index, field_def) in case_def.fields.iter().enumerate() {
             let value = self.case.find_field_value(&field_def.name);
 
             if let Some(value) = value {
@@ -186,7 +186,7 @@ impl IntoLower for ast::StructConstructor {
 
                 fields.push(ir::Expression::EvalProperty(Box::new(ir::PropertyAccess {
                     object: Box::new(spread_target),
-                    field: field_def.name.clone(),
+                    field: index as u64,
                 })));
             }
         }
@@ -293,16 +293,47 @@ impl IntoLower for ast::PropertyAccess {
     type Output = ir::Expression;
 
     fn into_lower(&self) -> Result<Self::Output, Error> {
-        let mut object = self.object.into_lower()?;
+        let object = self.object.into_lower()?;
+        let ty = self
+            .object
+            .target_type()
+            .ok_or(Error::MissingAnalyzePhase)?;
+        let field_name = &self.field.value;
+        let field_index = match ty {
+            ast::Type::Custom(ref ident) => {
+                let type_def = expect_type_def(ident)?;
+                let case = &type_def.cases[0];
+                case.fields
+                    .iter()
+                    .position(|f| f.name == *field_name)
+                    .ok_or_else(|| Error::InvalidAst(format!("field '{}' not found", field_name)))?
+            }
+            ast::Type::AnyAsset => {
+                // TODO: improve this for each native type
+                match field_name.as_str() {
+                    "amount" => 0,
+                    "policy" => 1,
+                    "asset_name" => 2,
+                    _ => {
+                        return Err(Error::InvalidAst(format!(
+                            "field '{}' not found",
+                            field_name
+                        )))
+                    }
+                }
+            }
+            _ => {
+                return Err(Error::InvalidAst(format!(
+                    "Property access not supported for type: {:?}",
+                    ty
+                )))
+            }
+        };
 
-        for field in self.path.iter() {
-            object = ir::Expression::EvalProperty(Box::new(ir::PropertyAccess {
-                object: Box::new(object),
-                field: field.value.clone(),
-            }));
-        }
-
-        Ok(object)
+        Ok(ir::Expression::EvalProperty(Box::new(ir::PropertyAccess {
+            object: Box::new(object),
+            field: field_index as u64,
+        })))
     }
 }
 
@@ -407,7 +438,7 @@ impl IntoLower for ast::AssetExpr {
                 Ok(ir::Expression::EvalCustom(Box::new(x.into_lower()?)))
             }
             ast::AssetExpr::Identifier(x) => coerce_identifier_into_asset_expr(x),
-            ast::AssetExpr::PropertyAccess(_x) => todo!(),
+            ast::AssetExpr::PropertyAccess(x) => x.into_lower(),
         }
     }
 }

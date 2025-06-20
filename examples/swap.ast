@@ -250,23 +250,23 @@
                             "left": {
                               "PropertyAccess": {
                                 "object": {
-                                  "value": "pool",
-                                  "span": {
-                                    "dummy": false,
-                                    "start": 552,
-                                    "end": 556
-                                  }
-                                },
-                                "path": [
-                                  {
-                                    "value": "pair_a",
+                                  "Identifier": {
+                                    "value": "pool",
                                     "span": {
                                       "dummy": false,
-                                      "start": 557,
-                                      "end": 563
+                                      "start": 552,
+                                      "end": 556
                                     }
                                   }
-                                ],
+                                },
+                                "field": {
+                                  "value": "pair_a",
+                                  "span": {
+                                    "dummy": false,
+                                    "start": 557,
+                                    "end": 563
+                                  }
+                                },
                                 "span": {
                                   "dummy": false,
                                   "start": 552,
@@ -278,23 +278,23 @@
                             "right": {
                               "PropertyAccess": {
                                 "object": {
-                                  "value": "bid",
-                                  "span": {
-                                    "dummy": false,
-                                    "start": 566,
-                                    "end": 569
-                                  }
-                                },
-                                "path": [
-                                  {
-                                    "value": "amount",
+                                  "Identifier": {
+                                    "value": "bid",
                                     "span": {
                                       "dummy": false,
-                                      "start": 570,
-                                      "end": 576
+                                      "start": 566,
+                                      "end": 569
                                     }
                                   }
-                                ],
+                                },
+                                "field": {
+                                  "value": "amount",
+                                  "span": {
+                                    "dummy": false,
+                                    "start": 570,
+                                    "end": 576
+                                  }
+                                },
                                 "span": {
                                   "dummy": false,
                                   "start": 566,
@@ -329,23 +329,23 @@
                             "left": {
                               "PropertyAccess": {
                                 "object": {
-                                  "value": "pool",
-                                  "span": {
-                                    "dummy": false,
-                                    "start": 598,
-                                    "end": 602
-                                  }
-                                },
-                                "path": [
-                                  {
-                                    "value": "pair_b",
+                                  "Identifier": {
+                                    "value": "pool",
                                     "span": {
                                       "dummy": false,
-                                      "start": 603,
-                                      "end": 609
+                                      "start": 598,
+                                      "end": 602
                                     }
                                   }
-                                ],
+                                },
+                                "field": {
+                                  "value": "pair_b",
+                                  "span": {
+                                    "dummy": false,
+                                    "start": 603,
+                                    "end": 609
+                                  }
+                                },
                                 "span": {
                                   "dummy": false,
                                   "start": 598,
@@ -357,23 +357,23 @@
                             "right": {
                               "PropertyAccess": {
                                 "object": {
-                                  "value": "ask",
-                                  "span": {
-                                    "dummy": false,
-                                    "start": 612,
-                                    "end": 615
-                                  }
-                                },
-                                "path": [
-                                  {
-                                    "value": "amount",
+                                  "Identifier": {
+                                    "value": "ask",
                                     "span": {
                                       "dummy": false,
-                                      "start": 616,
-                                      "end": 622
+                                      "start": 612,
+                                      "end": 615
                                     }
                                   }
-                                ],
+                                },
+                                "field": {
+                                  "value": "amount",
+                                  "span": {
+                                    "dummy": false,
+                                    "start": 616,
+                                    "end": 622
+                                  }
+                                },
                                 "span": {
                                   "dummy": false,
                                   "start": 612,
@@ -536,7 +536,7 @@
       "validity": null,
       "burn": null,
       "mints": [],
-      "req_signers": [],
+      "signers": null,
       "adhoc": [],
       "span": {
         "dummy": false,

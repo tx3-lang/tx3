@@ -299,23 +299,23 @@
                               {
                                 "PropertyAccess": {
                                   "object": {
-                                    "value": "source",
-                                    "span": {
-                                      "dummy": false,
-                                      "start": 1052,
-                                      "end": 1058
-                                    }
-                                  },
-                                  "path": [
-                                    {
-                                      "value": "field1",
+                                    "Identifier": {
+                                      "value": "source",
                                       "span": {
                                         "dummy": false,
-                                        "start": 1059,
-                                        "end": 1065
+                                        "start": 1052,
+                                        "end": 1058
                                       }
                                     }
-                                  ],
+                                  },
+                                  "field": {
+                                    "value": "field1",
+                                    "span": {
+                                      "dummy": false,
+                                      "start": 1059,
+                                      "end": 1065
+                                    }
+                                  },
                                   "span": {
                                     "dummy": false,
                                     "start": 1052,
@@ -370,23 +370,23 @@
                       "policy": {
                         "PropertyAccess": {
                           "object": {
-                            "value": "source",
-                            "span": {
-                              "dummy": false,
-                              "start": 1126,
-                              "end": 1132
-                            }
-                          },
-                          "path": [
-                            {
-                              "value": "field3",
+                            "Identifier": {
+                              "value": "source",
                               "span": {
                                 "dummy": false,
-                                "start": 1133,
-                                "end": 1139
+                                "start": 1126,
+                                "end": 1132
                               }
                             }
-                          ],
+                          },
+                          "field": {
+                            "value": "field3",
+                            "span": {
+                              "dummy": false,
+                              "start": 1133,
+                              "end": 1139
+                            }
+                          },
                           "span": {
                             "dummy": false,
                             "start": 1126,
@@ -397,23 +397,23 @@
                       "asset_name": {
                         "PropertyAccess": {
                           "object": {
-                            "value": "source",
-                            "span": {
-                              "dummy": false,
-                              "start": 1141,
-                              "end": 1147
-                            }
-                          },
-                          "path": [
-                            {
-                              "value": "field2",
+                            "Identifier": {
+                              "value": "source",
                               "span": {
                                 "dummy": false,
-                                "start": 1148,
-                                "end": 1154
+                                "start": 1141,
+                                "end": 1147
                               }
                             }
-                          ],
+                          },
+                          "field": {
+                            "value": "field2",
+                            "span": {
+                              "dummy": false,
+                              "start": 1148,
+                              "end": 1154
+                            }
+                          },
                           "span": {
                             "dummy": false,
                             "start": 1141,
@@ -424,23 +424,23 @@
                       "amount": {
                         "PropertyAccess": {
                           "object": {
-                            "value": "source",
-                            "span": {
-                              "dummy": false,
-                              "start": 1156,
-                              "end": 1162
-                            }
-                          },
-                          "path": [
-                            {
-                              "value": "field1",
+                            "Identifier": {
+                              "value": "source",
                               "span": {
                                 "dummy": false,
-                                "start": 1163,
-                                "end": 1169
+                                "start": 1156,
+                                "end": 1162
                               }
                             }
-                          ],
+                          },
+                          "field": {
+                            "value": "field1",
+                            "span": {
+                              "dummy": false,
+                              "start": 1163,
+                              "end": 1169
+                            }
+                          },
                           "span": {
                             "dummy": false,
                             "start": 1156,
