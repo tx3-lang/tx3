@@ -1771,60 +1771,102 @@ mod tests {
 
     #[test]
     fn test_reduce_struct_property_access() {
+        let object = Box::new(ir::Expression::Struct(ir::StructExpr {
+            constructor: 0,
+            fields: vec![
+                ir::Expression::Number(1),
+                ir::Expression::Number(2),
+                ir::Expression::Number(3),
+            ],
+        }));
+
         let op = ir::Expression::EvalProperty(Box::new(ir::PropertyAccess {
-            object: Box::new(ir::Expression::Struct(ir::StructExpr {
-                constructor: 0,
-                fields: vec![
-                    ir::Expression::Number(1),
-                    ir::Expression::Number(2),
-                    ir::Expression::Number(3),
-                ],
-            })),
+            object: object.clone(),
             field: 1,
         }));
 
-        let reduced = op.reduce().unwrap();
+        let reduced = op.reduce();
 
         match reduced {
-            ir::Expression::Number(2) => (),
+            Ok(ir::Expression::Number(2)) => (),
             _ => panic!("Expected number 2"),
+        };
+
+        let op = ir::Expression::EvalProperty(Box::new(ir::PropertyAccess {
+            object: object.clone(),
+            field: 100,
+        }));
+
+        let reduced = op.reduce();
+
+        match reduced {
+            Err(Error::PropertyIndexNotFound(100, _)) => (),
+            _ => panic!("Expected property index not found"),
         };
     }
 
     #[test]
     fn test_reduce_list_property_access() {
+        let object = Box::new(ir::Expression::List(vec![
+            ir::Expression::Number(1),
+            ir::Expression::Number(2),
+            ir::Expression::Number(3),
+        ]));
+
         let op = ir::Expression::EvalProperty(Box::new(ir::PropertyAccess {
-            object: Box::new(ir::Expression::List(vec![
-                ir::Expression::Number(1),
-                ir::Expression::Number(2),
-                ir::Expression::Number(3),
-            ])),
+            object: object.clone(),
             field: 1,
         }));
 
-        let reduced = op.reduce().unwrap();
+        let reduced = op.reduce();
 
         match reduced {
-            ir::Expression::Number(2) => (),
+            Ok(ir::Expression::Number(2)) => (),
             _ => panic!("Expected number 2"),
+        };
+
+        let op = ir::Expression::EvalProperty(Box::new(ir::PropertyAccess {
+            object: object.clone(),
+            field: 100,
+        }));
+
+        let reduced = op.reduce();
+
+        match reduced {
+            Err(Error::PropertyIndexNotFound(100, _)) => (),
+            _ => panic!("Expected property index not found"),
         };
     }
 
     #[test]
     fn test_reduce_tuple_property_access() {
+        let object = Box::new(ir::Expression::Tuple(Box::new((
+            ir::Expression::Number(1),
+            ir::Expression::Number(2),
+        ))));
+
         let op = ir::Expression::EvalProperty(Box::new(ir::PropertyAccess {
-            object: Box::new(ir::Expression::Tuple(Box::new((
-                ir::Expression::Number(1),
-                ir::Expression::Number(2),
-            )))),
+            object: object.clone(),
             field: 1,
         }));
 
-        let reduced = op.reduce().unwrap();
+        let reduced = op.reduce();
 
         match reduced {
-            ir::Expression::Number(2) => (),
+            Ok(ir::Expression::Number(2)) => (),
             _ => panic!("Expected number 2"),
+        };
+
+        let op = ir::Expression::EvalProperty(Box::new(ir::PropertyAccess {
+            object: object.clone(),
+            field: 100,
+        }));
+
+        let reduced = op.reduce();
+
+        match reduced {
+            Err(Error::PropertyIndexNotFound(100, _)) => (),
+            _ => panic!("Expected property index not found"),
         };
     }
 }
