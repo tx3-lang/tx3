@@ -75,10 +75,10 @@
             },
             {
               "Amount": {
-                "BinaryOp": {
-                  "left": {
-                    "BinaryOp": {
-                      "left": {
+                "AddOp": {
+                  "lhs": {
+                    "SubOp": {
+                      "lhs": {
                         "Identifier": {
                           "value": "provided_gas",
                           "span": {
@@ -88,8 +88,7 @@
                           }
                         }
                       },
-                      "operator": "Subtract",
-                      "right": {
+                      "rhs": {
                         "Identifier": {
                           "value": "fees",
                           "span": {
@@ -106,9 +105,8 @@
                       }
                     }
                   },
-                  "operator": "Add",
-                  "right": {
-                    "StaticConstructor": {
+                  "rhs": {
+                    "StaticAssetConstructor": {
                       "type": {
                         "value": "MyToken",
                         "span": {
@@ -157,7 +155,7 @@
           "fields": [
             {
               "Amount": {
-                "StaticConstructor": {
+                "StaticAssetConstructor": {
                   "type": {
                     "value": "MyToken",
                     "span": {

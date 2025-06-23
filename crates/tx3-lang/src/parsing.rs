@@ -2,8 +2,14 @@
 //!
 //! This module takes a string and parses it into Tx3 AST.
 
+use std::sync::LazyLock;
+
 use miette::SourceOffset;
-use pest::{iterators::Pair, Parser};
+use pest::{
+    iterators::Pair,
+    pratt_parser::{Assoc, Op, PrattParser},
+    Parser,
+};
 use pest_derive::Parser;
 
 use crate::ast::*;
@@ -296,7 +302,7 @@ impl AstNode for CollateralBlockField {
             }
             Rule::input_block_min_amount => {
                 let pair = pair.into_inner().next().unwrap();
-                let x = CollateralBlockField::MinAmount(AssetExpr::parse(pair)?);
+                let x = CollateralBlockField::MinAmount(DataExpr::parse(pair)?);
                 Ok(x)
             }
             Rule::input_block_ref => {
@@ -397,7 +403,7 @@ impl AstNode for InputBlockField {
             }
             Rule::input_block_min_amount => {
                 let pair = pair.into_inner().next().unwrap();
-                let x = InputBlockField::MinAmount(AssetExpr::parse(pair)?);
+                let x = InputBlockField::MinAmount(DataExpr::parse(pair)?);
                 Ok(x)
             }
             Rule::input_block_redeemer => {
@@ -463,7 +469,7 @@ impl AstNode for OutputBlockField {
             }
             Rule::output_block_amount => {
                 let pair = pair.into_inner().next().unwrap();
-                let x = OutputBlockField::Amount(AssetExpr::parse(pair)?.into());
+                let x = OutputBlockField::Amount(DataExpr::parse(pair)?.into());
                 Ok(x)
             }
             Rule::output_block_datum => {
@@ -563,7 +569,7 @@ impl AstNode for MintBlockField {
         match pair.as_rule() {
             Rule::mint_block_amount => {
                 let pair = pair.into_inner().next().unwrap();
-                let x = MintBlockField::Amount(AssetExpr::parse(pair)?.into());
+                let x = MintBlockField::Amount(DataExpr::parse(pair)?.into());
                 Ok(x)
             }
             Rule::mint_block_redeemer => {
@@ -818,107 +824,6 @@ impl AstNode for AnyAssetConstructor {
     }
 }
 
-impl AssetExpr {
-    fn identifier_parse(pair: Pair<Rule>) -> Result<Self, Error> {
-        Ok(AssetExpr::Identifier(Identifier::parse(pair)?))
-    }
-
-    fn static_constructor_parse(pair: Pair<Rule>) -> Result<Self, Error> {
-        Ok(AssetExpr::StaticConstructor(StaticAssetConstructor::parse(
-            pair,
-        )?))
-    }
-
-    fn any_constructor_parse(pair: Pair<Rule>) -> Result<Self, Error> {
-        Ok(AssetExpr::AnyConstructor(AnyAssetConstructor::parse(pair)?))
-    }
-
-    fn property_access_parse(pair: Pair<Rule>) -> Result<Self, Error> {
-        Ok(AssetExpr::PropertyAccess(PropertyAccess::parse(pair)?))
-    }
-
-    fn term_parse(pair: Pair<Rule>) -> Result<Self, Error> {
-        match pair.as_rule() {
-            Rule::static_asset_constructor => AssetExpr::static_constructor_parse(pair),
-            Rule::any_asset_constructor => AssetExpr::any_constructor_parse(pair),
-            Rule::property_access => AssetExpr::property_access_parse(pair),
-            Rule::identifier => AssetExpr::identifier_parse(pair),
-            x => unreachable!("Unexpected rule in asset_expr: {:?}", x),
-        }
-    }
-}
-
-impl AstNode for AssetExpr {
-    const RULE: Rule = Rule::asset_expr;
-
-    fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
-        let mut inner = pair.into_inner();
-
-        let mut final_expr = Self::term_parse(inner.next().unwrap())?;
-
-        while let Some(term) = inner.next() {
-            let span = term.as_span().into();
-            let operator = BinaryOperator::parse(term)?;
-            let next_expr = Self::term_parse(inner.next().unwrap())?;
-
-            final_expr = AssetExpr::BinaryOp(AssetBinaryOp {
-                operator,
-                left: Box::new(final_expr),
-                right: Box::new(next_expr),
-                span,
-            });
-        }
-
-        Ok(final_expr)
-    }
-
-    fn span(&self) -> &Span {
-        match self {
-            AssetExpr::StaticConstructor(x) => x.span(),
-            AssetExpr::AnyConstructor(x) => x.span(),
-            AssetExpr::BinaryOp(x) => &x.span,
-            AssetExpr::PropertyAccess(x) => x.span(),
-            AssetExpr::Identifier(x) => x.span(),
-        }
-    }
-}
-
-impl AstNode for PropertyAccess {
-    const RULE: Rule = Rule::property_access;
-
-    fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
-        let span: Span = pair.as_span().into();
-        let mut inner = pair.into_inner();
-
-        let object = Identifier::parse(inner.next().unwrap())?;
-        let field = Identifier::parse(inner.next().unwrap())?;
-
-        let mut property_access = PropertyAccess {
-            object: Box::new(DataExpr::Identifier(object)),
-            field: Box::new(field),
-            scope: None,
-            span: span.clone(),
-        };
-
-        for new_field in inner {
-            let span = new_field.as_span().into();
-            let field = Identifier::parse(new_field)?;
-            property_access = PropertyAccess {
-                object: Box::new(DataExpr::PropertyAccess(property_access)),
-                field: Box::new(field),
-                scope: None,
-                span,
-            };
-        }
-
-        Ok(property_access)
-    }
-
-    fn span(&self) -> &Span {
-        &self.span
-    }
-}
-
 impl AstNode for RecordConstructorField {
     const RULE: Rule = Rule::record_constructor_field;
 
@@ -1090,10 +995,6 @@ impl DataExpr {
         Ok(DataExpr::Identifier(Identifier::parse(pair)?))
     }
 
-    fn property_access_parse(pair: Pair<Rule>) -> Result<Self, Error> {
-        Ok(DataExpr::PropertyAccess(PropertyAccess::parse(pair)?))
-    }
-
     fn struct_constructor_parse(pair: Pair<Rule>) -> Result<Self, Error> {
         Ok(DataExpr::StructConstructor(StructConstructor::parse(pair)?))
     }
@@ -1106,45 +1007,101 @@ impl DataExpr {
         Ok(DataExpr::UtxoRef(UtxoRef::parse(pair)?))
     }
 
-    fn term_parse(pair: Pair<Rule>) -> Result<Self, Error> {
-        match pair.as_rule() {
-            Rule::number => DataExpr::number_parse(pair),
-            Rule::string => Ok(DataExpr::String(StringLiteral::parse(pair)?)),
-            Rule::bool => DataExpr::bool_parse(pair),
-            Rule::hex_string => Ok(DataExpr::HexString(HexStringLiteral::parse(pair)?)),
-            Rule::struct_constructor => DataExpr::struct_constructor_parse(pair),
-            Rule::list_constructor => DataExpr::list_constructor_parse(pair),
-            Rule::unit => Ok(DataExpr::Unit),
-            Rule::identifier => DataExpr::identifier_parse(pair),
-            Rule::property_access => DataExpr::property_access_parse(pair),
-            Rule::utxo_ref => DataExpr::utxo_ref_parse(pair),
-            x => unreachable!("Unexpected rule in data_expr: {:?}", x),
-        }
+    fn static_asset_constructor_parse(pair: Pair<Rule>) -> Result<Self, Error> {
+        Ok(DataExpr::StaticAssetConstructor(
+            StaticAssetConstructor::parse(pair)?,
+        ))
+    }
+
+    fn any_asset_constructor_parse(pair: Pair<Rule>) -> Result<Self, Error> {
+        Ok(DataExpr::AnyAssetConstructor(AnyAssetConstructor::parse(
+            pair,
+        )?))
+    }
+
+    fn negate_op_parse(pair: Pair<Rule>, right: DataExpr) -> Result<Self, Error> {
+        Ok(DataExpr::NegateOp(NegateOp {
+            operand: Box::new(right),
+            span: pair.as_span().into(),
+        }))
+    }
+
+    fn property_op_parse(pair: Pair<Rule>, left: DataExpr) -> Result<Self, Error> {
+        let span: Span = pair.as_span().into();
+        let mut inner = pair.into_inner();
+
+        Ok(DataExpr::PropertyOp(PropertyOp {
+            operand: Box::new(left),
+            property: Box::new(Identifier::parse(inner.next().unwrap())?),
+            span,
+            scope: None,
+        }))
+    }
+
+    fn add_op_parse(left: DataExpr, pair: Pair<Rule>, right: DataExpr) -> Result<Self, Error> {
+        let span = pair.as_span().into();
+
+        Ok(DataExpr::AddOp(AddOp {
+            lhs: Box::new(left),
+            rhs: Box::new(right),
+            span,
+        }))
+    }
+
+    fn sub_op_parse(left: DataExpr, pair: Pair<Rule>, right: DataExpr) -> Result<Self, Error> {
+        let span = pair.as_span().into();
+
+        Ok(DataExpr::SubOp(SubOp {
+            lhs: Box::new(left),
+            rhs: Box::new(right),
+            span,
+        }))
     }
 }
+
+static DATA_EXPR_PRATT_PARSER: LazyLock<PrattParser<Rule>> = LazyLock::new(|| {
+    PrattParser::new()
+        .op(Op::infix(Rule::data_add, Assoc::Left) | Op::infix(Rule::data_sub, Assoc::Left))
+        .op(Op::prefix(Rule::data_negate))
+        .op(Op::postfix(Rule::data_property))
+});
 
 impl AstNode for DataExpr {
     const RULE: Rule = Rule::data_expr;
 
     fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
-        let mut inner = pair.into_inner();
+        let inner = pair.into_inner();
 
-        let mut final_expr = Self::term_parse(inner.next().unwrap())?;
-
-        while let Some(term) = inner.next() {
-            let span = term.as_span().into();
-            let operator = BinaryOperator::parse(term)?;
-            let next_expr = Self::term_parse(inner.next().unwrap())?;
-
-            final_expr = DataExpr::BinaryOp(DataBinaryOp {
-                operator,
-                left: Box::new(final_expr),
-                right: Box::new(next_expr),
-                span,
-            });
-        }
-
-        Ok(final_expr)
+        DATA_EXPR_PRATT_PARSER
+            .map_primary(|x| match x.as_rule() {
+                Rule::number => DataExpr::number_parse(x),
+                Rule::string => Ok(DataExpr::String(StringLiteral::parse(x)?)),
+                Rule::bool => DataExpr::bool_parse(x),
+                Rule::hex_string => Ok(DataExpr::HexString(HexStringLiteral::parse(x)?)),
+                Rule::struct_constructor => DataExpr::struct_constructor_parse(x),
+                Rule::list_constructor => DataExpr::list_constructor_parse(x),
+                Rule::unit => Ok(DataExpr::Unit),
+                Rule::identifier => DataExpr::identifier_parse(x),
+                Rule::utxo_ref => DataExpr::utxo_ref_parse(x),
+                Rule::static_asset_constructor => DataExpr::static_asset_constructor_parse(x),
+                Rule::any_asset_constructor => DataExpr::any_asset_constructor_parse(x),
+                Rule::data_expr => DataExpr::parse(x),
+                x => unreachable!("unexpected rule as data primary: {:?}", x),
+            })
+            .map_prefix(|op, right| match op.as_rule() {
+                Rule::data_negate => DataExpr::negate_op_parse(op, right?),
+                x => unreachable!("Unexpected rule as data prefix: {:?}", x),
+            })
+            .map_postfix(|left, op| match op.as_rule() {
+                Rule::data_property => DataExpr::property_op_parse(op, left?),
+                x => unreachable!("Unexpected rule as data postfix: {:?}", x),
+            })
+            .map_infix(|left, op, right| match op.as_rule() {
+                Rule::data_add => DataExpr::add_op_parse(left?, op, right?),
+                Rule::data_sub => DataExpr::sub_op_parse(left?, op, right?),
+                x => unreachable!("Unexpected rule as data infix: {:?}", x),
+            })
+            .parse(inner)
     }
 
     fn span(&self) -> &Span {
@@ -1157,27 +1114,15 @@ impl AstNode for DataExpr {
             DataExpr::HexString(x) => x.span(),
             DataExpr::StructConstructor(x) => x.span(),
             DataExpr::ListConstructor(x) => x.span(),
+            DataExpr::StaticAssetConstructor(x) => x.span(),
+            DataExpr::AnyAssetConstructor(x) => x.span(),
             DataExpr::Identifier(x) => x.span(),
-            DataExpr::PropertyAccess(x) => x.span(),
-            DataExpr::BinaryOp(x) => &x.span,
+            DataExpr::AddOp(x) => &x.span,
+            DataExpr::SubOp(x) => &x.span,
+            DataExpr::NegateOp(x) => &x.span,
+            DataExpr::PropertyOp(x) => &x.span,
             DataExpr::UtxoRef(x) => x.span(),
         }
-    }
-}
-
-impl AstNode for BinaryOperator {
-    const RULE: Rule = Rule::binary_operator;
-
-    fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
-        match pair.as_str() {
-            "+" => Ok(BinaryOperator::Add),
-            "-" => Ok(BinaryOperator::Subtract),
-            x => unreachable!("Unexpected string in binary_operator: {:?}", x),
-        }
-    }
-
-    fn span(&self) -> &Span {
-        &Span::DUMMY // TODO
     }
 }
 
@@ -1428,8 +1373,6 @@ mod tests {
         };
     }
 
-    input_to_ast_check!(BinaryOperator, "plus", "+", BinaryOperator::Add);
-
     input_to_ast_check!(Type, "int", "Int", Type::Int);
 
     input_to_ast_check!(Type, "bool", "Bool", Type::Bool);
@@ -1628,20 +1571,6 @@ mod tests {
     input_to_ast_check!(DataExpr, "number_value", "123", DataExpr::Number(123));
 
     input_to_ast_check!(
-        PropertyAccess,
-        "single_property",
-        "subject.property",
-        PropertyAccess::new("subject", "property")
-    );
-
-    input_to_ast_check!(
-        PropertyAccess,
-        "multiple_properties",
-        "subject.property.subproperty",
-        PropertyAccess::new("subject", "property.subproperty")
-    );
-
-    input_to_ast_check!(
         PolicyDef,
         "policy_def_assign",
         "policy MyPolicy = 0xAFAFAF;",
@@ -1750,28 +1679,171 @@ mod tests {
         "any_asset_property_access",
         "AnyAsset(input1.policy, input1.asset_name, input1.amount)",
         AnyAssetConstructor {
-            policy: Box::new(DataExpr::PropertyAccess(PropertyAccess::new(
-                "input1", &"policy",
-            ))),
-            asset_name: Box::new(DataExpr::PropertyAccess(PropertyAccess::new(
-                "input1",
-                &"asset_name",
-            ))),
-            amount: Box::new(DataExpr::PropertyAccess(PropertyAccess::new(
-                "input1", &"amount",
-            ))),
+            policy: Box::new(DataExpr::PropertyOp(PropertyOp {
+                operand: Box::new(DataExpr::Identifier(Identifier::new("input1"))),
+                property: Box::new(Identifier::new("policy")),
+                span: Span::DUMMY,
+                scope: None,
+            })),
+            asset_name: Box::new(DataExpr::PropertyOp(PropertyOp {
+                operand: Box::new(DataExpr::Identifier(Identifier::new("input1"))),
+                property: Box::new(Identifier::new("asset_name")),
+                span: Span::DUMMY,
+                scope: None,
+            })),
+            amount: Box::new(DataExpr::PropertyOp(PropertyOp {
+                operand: Box::new(DataExpr::Identifier(Identifier::new("input1"))),
+                property: Box::new(Identifier::new("amount")),
+                span: Span::DUMMY,
+                scope: None,
+            })),
             span: Span::DUMMY,
         }
     );
 
+    input_to_ast_check!(DataExpr, "literal", "5", DataExpr::Number(5));
+
     input_to_ast_check!(
         DataExpr,
-        "addition",
+        "add_op",
         "5 + var1",
-        DataExpr::BinaryOp(DataBinaryOp {
-            operator: BinaryOperator::Add,
-            left: Box::new(DataExpr::Number(5)),
-            right: Box::new(DataExpr::Identifier(Identifier::new("var1"))),
+        DataExpr::AddOp(AddOp {
+            lhs: Box::new(DataExpr::Number(5)),
+            rhs: Box::new(DataExpr::Identifier(Identifier::new("var1"))),
+            span: Span::DUMMY,
+        })
+    );
+
+    input_to_ast_check!(
+        DataExpr,
+        "property_access",
+        "subject.property",
+        DataExpr::PropertyOp(PropertyOp {
+            operand: Box::new(DataExpr::Identifier(Identifier::new("subject"))),
+            property: Box::new(Identifier::new("property")),
+            span: Span::DUMMY,
+            scope: None,
+        })
+    );
+
+    input_to_ast_check!(
+        DataExpr,
+        "multiple_properties",
+        "subject.property.subproperty",
+        DataExpr::PropertyOp(PropertyOp {
+            operand: Box::new(DataExpr::PropertyOp(PropertyOp {
+                operand: Box::new(DataExpr::Identifier(Identifier::new("subject"))),
+                property: Box::new(Identifier::new("property")),
+                span: Span::DUMMY,
+                scope: None,
+            })),
+            property: Box::new(Identifier::new("subproperty")),
+            span: Span::DUMMY,
+            scope: None,
+        })
+    );
+
+    input_to_ast_check!(DataExpr, "empty_parentheses", "()", DataExpr::Unit);
+
+    input_to_ast_check!(DataExpr, "nested_parentheses", "((()))", DataExpr::Unit);
+
+    input_to_ast_check!(
+        DataExpr,
+        "nested_arithmetic_expression",
+        "(1 + ((6 - 3) + 4))",
+        DataExpr::AddOp(AddOp {
+            lhs: Box::new(DataExpr::Number(1)),
+            rhs: Box::new(DataExpr::AddOp(AddOp {
+                lhs: Box::new(DataExpr::SubOp(SubOp {
+                    lhs: Box::new(DataExpr::Number(6)),
+                    rhs: Box::new(DataExpr::Number(3)),
+                    span: Span::DUMMY,
+                })),
+                rhs: Box::new(DataExpr::Number(4)),
+                span: Span::DUMMY,
+            })),
+            span: Span::DUMMY,
+        })
+    );
+
+    input_to_ast_check!(
+        DataExpr,
+        "negate_op",
+        "!a",
+        DataExpr::NegateOp(NegateOp {
+            operand: Box::new(DataExpr::Identifier(Identifier::new("a"))),
+            span: Span::DUMMY,
+        })
+    );
+
+    input_to_ast_check!(
+        DataExpr,
+        "negate_precedence",
+        "!a.b",
+        DataExpr::NegateOp(NegateOp {
+            operand: Box::new(DataExpr::PropertyOp(PropertyOp {
+                operand: Box::new(DataExpr::Identifier(Identifier::new("a"))),
+                property: Box::new(Identifier::new("b")),
+                span: Span::DUMMY,
+                scope: None,
+            })),
+            span: Span::DUMMY,
+        })
+    );
+
+    input_to_ast_check!(
+        DataExpr,
+        "negate_override_precedence",
+        "(!a).b",
+        DataExpr::PropertyOp(PropertyOp {
+            operand: Box::new(DataExpr::NegateOp(NegateOp {
+                operand: Box::new(DataExpr::Identifier(Identifier::new("a"))),
+                span: Span::DUMMY,
+            })),
+            property: Box::new(Identifier::new("b")),
+            span: Span::DUMMY,
+            scope: None,
+        })
+    );
+
+    input_to_ast_check!(
+        DataExpr,
+        "overly_complex",
+        "(1 + 5) - ((a.b.c - 3) + !d.f)",
+        DataExpr::SubOp(SubOp {
+            lhs: Box::new(DataExpr::AddOp(AddOp {
+                lhs: Box::new(DataExpr::Number(1)),
+                rhs: Box::new(DataExpr::Number(5)),
+                span: Span::DUMMY,
+            })),
+            rhs: Box::new(DataExpr::AddOp(AddOp {
+                lhs: Box::new(DataExpr::SubOp(SubOp {
+                    lhs: Box::new(DataExpr::PropertyOp(PropertyOp {
+                        operand: Box::new(DataExpr::PropertyOp(PropertyOp {
+                            operand: Box::new(DataExpr::Identifier(Identifier::new("a"))),
+                            property: Box::new(Identifier::new("b")),
+                            span: Span::DUMMY,
+                            scope: None,
+                        })),
+                        property: Box::new(Identifier::new("c")),
+                        span: Span::DUMMY,
+                        scope: None,
+                    })),
+                    rhs: Box::new(DataExpr::Number(3)),
+                    span: Span::DUMMY,
+                })),
+                rhs: Box::new(DataExpr::NegateOp(NegateOp {
+                    operand: Box::new(DataExpr::PropertyOp(PropertyOp {
+                        operand: Box::new(DataExpr::Identifier(Identifier::new("d"))),
+                        property: Box::new(Identifier::new("f")),
+                        span: Span::DUMMY,
+                        scope: None,
+                    })),
+                    span: Span::DUMMY,
+                })),
+
+                span: Span::DUMMY,
+            })),
             span: Span::DUMMY,
         })
     );
@@ -1911,7 +1983,7 @@ mod tests {
                 OutputBlockField::To(Box::new(AddressExpr::Identifier(Identifier::new(
                     "my_party".to_string(),
                 )))),
-                OutputBlockField::Amount(Box::new(AssetExpr::StaticConstructor(
+                OutputBlockField::Amount(Box::new(DataExpr::StaticAssetConstructor(
                     StaticAssetConstructor {
                         r#type: Identifier::new("Ada"),
                         amount: Box::new(DataExpr::Number(100)),
@@ -1942,7 +2014,7 @@ mod tests {
     #[test]
     fn test_spans_are_respected() {
         let program = parse_well_known_example("lang_tour");
-        assert_eq!(program.span, Span::new(0, 1428));
+        assert_eq!(program.span, Span::new(0, 1445));
 
         assert_eq!(program.parties[0].span, Span::new(0, 14));
 

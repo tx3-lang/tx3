@@ -202,6 +202,8 @@ mod tests {
 
         dbg!(&tx.find_params());
 
+        let tx = tx.apply().unwrap();
+
         let tx = resolve_tx(tx, MockLedger, 3).await.unwrap();
 
         println!("{}", hex::encode(&tx.payload));

@@ -260,20 +260,20 @@ impl Scope {
         );
     }
 
-    pub fn track_input(&mut self, name: &str, ty: Type) {
+    pub fn track_input(&mut self, name: &str, datum_type: Type) {
         self.symbols.insert(
             name.to_string(),
-            Symbol::Input(name.to_string(), Box::new(ty)),
+            Symbol::Input(name.to_string(), Box::new(datum_type)),
         );
     }
 
-    pub fn track_record_fields_for_type(&mut self, r#type: &Type) {
-        let schema = resolve_type_schema(r#type);
+    pub fn track_record_fields_for_type(&mut self, ty: &Type) {
+        let schema = ty.properties();
 
-        for (name, r#type) in schema {
+        for (name, subty) in schema {
             self.track_record_field(&RecordField {
                 name,
-                r#type,
+                r#type: subty,
                 span: Span::DUMMY,
             });
         }
@@ -287,37 +287,6 @@ impl Scope {
         } else {
             None
         }
-    }
-}
-
-fn resolve_type_schema(ty: &Type) -> Vec<(String, Type)> {
-    match ty {
-        Type::AnyAsset => {
-            vec![
-                ("amount".to_string(), Type::Int),
-                ("policy".to_string(), Type::Bytes),
-                ("asset_name".to_string(), Type::Bytes),
-            ]
-        }
-        Type::UtxoRef => {
-            vec![
-                ("tx_hash".to_string(), Type::Bytes),
-                ("output_index".to_string(), Type::Int),
-            ]
-        }
-        Type::Custom(identifier) => {
-            let def = identifier.symbol.as_ref().and_then(|s| s.as_type_def());
-
-            match def {
-                Some(ty) if ty.cases.len() == 1 => ty.cases[0]
-                    .fields
-                    .iter()
-                    .map(|f| (f.name.clone(), f.r#type.clone()))
-                    .collect(),
-                _ => vec![],
-            }
-        }
-        _ => vec![],
     }
 }
 
@@ -418,16 +387,39 @@ impl Analyzable for PolicyDef {
     }
 }
 
-impl Analyzable for DataBinaryOp {
+impl Analyzable for AddOp {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        let left = self.left.analyze(parent.clone());
-        let right = self.right.analyze(parent.clone());
+        let left = self.lhs.analyze(parent.clone());
+        let right = self.rhs.analyze(parent.clone());
 
         left + right
     }
 
     fn is_resolved(&self) -> bool {
-        self.left.is_resolved() && self.right.is_resolved()
+        self.lhs.is_resolved() && self.rhs.is_resolved()
+    }
+}
+
+impl Analyzable for SubOp {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+        let left = self.lhs.analyze(parent.clone());
+        let right = self.rhs.analyze(parent.clone());
+
+        left + right
+    }
+
+    fn is_resolved(&self) -> bool {
+        self.lhs.is_resolved() && self.rhs.is_resolved()
+    }
+}
+
+impl Analyzable for NegateOp {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+        self.operand.analyze(parent)
+    }
+
+    fn is_resolved(&self) -> bool {
+        self.operand.is_resolved()
     }
 }
 
@@ -518,8 +510,12 @@ impl Analyzable for DataExpr {
             DataExpr::StructConstructor(x) => x.analyze(parent),
             DataExpr::ListConstructor(x) => x.analyze(parent),
             DataExpr::Identifier(x) => x.analyze(parent),
-            DataExpr::PropertyAccess(x) => x.analyze(parent),
-            DataExpr::BinaryOp(x) => x.analyze(parent),
+            DataExpr::AddOp(x) => x.analyze(parent),
+            DataExpr::SubOp(x) => x.analyze(parent),
+            DataExpr::NegateOp(x) => x.analyze(parent),
+            DataExpr::PropertyOp(x) => x.analyze(parent),
+            DataExpr::StaticAssetConstructor(x) => x.analyze(parent),
+            DataExpr::AnyAssetConstructor(x) => x.analyze(parent),
             _ => AnalyzeReport::default(),
         }
     }
@@ -529,23 +525,14 @@ impl Analyzable for DataExpr {
             DataExpr::StructConstructor(x) => x.is_resolved(),
             DataExpr::ListConstructor(x) => x.is_resolved(),
             DataExpr::Identifier(x) => x.is_resolved(),
-            DataExpr::PropertyAccess(x) => x.is_resolved(),
-            DataExpr::BinaryOp(x) => x.is_resolved(),
+            DataExpr::AddOp(x) => x.is_resolved(),
+            DataExpr::SubOp(x) => x.is_resolved(),
+            DataExpr::NegateOp(x) => x.is_resolved(),
+            DataExpr::PropertyOp(x) => x.is_resolved(),
+            DataExpr::StaticAssetConstructor(x) => x.is_resolved(),
+            DataExpr::AnyAssetConstructor(x) => x.is_resolved(),
             _ => true,
         }
-    }
-}
-
-impl Analyzable for AssetBinaryOp {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        let left = self.left.analyze(parent.clone());
-        let right = self.right.analyze(parent.clone());
-
-        left + right
-    }
-
-    fn is_resolved(&self) -> bool {
-        self.left.is_resolved() && self.right.is_resolved()
     }
 }
 
@@ -576,47 +563,25 @@ impl Analyzable for AnyAssetConstructor {
     }
 }
 
-impl Analyzable for PropertyAccess {
+impl Analyzable for PropertyOp {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        let object = self.object.analyze(parent.clone());
+        let object = self.operand.analyze(parent.clone());
 
         let mut scope = Scope::new(parent);
 
-        if let Some(ty) = self.object.target_type() {
+        if let Some(ty) = self.operand.target_type() {
             scope.track_record_fields_for_type(&ty);
         }
 
         self.scope = Some(Rc::new(scope));
 
-        let path = self.field.analyze(self.scope.clone());
+        let path = self.property.analyze(self.scope.clone());
 
         object + path
     }
 
     fn is_resolved(&self) -> bool {
-        self.object.is_resolved() && self.field.is_resolved()
-    }
-}
-
-impl Analyzable for AssetExpr {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        match self {
-            AssetExpr::Identifier(x) => x.analyze(parent),
-            AssetExpr::StaticConstructor(x) => x.analyze(parent),
-            AssetExpr::AnyConstructor(x) => x.analyze(parent),
-            AssetExpr::BinaryOp(x) => x.analyze(parent),
-            AssetExpr::PropertyAccess(x) => x.analyze(parent),
-        }
-    }
-
-    fn is_resolved(&self) -> bool {
-        match self {
-            AssetExpr::Identifier(x) => x.is_resolved(),
-            AssetExpr::StaticConstructor(x) => x.is_resolved(),
-            AssetExpr::AnyConstructor(x) => x.is_resolved(),
-            AssetExpr::BinaryOp(x) => x.is_resolved(),
-            AssetExpr::PropertyAccess(x) => x.is_resolved(),
-        }
+        self.operand.is_resolved() && self.property.is_resolved()
     }
 }
 
@@ -961,10 +926,8 @@ impl Analyzable for TxDef {
         }
 
         for input in self.inputs.iter() {
-            scope.track_input(
-                &input.name,
-                input.datum_is().cloned().unwrap_or(Type::Undefined),
-            );
+            let datum_type = input.datum_is().cloned().unwrap_or(Type::Undefined);
+            scope.track_input(&input.name, datum_type);
         }
 
         // enter the new scope and analyze the rest of the program

@@ -59,9 +59,9 @@
             },
             {
               "MinAmount": {
-                "BinaryOp": {
-                  "left": {
-                    "StaticConstructor": {
+                "AddOp": {
+                  "lhs": {
+                    "StaticAssetConstructor": {
                       "type": {
                         "value": "Ship",
                         "span": {
@@ -87,9 +87,8 @@
                       }
                     }
                   },
-                  "operator": "Add",
-                  "right": {
-                    "StaticConstructor": {
+                  "rhs": {
+                    "StaticAssetConstructor": {
                       "type": {
                         "value": "Fuel",
                         "span": {
@@ -235,7 +234,7 @@
             },
             {
               "MinAmount": {
-                "StaticConstructor": {
+                "StaticAssetConstructor": {
                   "type": {
                     "value": "Pilot",
                     "span": {
@@ -323,8 +322,8 @@
             },
             {
               "Amount": {
-                "BinaryOp": {
-                  "left": {
+                "SubOp": {
+                  "lhs": {
                     "Identifier": {
                       "value": "ship",
                       "span": {
@@ -334,9 +333,8 @@
                       }
                     }
                   },
-                  "operator": "Subtract",
-                  "right": {
-                    "StaticConstructor": {
+                  "rhs": {
+                    "StaticAssetConstructor": {
                       "type": {
                         "value": "Fuel",
                         "span": {
@@ -401,10 +399,10 @@
                           }
                         },
                         "value": {
-                          "BinaryOp": {
-                            "left": {
-                              "PropertyAccess": {
-                                "object": {
+                          "AddOp": {
+                            "lhs": {
+                              "PropertyOp": {
+                                "operand": {
                                   "Identifier": {
                                     "value": "ship",
                                     "span": {
@@ -414,7 +412,7 @@
                                     }
                                   }
                                 },
-                                "field": {
+                                "property": {
                                   "value": "pos_x",
                                   "span": {
                                     "dummy": false,
@@ -424,13 +422,12 @@
                                 },
                                 "span": {
                                   "dummy": false,
-                                  "start": 1276,
-                                  "end": 1287
+                                  "start": 1280,
+                                  "end": 1286
                                 }
                               }
                             },
-                            "operator": "Add",
-                            "right": {
+                            "rhs": {
                               "Identifier": {
                                 "value": "p_delta_x",
                                 "span": {
@@ -463,10 +460,10 @@
                           }
                         },
                         "value": {
-                          "BinaryOp": {
-                            "left": {
-                              "PropertyAccess": {
-                                "object": {
+                          "AddOp": {
+                            "lhs": {
+                              "PropertyOp": {
+                                "operand": {
                                   "Identifier": {
                                     "value": "ship",
                                     "span": {
@@ -476,7 +473,7 @@
                                     }
                                   }
                                 },
-                                "field": {
+                                "property": {
                                   "value": "pos_y",
                                   "span": {
                                     "dummy": false,
@@ -486,13 +483,12 @@
                                 },
                                 "span": {
                                   "dummy": false,
-                                  "start": 1319,
-                                  "end": 1330
+                                  "start": 1323,
+                                  "end": 1329
                                 }
                               }
                             },
-                            "operator": "Add",
-                            "right": {
+                            "rhs": {
                               "Identifier": {
                                 "value": "p_delta_y",
                                 "span": {
@@ -564,8 +560,8 @@
             },
             {
               "Amount": {
-                "BinaryOp": {
-                  "left": {
+                "SubOp": {
+                  "lhs": {
                     "Identifier": {
                       "value": "pilot",
                       "span": {
@@ -575,8 +571,7 @@
                       }
                     }
                   },
-                  "operator": "Subtract",
-                  "right": {
+                  "rhs": {
                     "Identifier": {
                       "value": "fees",
                       "span": {
@@ -607,7 +602,7 @@
         "fields": [
           {
             "Amount": {
-              "StaticConstructor": {
+              "StaticAssetConstructor": {
                 "type": {
                   "value": "Fuel",
                   "span": {
