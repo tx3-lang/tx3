@@ -161,8 +161,8 @@
             },
             {
               "MinAmount": {
-                "BinaryOp": {
-                  "left": {
+                "AddOp": {
+                  "lhs": {
                     "Identifier": {
                       "value": "fees",
                       "span": {
@@ -172,8 +172,7 @@
                       }
                     }
                   },
-                  "operator": "Add",
-                  "right": {
+                  "rhs": {
                     "Identifier": {
                       "value": "bid",
                       "span": {
@@ -246,10 +245,10 @@
                           }
                         },
                         "value": {
-                          "BinaryOp": {
-                            "left": {
-                              "PropertyAccess": {
-                                "object": {
+                          "SubOp": {
+                            "lhs": {
+                              "PropertyOp": {
+                                "operand": {
                                   "Identifier": {
                                     "value": "pool",
                                     "span": {
@@ -259,7 +258,7 @@
                                     }
                                   }
                                 },
-                                "field": {
+                                "property": {
                                   "value": "pair_a",
                                   "span": {
                                     "dummy": false,
@@ -269,15 +268,14 @@
                                 },
                                 "span": {
                                   "dummy": false,
-                                  "start": 552,
-                                  "end": 564
+                                  "start": 556,
+                                  "end": 563
                                 }
                               }
                             },
-                            "operator": "Subtract",
-                            "right": {
-                              "PropertyAccess": {
-                                "object": {
+                            "rhs": {
+                              "PropertyOp": {
+                                "operand": {
                                   "Identifier": {
                                     "value": "bid",
                                     "span": {
@@ -287,7 +285,7 @@
                                     }
                                   }
                                 },
-                                "field": {
+                                "property": {
                                   "value": "amount",
                                   "span": {
                                     "dummy": false,
@@ -297,7 +295,7 @@
                                 },
                                 "span": {
                                   "dummy": false,
-                                  "start": 566,
+                                  "start": 569,
                                   "end": 576
                                 }
                               }
@@ -325,10 +323,10 @@
                           }
                         },
                         "value": {
-                          "BinaryOp": {
-                            "left": {
-                              "PropertyAccess": {
-                                "object": {
+                          "AddOp": {
+                            "lhs": {
+                              "PropertyOp": {
+                                "operand": {
                                   "Identifier": {
                                     "value": "pool",
                                     "span": {
@@ -338,7 +336,7 @@
                                     }
                                   }
                                 },
-                                "field": {
+                                "property": {
                                   "value": "pair_b",
                                   "span": {
                                     "dummy": false,
@@ -348,15 +346,14 @@
                                 },
                                 "span": {
                                   "dummy": false,
-                                  "start": 598,
-                                  "end": 610
+                                  "start": 602,
+                                  "end": 609
                                 }
                               }
                             },
-                            "operator": "Add",
-                            "right": {
-                              "PropertyAccess": {
-                                "object": {
+                            "rhs": {
+                              "PropertyOp": {
+                                "operand": {
                                   "Identifier": {
                                     "value": "ask",
                                     "span": {
@@ -366,7 +363,7 @@
                                     }
                                   }
                                 },
-                                "field": {
+                                "property": {
                                   "value": "amount",
                                   "span": {
                                     "dummy": false,
@@ -376,7 +373,7 @@
                                 },
                                 "span": {
                                   "dummy": false,
-                                  "start": 612,
+                                  "start": 615,
                                   "end": 622
                                 }
                               }
@@ -455,12 +452,12 @@
             },
             {
               "Amount": {
-                "BinaryOp": {
-                  "left": {
-                    "BinaryOp": {
-                      "left": {
-                        "BinaryOp": {
-                          "left": {
+                "SubOp": {
+                  "lhs": {
+                    "SubOp": {
+                      "lhs": {
+                        "AddOp": {
+                          "lhs": {
                             "Identifier": {
                               "value": "payment",
                               "span": {
@@ -470,8 +467,7 @@
                               }
                             }
                           },
-                          "operator": "Add",
-                          "right": {
+                          "rhs": {
                             "Identifier": {
                               "value": "ask",
                               "span": {
@@ -488,8 +484,7 @@
                           }
                         }
                       },
-                      "operator": "Subtract",
-                      "right": {
+                      "rhs": {
                         "Identifier": {
                           "value": "bid",
                           "span": {
@@ -506,8 +501,7 @@
                       }
                     }
                   },
-                  "operator": "Subtract",
-                  "right": {
+                  "rhs": {
                     "Identifier": {
                       "value": "fees",
                       "span": {

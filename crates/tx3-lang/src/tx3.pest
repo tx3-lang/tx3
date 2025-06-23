@@ -112,9 +112,6 @@ type_def = _{
     variant_def
 }
 
-// Expressions
-property_access = { identifier ~ "." ~ identifier ~ ("." ~ identifier)* }
-
 static_asset_constructor = {
     identifier ~ "(" ~ data_expr ~ ("," ~ data_expr)? ~ ")"
 }
@@ -123,24 +120,32 @@ any_asset_constructor = {
     "AnyAsset" ~ "(" ~ data_expr ~ "," ~ data_expr ~ "," ~ data_expr ~ ")"
 }
 
-asset_expr = { asset_term ~ (binary_operator ~ asset_term)* }
-asset_term = _{ any_asset_constructor | static_asset_constructor | property_access | identifier }
+data_expr = { data_prefix* ~ data_primary ~ data_postfix* ~ (data_infix ~ data_prefix* ~ data_primary ~ data_postfix* )* }
 
-binary_operator = { "+" | "-" }
+    data_infix = _{ data_add | data_sub }
+        data_add = { "+" }
+        data_sub = { "-" }
 
-data_expr = { data_term ~ (binary_operator ~ data_term)* }
-data_term = _{
-    unit |
-    utxo_ref |
-    hex_string |
-    number |
-    bool |
-    string |
-    struct_constructor |
-    list_constructor |
-    property_access |
-    identifier
-}
+    data_prefix = _{ data_negate }
+        data_negate = { "!" }
+    
+    data_postfix = _{ data_property }
+        data_property = { "." ~ identifier }
+
+    data_primary = _{
+        unit |
+        utxo_ref |
+        hex_string |
+        number |
+        bool |
+        string |
+        struct_constructor |
+        list_constructor |
+        any_asset_constructor |
+        static_asset_constructor |
+        identifier |
+        "(" ~ data_expr ~ ")"
+    }
 
 spread_expression = { "..." ~ data_expr }
 
@@ -185,7 +190,7 @@ address_expr = {
 
 input_block_from = { "from" ~ ":" ~ address_expr }
 input_block_datum_is = { "datum_is" ~ ":" ~ type }
-input_block_min_amount = { "min_amount" ~ ":" ~ asset_expr }
+input_block_min_amount = { "min_amount" ~ ":" ~ data_expr }
 input_block_redeemer = { "redeemer" ~ ":" ~ data_expr }
 input_block_ref = { "ref" ~ ":" ~ data_expr }
 
@@ -222,7 +227,7 @@ reference_block = {
 }
 
 output_block_to = { "to" ~ ":" ~ address_expr }
-output_block_amount = { "amount" ~ ":" ~ asset_expr }
+output_block_amount = { "amount" ~ ":" ~ data_expr }
 output_block_datum = { "datum" ~ ":" ~ data_expr }
 
 output_block_field = _{
@@ -251,7 +256,7 @@ validity_block = {
     "}"
 }
 
-mint_block_amount = { "amount" ~ ":" ~ asset_expr }
+mint_block_amount = { "amount" ~ ":" ~ data_expr }
 mint_block_redeemer = { "redeemer" ~ ":" ~ data_expr }
 
 mint_block_field = _{

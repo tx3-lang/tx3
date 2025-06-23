@@ -12,8 +12,8 @@ use crate::UtxoRef;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("missing analyze phase")]
-    MissingAnalyzePhase,
+    #[error("missing analyze phase for {0}")]
+    MissingAnalyzePhase(String),
 
     #[error("symbol '{0}' expected to be '{1}'")]
     InvalidSymbol(String, &'static str),
@@ -24,12 +24,18 @@ pub enum Error {
     #[error("invalid ast: {0}")]
     InvalidAst(String),
 
+    #[error("invalid property {0} on type {1:?}")]
+    InvalidProperty(String, ast::Type),
+
     #[error("failed to decode hex string: {0}")]
     DecodeHexError(#[from] hex::FromHexError),
 }
 
 fn expect_type_def(ident: &ast::Identifier) -> Result<&ast::TypeDef, Error> {
-    let symbol = ident.symbol.as_ref().ok_or(Error::MissingAnalyzePhase)?;
+    let symbol = ident
+        .symbol
+        .as_ref()
+        .ok_or(Error::MissingAnalyzePhase(ident.value.clone()))?;
 
     symbol
         .as_type_def()
@@ -37,7 +43,10 @@ fn expect_type_def(ident: &ast::Identifier) -> Result<&ast::TypeDef, Error> {
 }
 
 fn expect_case_def(ident: &ast::Identifier) -> Result<&ast::VariantCase, Error> {
-    let symbol = ident.symbol.as_ref().ok_or(Error::MissingAnalyzePhase)?;
+    let symbol = ident
+        .symbol
+        .as_ref()
+        .ok_or(Error::MissingAnalyzePhase(ident.value.clone()))?;
 
     symbol
         .as_variant_case()
@@ -46,7 +55,10 @@ fn expect_case_def(ident: &ast::Identifier) -> Result<&ast::VariantCase, Error> 
 
 #[allow(dead_code)]
 fn expect_field_def(ident: &ast::Identifier) -> Result<&ast::RecordField, Error> {
-    let symbol = ident.symbol.as_ref().ok_or(Error::MissingAnalyzePhase)?;
+    let symbol = ident
+        .symbol
+        .as_ref()
+        .ok_or(Error::MissingAnalyzePhase(ident.value.clone()))?;
 
     symbol
         .as_field_def()
@@ -64,7 +76,7 @@ fn coerce_identifier_into_asset_expr(
     identifier: &ast::Identifier,
 ) -> Result<ir::Expression, Error> {
     match identifier.try_symbol()? {
-        ast::Symbol::Input(x, _) => Ok(ir::Expression::EvalInputAssets(x.clone())),
+        ast::Symbol::Input(x, _) => Ok(ir::Expression::EvalInput(x.clone())),
         ast::Symbol::Fees => Ok(ir::Expression::FeeQuery),
         ast::Symbol::ParamVar(name, ty) => match ty.deref() {
             ast::Type::AnyAsset => Ok(ir::Expression::EvalParameter(
@@ -136,7 +148,8 @@ impl IntoLower for ast::Identifier {
                 x.name.to_lowercase().clone(),
                 ir::Type::Address,
             )),
-            ast::Symbol::Input(n, _) => Ok(ir::Expression::EvalInputDatum(n.clone())),
+            ast::Symbol::Input(n, _) => Ok(ir::Expression::EvalInput(n.clone())),
+            ast::Symbol::Fees => Ok(ir::Expression::FeeQuery),
             _ => {
                 dbg!(&self);
                 todo!();
@@ -184,10 +197,9 @@ impl IntoLower for ast::StructConstructor {
                     .expect("spread must be set for missing explicit field")
                     .into_lower()?;
 
-                fields.push(ir::Expression::EvalProperty(Box::new(ir::PropertyAccess {
-                    object: Box::new(spread_target),
-                    field: index as u64,
-                })));
+                fields.push(ir::Expression::EvalBuiltIn(Box::new(
+                    ir::BuiltInOp::Property(spread_target, index),
+                )));
             }
         }
 
@@ -263,6 +275,7 @@ impl IntoLower for ast::Type {
             ast::Type::Bool => Ok(ir::Type::Bool),
             ast::Type::Bytes => Ok(ir::Type::Bytes),
             ast::Type::Address => Ok(ir::Type::Address),
+            ast::Type::Utxo => Ok(ir::Type::Utxo),
             ast::Type::UtxoRef => Ok(ir::Type::UtxoRef),
             ast::Type::AnyAsset => Ok(ir::Type::AnyAsset),
             ast::Type::List(_) => Ok(ir::Type::List),
@@ -271,69 +284,62 @@ impl IntoLower for ast::Type {
     }
 }
 
-impl IntoLower for ast::DataBinaryOp {
-    type Output = ir::BinaryOp;
-
-    fn into_lower(&self) -> Result<Self::Output, Error> {
-        let left = self.left.into_lower()?;
-        let right = self.right.into_lower()?;
-
-        Ok(ir::BinaryOp {
-            left,
-            right,
-            op: match self.operator {
-                ast::BinaryOperator::Add => ir::BinaryOpKind::Add,
-                ast::BinaryOperator::Subtract => ir::BinaryOpKind::Sub,
-            },
-        })
-    }
-}
-
-impl IntoLower for ast::PropertyAccess {
+impl IntoLower for ast::AddOp {
     type Output = ir::Expression;
 
     fn into_lower(&self) -> Result<Self::Output, Error> {
-        let object = self.object.into_lower()?;
-        let ty = self
-            .object
-            .target_type()
-            .ok_or(Error::MissingAnalyzePhase)?;
-        let field_name = &self.field.value;
-        let field_index = match ty {
-            ast::Type::Custom(ref ident) => {
-                let type_def = expect_type_def(ident)?;
-                let case = &type_def.cases[0];
-                case.fields
-                    .iter()
-                    .position(|f| f.name == *field_name)
-                    .ok_or_else(|| Error::InvalidAst(format!("field '{}' not found", field_name)))?
-            }
-            ast::Type::AnyAsset => {
-                // TODO: improve this for each native type
-                match field_name.as_str() {
-                    "amount" => 0,
-                    "policy" => 1,
-                    "asset_name" => 2,
-                    _ => {
-                        return Err(Error::InvalidAst(format!(
-                            "field '{}' not found",
-                            field_name
-                        )))
-                    }
-                }
-            }
-            _ => {
-                return Err(Error::InvalidAst(format!(
-                    "Property access not supported for type: {:?}",
-                    ty
-                )))
-            }
-        };
+        let left = self.lhs.into_lower()?;
+        let right = self.rhs.into_lower()?;
 
-        Ok(ir::Expression::EvalProperty(Box::new(ir::PropertyAccess {
-            object: Box::new(object),
-            field: field_index as u64,
-        })))
+        Ok(ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Add(
+            left, right,
+        ))))
+    }
+}
+
+impl IntoLower for ast::SubOp {
+    type Output = ir::Expression;
+
+    fn into_lower(&self) -> Result<Self::Output, Error> {
+        let left = self.lhs.into_lower()?;
+        let right = self.rhs.into_lower()?;
+
+        Ok(ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Sub(
+            left, right,
+        ))))
+    }
+}
+
+impl IntoLower for ast::NegateOp {
+    type Output = ir::Expression;
+
+    fn into_lower(&self) -> Result<Self::Output, Error> {
+        let operand = self.operand.into_lower()?;
+
+        Ok(ir::Expression::EvalBuiltIn(Box::new(
+            ir::BuiltInOp::Negate(operand),
+        )))
+    }
+}
+
+impl IntoLower for ast::PropertyOp {
+    type Output = ir::Expression;
+
+    fn into_lower(&self) -> Result<Self::Output, Error> {
+        let object = self.operand.into_lower()?;
+
+        let ty = self
+            .operand
+            .target_type()
+            .ok_or(Error::MissingAnalyzePhase(format!("{0:?}", self.operand)))?;
+
+        let prop_index = ty
+            .property_index(&self.property.value)
+            .ok_or(Error::InvalidProperty(self.property.value.clone(), ty))?;
+
+        Ok(ir::Expression::EvalBuiltIn(Box::new(
+            ir::BuiltInOp::Property(object, prop_index),
+        )))
     }
 }
 
@@ -363,10 +369,14 @@ impl IntoLower for ast::DataExpr {
             ast::DataExpr::HexString(x) => ir::Expression::Bytes(hex::decode(&x.value)?),
             ast::DataExpr::StructConstructor(x) => ir::Expression::Struct(x.into_lower()?),
             ast::DataExpr::ListConstructor(x) => ir::Expression::List(x.into_lower()?),
+            ast::DataExpr::StaticAssetConstructor(x) => x.into_lower()?,
+            ast::DataExpr::AnyAssetConstructor(x) => x.into_lower()?,
             ast::DataExpr::Unit => ir::Expression::Struct(ir::StructExpr::unit()),
             ast::DataExpr::Identifier(x) => x.into_lower()?,
-            ast::DataExpr::BinaryOp(x) => ir::Expression::EvalCustom(Box::new(x.into_lower()?)),
-            ast::DataExpr::PropertyAccess(x) => x.into_lower()?,
+            ast::DataExpr::AddOp(x) => x.into_lower()?,
+            ast::DataExpr::SubOp(x) => x.into_lower()?,
+            ast::DataExpr::NegateOp(x) => x.into_lower()?,
+            ast::DataExpr::PropertyOp(x) => x.into_lower()?,
             ast::DataExpr::UtxoRef(x) => x.into_lower()?,
         };
 
@@ -406,40 +416,6 @@ impl IntoLower for ast::AnyAssetConstructor {
             asset_name,
             amount,
         }]))
-    }
-}
-
-impl IntoLower for ast::AssetBinaryOp {
-    type Output = ir::BinaryOp;
-
-    fn into_lower(&self) -> Result<Self::Output, Error> {
-        let left = self.left.into_lower()?;
-        let right = self.right.into_lower()?;
-
-        Ok(ir::BinaryOp {
-            left,
-            right,
-            op: match self.operator {
-                ast::BinaryOperator::Add => ir::BinaryOpKind::Add,
-                ast::BinaryOperator::Subtract => ir::BinaryOpKind::Sub,
-            },
-        })
-    }
-}
-
-impl IntoLower for ast::AssetExpr {
-    type Output = ir::Expression;
-
-    fn into_lower(&self) -> Result<Self::Output, Error> {
-        match self {
-            ast::AssetExpr::StaticConstructor(x) => x.into_lower(),
-            ast::AssetExpr::AnyConstructor(x) => x.into_lower(),
-            ast::AssetExpr::BinaryOp(x) => {
-                Ok(ir::Expression::EvalCustom(Box::new(x.into_lower()?)))
-            }
-            ast::AssetExpr::Identifier(x) => coerce_identifier_into_asset_expr(x),
-            ast::AssetExpr::PropertyAccess(x) => x.into_lower(),
-        }
     }
 }
 

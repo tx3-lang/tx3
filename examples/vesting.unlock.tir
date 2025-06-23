@@ -116,20 +116,22 @@
       },
       "datum": null,
       "amount": {
-        "EvalCustom": {
-          "left": {
-            "EvalCustom": {
-              "left": {
-                "EvalInputAssets": "gas"
-              },
-              "right": {
-                "EvalInputAssets": "locked"
-              },
-              "op": "Add"
-            }
-          },
-          "right": "FeeQuery",
-          "op": "Sub"
+        "EvalBuiltIn": {
+          "Sub": [
+            {
+              "EvalBuiltIn": {
+                "Add": [
+                  {
+                    "EvalInput": "gas"
+                  },
+                  {
+                    "EvalInput": "locked"
+                  }
+                ]
+              }
+            },
+            "FeeQuery"
+          ]
         }
       }
     }

@@ -65,31 +65,33 @@
       },
       "datum": null,
       "amount": {
-        "EvalCustom": {
-          "left": {
-            "EvalCustom": {
-              "left": {
-                "EvalInputAssets": "source"
-              },
-              "right": {
-                "Assets": [
+        "EvalBuiltIn": {
+          "Sub": [
+            {
+              "EvalBuiltIn": {
+                "Sub": [
                   {
-                    "policy": "None",
-                    "asset_name": "None",
-                    "amount": {
-                      "EvalParameter": [
-                        "quantity",
-                        "Int"
-                      ]
-                    }
+                    "EvalInput": "source"
+                  },
+                  {
+                    "Assets": [
+                      {
+                        "policy": "None",
+                        "asset_name": "None",
+                        "amount": {
+                          "EvalParameter": [
+                            "quantity",
+                            "Int"
+                          ]
+                        }
+                      }
+                    ]
                   }
                 ]
-              },
-              "op": "Sub"
-            }
-          },
-          "right": "FeeQuery",
-          "op": "Sub"
+              }
+            },
+            "FeeQuery"
+          ]
         }
       }
     }

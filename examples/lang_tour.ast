@@ -55,7 +55,7 @@
             },
             {
               "MinAmount": {
-                "StaticConstructor": {
+                "StaticAssetConstructor": {
                   "type": {
                     "value": "Ada",
                     "span": {
@@ -267,12 +267,48 @@
                           }
                         },
                         "value": {
-                          "Number": 54
+                          "SubOp": {
+                            "lhs": {
+                              "AddOp": {
+                                "lhs": {
+                                  "Number": 54
+                                },
+                                "rhs": {
+                                  "Number": 10
+                                },
+                                "span": {
+                                  "dummy": false,
+                                  "start": 1022,
+                                  "end": 1023
+                                }
+                              }
+                            },
+                            "rhs": {
+                              "AddOp": {
+                                "lhs": {
+                                  "Number": 8
+                                },
+                                "rhs": {
+                                  "Number": 2
+                                },
+                                "span": {
+                                  "dummy": false,
+                                  "start": 1033,
+                                  "end": 1034
+                                }
+                              }
+                            },
+                            "span": {
+                              "dummy": false,
+                              "start": 1028,
+                              "end": 1029
+                            }
+                          }
                         },
                         "span": {
                           "dummy": false,
                           "start": 1010,
-                          "end": 1020
+                          "end": 1037
                         }
                       },
                       {
@@ -280,8 +316,8 @@
                           "value": "field4",
                           "span": {
                             "dummy": false,
-                            "start": 1034,
-                            "end": 1040
+                            "start": 1051,
+                            "end": 1057
                           }
                         },
                         "value": {
@@ -297,44 +333,44 @@
                                 "Number": 3
                               },
                               {
-                                "PropertyAccess": {
-                                  "object": {
+                                "PropertyOp": {
+                                  "operand": {
                                     "Identifier": {
                                       "value": "source",
                                       "span": {
                                         "dummy": false,
-                                        "start": 1052,
-                                        "end": 1058
+                                        "start": 1069,
+                                        "end": 1075
                                       }
                                     }
                                   },
-                                  "field": {
+                                  "property": {
                                     "value": "field1",
                                     "span": {
                                       "dummy": false,
-                                      "start": 1059,
-                                      "end": 1065
+                                      "start": 1076,
+                                      "end": 1082
                                     }
                                   },
                                   "span": {
                                     "dummy": false,
-                                    "start": 1052,
-                                    "end": 1065
+                                    "start": 1075,
+                                    "end": 1082
                                   }
                                 }
                               }
                             ],
                             "span": {
                               "dummy": false,
-                              "start": 1042,
-                              "end": 1066
+                              "start": 1059,
+                              "end": 1083
                             }
                           }
                         },
                         "span": {
                           "dummy": false,
-                          "start": 1034,
-                          "end": 1066
+                          "start": 1051,
+                          "end": 1083
                         }
                       }
                     ],
@@ -343,127 +379,126 @@
                         "value": "source",
                         "span": {
                           "dummy": false,
-                          "start": 1083,
-                          "end": 1089
+                          "start": 1100,
+                          "end": 1106
                         }
                       }
                     },
                     "span": {
                       "dummy": false,
                       "start": 966,
-                      "end": 1099
+                      "end": 1116
                     }
                   },
                   "span": {
                     "dummy": false,
                     "start": 957,
-                    "end": 1099
+                    "end": 1116
                   }
                 }
               }
             },
             {
               "Amount": {
-                "BinaryOp": {
-                  "left": {
-                    "AnyConstructor": {
+                "AddOp": {
+                  "lhs": {
+                    "AnyAssetConstructor": {
                       "policy": {
-                        "PropertyAccess": {
-                          "object": {
+                        "PropertyOp": {
+                          "operand": {
                             "Identifier": {
                               "value": "source",
                               "span": {
                                 "dummy": false,
-                                "start": 1126,
-                                "end": 1132
+                                "start": 1143,
+                                "end": 1149
                               }
                             }
                           },
-                          "field": {
+                          "property": {
                             "value": "field3",
                             "span": {
                               "dummy": false,
-                              "start": 1133,
-                              "end": 1139
+                              "start": 1150,
+                              "end": 1156
                             }
                           },
                           "span": {
                             "dummy": false,
-                            "start": 1126,
-                            "end": 1139
+                            "start": 1149,
+                            "end": 1156
                           }
                         }
                       },
                       "asset_name": {
-                        "PropertyAccess": {
-                          "object": {
+                        "PropertyOp": {
+                          "operand": {
                             "Identifier": {
                               "value": "source",
                               "span": {
                                 "dummy": false,
-                                "start": 1141,
-                                "end": 1147
+                                "start": 1158,
+                                "end": 1164
                               }
                             }
                           },
-                          "field": {
+                          "property": {
                             "value": "field2",
                             "span": {
                               "dummy": false,
-                              "start": 1148,
-                              "end": 1154
+                              "start": 1165,
+                              "end": 1171
                             }
                           },
                           "span": {
                             "dummy": false,
-                            "start": 1141,
-                            "end": 1154
+                            "start": 1164,
+                            "end": 1171
                           }
                         }
                       },
                       "amount": {
-                        "PropertyAccess": {
-                          "object": {
+                        "PropertyOp": {
+                          "operand": {
                             "Identifier": {
                               "value": "source",
                               "span": {
                                 "dummy": false,
-                                "start": 1156,
-                                "end": 1162
+                                "start": 1173,
+                                "end": 1179
                               }
                             }
                           },
-                          "field": {
+                          "property": {
                             "value": "field1",
                             "span": {
                               "dummy": false,
-                              "start": 1163,
-                              "end": 1169
+                              "start": 1180,
+                              "end": 1186
                             }
                           },
                           "span": {
                             "dummy": false,
-                            "start": 1156,
-                            "end": 1169
+                            "start": 1179,
+                            "end": 1186
                           }
                         }
                       },
                       "span": {
                         "dummy": false,
-                        "start": 1117,
-                        "end": 1170
+                        "start": 1134,
+                        "end": 1187
                       }
                     }
                   },
-                  "operator": "Add",
-                  "right": {
-                    "StaticConstructor": {
+                  "rhs": {
+                    "StaticAssetConstructor": {
                       "type": {
                         "value": "Ada",
                         "span": {
                           "dummy": false,
-                          "start": 1173,
-                          "end": 1176
+                          "start": 1190,
+                          "end": 1193
                         }
                       },
                       "amount": {
@@ -471,15 +506,15 @@
                       },
                       "span": {
                         "dummy": false,
-                        "start": 1173,
-                        "end": 1180
+                        "start": 1190,
+                        "end": 1197
                       }
                     }
                   },
                   "span": {
                     "dummy": false,
-                    "start": 1171,
-                    "end": 1172
+                    "start": 1188,
+                    "end": 1189
                   }
                 }
               }
@@ -488,7 +523,7 @@
           "span": {
             "dummy": false,
             "start": 912,
-            "end": 1187
+            "end": 1204
           }
         }
       ],
@@ -505,8 +540,8 @@
                 "value": "validUntil",
                 "span": {
                   "dummy": false,
-                  "start": 1365,
-                  "end": 1375
+                  "start": 1382,
+                  "end": 1392
                 }
               }
             }
@@ -514,8 +549,8 @@
         ],
         "span": {
           "dummy": false,
-          "start": 1299,
-          "end": 1382
+          "start": 1316,
+          "end": 1399
         }
       },
       "burn": null,
@@ -524,7 +559,7 @@
           "fields": [
             {
               "Amount": {
-                "StaticConstructor": {
+                "StaticAssetConstructor": {
                   "type": {
                     "value": "StaticAsset",
                     "span": {
@@ -558,7 +593,7 @@
           "fields": [
             {
               "Amount": {
-                "AnyConstructor": {
+                "AnyAssetConstructor": {
                   "policy": {
                     "HexString": {
                       "value": "AB11223344",
@@ -608,8 +643,8 @@
               "value": "MyParty",
               "span": {
                 "dummy": false,
-                "start": 1211,
-                "end": 1218
+                "start": 1228,
+                "end": 1235
               }
             }
           },
@@ -618,23 +653,23 @@
               "value": "0F5B22E57FEEB5B4FD1D501B007A427C56A76884D4978FAFEF979D9C",
               "span": {
                 "dummy": false,
-                "start": 1228,
-                "end": 1286
+                "start": 1245,
+                "end": 1303
               }
             }
           }
         ],
         "span": {
           "dummy": false,
-          "start": 1193,
-          "end": 1293
+          "start": 1210,
+          "end": 1310
         }
       },
       "adhoc": [],
       "span": {
         "dummy": false,
         "start": 416,
-        "end": 1427
+        "end": 1444
       },
       "collateral": [],
       "metadata": {
@@ -648,22 +683,22 @@
                 "value": "metadata",
                 "span": {
                   "dummy": false,
-                  "start": 1410,
-                  "end": 1418
+                  "start": 1427,
+                  "end": 1435
                 }
               }
             },
             "span": {
               "dummy": false,
-              "start": 1407,
-              "end": 1418
+              "start": 1424,
+              "end": 1435
             }
           }
         ],
         "span": {
           "dummy": false,
-          "start": 1388,
-          "end": 1425
+          "start": 1405,
+          "end": 1442
         }
       }
     }
@@ -902,6 +937,6 @@
   "span": {
     "dummy": false,
     "start": 0,
-    "end": 1428
+    "end": 1445
   }
 }

@@ -142,7 +142,9 @@ impl Identifier {
     pub fn try_symbol(&self) -> Result<&Symbol, crate::lowering::Error> {
         match &self.symbol {
             Some(symbol) => Ok(symbol),
-            None => Err(crate::lowering::Error::MissingAnalyzePhase),
+            None => Err(crate::lowering::Error::MissingAnalyzePhase(
+                self.value.clone(),
+            )),
         }
     }
 
@@ -231,7 +233,7 @@ impl HexStringLiteral {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum CollateralBlockField {
     From(AddressExpr),
-    MinAmount(AssetExpr),
+    MinAmount(DataExpr),
     Ref(DataExpr),
 }
 
@@ -247,13 +249,6 @@ impl CollateralBlockField {
     pub fn as_address_expr(&self) -> Option<&AddressExpr> {
         match self {
             CollateralBlockField::From(x) => Some(x),
-            _ => None,
-        }
-    }
-
-    pub fn as_asset_expr(&self) -> Option<&AssetExpr> {
-        match self {
-            CollateralBlockField::MinAmount(x) => Some(x),
             _ => None,
         }
     }
@@ -282,7 +277,7 @@ impl CollateralBlock {
 pub enum InputBlockField {
     From(AddressExpr),
     DatumIs(Type),
-    MinAmount(AssetExpr),
+    MinAmount(DataExpr),
     Redeemer(DataExpr),
     Ref(DataExpr),
 }
@@ -301,13 +296,6 @@ impl InputBlockField {
     pub fn as_address_expr(&self) -> Option<&AddressExpr> {
         match self {
             InputBlockField::From(x) => Some(x),
-            _ => None,
-        }
-    }
-
-    pub fn as_asset_expr(&self) -> Option<&AssetExpr> {
-        match self {
-            InputBlockField::MinAmount(x) => Some(x),
             _ => None,
         }
     }
@@ -369,7 +357,7 @@ impl InputBlock {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum OutputBlockField {
     To(Box<AddressExpr>),
-    Amount(Box<AssetExpr>),
+    Amount(Box<DataExpr>),
     Datum(Box<DataExpr>),
 }
 
@@ -425,7 +413,7 @@ impl ValidityBlock {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum MintBlockField {
-    Amount(Box<AssetExpr>),
+    Amount(Box<DataExpr>),
     Redeemer(Box<DataExpr>),
 }
 
@@ -534,6 +522,12 @@ pub struct StaticAssetConstructor {
     pub span: Span,
 }
 
+impl StaticAssetConstructor {
+    pub fn target_type(&self) -> Option<Type> {
+        Some(Type::AnyAsset)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AnyAssetConstructor {
     pub policy: Box<DataExpr>,
@@ -542,58 +536,9 @@ pub struct AnyAssetConstructor {
     pub span: Span,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct AssetBinaryOp {
-    pub left: Box<AssetExpr>,
-    pub operator: BinaryOperator,
-    pub right: Box<AssetExpr>,
-    pub span: Span,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub enum AssetExpr {
-    StaticConstructor(StaticAssetConstructor),
-    AnyConstructor(AnyAssetConstructor),
-    BinaryOp(AssetBinaryOp),
-    PropertyAccess(PropertyAccess),
-    Identifier(Identifier),
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct PropertyAccess {
-    pub object: Box<DataExpr>,
-    pub field: Box<Identifier>,
-    pub span: Span,
-
-    // analysis
-    #[serde(skip)]
-    pub(crate) scope: Option<Rc<Scope>>,
-}
-
-impl PropertyAccess {
-    pub fn new(object: &str, path: &str) -> Self {
-        let mut fields = path.split('.');
-        let mut object = Self {
-            object: Box::new(DataExpr::Identifier(Identifier::new(object))),
-            field: Box::new(Identifier::new(fields.next().unwrap())),
-            scope: None,
-            span: Span::DUMMY,
-        };
-
-        for field in fields {
-            let field = Box::new(Identifier::new(field));
-            object = Self {
-                object: Box::new(DataExpr::PropertyAccess(object)),
-                field,
-                scope: None,
-                span: Span::DUMMY,
-            };
-        }
-        object
-    }
-
+impl AnyAssetConstructor {
     pub fn target_type(&self) -> Option<Type> {
-        self.field.target_type()
+        Some(Type::AnyAsset)
     }
 }
 
@@ -662,16 +607,57 @@ pub struct UtxoRef {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct DataBinaryOp {
-    pub left: Box<DataExpr>,
-    pub operator: BinaryOperator,
-    pub right: Box<DataExpr>,
+pub struct NegateOp {
+    pub operand: Box<DataExpr>,
     pub span: Span,
 }
 
-impl DataBinaryOp {
+impl NegateOp {
     pub fn target_type(&self) -> Option<Type> {
-        self.left.target_type()
+        self.operand.target_type()
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PropertyOp {
+    pub operand: Box<DataExpr>,
+    pub property: Box<Identifier>,
+    pub span: Span,
+
+    // analysis
+    #[serde(skip)]
+    pub(crate) scope: Option<Rc<Scope>>,
+}
+
+impl PropertyOp {
+    pub fn target_type(&self) -> Option<Type> {
+        self.property.target_type()
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct AddOp {
+    pub lhs: Box<DataExpr>,
+    pub rhs: Box<DataExpr>,
+    pub span: Span,
+}
+
+impl AddOp {
+    pub fn target_type(&self) -> Option<Type> {
+        self.lhs.target_type()
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SubOp {
+    pub lhs: Box<DataExpr>,
+    pub rhs: Box<DataExpr>,
+    pub span: Span,
+}
+
+impl SubOp {
+    pub fn target_type(&self) -> Option<Type> {
+        self.lhs.target_type()
     }
 }
 
@@ -685,9 +671,13 @@ pub enum DataExpr {
     HexString(HexStringLiteral),
     StructConstructor(StructConstructor),
     ListConstructor(ListConstructor),
+    StaticAssetConstructor(StaticAssetConstructor),
+    AnyAssetConstructor(AnyAssetConstructor),
     Identifier(Identifier),
-    PropertyAccess(PropertyAccess),
-    BinaryOp(DataBinaryOp),
+    AddOp(AddOp),
+    SubOp(SubOp),
+    NegateOp(NegateOp),
+    PropertyOp(PropertyOp),
     UtxoRef(UtxoRef),
 }
 
@@ -710,8 +700,12 @@ impl DataExpr {
             DataExpr::HexString(_) => Some(Type::Bytes),
             DataExpr::StructConstructor(x) => x.target_type(),
             DataExpr::ListConstructor(x) => x.target_type(),
-            DataExpr::PropertyAccess(x) => x.target_type(),
-            DataExpr::BinaryOp(x) => x.target_type(),
+            DataExpr::AddOp(x) => x.target_type(),
+            DataExpr::SubOp(x) => x.target_type(),
+            DataExpr::NegateOp(x) => x.target_type(),
+            DataExpr::PropertyOp(x) => x.target_type(),
+            DataExpr::StaticAssetConstructor(x) => x.target_type(),
+            DataExpr::AnyAssetConstructor(x) => x.target_type(),
             DataExpr::UtxoRef(_) => Some(Type::UtxoRef),
         }
     }
@@ -733,12 +727,6 @@ impl AddressExpr {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
-pub enum BinaryOperator {
-    Add,
-    Subtract,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Type {
     Undefined,
@@ -747,10 +735,49 @@ pub enum Type {
     Bool,
     Bytes,
     Address,
+    Utxo,
     UtxoRef,
     AnyAsset,
     List(Box<Type>),
     Custom(Identifier),
+}
+
+impl Type {
+    pub fn properties(&self) -> Vec<(String, Type)> {
+        match self {
+            Type::AnyAsset => {
+                vec![
+                    ("amount".to_string(), Type::Int),
+                    ("policy".to_string(), Type::Bytes),
+                    ("asset_name".to_string(), Type::Bytes),
+                ]
+            }
+            Type::UtxoRef => {
+                vec![
+                    ("tx_hash".to_string(), Type::Bytes),
+                    ("output_index".to_string(), Type::Int),
+                ]
+            }
+            Type::Custom(identifier) => {
+                let def = identifier.symbol.as_ref().and_then(|s| s.as_type_def());
+
+                match def {
+                    Some(ty) if ty.cases.len() == 1 => ty.cases[0]
+                        .fields
+                        .iter()
+                        .map(|f| (f.name.clone(), f.r#type.clone()))
+                        .collect(),
+                    _ => vec![],
+                }
+            }
+            _ => vec![],
+        }
+    }
+
+    pub fn property_index(&self, property: &str) -> Option<usize> {
+        let properties = Self::properties(self);
+        properties.iter().position(|(name, _)| name == property)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

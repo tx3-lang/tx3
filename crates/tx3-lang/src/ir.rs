@@ -32,17 +32,27 @@ impl StructExpr {
     }
 }
 
-#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-pub enum BinaryOpKind {
-    Add,
-    Sub,
-}
+pub type PropertyIndex = usize;
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-pub struct BinaryOp {
-    pub left: Expression,
-    pub right: Expression,
-    pub op: BinaryOpKind,
+pub enum BuiltInOp {
+    NoOp(Expression),
+    Add(Expression, Expression),
+    Sub(Expression, Expression),
+    Negate(Expression),
+    Property(Expression, PropertyIndex),
+}
+
+impl BuiltInOp {
+    pub fn iter_exprs(&self) -> impl Iterator<Item = &Expression> {
+        match self {
+            Self::NoOp(x) => vec![x].into_iter(),
+            Self::Add(x, y) => vec![x, y].into_iter(),
+            Self::Sub(x, y) => vec![x, y].into_iter(),
+            Self::Negate(x) => vec![x].into_iter(),
+            Self::Property(x, _) => vec![x].into_iter(),
+        }
+    }
 }
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -98,6 +108,7 @@ pub enum Type {
     Bool,
     Bytes,
     Address,
+    Utxo,
     UtxoRef,
     AnyAsset,
     List,
@@ -127,10 +138,8 @@ pub enum Expression {
     Assets(Vec<AssetExpr>),
 
     EvalParameter(String, Type),
-    EvalProperty(Box<PropertyAccess>),
-    EvalInputDatum(String),
-    EvalInputAssets(String),
-    EvalCustom(Box<BinaryOp>),
+    EvalInput(String),
+    EvalBuiltIn(Box<BuiltInOp>),
 
     // queries
     FeeQuery,
@@ -184,6 +193,7 @@ pub struct Mint {
 pub struct Collateral {
     pub query: InputQuery,
 }
+
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]
 pub struct Metadata {
     pub key: Expression,

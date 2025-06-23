@@ -54,7 +54,7 @@
             },
             {
               "MinAmount": {
-                "StaticConstructor": {
+                "StaticAssetConstructor": {
                   "type": {
                     "value": "Ada",
                     "span": {
@@ -107,7 +107,7 @@
             },
             {
               "Amount": {
-                "StaticConstructor": {
+                "StaticAssetConstructor": {
                   "type": {
                     "value": "Ada",
                     "span": {
@@ -158,10 +158,10 @@
             },
             {
               "Amount": {
-                "BinaryOp": {
-                  "left": {
-                    "BinaryOp": {
-                      "left": {
+                "SubOp": {
+                  "lhs": {
+                    "SubOp": {
+                      "lhs": {
                         "Identifier": {
                           "value": "source",
                           "span": {
@@ -171,9 +171,8 @@
                           }
                         }
                       },
-                      "operator": "Subtract",
-                      "right": {
-                        "StaticConstructor": {
+                      "rhs": {
+                        "StaticAssetConstructor": {
                           "type": {
                             "value": "Ada",
                             "span": {
@@ -206,8 +205,7 @@
                       }
                     }
                   },
-                  "operator": "Subtract",
-                  "right": {
+                  "rhs": {
                     "Identifier": {
                       "value": "fees",
                       "span": {

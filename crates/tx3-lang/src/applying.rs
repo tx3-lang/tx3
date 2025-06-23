@@ -1,14 +1,14 @@
-use std::collections::{BTreeMap, HashMap, HashSet};
-
-use crate::{
-    ir::{self, BinaryOp},
-    ArgValue, Utxo,
+use std::{
+    collections::{BTreeMap, HashMap, HashSet},
+    ops::Neg,
 };
+
+use crate::{ir, ArgValue, Utxo};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("invalid binary operation {0:?}")]
-    InvalidBinaryOp(Box<BinaryOp>),
+    #[error("invalid built-in operation {0:?}")]
+    InvalidBuiltInOp(Box<ir::BuiltInOp>),
 
     #[error("invalid argument {0:?} for {1}")]
     InvalidArgument(ArgValue, String),
@@ -18,6 +18,12 @@ pub enum Error {
 
     #[error("property index {0} not found in {1}")]
     PropertyIndexNotFound(usize, String),
+
+    #[error("invalid {0} operation over {1:?} and {2:?}")]
+    InvalidBinaryOp(String, String, String),
+
+    #[error("invalid {0} operation over {1:?}")]
+    InvalidUnaryOp(String, String),
 }
 
 pub trait Indexable: std::fmt::Debug {
@@ -56,12 +62,113 @@ impl Indexable for ir::Expression {
             ir::Expression::UtxoSet(_) => None,
             ir::Expression::Assets(_) => None,
             ir::Expression::EvalParameter(_, _) => None,
-            ir::Expression::EvalProperty(_) => None,
-            ir::Expression::EvalInputDatum(_) => None,
-            ir::Expression::EvalInputAssets(_) => None,
-            ir::Expression::EvalCustom(_) => None,
+            ir::Expression::EvalInput(_) => None,
+            ir::Expression::EvalBuiltIn(_) => None,
             ir::Expression::FeeQuery => None,
             ir::Expression::AdHocDirective(_) => None,
+        }
+    }
+}
+
+pub trait Arithmetic {
+    fn add(self, other: ir::Expression) -> Result<ir::Expression, Error>;
+    fn sub(self, other: ir::Expression) -> Result<ir::Expression, Error>;
+    fn neg(self) -> Result<ir::Expression, Error>;
+}
+
+impl<T> Arithmetic for T
+where
+    T: Into<CanonicalAssets> + std::fmt::Debug,
+{
+    fn add(self, other: ir::Expression) -> Result<ir::Expression, Error> {
+        let y = match other {
+            ir::Expression::Assets(x) => CanonicalAssets::from(x),
+            ir::Expression::UtxoSet(x) => CanonicalAssets::from(x),
+            ir::Expression::None => CanonicalAssets::new(),
+            other => {
+                return Err(Error::InvalidBinaryOp(
+                    "add".to_string(),
+                    format!("{:?}", self),
+                    format!("{:?}", other),
+                ))
+            }
+        };
+
+        let x = self.into();
+        let total = x + y;
+        Ok(ir::Expression::Assets(total.into()))
+    }
+
+    fn sub(self, other: ir::Expression) -> Result<ir::Expression, Error> {
+        let other_neg = other.neg()?;
+        self.add(other_neg)
+    }
+
+    fn neg(self) -> Result<ir::Expression, Error> {
+        let negated = self.into().neg();
+        Ok(ir::Expression::Assets(negated.into()))
+    }
+}
+
+impl Arithmetic for i128 {
+    fn add(self, other: ir::Expression) -> Result<ir::Expression, Error> {
+        match other {
+            ir::Expression::Number(y) => Ok(ir::Expression::Number(self + y)),
+            ir::Expression::None => Ok(ir::Expression::Number(self)),
+            _ => Err(Error::InvalidBinaryOp(
+                "add".to_string(),
+                format!("{:?}", self),
+                format!("{:?}", other),
+            )),
+        }
+    }
+
+    fn sub(self, other: ir::Expression) -> Result<ir::Expression, Error> {
+        let other_neg = other.neg()?;
+        self.add(other_neg)
+    }
+
+    fn neg(self) -> Result<ir::Expression, Error> {
+        Ok(ir::Expression::Number(-self))
+    }
+}
+
+impl Arithmetic for ir::Expression {
+    fn add(self, other: ir::Expression) -> Result<ir::Expression, Error> {
+        match self {
+            ir::Expression::None => Ok(other),
+            ir::Expression::Number(x) => Arithmetic::add(x, other),
+            ir::Expression::Assets(x) => Arithmetic::add(x, other),
+            ir::Expression::UtxoSet(x) => Arithmetic::add(x, other),
+            x => Err(Error::InvalidBinaryOp(
+                "add".to_string(),
+                format!("{:?}", x),
+                format!("{:?}", other),
+            )),
+        }
+    }
+
+    fn sub(self, other: ir::Expression) -> Result<ir::Expression, Error> {
+        match self {
+            ir::Expression::None => Ok(other),
+            ir::Expression::Number(x) => Arithmetic::sub(x, other),
+            ir::Expression::Assets(x) => Arithmetic::sub(x, other),
+            ir::Expression::UtxoSet(x) => Arithmetic::sub(x, other),
+            x => Err(Error::InvalidBinaryOp(
+                "sub".to_string(),
+                format!("{:?}", x),
+                format!("{:?}", other),
+            )),
+        }
+    }
+
+    fn neg(self) -> Result<ir::Expression, Error> {
+        match self {
+            ir::Expression::None => Ok(ir::Expression::None),
+            ir::Expression::Number(x) => Arithmetic::neg(x),
+            ir::Expression::Assets(x) => Arithmetic::neg(x),
+            ir::Expression::UtxoSet(x) => Arithmetic::neg(x),
+            x => Err(Error::InvalidUnaryOp("neg".to_string(), format!("{:?}", x))),
         }
     }
 }
@@ -679,89 +786,183 @@ impl Apply for ir::AssetExpr {
     }
 }
 
-impl Apply for ir::BinaryOp {
+impl Apply for ir::BuiltInOp {
     fn apply_args(self, args: &BTreeMap<String, ArgValue>) -> Result<Self, Error> {
-        let left = self.left.apply_args(args)?;
-        let right = self.right.apply_args(args)?;
-
-        let op = Self {
-            left,
-            right,
-            op: self.op,
-        };
-
-        // TODO: reduce if both sides are constants
-
-        Ok(op)
+        match self {
+            Self::Add(x, y) => Ok(Self::Add(x.apply_args(args)?, y.apply_args(args)?)),
+            Self::Sub(x, y) => Ok(Self::Sub(x.apply_args(args)?, y.apply_args(args)?)),
+            Self::Negate(x) => Ok(Self::Negate(x.apply_args(args)?)),
+            Self::Property(x, y) => Ok(Self::Property(x.apply_args(args)?, y)),
+            Self::NoOp(x) => Ok(Self::NoOp(x.apply_args(args)?)),
+        }
     }
 
     fn apply_inputs(self, args: &BTreeMap<String, HashSet<Utxo>>) -> Result<Self, Error> {
-        let left = self.left.apply_inputs(args)?;
-        let right = self.right.apply_inputs(args)?;
-
-        Ok(Self {
-            left,
-            right,
-            op: self.op,
-        })
+        match self {
+            Self::Add(x, y) => Ok(Self::Add(x.apply_inputs(args)?, y.apply_inputs(args)?)),
+            Self::Sub(x, y) => Ok(Self::Sub(x.apply_inputs(args)?, y.apply_inputs(args)?)),
+            Self::Negate(x) => Ok(Self::Negate(x.apply_inputs(args)?)),
+            Self::Property(x, y) => Ok(Self::Property(x.apply_inputs(args)?, y)),
+            Self::NoOp(x) => Ok(Self::NoOp(x.apply_inputs(args)?)),
+        }
     }
 
     fn apply_fees(self, fees: u64) -> Result<Self, Error> {
-        Ok(Self {
-            left: self.left.apply_fees(fees)?,
-            right: self.right.apply_fees(fees)?,
-            op: self.op,
-        })
+        match self {
+            Self::Add(x, y) => Ok(Self::Add(x.apply_fees(fees)?, y.apply_fees(fees)?)),
+            Self::Sub(x, y) => Ok(Self::Sub(x.apply_fees(fees)?, y.apply_fees(fees)?)),
+            Self::Negate(x) => Ok(Self::Negate(x.apply_fees(fees)?)),
+            Self::Property(x, y) => Ok(Self::Property(x.apply_fees(fees)?, y)),
+            Self::NoOp(x) => Ok(Self::NoOp(x.apply_fees(fees)?)),
+        }
     }
 
     fn is_constant(&self) -> bool {
-        self.left.is_constant() && self.right.is_constant()
+        self.iter_exprs().all(|x| x.is_constant())
     }
 
     fn params(&self) -> BTreeMap<String, ir::Type> {
         let mut params = BTreeMap::new();
-        params.extend(self.left.params());
-        params.extend(self.right.params());
+
+        for expr in self.iter_exprs() {
+            params.extend(expr.params());
+        }
+
         params
     }
 
     fn queries(&self) -> BTreeMap<String, ir::InputQuery> {
-        // binary ops don't have queries
-        BTreeMap::new()
+        let mut queries = BTreeMap::new();
+
+        for expr in self.iter_exprs() {
+            queries.extend(expr.queries());
+        }
+
+        queries
     }
 
     fn reduce_self(self) -> Result<Self, Error> {
-        Ok(self)
+        match self {
+            Self::Add(x, y) => Ok(Self::NoOp(x.add(y)?)),
+            Self::Sub(x, y) => Ok(Self::NoOp(x.sub(y)?)),
+            Self::Negate(x) => Ok(Self::NoOp(x.neg()?)),
+            Self::Property(x, prop) => Ok(Self::NoOp(x.index_or_err(prop)?)),
+            Self::NoOp(x) => Ok(Self::NoOp(x)),
+        }
     }
 
     fn reduce_nested(self) -> Result<Self, Error> {
-        Ok(Self {
-            left: self.left.reduce()?,
-            right: self.right.reduce()?,
-            op: self.op,
-        })
+        match self {
+            Self::Add(x, y) => Ok(Self::Add(x.reduce()?, y.reduce()?)),
+            Self::Sub(x, y) => Ok(Self::Sub(x.reduce()?, y.reduce()?)),
+            Self::Negate(x) => Ok(Self::Negate(x.reduce()?)),
+            Self::Property(x, y) => Ok(Self::Property(x.reduce()?, y)),
+            Self::NoOp(x) => Ok(Self::NoOp(x.reduce()?)),
+        }
     }
 }
 
-fn build_assets(aggregated: HashMap<AssetClass, i128>) -> Vec<ir::AssetExpr> {
-    // Convert back to Vec<AssetExpr>
-    aggregated
-        .into_iter()
-        .map(|((policy, asset_name), amount)| ir::AssetExpr {
-            policy: match policy {
-                Some(policy) => ir::Expression::Bytes(policy.to_vec()),
-                None => ir::Expression::None,
-            },
-            asset_name: match asset_name {
-                Some(asset_name) => ir::Expression::Bytes(asset_name.to_vec()),
-                None => ir::Expression::None,
-            },
-            amount: ir::Expression::Number(amount),
-        })
-        .collect()
+type AssetClass = (Option<Vec<u8>>, Option<Vec<u8>>);
+
+struct CanonicalAssets(HashMap<AssetClass, i128>);
+
+impl CanonicalAssets {
+    fn new() -> Self {
+        Self(HashMap::new())
+    }
 }
 
-type AssetClass<'a> = (Option<&'a [u8]>, Option<&'a [u8]>);
+impl std::ops::Neg for CanonicalAssets {
+    type Output = Self;
+
+    fn neg(self) -> Self {
+        let mut negated = self.0;
+
+        for (_, value) in negated.iter_mut() {
+            *value = -*value;
+        }
+
+        Self(negated)
+    }
+}
+
+impl std::ops::Add for CanonicalAssets {
+    type Output = Self;
+
+    fn add(self, other: Self) -> Self {
+        let mut aggregated = self.0;
+
+        for (key, value) in other.0 {
+            *aggregated.entry(key).or_default() += value;
+        }
+
+        Self(aggregated)
+    }
+}
+
+impl std::ops::Sub for CanonicalAssets {
+    type Output = Self;
+
+    fn sub(self, other: Self) -> Self {
+        let mut aggregated = self.0;
+
+        for (key, value) in other.0 {
+            *aggregated.entry(key).or_default() -= value;
+        }
+
+        Self(aggregated)
+    }
+}
+
+impl From<ir::AssetExpr> for CanonicalAssets {
+    fn from(asset: ir::AssetExpr) -> Self {
+        let policy = asset.expect_constant_policy().map(|x| x.to_vec());
+        let asset_name = asset.expect_constant_name().map(|x| x.to_vec());
+        let amount = asset.expect_constant_amount();
+
+        Self(HashMap::from([((policy, asset_name), amount)]))
+    }
+}
+
+impl From<Vec<ir::AssetExpr>> for CanonicalAssets {
+    fn from(assets: Vec<ir::AssetExpr>) -> Self {
+        let mut result = CanonicalAssets::new();
+
+        for asset in assets {
+            let asset = asset.into();
+            result = result + asset;
+        }
+
+        result
+    }
+}
+
+impl From<HashSet<Utxo>> for CanonicalAssets {
+    fn from(utxos: HashSet<Utxo>) -> Self {
+        let assets: Vec<_> = utxos.into_iter().flat_map(|x| x.assets).collect();
+        assets.into()
+    }
+}
+
+impl From<CanonicalAssets> for Vec<ir::AssetExpr> {
+    fn from(assets: CanonicalAssets) -> Self {
+        let mut result = Vec::new();
+
+        for ((policy, asset_name), amount) in assets.0.into_iter() {
+            result.push(ir::AssetExpr {
+                policy: policy
+                    .map(|x| ir::Expression::Bytes(x))
+                    .unwrap_or(ir::Expression::None),
+                asset_name: asset_name
+                    .map(|x| ir::Expression::Bytes(x))
+                    .unwrap_or(ir::Expression::None),
+                amount: ir::Expression::Number(amount),
+            });
+        }
+
+        result
+    }
+}
 
 impl ir::AssetExpr {
     fn expect_constant_policy(&self) -> Option<&[u8]> {
@@ -786,48 +987,6 @@ impl ir::AssetExpr {
             ir::Expression::Number(x) => *x,
             _ => unreachable!("amount expected to be Number"),
         }
-    }
-
-    fn aggregate(items: &[Self]) -> HashMap<AssetClass, i128> {
-        let mut aggregated: HashMap<AssetClass, i128> = HashMap::new();
-
-        // Group assets by policy and asset_name, summing their amounts
-        for asset in items.iter() {
-            let policy = asset.expect_constant_policy();
-            let asset_name = asset.expect_constant_name();
-            let amount = asset.expect_constant_amount();
-
-            let key = (policy, asset_name);
-            *aggregated.entry(key).or_default() += amount;
-        }
-
-        aggregated
-    }
-
-    fn sum<'a>(
-        a: HashMap<AssetClass<'a>, i128>,
-        b: HashMap<AssetClass<'a>, i128>,
-    ) -> HashMap<AssetClass<'a>, i128> {
-        let mut aggregated = a;
-
-        for (key, value) in b {
-            *aggregated.entry(key).or_default() += value;
-        }
-
-        aggregated
-    }
-
-    fn sub<'a>(
-        a: HashMap<AssetClass<'a>, i128>,
-        b: HashMap<AssetClass<'a>, i128>,
-    ) -> HashMap<AssetClass<'a>, i128> {
-        let mut aggregated = a;
-
-        for (key, value) in b {
-            *aggregated.entry(key).or_default() -= value;
-        }
-
-        aggregated
     }
 }
 
@@ -959,7 +1118,7 @@ impl Apply for ir::Expression {
             ir::Expression::Struct(x) => Ok(ir::Expression::Struct(x.apply_args(args)?)),
             ir::Expression::List(x) => Ok(ir::Expression::List(x.apply_args(args)?)),
             ir::Expression::Assets(x) => Ok(ir::Expression::Assets(x.apply_args(args)?)),
-            ir::Expression::EvalCustom(x) => Ok(ir::Expression::EvalCustom(x.apply_args(args)?)),
+            ir::Expression::EvalBuiltIn(x) => Ok(ir::Expression::EvalBuiltIn(x.apply_args(args)?)),
             ir::Expression::EvalParameter(name, ty) => {
                 let defined = args.get(&name).cloned();
 
@@ -968,9 +1127,6 @@ impl Apply for ir::Expression {
                     None => Ok(ir::Expression::EvalParameter(name, ty)),
                 }
             }
-            ir::Expression::EvalProperty(x) => {
-                Ok(ir::Expression::EvalProperty(x.apply_args(args)?))
-            }
             // the remaining cases are constants, so we can just return them
             x => Ok(x),
         }
@@ -978,40 +1134,15 @@ impl Apply for ir::Expression {
 
     fn apply_inputs(self, args: &BTreeMap<String, HashSet<Utxo>>) -> Result<Self, Error> {
         match self {
-            ir::Expression::EvalInputDatum(x) => {
-                let defined = args.get(&x).cloned();
-
-                match defined {
-                    Some(x) => {
-                        let datum = x
-                            .into_iter()
-                            .flat_map(|x| x.datum)
-                            .next()
-                            .unwrap_or(ir::Expression::None);
-
-                        Ok(datum)
-                    }
-                    None => Ok(ir::Expression::EvalInputDatum(x)),
-                }
-            }
-            ir::Expression::EvalInputAssets(x) => {
-                let defined = args.get(&x).cloned();
-
-                match defined {
-                    Some(x) => {
-                        let assets = x.into_iter().flat_map(|x| x.assets).collect();
-
-                        Ok(ir::Expression::Assets(assets))
-                    }
-                    None => Ok(ir::Expression::EvalInputAssets(x)),
-                }
-            }
+            ir::Expression::EvalInput(x) => match args.get(&x).cloned() {
+                Some(x) => Ok(ir::Expression::UtxoSet(x)),
+                None => Ok(ir::Expression::EvalInput(x)),
+            },
             ir::Expression::Struct(x) => Ok(ir::Expression::Struct(x.apply_inputs(args)?)),
             ir::Expression::List(x) => Ok(ir::Expression::List(x.apply_inputs(args)?)),
             ir::Expression::Assets(x) => Ok(ir::Expression::Assets(x.apply_inputs(args)?)),
-            ir::Expression::EvalCustom(x) => Ok(ir::Expression::EvalCustom(x.apply_inputs(args)?)),
-            ir::Expression::EvalProperty(x) => {
-                Ok(ir::Expression::EvalProperty(x.apply_inputs(args)?))
+            ir::Expression::EvalBuiltIn(x) => {
+                Ok(ir::Expression::EvalBuiltIn(x.apply_inputs(args)?))
             }
             _ => Ok(self),
         }
@@ -1027,7 +1158,7 @@ impl Apply for ir::Expression {
             ir::Expression::Struct(x) => Ok(ir::Expression::Struct(x.apply_fees(fees)?)),
             ir::Expression::List(x) => Ok(ir::Expression::List(x.apply_fees(fees)?)),
             ir::Expression::Assets(x) => Ok(ir::Expression::Assets(x.apply_fees(fees)?)),
-            ir::Expression::EvalCustom(x) => Ok(ir::Expression::EvalCustom(x.apply_fees(fees)?)),
+            ir::Expression::EvalBuiltIn(x) => Ok(ir::Expression::EvalBuiltIn(x.apply_fees(fees)?)),
             _ => Ok(self),
         }
     }
@@ -1046,11 +1177,9 @@ impl Apply for ir::Expression {
             Self::List(x) => x.is_constant(),
             Self::Struct(x) => x.is_constant(),
             Self::Assets(x) => x.is_constant(),
-            Self::EvalCustom(x) => x.is_constant(),
-            Self::EvalProperty(x) => x.is_constant(),
+            Self::EvalBuiltIn(x) => x.is_constant(),
             Self::AdHocDirective(x) => x.is_constant(),
-            Self::EvalInputDatum(..) => false,
-            Self::EvalInputAssets(..) => false,
+            Self::EvalInput(..) => false,
             Self::FeeQuery => false,
             Self::EvalParameter(..) => false,
             Self::Tuple(b) => {
@@ -1064,7 +1193,7 @@ impl Apply for ir::Expression {
         match self {
             ir::Expression::Struct(x) => x.params(),
             ir::Expression::Assets(x) => x.params(),
-            ir::Expression::EvalCustom(x) => x.params(),
+            ir::Expression::EvalBuiltIn(x) => x.params(),
             ir::Expression::EvalParameter(x, ty) => BTreeMap::from([(x.to_string(), ty.clone())]),
 
             // the remaining cases are constants, so we can just return them
@@ -1078,29 +1207,10 @@ impl Apply for ir::Expression {
 
     fn reduce_self(self) -> Result<Self, Error> {
         match self {
-            ir::Expression::EvalCustom(op) => match (&op.left, &op.right) {
-                (ir::Expression::Number(x), ir::Expression::Number(y)) => {
-                    let result = match &op.op {
-                        ir::BinaryOpKind::Add => x + y,
-                        ir::BinaryOpKind::Sub => x - y,
-                    };
-
-                    Ok(ir::Expression::Number(result))
-                }
-                (ir::Expression::Assets(x), ir::Expression::Assets(y)) => {
-                    let x = ir::AssetExpr::aggregate(x);
-                    let y = ir::AssetExpr::aggregate(y);
-
-                    let result = match &op.op {
-                        ir::BinaryOpKind::Add => ir::AssetExpr::sum(x, y),
-                        ir::BinaryOpKind::Sub => ir::AssetExpr::sub(x, y),
-                    };
-
-                    Ok(ir::Expression::Assets(build_assets(result)))
-                }
-                _ => Err(Error::InvalidBinaryOp(Box::new(*op))),
+            ir::Expression::EvalBuiltIn(op) => match *op {
+                ir::BuiltInOp::NoOp(x) => Ok(x),
+                x => Ok(ir::Expression::EvalBuiltIn(Box::new(x))),
             },
-            ir::Expression::EvalProperty(x) => x.object.index_or_err(x.field as usize),
             _ => Ok(self),
         }
     }
@@ -1109,8 +1219,7 @@ impl Apply for ir::Expression {
         match self {
             ir::Expression::Struct(x) => Ok(ir::Expression::Struct(x.reduce()?)),
             ir::Expression::Assets(x) => Ok(ir::Expression::Assets(x.reduce()?)),
-            ir::Expression::EvalCustom(x) => Ok(ir::Expression::EvalCustom(x.reduce()?)),
-            ir::Expression::EvalProperty(x) => Ok(ir::Expression::EvalProperty(x.reduce()?)),
+            ir::Expression::EvalBuiltIn(x) => Ok(ir::Expression::EvalBuiltIn(x.reduce()?)),
             _ => Ok(self),
         }
     }
@@ -1640,22 +1749,57 @@ mod tests {
     }
 
     #[test]
-    fn test_reduce_numeric_binary_op() {
-        let op = ir::Expression::EvalCustom(
-            ir::BinaryOp {
-                op: ir::BinaryOpKind::Add,
-                left: ir::Expression::Number(1),
-                right: ir::Expression::EvalCustom(
-                    ir::BinaryOp {
-                        op: ir::BinaryOpKind::Sub,
-                        left: ir::Expression::Number(5),
-                        right: ir::Expression::Number(3),
-                    }
-                    .into(),
-                ),
-            }
-            .into(),
-        );
+    fn test_reduce_noop_builtin() {
+        let op =
+            ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::NoOp(ir::Expression::Number(5))));
+
+        let reduced = op.reduce().unwrap();
+
+        match reduced {
+            ir::Expression::Number(5) => (),
+            _ => panic!("Expected number 5"),
+        };
+    }
+
+    #[test]
+    fn test_reduce_numeric_add() {
+        let op = ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Add(
+            ir::Expression::Number(1),
+            ir::Expression::Number(5),
+        )));
+
+        let reduced = op.reduce().unwrap();
+
+        match reduced {
+            ir::Expression::Number(6) => (),
+            _ => panic!("Expected number 6"),
+        };
+    }
+
+    #[test]
+    fn test_reduce_numeric_sub() {
+        let op = ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Sub(
+            ir::Expression::Number(8),
+            ir::Expression::Number(5),
+        )));
+
+        let reduced = op.reduce().unwrap();
+
+        match reduced {
+            ir::Expression::Number(3) => (),
+            _ => panic!("Expected number 3"),
+        };
+    }
+
+    #[test]
+    fn test_reduce_nested_numeric_binary_op() {
+        let op = ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Add(
+            ir::Expression::Number(1),
+            ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Sub(
+                ir::Expression::Number(5),
+                ir::Expression::Number(3),
+            ))),
+        )));
 
         let reduced = op.reduce().unwrap();
 
@@ -1667,22 +1811,18 @@ mod tests {
 
     #[test]
     fn test_reduce_single_custom_asset_binary_op() {
-        let op = ir::Expression::EvalCustom(
-            ir::BinaryOp {
-                op: ir::BinaryOpKind::Add,
-                left: ir::Expression::Assets(vec![ir::AssetExpr {
-                    policy: ir::Expression::Bytes(b"abc".to_vec()),
-                    asset_name: ir::Expression::Bytes(b"111".to_vec()),
-                    amount: ir::Expression::Number(100),
-                }]),
-                right: ir::Expression::Assets(vec![ir::AssetExpr {
-                    policy: ir::Expression::Bytes(b"abc".to_vec()),
-                    asset_name: ir::Expression::Bytes(b"111".to_vec()),
-                    amount: ir::Expression::Number(200),
-                }]),
-            }
-            .into(),
-        );
+        let op = ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Add(
+            ir::Expression::Assets(vec![ir::AssetExpr {
+                policy: ir::Expression::Bytes(b"abc".to_vec()),
+                asset_name: ir::Expression::Bytes(b"111".to_vec()),
+                amount: ir::Expression::Number(100),
+            }]),
+            ir::Expression::Assets(vec![ir::AssetExpr {
+                policy: ir::Expression::Bytes(b"abc".to_vec()),
+                asset_name: ir::Expression::Bytes(b"111".to_vec()),
+                amount: ir::Expression::Number(200),
+            }]),
+        )));
 
         let reduced = op.reduce().unwrap();
 
@@ -1699,22 +1839,18 @@ mod tests {
 
     #[test]
     fn test_reduce_native_asset_binary_op() {
-        let op = ir::Expression::EvalCustom(
-            ir::BinaryOp {
-                op: ir::BinaryOpKind::Add,
-                left: ir::Expression::Assets(vec![ir::AssetExpr {
-                    policy: ir::Expression::None,
-                    asset_name: ir::Expression::None,
-                    amount: ir::Expression::Number(100),
-                }]),
-                right: ir::Expression::Assets(vec![ir::AssetExpr {
-                    policy: ir::Expression::None,
-                    asset_name: ir::Expression::None,
-                    amount: ir::Expression::Number(200),
-                }]),
-            }
-            .into(),
-        );
+        let op = ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Add(
+            ir::Expression::Assets(vec![ir::AssetExpr {
+                policy: ir::Expression::None,
+                asset_name: ir::Expression::None,
+                amount: ir::Expression::Number(100),
+            }]),
+            ir::Expression::Assets(vec![ir::AssetExpr {
+                policy: ir::Expression::None,
+                asset_name: ir::Expression::None,
+                amount: ir::Expression::Number(200),
+            }]),
+        )));
 
         let reduced = op.reduce().unwrap();
 
@@ -1731,22 +1867,18 @@ mod tests {
 
     #[test]
     fn test_reduce_mixed_asset_binary_op() {
-        let op = ir::Expression::EvalCustom(
-            ir::BinaryOp {
-                op: ir::BinaryOpKind::Add,
-                left: ir::Expression::Assets(vec![ir::AssetExpr {
-                    policy: ir::Expression::None,
-                    asset_name: ir::Expression::None,
-                    amount: ir::Expression::Number(100),
-                }]),
-                right: ir::Expression::Assets(vec![ir::AssetExpr {
-                    policy: ir::Expression::Bytes(b"abc".to_vec()),
-                    asset_name: ir::Expression::Bytes(b"111".to_vec()),
-                    amount: ir::Expression::Number(200),
-                }]),
-            }
-            .into(),
-        );
+        let op = ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Add(
+            ir::Expression::Assets(vec![ir::AssetExpr {
+                policy: ir::Expression::None,
+                asset_name: ir::Expression::None,
+                amount: ir::Expression::Number(100),
+            }]),
+            ir::Expression::Assets(vec![ir::AssetExpr {
+                policy: ir::Expression::Bytes(b"abc".to_vec()),
+                asset_name: ir::Expression::Bytes(b"111".to_vec()),
+                amount: ir::Expression::Number(200),
+            }]),
+        )));
 
         let reduced = op.reduce().unwrap();
 
@@ -1771,19 +1903,16 @@ mod tests {
 
     #[test]
     fn test_reduce_struct_property_access() {
-        let object = Box::new(ir::Expression::Struct(ir::StructExpr {
+        let object = ir::Expression::Struct(ir::StructExpr {
             constructor: 0,
             fields: vec![
                 ir::Expression::Number(1),
                 ir::Expression::Number(2),
                 ir::Expression::Number(3),
             ],
-        }));
+        });
 
-        let op = ir::Expression::EvalProperty(Box::new(ir::PropertyAccess {
-            object: object.clone(),
-            field: 1,
-        }));
+        let op = ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Property(object.clone(), 1)));
 
         let reduced = op.reduce();
 
@@ -1792,10 +1921,8 @@ mod tests {
             _ => panic!("Expected number 2"),
         };
 
-        let op = ir::Expression::EvalProperty(Box::new(ir::PropertyAccess {
-            object: object.clone(),
-            field: 100,
-        }));
+        let op =
+            ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Property(object.clone(), 100)));
 
         let reduced = op.reduce();
 
@@ -1807,16 +1934,13 @@ mod tests {
 
     #[test]
     fn test_reduce_list_property_access() {
-        let object = Box::new(ir::Expression::List(vec![
+        let object = ir::Expression::List(vec![
             ir::Expression::Number(1),
             ir::Expression::Number(2),
             ir::Expression::Number(3),
-        ]));
+        ]);
 
-        let op = ir::Expression::EvalProperty(Box::new(ir::PropertyAccess {
-            object: object.clone(),
-            field: 1,
-        }));
+        let op = ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Property(object.clone(), 1)));
 
         let reduced = op.reduce();
 
@@ -1825,10 +1949,8 @@ mod tests {
             _ => panic!("Expected number 2"),
         };
 
-        let op = ir::Expression::EvalProperty(Box::new(ir::PropertyAccess {
-            object: object.clone(),
-            field: 100,
-        }));
+        let op =
+            ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Property(object.clone(), 100)));
 
         let reduced = op.reduce();
 
@@ -1840,15 +1962,12 @@ mod tests {
 
     #[test]
     fn test_reduce_tuple_property_access() {
-        let object = Box::new(ir::Expression::Tuple(Box::new((
+        let object = ir::Expression::Tuple(Box::new((
             ir::Expression::Number(1),
             ir::Expression::Number(2),
-        ))));
+        )));
 
-        let op = ir::Expression::EvalProperty(Box::new(ir::PropertyAccess {
-            object: object.clone(),
-            field: 1,
-        }));
+        let op = ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Property(object.clone(), 1)));
 
         let reduced = op.reduce();
 
@@ -1857,10 +1976,8 @@ mod tests {
             _ => panic!("Expected number 2"),
         };
 
-        let op = ir::Expression::EvalProperty(Box::new(ir::PropertyAccess {
-            object: object.clone(),
-            field: 100,
-        }));
+        let op =
+            ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Property(object.clone(), 100)));
 
         let reduced = op.reduce();
 

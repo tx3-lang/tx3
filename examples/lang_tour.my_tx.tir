@@ -73,14 +73,43 @@
               ]
             },
             {
-              "Number": 54
+              "EvalBuiltIn": {
+                "Sub": [
+                  {
+                    "EvalBuiltIn": {
+                      "Add": [
+                        {
+                          "Number": 54
+                        },
+                        {
+                          "Number": 10
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "EvalBuiltIn": {
+                      "Add": [
+                        {
+                          "Number": 8
+                        },
+                        {
+                          "Number": 2
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
             },
             {
-              "EvalProperty": {
-                "object": {
-                  "EvalInputDatum": "source"
-                },
-                "field": 2
+              "EvalBuiltIn": {
+                "Property": [
+                  {
+                    "EvalInput": "source"
+                  },
+                  2
+                ]
               }
             },
             {
@@ -95,11 +124,13 @@
                   "Number": 3
                 },
                 {
-                  "EvalProperty": {
-                    "object": {
-                      "EvalInputDatum": "source"
-                    },
-                    "field": 0
+                  "EvalBuiltIn": {
+                    "Property": [
+                      {
+                        "EvalInput": "source"
+                      },
+                      0
+                    ]
                   }
                 }
               ]
@@ -108,49 +139,56 @@
         }
       },
       "amount": {
-        "EvalCustom": {
-          "left": {
-            "Assets": [
-              {
-                "policy": {
-                  "EvalProperty": {
-                    "object": {
-                      "EvalInputDatum": "source"
-                    },
-                    "field": 2
-                  }
-                },
-                "asset_name": {
-                  "EvalProperty": {
-                    "object": {
-                      "EvalInputDatum": "source"
-                    },
-                    "field": 1
-                  }
-                },
-                "amount": {
-                  "EvalProperty": {
-                    "object": {
-                      "EvalInputDatum": "source"
-                    },
-                    "field": 0
+        "EvalBuiltIn": {
+          "Add": [
+            {
+              "Assets": [
+                {
+                  "policy": {
+                    "EvalBuiltIn": {
+                      "Property": [
+                        {
+                          "EvalInput": "source"
+                        },
+                        2
+                      ]
+                    }
+                  },
+                  "asset_name": {
+                    "EvalBuiltIn": {
+                      "Property": [
+                        {
+                          "EvalInput": "source"
+                        },
+                        1
+                      ]
+                    }
+                  },
+                  "amount": {
+                    "EvalBuiltIn": {
+                      "Property": [
+                        {
+                          "EvalInput": "source"
+                        },
+                        0
+                      ]
+                    }
                   }
                 }
-              }
-            ]
-          },
-          "right": {
-            "Assets": [
-              {
-                "policy": "None",
-                "asset_name": "None",
-                "amount": {
-                  "Number": 40
+              ]
+            },
+            {
+              "Assets": [
+                {
+                  "policy": "None",
+                  "asset_name": "None",
+                  "amount": {
+                    "Number": 40
+                  }
                 }
-              }
-            ]
-          },
-          "op": "Add"
+              ]
+            }
+          ]
         }
       }
     }
