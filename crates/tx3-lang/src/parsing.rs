@@ -1743,6 +1743,111 @@ mod tests {
         })
     );
 
+    input_to_ast_check!(DataExpr, "empty_parentheses", "()", DataExpr::Unit);
+
+    input_to_ast_check!(DataExpr, "nested_parentheses", "((()))", DataExpr::Unit);
+
+    input_to_ast_check!(
+        DataExpr,
+        "nested_arithmetic_expression",
+        "(1 + ((6 - 3) + 4))",
+        DataExpr::AddOp(AddOp {
+            lhs: Box::new(DataExpr::Number(1)),
+            rhs: Box::new(DataExpr::AddOp(AddOp {
+                lhs: Box::new(DataExpr::SubOp(SubOp {
+                    lhs: Box::new(DataExpr::Number(6)),
+                    rhs: Box::new(DataExpr::Number(3)),
+                    span: Span::DUMMY,
+                })),
+                rhs: Box::new(DataExpr::Number(4)),
+                span: Span::DUMMY,
+            })),
+            span: Span::DUMMY,
+        })
+    );
+
+    input_to_ast_check!(
+        DataExpr,
+        "negate_op",
+        "!a",
+        DataExpr::NegateOp(NegateOp {
+            operand: Box::new(DataExpr::Identifier(Identifier::new("a"))),
+            span: Span::DUMMY,
+        })
+    );
+
+    input_to_ast_check!(
+        DataExpr,
+        "negate_precedence",
+        "!a.b",
+        DataExpr::NegateOp(NegateOp {
+            operand: Box::new(DataExpr::PropertyOp(PropertyOp {
+                operand: Box::new(DataExpr::Identifier(Identifier::new("a"))),
+                property: Box::new(Identifier::new("b")),
+                span: Span::DUMMY,
+                scope: None,
+            })),
+            span: Span::DUMMY,
+        })
+    );
+
+    input_to_ast_check!(
+        DataExpr,
+        "negate_override_precedence",
+        "(!a).b",
+        DataExpr::PropertyOp(PropertyOp {
+            operand: Box::new(DataExpr::NegateOp(NegateOp {
+                operand: Box::new(DataExpr::Identifier(Identifier::new("a"))),
+                span: Span::DUMMY,
+            })),
+            property: Box::new(Identifier::new("b")),
+            span: Span::DUMMY,
+            scope: None,
+        })
+    );
+
+    input_to_ast_check!(
+        DataExpr,
+        "overly_complex",
+        "(1 + 5) - ((a.b.c - 3) + !d.f)",
+        DataExpr::SubOp(SubOp {
+            lhs: Box::new(DataExpr::AddOp(AddOp {
+                lhs: Box::new(DataExpr::Number(1)),
+                rhs: Box::new(DataExpr::Number(5)),
+                span: Span::DUMMY,
+            })),
+            rhs: Box::new(DataExpr::AddOp(AddOp {
+                lhs: Box::new(DataExpr::SubOp(SubOp {
+                    lhs: Box::new(DataExpr::PropertyOp(PropertyOp {
+                        operand: Box::new(DataExpr::PropertyOp(PropertyOp {
+                            operand: Box::new(DataExpr::Identifier(Identifier::new("a"))),
+                            property: Box::new(Identifier::new("b")),
+                            span: Span::DUMMY,
+                            scope: None,
+                        })),
+                        property: Box::new(Identifier::new("c")),
+                        span: Span::DUMMY,
+                        scope: None,
+                    })),
+                    rhs: Box::new(DataExpr::Number(3)),
+                    span: Span::DUMMY,
+                })),
+                rhs: Box::new(DataExpr::NegateOp(NegateOp {
+                    operand: Box::new(DataExpr::PropertyOp(PropertyOp {
+                        operand: Box::new(DataExpr::Identifier(Identifier::new("d"))),
+                        property: Box::new(Identifier::new("f")),
+                        span: Span::DUMMY,
+                        scope: None,
+                    })),
+                    span: Span::DUMMY,
+                })),
+
+                span: Span::DUMMY,
+            })),
+            span: Span::DUMMY,
+        })
+    );
+
     input_to_ast_check!(
         AddressExpr,
         "address_string",
