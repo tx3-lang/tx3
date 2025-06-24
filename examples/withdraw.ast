@@ -225,12 +225,12 @@
               "fields": [
                 {
                   "From": {
-                    "String": {
-                      "value": "stake_test1upl0rw5czklxn4d4cr9mftes45u32pngf6gn8znvmf6szrsn3ggkg",
+                    "Identifier": {
+                      "value": "Sender",
                       "span": {
                         "dummy": false,
                         "start": 352,
-                        "end": 418
+                        "end": 358
                       }
                     }
                   }
@@ -246,8 +246,8 @@
                       "value": "redeemer",
                       "span": {
                         "dummy": false,
-                        "start": 457,
-                        "end": 467
+                        "start": 397,
+                        "end": 407
                       }
                     }
                   }
@@ -256,7 +256,7 @@
               "span": {
                 "dummy": false,
                 "start": 327,
-                "end": 474
+                "end": 414
               }
             }
           }
@@ -265,7 +265,7 @@
       "span": {
         "dummy": false,
         "start": 32,
-        "end": 476
+        "end": 416
       },
       "collateral": [],
       "metadata": null
@@ -295,6 +295,6 @@
   "span": {
     "dummy": false,
     "start": 0,
-    "end": 476
+    "end": 416
   }
 }
