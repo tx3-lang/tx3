@@ -21,6 +21,8 @@ tx transfer(
     }
 
     cardano::withdraw {
-        "stake_test1upl0rw5czklxn4d4cr9mftes45u32pngf6gn8znvmf6szrsn3ggkg": 0,
+        from: "stake_test1upl0rw5czklxn4d4cr9mftes45u32pngf6gn8znvmf6szrsn3ggkg",
+        amount: 0,
+        redeemer: "redeemer",
     }
 }

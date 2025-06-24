@@ -224,30 +224,39 @@
             "Withdraw": {
               "fields": [
                 {
-                  "credential": {
+                  "From": {
                     "String": {
                       "value": "stake_test1upl0rw5czklxn4d4cr9mftes45u32pngf6gn8znvmf6szrsn3ggkg",
                       "span": {
                         "dummy": false,
-                        "start": 346,
-                        "end": 412
+                        "start": 352,
+                        "end": 418
                       }
                     }
-                  },
-                  "amount": {
+                  }
+                },
+                {
+                  "Amount": {
                     "Number": 0
-                  },
-                  "span": {
-                    "dummy": false,
-                    "start": 346,
-                    "end": 415
+                  }
+                },
+                {
+                  "Redeemer": {
+                    "String": {
+                      "value": "redeemer",
+                      "span": {
+                        "dummy": false,
+                        "start": 457,
+                        "end": 467
+                      }
+                    }
                   }
                 }
               ],
               "span": {
                 "dummy": false,
                 "start": 327,
-                "end": 422
+                "end": 474
               }
             }
           }
@@ -256,7 +265,7 @@
       "span": {
         "dummy": false,
         "start": 32,
-        "end": 424
+        "end": 476
       },
       "collateral": [],
       "metadata": null
@@ -286,6 +295,6 @@
   "span": {
     "dummy": false,
     "start": 0,
-    "end": 424
+    "end": 476
   }
 }
