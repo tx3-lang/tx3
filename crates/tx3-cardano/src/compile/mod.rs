@@ -1,4 +1,7 @@
-use std::collections::BTreeMap;
+use std::{
+    collections::BTreeMap,
+    hash::{DefaultHasher, Hash},
+};
 
 use pallas::{
     codec::utils::{KeepRaw, MaybeIndefArray},
@@ -12,6 +15,7 @@ use pallas::{
     },
 };
 
+use serde::Serialize;
 use tx3_lang::ir;
 
 use crate::coercion::{expr_into_metadatum, expr_into_number};
@@ -683,21 +687,20 @@ pub fn compile_withdrawals(
                 "Withdraw".to_string(),
             )
         })?;
-
         // Convert credential to stake credential
-        let stake_credential = coercion::expr_into_stake_credential(credential, network)?;
+        let stake_address = coercion::expr_into_address(credential, network)?;
 
-        // Convert stake credential to hash bytes
-        let hash_bytes = match stake_credential {
-            primitives::StakeCredential::AddrKeyhash(x) => primitives::Bytes::from(x.to_vec()),
-            primitives::StakeCredential::ScriptHash(x) => primitives::Bytes::from(x.to_vec()),
+        let hash_bytes = match stake_address {
+            pallas::ledger::addresses::Address::Shelley(x) => x.to_vec(),
+            pallas::ledger::addresses::Address::Stake(x) => x.to_vec(),
+            _ => unreachable!(),
         };
 
         // Convert amount to coin
         let amount_value = coercion::expr_into_number(amount)?;
         let coin = primitives::Coin::try_from(amount_value as u64).unwrap();
 
-        withdrawals.insert(hash_bytes, coin);
+        withdrawals.insert(primitives::Bytes::from(hash_bytes), coin);
     }
 
     if withdrawals.is_empty() {
