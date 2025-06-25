@@ -181,7 +181,7 @@ pub struct ParameterList {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct TxDef {
-    pub name: String,
+    pub name: Identifier,
     pub parameters: ParameterList,
     pub references: Vec<ReferenceBlock>,
     pub inputs: Vec<InputBlock>,
@@ -510,7 +510,7 @@ pub struct PartyField {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PolicyDef {
-    pub name: String,
+    pub name: Identifier,
     pub value: PolicyValue,
     pub span: Span,
 }
@@ -811,13 +811,13 @@ impl Type {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ParamDef {
-    pub name: String,
+    pub name: Identifier,
     pub r#type: Type,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct TypeDef {
-    pub name: String,
+    pub name: Identifier,
     pub cases: Vec<VariantCase>,
     pub span: Span,
 }
@@ -854,7 +854,7 @@ impl VariantCase {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AssetDef {
-    pub name: String,
+    pub name: Identifier,
     pub policy: DataExpr,
     pub asset_name: DataExpr,
     pub span: Span,

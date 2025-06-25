@@ -214,8 +214,10 @@ impl Scope {
     }
 
     pub fn track_type_def(&mut self, type_: &TypeDef) {
-        self.symbols
-            .insert(type_.name.clone(), Symbol::TypeDef(Box::new(type_.clone())));
+        self.symbols.insert(
+            type_.name.value.clone(),
+            Symbol::TypeDef(Box::new(type_.clone())),
+        );
     }
 
     pub fn track_variant_case(&mut self, case: &VariantCase) {
@@ -241,14 +243,14 @@ impl Scope {
 
     pub fn track_policy_def(&mut self, policy: &PolicyDef) {
         self.symbols.insert(
-            policy.name.clone(),
+            policy.name.value.clone(),
             Symbol::PolicyDef(Box::new(policy.clone())),
         );
     }
 
     pub fn track_asset_def(&mut self, asset: &AssetDef) {
         self.symbols.insert(
-            asset.name.clone(),
+            asset.name.value.clone(),
             Symbol::AssetDef(Box::new(asset.clone())),
         );
     }
@@ -973,7 +975,7 @@ impl Analyzable for TxDef {
         scope.symbols.insert("fees".to_string(), Symbol::Fees);
 
         for param in self.parameters.parameters.iter() {
-            scope.track_param_var(&param.name, param.r#type.clone());
+            scope.track_param_var(&param.name.value, param.r#type.clone());
         }
 
         for input in self.inputs.iter() {
@@ -1026,7 +1028,11 @@ impl Analyzable for TxDef {
 
 fn ada_asset_def() -> AssetDef {
     AssetDef {
-        name: "Ada".to_string(),
+        name: Identifier {
+            value: "Ada".to_string(),
+            symbol: None,
+            span: Span::DUMMY,
+        },
         policy: DataExpr::None,
         asset_name: DataExpr::None,
         span: Span::DUMMY,

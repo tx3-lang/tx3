@@ -228,7 +228,7 @@ impl IntoLower for ast::PolicyDef {
     fn into_lower(&self) -> Result<Self::Output, Error> {
         match &self.value {
             ast::PolicyValue::Assign(x) => Ok(ir::PolicyExpr {
-                name: self.name.clone(),
+                name: self.name.value.clone(),
                 hash: ir::Expression::Hash(hex::decode(&x.value)?),
                 script: None,
             }),
@@ -255,7 +255,7 @@ impl IntoLower for ast::PolicyDef {
                 };
 
                 Ok(ir::PolicyExpr {
-                    name: self.name.clone(),
+                    name: self.name.value.clone(),
                     hash,
                     script,
                 })
@@ -741,7 +741,7 @@ pub fn lower(ast: &ast::Program, template: &str) -> Result<ir::Tx, Error> {
     let tx = ast
         .txs
         .iter()
-        .find(|x| x.name == template)
+        .find(|x| x.name.value == template)
         .ok_or(Error::InvalidAst("tx not found".to_string()))?;
 
     lower_tx(tx)
@@ -773,13 +773,13 @@ mod tests {
         crate::analyzing::analyze(&mut program).ok().unwrap();
 
         for tx in program.txs.iter() {
-            let tir = lower(&program, &tx.name).unwrap();
+            let tir = lower(&program, &tx.name.value).unwrap();
 
-            make_snapshot_if_missing(example, &tx.name, &tir);
+            make_snapshot_if_missing(example, &tx.name.value, &tir);
 
             let tir_file = format!(
                 "{}/../../examples/{}.{}.tir",
-                manifest_dir, example, tx.name
+                manifest_dir, example, tx.name.value
             );
 
             let expected = std::fs::read_to_string(tir_file).unwrap();
