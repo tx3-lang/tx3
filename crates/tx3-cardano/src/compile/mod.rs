@@ -537,19 +537,22 @@ fn compile_mint_redeemers(
 fn compile_withdraw_redeemer(
     index: u32,
     adhoc: &ir::AdHocDirective,
-) -> Result<primitives::Redeemer, Error> {
+) -> Result<Option<primitives::Redeemer>, Error> {
     let redeemer = adhoc.data.get("redeemer").ok_or_else(|| {
         Error::CoerceError(
             "Missing 'redeemer' field in withdraw directive".to_string(),
             "Withdraw".to_string(),
         )
     })?;
-    Ok(primitives::Redeemer {
-        tag: primitives::RedeemerTag::Reward,
-        index: index,
-        ex_units: EXECUTION_UNITS,
-        data: redeemer.try_as_data()?,
-    })
+    match redeemer {
+        ir::Expression::None => Ok(None),
+        _ => Ok(Some(primitives::Redeemer {
+            tag: primitives::RedeemerTag::Reward,
+            index: index,
+            ex_units: EXECUTION_UNITS,
+            data: redeemer.try_as_data()?,
+        })),
+    }
 }
 
 fn compile_withdraw_redeemers(
@@ -575,7 +578,9 @@ fn compile_withdraw_redeemers(
             .iter()
             .enumerate()
             .map(|(i, (_, adhoc))| compile_withdraw_redeemer(i as u32, adhoc))
-            .collect::<Result<Vec<_>, _>>()?;
+            .filter_map(|x| x.ok())
+            .flatten()
+            .collect::<Vec<_>>();
 
         Ok(redeemers)
     } else {
