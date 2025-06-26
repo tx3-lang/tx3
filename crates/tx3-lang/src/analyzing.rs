@@ -222,14 +222,14 @@ impl Scope {
 
     pub fn track_variant_case(&mut self, case: &VariantCase) {
         self.symbols.insert(
-            case.name.clone(),
+            case.name.value.clone(),
             Symbol::VariantCase(Box::new(case.clone())),
         );
     }
 
     pub fn track_record_field(&mut self, field: &RecordField) {
         self.symbols.insert(
-            field.name.clone(),
+            field.name.value.clone(),
             Symbol::RecordField(Box::new(field.clone())),
         );
     }
@@ -274,7 +274,7 @@ impl Scope {
 
         for (name, subty) in schema {
             self.track_record_field(&RecordField {
-                name,
+                name: Identifier::new(name),
                 r#type: subty,
                 span: Span::DUMMY,
             });

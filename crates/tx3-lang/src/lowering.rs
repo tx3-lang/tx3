@@ -185,7 +185,7 @@ impl IntoLower for ast::StructConstructor {
         let mut fields = vec![];
 
         for (index, field_def) in case_def.fields.iter().enumerate() {
-            let value = self.case.find_field_value(&field_def.name);
+            let value = self.case.find_field_value(&field_def.name.value);
 
             if let Some(value) = value {
                 fields.push(value.into_lower()?);

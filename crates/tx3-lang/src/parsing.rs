@@ -652,7 +652,7 @@ impl AstNode for RecordField {
     fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
         let span = pair.as_span().into();
         let mut inner = pair.into_inner();
-        let identifier = inner.next().unwrap().as_str().to_string();
+        let identifier = Identifier::parse(inner.next().unwrap())?;
         let r#type = Type::parse(inner.next().unwrap())?;
 
         Ok(RecordField {
@@ -1187,7 +1187,7 @@ impl TypeDef {
         Ok(TypeDef {
             name: identifier.clone(),
             cases: vec![VariantCase {
-                name: "Default".to_string(),
+                name: Identifier::new("Default"),
                 fields,
                 span: span.clone(),
             }],
@@ -1217,7 +1217,7 @@ impl VariantCase {
         let span = pair.as_span().into();
         let mut inner = pair.into_inner();
 
-        let identifier = inner.next().unwrap().as_str().to_string();
+        let identifier = Identifier::parse(inner.next().unwrap())?;
 
         let fields = inner
             .map(RecordField::parse)
@@ -1234,7 +1234,7 @@ impl VariantCase {
         let span = pair.as_span().into();
         let mut inner = pair.into_inner();
 
-        let identifier = inner.next().unwrap().as_str().to_string();
+        let identifier = Identifier::parse(inner.next().unwrap())?;
 
         Ok(Self {
             name: identifier,
@@ -1467,7 +1467,7 @@ mod tests {
         TypeDef {
             name: Identifier::new("MyRecord"),
             cases: vec![VariantCase {
-                name: "Default".to_string(),
+                name: Identifier::new("Default"),
                 fields: vec![
                     RecordField::new("field1", Type::Int),
                     RecordField::new("field2", Type::Bytes)
@@ -1492,7 +1492,7 @@ mod tests {
             name: Identifier::new("MyVariant"),
             cases: vec![
                 VariantCase {
-                    name: "Case1".to_string(),
+                    name: Identifier::new("Case1"),
                     fields: vec![
                         RecordField::new("field1", Type::Int),
                         RecordField::new("field2", Type::Bytes)
@@ -1500,7 +1500,7 @@ mod tests {
                     span: Span::DUMMY,
                 },
                 VariantCase {
-                    name: "Case2".to_string(),
+                    name: Identifier::new("Case2"),
                     fields: vec![],
                     span: Span::DUMMY,
                 },

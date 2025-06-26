@@ -481,7 +481,7 @@ pub struct BurnBlock {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct RecordField {
-    pub name: String,
+    pub name: Identifier,
     pub r#type: Type,
     pub span: Span,
 }
@@ -489,7 +489,7 @@ pub struct RecordField {
 impl RecordField {
     pub fn new(name: &str, r#type: Type) -> Self {
         Self {
-            name: name.to_string(),
+            name: Identifier::new(name),
             r#type,
             span: Span::DUMMY,
         }
@@ -824,18 +824,18 @@ pub struct TypeDef {
 
 impl TypeDef {
     pub(crate) fn find_case_index(&self, case: &str) -> Option<usize> {
-        self.cases.iter().position(|x| x.name == case)
+        self.cases.iter().position(|x| x.name.value == case)
     }
 
     #[allow(dead_code)]
     pub(crate) fn find_case(&self, case: &str) -> Option<&VariantCase> {
-        self.cases.iter().find(|x| x.name == case)
+        self.cases.iter().find(|x| x.name.value == case)
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct VariantCase {
-    pub name: String,
+    pub name: Identifier,
     pub fields: Vec<RecordField>,
     pub span: Span,
 }
@@ -843,12 +843,12 @@ pub struct VariantCase {
 impl VariantCase {
     #[allow(dead_code)]
     pub(crate) fn find_field_index(&self, field: &str) -> Option<usize> {
-        self.fields.iter().position(|x| x.name == field)
+        self.fields.iter().position(|x| x.name.value == field)
     }
 
     #[allow(dead_code)]
     pub(crate) fn find_field(&self, field: &str) -> Option<&RecordField> {
-        self.fields.iter().find(|x| x.name == field)
+        self.fields.iter().find(|x| x.name.value == field)
     }
 }
 
