@@ -59,7 +59,11 @@ impl Indexable for ir::Expression {
             ir::Expression::Address(_) => None,
             ir::Expression::Hash(_) => None,
             ir::Expression::UtxoRefs(_) => None,
-            ir::Expression::UtxoSet(_) => None,
+            ir::Expression::UtxoSet(x) => x
+                .iter()
+                .next()
+                .and_then(|x| x.datum.clone())
+                .and_then(|datum| datum.index(index)),
             ir::Expression::Assets(_) => None,
             ir::Expression::EvalParameter(_, _) => None,
             ir::Expression::EvalInput(_) => None,
