@@ -1524,6 +1524,7 @@ impl Apply for ir::Metadata {
             value: self.value.apply_args(args)?,
         })
     }
+
     fn apply_inputs(self, args: &BTreeMap<String, HashSet<Utxo>>) -> Result<Self, Error> {
         Ok(Self {
             key: self.key.apply_inputs(args)?,

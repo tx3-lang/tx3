@@ -1,4 +1,7 @@
-use std::collections::BTreeMap;
+use std::{
+    collections::BTreeMap,
+    hash::{DefaultHasher, Hash},
+};
 
 use pallas::{
     codec::utils::{KeepRaw, MaybeIndefArray},
@@ -12,6 +15,7 @@ use pallas::{
     },
 };
 
+use serde::Serialize;
 use tx3_lang::ir;
 
 use crate::coercion::{expr_into_metadatum, expr_into_number};
@@ -243,20 +247,21 @@ fn compile_outputs(
 
 fn compile_vote_delegation_certificate(
     x: &ir::AdHocDirective,
+    network: Network,
 ) -> Result<primitives::Certificate, Error> {
-    let stake = coercion::expr_into_stake_credential(&x.data["stake"])?;
+    let stake = coercion::expr_into_stake_credential(&x.data["stake"], network)?;
     let drep = coercion::expr_into_bytes(&x.data["drep"])?;
     let drep = primitives::DRep::Key(drep.as_slice().into());
 
     Ok(primitives::Certificate::VoteDeleg(stake, drep))
 }
 
-fn compile_certs(tx: &ir::Tx) -> Result<Vec<primitives::Certificate>, Error> {
+fn compile_certs(tx: &ir::Tx, network: Network) -> Result<Vec<primitives::Certificate>, Error> {
     tx.adhoc
         .iter()
         .filter_map(|x| match x.name.as_str() {
             "vote_delegation_certificate" => {
-                let cert = compile_vote_delegation_certificate(x);
+                let cert = compile_vote_delegation_certificate(x, network);
                 Some(cert)
             }
             _ => None,
@@ -373,13 +378,13 @@ fn compile_tx_body(
         inputs: compile_inputs(tx)?.into(),
         outputs: compile_outputs(tx, network)?,
         fee: coercion::expr_into_number(&tx.fees)? as u64,
-        certificates: primitives::NonEmptySet::from_vec(compile_certs(tx)?),
+        certificates: primitives::NonEmptySet::from_vec(compile_certs(tx, network)?),
         mint: compile_mint_block(tx)?,
         reference_inputs: primitives::NonEmptySet::from_vec(compile_reference_inputs(tx)?),
         network_id: Some(network),
         ttl: until,
         validity_interval_start: since,
-        withdrawals: None,
+        withdrawals: compile_withdrawals(tx, network)?,
         auxiliary_data_hash: None,
         script_data_hash: None,
         collateral: primitives::NonEmptySet::from_vec(compile_collateral(tx)?),
@@ -443,10 +448,7 @@ fn compile_single_spend_redeemer(
     let redeemer = primitives::Redeemer {
         tag: primitives::RedeemerTag::Spend,
         index: index as u32,
-        ex_units: primitives::ExUnits {
-            mem: 2000000,
-            steps: 2000000000,
-        },
+        ex_units: EXECUTION_UNITS,
         data: redeemer.try_as_data()?,
     };
 
@@ -512,10 +514,7 @@ fn compile_mint_redeemer(
     let out = primitives::Redeemer {
         tag: primitives::RedeemerTag::Mint,
         index: mint_redeemer_index(compiled_body, policy)?,
-        ex_units: primitives::ExUnits {
-            mem: 10000000,
-            steps: 2000000000,
-        },
+        ex_units: EXECUTION_UNITS,
         data: red.try_as_data()?,
     };
 
@@ -535,15 +534,74 @@ fn compile_mint_redeemers(
     Ok(redeemers)
 }
 
+fn compile_withdraw_redeemer(
+    index: u32,
+    adhoc: &ir::AdHocDirective,
+) -> Result<Option<primitives::Redeemer>, Error> {
+    let redeemer = adhoc.data.get("redeemer").ok_or_else(|| {
+        Error::CoerceError(
+            "Missing 'redeemer' field in withdraw directive".to_string(),
+            "Withdraw".to_string(),
+        )
+    })?;
+    match redeemer {
+        ir::Expression::None => Ok(None),
+        _ => Ok(Some(primitives::Redeemer {
+            tag: primitives::RedeemerTag::Reward,
+            index: index,
+            ex_units: EXECUTION_UNITS,
+            data: redeemer.try_as_data()?,
+        })),
+    }
+}
+
+fn compile_withdraw_redeemers(
+    tx: &ir::Tx,
+    compiled_body: &primitives::TransactionBody,
+) -> Result<Vec<primitives::Redeemer>, Error> {
+    if compiled_body.withdrawals.is_some() {
+        let compiled_withdrawals = compiled_body.withdrawals.as_ref().unwrap();
+        let withdraw_adhocs: Vec<_> = tx
+            .adhoc
+            .iter()
+            .filter(|x| x.name.as_str() == "withdraw")
+            .collect();
+
+        // Create pairs of (withdrawal, adhoc) and sort by withdrawal credential
+        let mut withdrawal_pairs: Vec<_> = compiled_withdrawals
+            .iter()
+            .zip(withdraw_adhocs.iter())
+            .collect();
+        withdrawal_pairs.sort_by_key(|(withdrawal, _)| withdrawal.0.clone());
+
+        let redeemers = withdrawal_pairs
+            .iter()
+            .enumerate()
+            .map(|(i, (_, adhoc))| compile_withdraw_redeemer(i as u32, adhoc))
+            .filter_map(|x| x.ok())
+            .flatten()
+            .collect::<Vec<_>>();
+
+        Ok(redeemers)
+    } else {
+        Ok(Vec::new())
+    }
+}
+
 fn compile_redeemers(
     tx: &ir::Tx,
     compiled_body: &primitives::TransactionBody,
 ) -> Result<Option<Redeemers>, Error> {
     let spend_redeemers = compile_spend_redeemers(tx, compiled_body)?;
     let mint_redeemers = compile_mint_redeemers(tx, compiled_body)?;
+    let withdraw_redeemers = compile_withdraw_redeemers(tx, compiled_body)?;
 
     // TODO: chain other redeemers
-    let redeemers: Vec<_> = spend_redeemers.into_iter().chain(mint_redeemers).collect();
+    let redeemers: Vec<_> = spend_redeemers
+        .into_iter()
+        .chain(mint_redeemers)
+        .chain(withdraw_redeemers)
+        .collect();
 
     if redeemers.is_empty() {
         Ok(None)
@@ -611,4 +669,48 @@ pub fn compile_tx(tx: &ir::Tx, pparams: &PParams) -> Result<primitives::Tx<'stat
         auxiliary_data: primitives::Nullable::from(auxiliary_data.map(KeepRaw::from)),
         success: true,
     })
+}
+
+pub fn compile_withdrawals(
+    tx: &ir::Tx,
+    network: Network,
+) -> Result<Option<BTreeMap<primitives::Bytes, primitives::Coin>>, Error> {
+    let mut withdrawals = BTreeMap::new();
+
+    for adhoc in tx.adhoc.iter().filter(|x| x.name.as_str() == "withdraw") {
+        // Extract credential, amount, and redeemer from the data HashMap
+        let credential = adhoc.data.get("credential").ok_or_else(|| {
+            Error::CoerceError(
+                "Missing 'credential' field in withdraw directive".to_string(),
+                "Withdraw".to_string(),
+            )
+        })?;
+
+        let amount = adhoc.data.get("amount").ok_or_else(|| {
+            Error::CoerceError(
+                "Missing 'amount' field in withdraw directive".to_string(),
+                "Withdraw".to_string(),
+            )
+        })?;
+        // Convert credential to stake credential
+        let stake_address = coercion::expr_into_address(credential, network)?;
+
+        let hash_bytes = match stake_address {
+            pallas::ledger::addresses::Address::Shelley(x) => x.to_vec(),
+            pallas::ledger::addresses::Address::Stake(x) => x.to_vec(),
+            _ => unreachable!(),
+        };
+
+        // Convert amount to coin
+        let amount_value = coercion::expr_into_number(amount)?;
+        let coin = primitives::Coin::try_from(amount_value as u64).unwrap();
+
+        withdrawals.insert(primitives::Bytes::from(hash_bytes), coin);
+    }
+
+    if withdrawals.is_empty() {
+        Ok(None)
+    } else {
+        Ok(Some(withdrawals))
+    }
 }

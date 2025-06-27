@@ -126,17 +126,10 @@ pub fn address_into_stake_credential(
 
 pub fn expr_into_stake_credential(
     expr: &ir::Expression,
+    network: Network,
 ) -> Result<primitives::StakeCredential, Error> {
-    match expr {
-        ir::Expression::Address(x) => {
-            let address = bytes_into_address(x)?;
-            address_into_stake_credential(&address)
-        }
-        _ => Err(Error::CoerceError(
-            format!("{:?}", expr),
-            "StakeCredential".to_string(),
-        )),
-    }
+    let address = expr_into_address(expr, network)?;
+    address_into_stake_credential(&address)
 }
 
 pub fn expr_into_address(

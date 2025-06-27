@@ -99,5 +99,11 @@ pub struct PParams {
 }
 
 pub use compile::compile_tx;
+use pallas::ledger::primitives;
 pub use resolve::resolve_tx;
 pub use resolve::Ledger;
+
+pub const EXECUTION_UNITS: primitives::ExUnits = primitives::ExUnits {
+    mem: 2000000,
+    steps: 2000000000,
+};

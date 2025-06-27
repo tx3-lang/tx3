@@ -634,6 +634,51 @@ impl IntoLower for ast::SignersBlock {
     }
 }
 
+impl IntoLower for ast::WithdrawBlockField {
+    type Output = ir::Expression;
+
+    fn into_lower(&self) -> Result<Self::Output, Error> {
+        match self {
+            ast::WithdrawBlockField::From(x) => x.into_lower(),
+            ast::WithdrawBlockField::Amount(x) => x.into_lower(),
+            ast::WithdrawBlockField::Redeemer(x) => x.into_lower(),
+        }
+    }
+}
+
+impl IntoLower for ast::WithdrawBlock {
+    type Output = ir::AdHocDirective;
+
+    fn into_lower(&self) -> Result<Self::Output, Error> {
+        let credential = self
+            .find("from")
+            .ok_or_else(|| {
+                Error::InvalidAst("Missing required 'from' field in withdraw block".to_string())
+            })?
+            .into_lower()?;
+        let amount = self
+            .find("amount")
+            .ok_or_else(|| {
+                Error::InvalidAst("Missing required 'amount' field in withdraw block".to_string())
+            })?
+            .into_lower()?;
+        let redeemer = self
+            .find("redeemer")
+            .map(|r| r.into_lower())
+            .transpose()?
+            .unwrap_or(ir::Expression::None);
+
+        Ok(ir::AdHocDirective {
+            name: "withdraw".to_string(),
+            data: std::collections::HashMap::from([
+                ("credential".to_string(), credential),
+                ("amount".to_string(), amount),
+                ("redeemer".to_string(), redeemer),
+            ]),
+        })
+    }
+}
+
 pub fn lower_tx(ast: &ast::TxDef) -> Result<ir::Tx, Error> {
     let ir = ir::Tx {
         references: ast
