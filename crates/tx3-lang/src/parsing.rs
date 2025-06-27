@@ -2121,4 +2121,6 @@ mod tests {
     test_parsing!(disordered);
 
     test_parsing!(withdraw);
+
+    test_parsing!(asteria_datum);
 }

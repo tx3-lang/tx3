@@ -812,4 +812,6 @@ mod tests {
     test_lowering!(vesting);
 
     test_lowering!(faucet);
+
+    test_lowering!(asteria_datum);
 }
