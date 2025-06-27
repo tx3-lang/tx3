@@ -127,7 +127,7 @@ impl AstNode for ParameterList {
         for param in inner {
             let mut inner = param.into_inner();
             let name = Identifier::parse(inner.next().unwrap())?;
-            let r#type = Type::parse(inner.next().unwrap())?;
+            let r#type = TypeRecord::parse(inner.next().unwrap())?;
 
             parameters.push(ParamDef { name, r#type });
         }
@@ -398,7 +398,7 @@ impl AstNode for InputBlockField {
             }
             Rule::input_block_datum_is => {
                 let pair = pair.into_inner().next().unwrap();
-                let x = InputBlockField::DatumIs(Type::parse(pair)?);
+                let x = InputBlockField::DatumIs(TypeRecord::parse(pair)?);
                 Ok(x)
             }
             Rule::input_block_min_amount => {
@@ -653,7 +653,7 @@ impl AstNode for RecordField {
         let span = pair.as_span().into();
         let mut inner = pair.into_inner();
         let identifier = Identifier::parse(inner.next().unwrap())?;
-        let r#type = Type::parse(inner.next().unwrap())?;
+        let r#type = TypeRecord::parse(inner.next().unwrap())?;
 
         Ok(RecordField {
             name: identifier,
@@ -1126,27 +1126,52 @@ impl AstNode for DataExpr {
     }
 }
 
-impl AstNode for Type {
+impl AstNode for TypeRecord {
     const RULE: Rule = Rule::r#type;
 
     fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
         let inner = pair.into_inner().next().unwrap();
+        let span = inner.as_span().into();
 
         match inner.as_rule() {
             Rule::primitive_type => match inner.as_str() {
-                "Int" => Ok(Type::Int),
-                "Bool" => Ok(Type::Bool),
-                "Bytes" => Ok(Type::Bytes),
-                "Address" => Ok(Type::Address),
-                "UtxoRef" => Ok(Type::UtxoRef),
-                "AnyAsset" => Ok(Type::AnyAsset),
+                "Int" => Ok(TypeRecord {
+                    r#type: Type::Int,
+                    span,
+                }),
+                "Bool" => Ok(TypeRecord {
+                    r#type: Type::Bool,
+                    span,
+                }),
+                "Bytes" => Ok(TypeRecord {
+                    r#type: Type::Bytes,
+                    span,
+                }),
+                "Address" => Ok(TypeRecord {
+                    r#type: Type::Address,
+                    span,
+                }),
+                "UtxoRef" => Ok(TypeRecord {
+                    r#type: Type::UtxoRef,
+                    span,
+                }),
+                "AnyAsset" => Ok(TypeRecord {
+                    r#type: Type::AnyAsset,
+                    span,
+                }),
                 _ => unreachable!("Unexpected string in primitive_type: {:?}", inner.as_str()),
             },
             Rule::list_type => {
                 let inner = inner.into_inner().next().unwrap();
-                Ok(Type::List(Box::new(Type::parse(inner)?)))
+                Ok(TypeRecord {
+                    r#type: Type::List(Box::new(TypeRecord::parse(inner)?)),
+                    span,
+                })
             }
-            Rule::custom_type => Ok(Type::Custom(Identifier::new(inner.as_str().to_owned()))),
+            Rule::custom_type => Ok(TypeRecord {
+                r#type: Type::Custom(Identifier::new(inner.as_str().to_owned())),
+                span,
+            }),
             x => unreachable!("Unexpected rule in type: {:?}", x),
         }
     }
@@ -1422,39 +1447,116 @@ mod tests {
         };
     }
 
-    input_to_ast_check!(Type, "int", "Int", Type::Int);
-
-    input_to_ast_check!(Type, "bool", "Bool", Type::Bool);
-
-    input_to_ast_check!(Type, "bytes", "Bytes", Type::Bytes);
-
-    input_to_ast_check!(Type, "address", "Address", Type::Address);
-
-    input_to_ast_check!(Type, "utxo_ref", "UtxoRef", Type::UtxoRef);
-
-    input_to_ast_check!(Type, "any_asset", "AnyAsset", Type::AnyAsset);
-
-    input_to_ast_check!(Type, "list", "List<Int>", Type::List(Box::new(Type::Int)));
+    input_to_ast_check!(
+        TypeRecord,
+        "int",
+        "Int",
+        TypeRecord {
+            r#type: Type::Int,
+            span: Span::DUMMY,
+        }
+    );
 
     input_to_ast_check!(
-        Type,
+        TypeRecord,
+        "bool",
+        "Bool",
+        TypeRecord {
+            r#type: Type::Bool,
+            span: Span::DUMMY,
+        }
+    );
+
+    input_to_ast_check!(
+        TypeRecord,
+        "bytes",
+        "Bytes",
+        TypeRecord {
+            r#type: Type::Bytes,
+            span: Span::DUMMY,
+        }
+    );
+
+    input_to_ast_check!(
+        TypeRecord,
+        "address",
+        "Address",
+        TypeRecord {
+            r#type: Type::Address,
+            span: Span::DUMMY,
+        }
+    );
+
+    input_to_ast_check!(
+        TypeRecord,
+        "utxo_ref",
+        "UtxoRef",
+        TypeRecord {
+            r#type: Type::UtxoRef,
+            span: Span::DUMMY,
+        }
+    );
+
+    input_to_ast_check!(
+        TypeRecord,
+        "any_asset",
+        "AnyAsset",
+        TypeRecord {
+            r#type: Type::AnyAsset,
+            span: Span::DUMMY,
+        }
+    );
+
+    input_to_ast_check!(
+        TypeRecord,
+        "list",
+        "List<Int>",
+        TypeRecord {
+            r#type: Type::List(Box::new(TypeRecord {
+                r#type: Type::Int,
+                span: Span::DUMMY,
+            })),
+            span: Span::DUMMY,
+        }
+    );
+
+    input_to_ast_check!(
+        TypeRecord,
         "identifier",
         "MyType",
-        Type::Custom(Identifier::new("MyType".to_string()))
+        TypeRecord {
+            r#type: Type::Custom(Identifier::new("MyType".to_string())),
+            span: Span::DUMMY,
+        }
     );
 
     input_to_ast_check!(
-        Type,
+        TypeRecord,
         "other_type",
         "List<Bytes>",
-        Type::List(Box::new(Type::Bytes))
+        TypeRecord {
+            r#type: Type::List(Box::new(TypeRecord {
+                r#type: Type::Bytes,
+                span: Span::DUMMY,
+            })),
+            span: Span::DUMMY,
+        }
     );
 
     input_to_ast_check!(
-        Type,
+        TypeRecord,
         "within_list",
         "List<List<Int>>",
-        Type::List(Box::new(Type::List(Box::new(Type::Int))))
+        TypeRecord {
+            r#type: Type::List(Box::new(TypeRecord {
+                r#type: Type::List(Box::new(TypeRecord {
+                    r#type: Type::Int,
+                    span: Span::DUMMY,
+                })),
+                span: Span::DUMMY,
+            })),
+            span: Span::DUMMY,
+        }
     );
 
     input_to_ast_check!(

@@ -275,7 +275,10 @@ impl Scope {
         for (name, subty) in schema {
             self.track_record_field(&RecordField {
                 name: Identifier::new(name),
-                r#type: subty,
+                r#type: TypeRecord {
+                    r#type: subty,
+                    span: Span::DUMMY,
+                },
                 span: Span::DUMMY,
             });
         }
@@ -657,17 +660,17 @@ impl Analyzable for Identifier {
     }
 }
 
-impl Analyzable for Type {
+impl Analyzable for TypeRecord {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        match self {
-            Type::Custom(x) => x.analyze(parent),
-            Type::List(x) => x.analyze(parent),
+        match self.r#type.clone() {
+            Type::Custom(mut x) => x.analyze(parent),
+            Type::List(mut x) => x.analyze(parent),
             _ => AnalyzeReport::default(),
         }
     }
 
     fn is_resolved(&self) -> bool {
-        match self {
+        match self.r#type.clone() {
             Type::Custom(x) => x.is_resolved(),
             Type::List(x) => x.is_resolved(),
             _ => true,
@@ -975,11 +978,15 @@ impl Analyzable for TxDef {
         scope.symbols.insert("fees".to_string(), Symbol::Fees);
 
         for param in self.parameters.parameters.iter() {
-            scope.track_param_var(&param.name.value, param.r#type.clone());
+            scope.track_param_var(&param.name.value, param.r#type.clone().r#type);
         }
 
         for input in self.inputs.iter() {
-            let datum_type = input.datum_is().cloned().unwrap_or(Type::Undefined);
+            let datum_type = input
+                .datum_is()
+                .cloned()
+                .map(|tr| tr.r#type)
+                .unwrap_or(Type::Undefined);
             scope.track_input(&input.name, datum_type);
         }
 

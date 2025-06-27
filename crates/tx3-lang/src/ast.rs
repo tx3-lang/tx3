@@ -110,7 +110,7 @@ impl Symbol {
     pub fn target_type(&self) -> Option<Type> {
         match self {
             Symbol::ParamVar(_, ty) => Some(ty.as_ref().clone()),
-            Symbol::RecordField(x) => Some(x.r#type.clone()),
+            Symbol::RecordField(x) => Some(x.r#type.clone().r#type),
             Symbol::Input(_, ty) => Some(ty.as_ref().clone()),
             x => {
                 dbg!(x);
@@ -276,7 +276,7 @@ impl CollateralBlock {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum InputBlockField {
     From(AddressExpr),
-    DatumIs(Type),
+    DatumIs(TypeRecord),
     MinAmount(DataExpr),
     Redeemer(DataExpr),
     Ref(DataExpr),
@@ -308,7 +308,7 @@ impl InputBlockField {
         }
     }
 
-    pub fn as_datum_type(&self) -> Option<&Type> {
+    pub fn as_datum_type(&self) -> Option<&TypeRecord> {
         match self {
             InputBlockField::DatumIs(x) => Some(x),
             _ => None,
@@ -378,7 +378,7 @@ impl InputBlock {
         self.fields.iter().find(|x| x.key() == key)
     }
 
-    pub(crate) fn datum_is(&self) -> Option<&Type> {
+    pub(crate) fn datum_is(&self) -> Option<&TypeRecord> {
         self.find("datum_is").and_then(|x| x.as_datum_type())
     }
 }
@@ -482,7 +482,7 @@ pub struct BurnBlock {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct RecordField {
     pub name: Identifier,
-    pub r#type: Type,
+    pub r#type: TypeRecord,
     pub span: Span,
 }
 
@@ -490,7 +490,10 @@ impl RecordField {
     pub fn new(name: &str, r#type: Type) -> Self {
         Self {
             name: Identifier::new(name),
-            r#type,
+            r#type: TypeRecord {
+                r#type,
+                span: Span::DUMMY,
+            },
             span: Span::DUMMY,
         }
     }
@@ -767,8 +770,31 @@ pub enum Type {
     Utxo,
     UtxoRef,
     AnyAsset,
-    List(Box<Type>),
+    List(Box<TypeRecord>),
     Custom(Identifier),
+}
+impl TypeRecord {
+    pub fn to_str(self) -> String {
+        match self.r#type {
+            Type::Undefined => "Undefined".to_string(),
+            Type::Unit => "Unit".to_string(),
+            Type::Int => "Int".to_string(),
+            Type::Bool => "Bool".to_string(),
+            Type::Bytes => "Bytes".to_string(),
+            Type::Address => "Address".to_string(),
+            Type::UtxoRef => "UtxoRef".to_string(),
+            Type::AnyAsset => "AnyAsset".to_string(),
+            Type::Utxo => "Utxo".to_string(),
+            Type::List(inner) => format!("List<{}>", inner.to_str()),
+            Type::Custom(id) => id.value,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct TypeRecord {
+    pub r#type: Type,
+    pub span: Span,
 }
 
 impl Type {
@@ -794,7 +820,7 @@ impl Type {
                     Some(ty) if ty.cases.len() == 1 => ty.cases[0]
                         .fields
                         .iter()
-                        .map(|f| (f.name.clone(), f.r#type.clone()))
+                        .map(|f| (f.name.value.clone(), f.r#type.r#type.clone()))
                         .collect(),
                     _ => vec![],
                 }
@@ -812,7 +838,7 @@ impl Type {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ParamDef {
     pub name: Identifier,
-    pub r#type: Type,
+    pub r#type: TypeRecord,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
