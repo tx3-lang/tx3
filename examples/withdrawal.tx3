@@ -20,7 +20,7 @@ tx transfer(
         amount: source - Ada(quantity) - fees,
     }
 
-    cardano::withdraw {
+    cardano::withdrawal {
         from: Sender,
         amount: 0,
         redeemer: "redeemer",
