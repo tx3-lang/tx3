@@ -38,7 +38,7 @@ pub struct InvalidSymbolError {
 #[error("invalid type ({got}), expected: {expected}")]
 #[diagnostic(code(tx3::invalid_type))]
 pub struct InvalidTargetTypeError {
-    pub expected: &'static str,
+    pub expected: String,
     pub got: String,
 
     #[source_code]
@@ -111,13 +111,13 @@ impl Error {
     }
 
     pub fn invalid_target_type(
-        expected: &'static str,
+        expected: &Type,
         got: &Type,
         ast: &impl crate::parsing::AstNode,
     ) -> Self {
         Self::InvalidTargetType(InvalidTargetTypeError {
-            expected,
-            got: format!("{:?}", got),
+            expected: expected.to_string(),
+            got: got.to_string(),
             src: None,
             span: ast.span().clone(),
         })
@@ -139,6 +139,18 @@ impl AnalyzeReport {
             Ok(())
         } else {
             Err(self)
+        }
+    }
+
+    pub fn expect_data_expr_type(expr: &DataExpr, expected: &Type) -> Self {
+        if expr.target_type().as_ref() != Some(expected) {
+            Self::from(Error::invalid_target_type(
+                expected,
+                expr.target_type().as_ref().unwrap_or(&Type::Undefined),
+                expr,
+            ))
+        } else {
+            Self::default()
         }
     }
 }
@@ -606,28 +618,8 @@ impl Analyzable for AssetDef {
         let policy = self.policy.analyze(parent.clone());
         let asset_name = self.asset_name.analyze(parent.clone());
 
-        let policy_type = self.policy.target_type();
-        let asset_name_type = self.asset_name.target_type();
-
-        let policy_type = if policy_type != Some(Type::Bytes) {
-            AnalyzeReport::from(Error::invalid_target_type(
-                "Bytes",
-                policy_type.as_ref().unwrap_or(&Type::Undefined),
-                &self.policy,
-            ))
-        } else {
-            AnalyzeReport::default()
-        };
-
-        let asset_name_type = if asset_name_type != Some(Type::Bytes) {
-            AnalyzeReport::from(Error::invalid_target_type(
-                "Bytes",
-                asset_name_type.as_ref().unwrap_or(&Type::Undefined),
-                &self.asset_name,
-            ))
-        } else {
-            AnalyzeReport::default()
-        };
+        let policy_type = AnalyzeReport::expect_data_expr_type(&self.policy, &Type::Bytes);
+        let asset_name_type = AnalyzeReport::expect_data_expr_type(&self.asset_name, &Type::Bytes);
 
         policy + asset_name + policy_type + asset_name_type
     }
@@ -716,57 +708,6 @@ impl Analyzable for MetadataBlockField {
 }
 
 impl Analyzable for MetadataBlock {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        self.fields.analyze(parent)
-    }
-    fn is_resolved(&self) -> bool {
-        self.fields.is_resolved()
-    }
-}
-
-impl Analyzable for WithdrawBlockField {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        match self {
-            WithdrawBlockField::From(x) => x.analyze(parent),
-            WithdrawBlockField::Amount(x) => {
-                let amount = x.analyze(parent.clone());
-
-                let amount_validation = match x.as_ref() {
-                    DataExpr::Number(_) => AnalyzeReport::default(),
-                    DataExpr::Identifier(id) => {
-                        match id.symbol.as_ref().and_then(|s| s.target_type()) {
-                            Some(Type::Int) => AnalyzeReport::default(),
-                            Some(other_type) => AnalyzeReport::from(Error::invalid_target_type(
-                                "Int (number)",
-                                &other_type,
-                                x.as_ref(),
-                            )),
-                            None => AnalyzeReport::default(),
-                        }
-                    }
-                    _ => AnalyzeReport::from(Error::invalid_target_type(
-                        "Int (number)",
-                        &Type::Undefined,
-                        x.as_ref(),
-                    )),
-                };
-
-                amount + amount_validation
-            }
-            WithdrawBlockField::Redeemer(x) => x.analyze(parent),
-        }
-    }
-
-    fn is_resolved(&self) -> bool {
-        match self {
-            WithdrawBlockField::From(x) => x.is_resolved(),
-            WithdrawBlockField::Amount(x) => x.is_resolved(),
-            WithdrawBlockField::Redeemer(x) => x.is_resolved(),
-        }
-    }
-}
-
-impl Analyzable for WithdrawBlock {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
         self.fields.analyze(parent)
     }
@@ -1122,7 +1063,7 @@ mod tests {
         assert_eq!(
             report.errors[1],
             Error::InvalidTargetType(InvalidTargetTypeError {
-                expected: "Bytes",
+                expected: "Bytes".to_string(),
                 got: "Int".to_string(),
                 src: None,
                 span: Span::DUMMY,
@@ -1132,7 +1073,7 @@ mod tests {
         assert_eq!(
             report.errors[2],
             Error::InvalidTargetType(InvalidTargetTypeError {
-                expected: "Bytes",
+                expected: "Bytes".to_string(),
                 got: "Int".to_string(),
                 src: None,
                 span: Span::DUMMY,

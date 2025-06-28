@@ -337,35 +337,6 @@ pub struct MetadataBlock {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub enum WithdrawBlockField {
-    From(Box<DataExpr>),
-    Amount(Box<DataExpr>),
-    Redeemer(Box<DataExpr>),
-}
-
-impl WithdrawBlockField {
-    fn key(&self) -> &str {
-        match self {
-            WithdrawBlockField::From(_) => "from",
-            WithdrawBlockField::Amount(_) => "amount",
-            WithdrawBlockField::Redeemer(_) => "redeemer",
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct WithdrawBlock {
-    pub fields: Vec<WithdrawBlockField>,
-    pub span: Span,
-}
-
-impl WithdrawBlock {
-    pub(crate) fn find(&self, key: &str) -> Option<&WithdrawBlockField> {
-        self.fields.iter().find(|x| x.key() == key)
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct InputBlock {
     pub name: String,
     pub is_many: bool,
@@ -806,6 +777,24 @@ impl Type {
     pub fn property_index(&self, property: &str) -> Option<usize> {
         let properties = Self::properties(self);
         properties.iter().position(|(name, _)| name == property)
+    }
+}
+
+impl std::fmt::Display for Type {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Type::Undefined => write!(f, "Undefined"),
+            Type::Unit => write!(f, "Unit"),
+            Type::Int => write!(f, "Int"),
+            Type::Bool => write!(f, "Bool"),
+            Type::Bytes => write!(f, "Bytes"),
+            Type::Address => write!(f, "Address"),
+            Type::Utxo => write!(f, "Utxo"),
+            Type::UtxoRef => write!(f, "UtxoRef"),
+            Type::AnyAsset => write!(f, "AnyAsset"),
+            Type::List(x) => write!(f, "List({})", x),
+            Type::Custom(x) => write!(f, "Custom({})", x.value),
+        }
     }
 }
 
