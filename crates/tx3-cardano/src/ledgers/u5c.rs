@@ -162,17 +162,24 @@ impl crate::resolve::Ledger for Ledger {
         Ok(out)
     }
 
-    async fn resolve_input(&self, query: &InputQuery) -> Result<tx3_lang::UtxoSet, crate::Error> {
-        let utxos = self
+    async fn resolve_input(
+        &self,
+        query: &InputQuery,
+        ignore: &[tx3_lang::UtxoRef],
+    ) -> Result<tx3_lang::UtxoSet, crate::Error> {
+        let mut utxos = self
             .queries
             .lock()
             .await
-            .match_utxos(input_query_to_pattern(query), None, 1)
+            .match_utxos(input_query_to_pattern(query), None, 10)
             .await?
             .items
             .into_iter()
             .map(utxo_from_u5c_to_tx3)
-            .collect();
+            .collect::<tx3_lang::UtxoSet>();
+
+        utxos.retain(|utxo| !ignore.contains(&utxo.r#ref));
+        utxos.shrink_to(1);
 
         Ok(utxos)
     }

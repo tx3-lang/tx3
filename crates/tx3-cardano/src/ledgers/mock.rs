@@ -46,7 +46,11 @@ impl Ledger for MockLedger {
         })
     }
 
-    async fn resolve_input(&self, _input: &InputQuery) -> Result<UtxoSet, Error> {
+    async fn resolve_input(
+        &self,
+        _input: &InputQuery,
+        _ignore: &[tx3_lang::UtxoRef],
+    ) -> Result<UtxoSet, Error> {
         let utxo = tx3_lang::Utxo {
         r#ref: tx3_lang::UtxoRef {
             txid: hex::decode(
