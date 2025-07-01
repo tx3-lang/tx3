@@ -16,11 +16,7 @@
           }
         },
         "min_amount": {
-          "EvalCoerce": {
-            "IntoAssets": {
-              "EvalParam": "ExpectFees"
-            }
-          }
+          "EvalParam": "ExpectFees"
         },
         "ref": "None"
       },
@@ -75,13 +71,9 @@
       },
       "refs": [],
       "redeemer": {
-        "EvalCoerce": {
-          "IntoDatum": {
-            "Struct": {
-              "constructor": 0,
-              "fields": []
-            }
-          }
+        "Struct": {
+          "constructor": 0,
+          "fields": []
         }
       },
       "policy": {
@@ -143,14 +135,14 @@
       },
       "datum": "None",
       "amount": {
-        "EvalCoerce": {
-          "IntoAssets": {
-            "EvalBuiltIn": {
-              "Sub": [
-                {
-                  "EvalBuiltIn": {
-                    "Add": [
-                      {
+        "EvalBuiltIn": {
+          "Sub": [
+            {
+              "EvalBuiltIn": {
+                "Add": [
+                  {
+                    "EvalCoerce": {
+                      "IntoAssets": {
                         "EvalParam": {
                           "ExpectInput": [
                             "gas",
@@ -164,18 +156,18 @@
                                 }
                               },
                               "min_amount": {
-                                "EvalCoerce": {
-                                  "IntoAssets": {
-                                    "EvalParam": "ExpectFees"
-                                  }
-                                }
+                                "EvalParam": "ExpectFees"
                               },
                               "ref": "None"
                             }
                           ]
                         }
-                      },
-                      {
+                      }
+                    }
+                  },
+                  {
+                    "EvalCoerce": {
+                      "IntoAssets": {
                         "EvalParam": {
                           "ExpectInput": [
                             "locked",
@@ -225,15 +217,15 @@
                           ]
                         }
                       }
-                    ]
+                    }
                   }
-                },
-                {
-                  "EvalParam": "ExpectFees"
-                }
-              ]
+                ]
+              }
+            },
+            {
+              "EvalParam": "ExpectFees"
             }
-          }
+          ]
         }
       }
     }

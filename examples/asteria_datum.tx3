@@ -6,7 +6,7 @@ type AsteriaDatum {
     shipyard_policy: Bytes, // Is possible to define a maxLength?
 }
 
-tx testDatum() {
+tx test_datum() {
     input asteria {
         // Asteria Contract
         from: "addr_test1wqdsuy97njefz53rkhd4v6a2kuqk0md5mrn996ygwekrdyq369wjg",

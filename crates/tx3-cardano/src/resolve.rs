@@ -214,11 +214,7 @@ mod tests {
     async fn asteria_datum_test() {
         let protocol = load_protocol("asteria_datum");
 
-        let tx = protocol
-            .new_tx("testDatum")
-            .unwrap()
-            .apply()
-            .unwrap();
+        let tx = protocol.new_tx("test_datum").unwrap().apply().unwrap();
 
         dbg!(&tx.find_params());
 

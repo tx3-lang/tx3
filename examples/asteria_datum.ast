@@ -1,13 +1,13 @@
 {
   "txs": [
     {
-      "name": "testDatum",
+      "name": "test_datum",
       "parameters": {
         "parameters": [],
         "span": {
           "dummy": false,
-          "start": 229,
-          "end": 231
+          "start": 230,
+          "end": 232
         }
       },
       "references": [],
@@ -22,8 +22,8 @@
                   "value": "addr_test1wqdsuy97njefz53rkhd4v6a2kuqk0md5mrn996ygwekrdyq369wjg",
                   "span": {
                     "dummy": false,
-                    "start": 296,
-                    "end": 361
+                    "start": 297,
+                    "end": 362
                   }
                 }
               }
@@ -35,8 +35,8 @@
                     "value": "AdminToken",
                     "span": {
                       "dummy": false,
-                      "start": 383,
-                      "end": 393
+                      "start": 384,
+                      "end": 394
                     }
                   },
                   "amount": {
@@ -44,8 +44,8 @@
                   },
                   "span": {
                     "dummy": false,
-                    "start": 383,
-                    "end": 396
+                    "start": 384,
+                    "end": 397
                   }
                 }
               }
@@ -65,8 +65,8 @@
           ],
           "span": {
             "dummy": false,
-            "start": 238,
-            "end": 435
+            "start": 239,
+            "end": 436
           }
         }
       ],
@@ -80,8 +80,8 @@
                   "value": "addr_test1wqdsuy97njefz53rkhd4v6a2kuqk0md5mrn996ygwekrdyq369wjg",
                   "span": {
                     "dummy": false,
-                    "start": 522,
-                    "end": 587
+                    "start": 523,
+                    "end": 588
                   }
                 }
               }
@@ -92,8 +92,8 @@
                   "value": "asteria",
                   "span": {
                     "dummy": false,
-                    "start": 605,
-                    "end": 612
+                    "start": 606,
+                    "end": 613
                   }
                 }
               }
@@ -105,8 +105,8 @@
                     "value": "AsteriaDatum",
                     "span": {
                       "dummy": false,
-                      "start": 629,
-                      "end": 641
+                      "start": 630,
+                      "end": 642
                     }
                   },
                   "case": {
@@ -124,8 +124,8 @@
                           "value": "ship_counter",
                           "span": {
                             "dummy": false,
-                            "start": 656,
-                            "end": 668
+                            "start": 657,
+                            "end": 669
                           }
                         },
                         "value": {
@@ -137,8 +137,8 @@
                                     "value": "asteria",
                                     "span": {
                                       "dummy": false,
-                                      "start": 670,
-                                      "end": 677
+                                      "start": 671,
+                                      "end": 678
                                     }
                                   }
                                 },
@@ -146,14 +146,14 @@
                                   "value": "ship_counter",
                                   "span": {
                                     "dummy": false,
-                                    "start": 678,
-                                    "end": 690
+                                    "start": 679,
+                                    "end": 691
                                   }
                                 },
                                 "span": {
                                   "dummy": false,
-                                  "start": 677,
-                                  "end": 690
+                                  "start": 678,
+                                  "end": 691
                                 }
                               }
                             },
@@ -162,15 +162,15 @@
                             },
                             "span": {
                               "dummy": false,
-                              "start": 691,
-                              "end": 692
+                              "start": 692,
+                              "end": 693
                             }
                           }
                         },
                         "span": {
                           "dummy": false,
-                          "start": 656,
-                          "end": 694
+                          "start": 657,
+                          "end": 695
                         }
                       },
                       {
@@ -178,8 +178,8 @@
                           "value": "shipyard_policy",
                           "span": {
                             "dummy": false,
-                            "start": 708,
-                            "end": 723
+                            "start": 709,
+                            "end": 724
                           }
                         },
                         "value": {
@@ -189,8 +189,8 @@
                                 "value": "asteria",
                                 "span": {
                                   "dummy": false,
-                                  "start": 725,
-                                  "end": 732
+                                  "start": 726,
+                                  "end": 733
                                 }
                               }
                             },
@@ -198,35 +198,35 @@
                               "value": "shipyard_policy",
                               "span": {
                                 "dummy": false,
-                                "start": 733,
-                                "end": 748
+                                "start": 734,
+                                "end": 749
                               }
                             },
                             "span": {
                               "dummy": false,
-                              "start": 732,
-                              "end": 748
+                              "start": 733,
+                              "end": 749
                             }
                           }
                         },
                         "span": {
                           "dummy": false,
-                          "start": 708,
-                          "end": 748
+                          "start": 709,
+                          "end": 749
                         }
                       }
                     ],
                     "spread": null,
                     "span": {
                       "dummy": false,
-                      "start": 642,
-                      "end": 759
+                      "start": 643,
+                      "end": 760
                     }
                   },
                   "span": {
                     "dummy": false,
-                    "start": 629,
-                    "end": 759
+                    "start": 630,
+                    "end": 760
                   }
                 }
               }
@@ -234,8 +234,8 @@
           ],
           "span": {
             "dummy": false,
-            "start": 473,
-            "end": 766
+            "start": 474,
+            "end": 767
           }
         }
       ],
@@ -247,7 +247,7 @@
       "span": {
         "dummy": false,
         "start": 217,
-        "end": 768
+        "end": 769
       },
       "collateral": [],
       "metadata": null
@@ -328,6 +328,6 @@
   "span": {
     "dummy": false,
     "start": 0,
-    "end": 768
+    "end": 769
   }
 }

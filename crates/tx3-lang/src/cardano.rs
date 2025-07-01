@@ -124,11 +124,14 @@ impl Analyzable for WithdrawalBlock {
 impl IntoLower for WithdrawalField {
     type Output = ir::Expression;
 
-    fn into_lower(&self) -> Result<Self::Output, crate::lowering::Error> {
+    fn into_lower(
+        &self,
+        ctx: &crate::lowering::Context,
+    ) -> Result<Self::Output, crate::lowering::Error> {
         match self {
-            WithdrawalField::From(x) => x.into_lower(),
-            WithdrawalField::Amount(x) => x.into_lower(),
-            WithdrawalField::Redeemer(x) => x.into_lower(),
+            WithdrawalField::From(x) => x.into_lower(ctx),
+            WithdrawalField::Amount(x) => x.into_lower(ctx),
+            WithdrawalField::Redeemer(x) => x.into_lower(ctx),
         }
     }
 }
@@ -136,13 +139,16 @@ impl IntoLower for WithdrawalField {
 impl IntoLower for WithdrawalBlock {
     type Output = ir::AdHocDirective;
 
-    fn into_lower(&self) -> Result<Self::Output, crate::lowering::Error> {
+    fn into_lower(
+        &self,
+        ctx: &crate::lowering::Context,
+    ) -> Result<Self::Output, crate::lowering::Error> {
         let credential = self
             .find("from")
             .ok_or_else(|| {
                 crate::lowering::Error::MissingRequiredField("from".to_string(), "WithdrawalBlock")
             })?
-            .into_lower()?;
+            .into_lower(ctx)?;
 
         let amount = self
             .find("amount")
@@ -152,11 +158,11 @@ impl IntoLower for WithdrawalBlock {
                     "WithdrawalBlock",
                 )
             })?
-            .into_lower()?;
+            .into_lower(ctx)?;
 
         let redeemer = self
             .find("redeemer")
-            .map(|r| r.into_lower())
+            .map(|r| r.into_lower(ctx))
             .transpose()?
             .unwrap_or(ir::Expression::None);
 
@@ -213,12 +219,15 @@ impl Analyzable for VoteDelegationCertificate {
 impl IntoLower for VoteDelegationCertificate {
     type Output = ir::AdHocDirective;
 
-    fn into_lower(&self) -> Result<Self::Output, crate::lowering::Error> {
+    fn into_lower(
+        &self,
+        ctx: &crate::lowering::Context,
+    ) -> Result<Self::Output, crate::lowering::Error> {
         Ok(ir::AdHocDirective {
             name: "vote_delegation_certificate".to_string(),
             data: HashMap::from([
-                ("drep".to_string(), self.drep.into_lower()?),
-                ("stake".to_string(), self.stake.into_lower()?),
+                ("drep".to_string(), self.drep.into_lower(ctx)?),
+                ("stake".to_string(), self.stake.into_lower(ctx)?),
             ]),
         })
     }
@@ -266,7 +275,10 @@ impl Analyzable for StakeDelegationCertificate {
 impl IntoLower for StakeDelegationCertificate {
     type Output = ir::AdHocDirective;
 
-    fn into_lower(&self) -> Result<Self::Output, crate::lowering::Error> {
+    fn into_lower(
+        &self,
+        ctx: &crate::lowering::Context,
+    ) -> Result<Self::Output, crate::lowering::Error> {
         todo!("StakeDelegationCertificate lowering not implemented")
     }
 }
@@ -329,11 +341,14 @@ impl Analyzable for CardanoBlock {
 impl IntoLower for CardanoBlock {
     type Output = ir::AdHocDirective;
 
-    fn into_lower(&self) -> Result<Self::Output, crate::lowering::Error> {
+    fn into_lower(
+        &self,
+        ctx: &crate::lowering::Context,
+    ) -> Result<Self::Output, crate::lowering::Error> {
         match self {
-            CardanoBlock::VoteDelegationCertificate(x) => x.into_lower(),
-            CardanoBlock::StakeDelegationCertificate(x) => x.into_lower(),
-            CardanoBlock::Withdrawal(x) => x.into_lower(),
+            CardanoBlock::VoteDelegationCertificate(x) => x.into_lower(ctx),
+            CardanoBlock::StakeDelegationCertificate(x) => x.into_lower(ctx),
+            CardanoBlock::Withdrawal(x) => x.into_lower(ctx),
         }
     }
 }
