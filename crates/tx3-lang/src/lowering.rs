@@ -191,7 +191,7 @@ impl IntoLower for ast::Identifier {
 impl IntoLower for ast::UtxoRef {
     type Output = ir::Expression;
 
-    fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
+    fn into_lower(&self, _: &Context) -> Result<Self::Output, Error> {
         let x = ir::Expression::UtxoRefs(vec![UtxoRef {
             txid: self.txid.clone(),
             index: self.index as u32,
@@ -300,7 +300,7 @@ impl IntoLower for ast::PolicyDef {
 impl IntoLower for ast::Type {
     type Output = ir::Type;
 
-    fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
+    fn into_lower(&self, _: &Context) -> Result<Self::Output, Error> {
         match self {
             ast::Type::Undefined => Ok(ir::Type::Undefined),
             ast::Type::Unit => Ok(ir::Type::Unit),
@@ -852,5 +852,5 @@ mod tests {
 
     test_lowering!(faucet);
 
-    test_lowering!(asteria_datum);
+    test_lowering!(input_datum);
 }

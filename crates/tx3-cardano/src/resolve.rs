@@ -211,10 +211,16 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn asteria_datum_test() {
-        let protocol = load_protocol("asteria_datum");
+    async fn input_datum_test() {
+        let protocol = load_protocol("input_datum");
 
-        let tx = protocol.new_tx("test_datum").unwrap().apply().unwrap();
+        let mut tx = protocol
+            .new_tx("increase_counter")
+            .unwrap()
+            .apply()
+            .unwrap();
+
+        tx.set_arg("myparty", "addr1qx2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzer3n0d3vllmyqwsx5wktcd8cc3sq835lu7drv2xwl2wywfgse35a3x".into());
 
         dbg!(&tx.find_params());
 
@@ -226,7 +232,7 @@ mod tests {
                 default_datum: Some(tx3_lang::ir::Expression::Struct(tx3_lang::ir::StructExpr {
                     constructor: 0,
                     fields: vec![
-                        tx3_lang::ir::Expression::Number(13),
+                        tx3_lang::ir::Expression::Number(1),
                         tx3_lang::ir::Expression::Bytes(b"abc".to_vec()),
                     ],
                 })),
