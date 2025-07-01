@@ -48,6 +48,15 @@ pub struct UtxoRef {
     pub index: u32,
 }
 
+impl UtxoRef {
+    pub fn new(txid: &[u8], index: u32) -> Self {
+        Self {
+            txid: txid.to_vec(),
+            index,
+        }
+    }
+}
+
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]
 pub struct Utxo {
     pub r#ref: UtxoRef,
