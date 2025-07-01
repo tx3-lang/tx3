@@ -40,6 +40,9 @@ pub enum Error {
     #[error("invalid address")]
     InvalidAddress(#[from] pallas::ledger::addresses::Error),
 
+    #[error("no stake account found")]
+    NoStakeAccount,
+
     #[error("mapping error {0}")]
     MappingError(String),
 
@@ -54,6 +57,9 @@ pub enum Error {
 
     #[error("missing minting policy")]
     MissingMintingPolicy,
+
+    #[error("missing withdrawal")]
+    MissingWithdrawal,
 
     #[error("missing redeemer")]
     MissingRedeemer,

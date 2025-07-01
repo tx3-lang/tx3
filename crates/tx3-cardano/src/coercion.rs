@@ -124,6 +124,21 @@ pub fn address_into_stake_credential(
     }
 }
 
+pub fn expr_into_reward_account(
+    expr: &ir::Expression,
+    network: Network,
+) -> Result<primitives::RewardAccount, Error> {
+    let address = expr_into_address(expr, network)?;
+
+    let hash_bytes = match address {
+        pallas::ledger::addresses::Address::Shelley(x) => x.delegation().to_vec(),
+        pallas::ledger::addresses::Address::Stake(x) => x.to_vec(),
+        _ => return Err(Error::NoStakeAccount),
+    };
+
+    Ok(primitives::RewardAccount::from(hash_bytes))
+}
+
 pub fn expr_into_stake_credential(
     expr: &ir::Expression,
     network: Network,

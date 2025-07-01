@@ -295,8 +295,32 @@ cardano_vote_delegation_certificate = {
     "}"
 }
 
+
+cardano_withdrawal_from = {
+    "from" ~ ":" ~ data_expr
+}
+
+cardano_withdrawal_amount = {
+    "amount" ~ ":" ~ data_expr
+}
+
+cardano_withdrawal_redeemer = {
+    "redeemer" ~ ":" ~ data_expr
+}
+
+cardano_withdrawal_field = _{
+    cardano_withdrawal_from |
+    cardano_withdrawal_amount |
+    cardano_withdrawal_redeemer
+}
+
+cardano_withdrawal_block = {
+    "withdrawal" ~ "{" ~  (cardano_withdrawal_field ~ ",")+ ~ "}"
+}
+
+
 cardano_block = {
-    "cardano" ~ "::" ~ (cardano_stake_delegation_certificate | cardano_vote_delegation_certificate | withdraw_block)
+    "cardano" ~ "::" ~ (cardano_stake_delegation_certificate | cardano_vote_delegation_certificate | cardano_withdrawal_block)
 }
 
 bitcoin_block = {
@@ -316,28 +340,6 @@ metadata_block = {
     "metadata" ~ "{" ~  (metadata_block_field ~ ",")+ ~ "}"
 }
 
-
-withdraw_block_from = {
-    "from" ~ ":" ~ data_expr
-}
-
-withdraw_block_amount = {
-    "amount" ~ ":" ~ data_expr
-}
-
-withdraw_block_redeemer = {
-    "redeemer" ~ ":" ~ data_expr
-}
-
-withdraw_block_field = _{
-    withdraw_block_from |
-    withdraw_block_amount |
-    withdraw_block_redeemer
-}
-
-withdraw_block = {
-    "withdraw" ~ "{" ~  (withdraw_block_field ~ ",")+ ~ "}"
-}
 
 tx_body_block = _{
     reference_block |

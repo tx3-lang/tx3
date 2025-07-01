@@ -20,7 +20,7 @@ pub struct Scope {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Symbol {
     ParamVar(String, Box<Type>),
-    Input(String, Box<Type>),
+    Input(String, Box<InputBlock>),
     PartyDef(Box<PartyDef>),
     PolicyDef(Box<PolicyDef>),
     AssetDef(Box<AssetDef>),
@@ -111,7 +111,13 @@ impl Symbol {
         match self {
             Symbol::ParamVar(_, ty) => Some(ty.as_ref().clone()),
             Symbol::RecordField(x) => Some(x.r#type.clone().r#type),
-            Symbol::Input(_, ty) => Some(ty.as_ref().clone()),
+            Symbol::Input(_, input) => {
+                let datum_type = input.datum_is().cloned().unwrap_or(TypeRecord {
+                    r#type: Type::Undefined,
+                    span: Span::DUMMY,
+                });
+                Some(datum_type.r#type)
+            }
             x => {
                 dbg!(x);
                 None
@@ -334,35 +340,6 @@ pub struct MetadataBlockField {
 pub struct MetadataBlock {
     pub fields: Vec<MetadataBlockField>,
     pub span: Span,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub enum WithdrawBlockField {
-    From(Box<DataExpr>),
-    Amount(Box<DataExpr>),
-    Redeemer(Box<DataExpr>),
-}
-
-impl WithdrawBlockField {
-    fn key(&self) -> &str {
-        match self {
-            WithdrawBlockField::From(_) => "from",
-            WithdrawBlockField::Amount(_) => "amount",
-            WithdrawBlockField::Redeemer(_) => "redeemer",
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct WithdrawBlock {
-    pub fields: Vec<WithdrawBlockField>,
-    pub span: Span,
-}
-
-impl WithdrawBlock {
-    pub(crate) fn find(&self, key: &str) -> Option<&WithdrawBlockField> {
-        self.fields.iter().find(|x| x.key() == key)
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -724,7 +701,7 @@ impl DataExpr {
     pub fn target_type(&self) -> Option<Type> {
         match self {
             DataExpr::Identifier(x) => x.target_type(),
-            DataExpr::None => None,
+            DataExpr::None => Some(Type::Undefined),
             DataExpr::Unit => Some(Type::Unit),
             DataExpr::Number(_) => Some(Type::Int),
             DataExpr::Bool(_) => Some(Type::Bool),
@@ -832,6 +809,30 @@ impl Type {
     pub fn property_index(&self, property: &str) -> Option<usize> {
         let properties = Self::properties(self);
         properties.iter().position(|(name, _)| name == property)
+    }
+}
+
+impl std::fmt::Display for TypeRecord {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.r#type)
+    }
+}
+
+impl std::fmt::Display for Type {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Type::Undefined => write!(f, "Undefined"),
+            Type::Unit => write!(f, "Unit"),
+            Type::Int => write!(f, "Int"),
+            Type::Bool => write!(f, "Bool"),
+            Type::Bytes => write!(f, "Bytes"),
+            Type::Address => write!(f, "Address"),
+            Type::Utxo => write!(f, "Utxo"),
+            Type::UtxoRef => write!(f, "UtxoRef"),
+            Type::AnyAsset => write!(f, "AnyAsset"),
+            Type::List(x) => write!(f, "List({})", x),
+            Type::Custom(x) => write!(f, "Custom({})", x.value),
+        }
     }
 }
 

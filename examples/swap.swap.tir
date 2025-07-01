@@ -1,37 +1,49 @@
 {
-  "fees": "FeeQuery",
+  "fees": {
+    "EvalParam": "ExpectFees"
+  },
   "references": [],
   "inputs": [
     {
       "name": "pool",
       "query": {
         "address": {
-          "EvalParameter": [
-            "dex",
-            "Address"
-          ]
+          "EvalParam": {
+            "ExpectValue": [
+              "dex",
+              "Address"
+            ]
+          }
         },
-        "min_amount": null,
-        "ref": null
+        "min_amount": "None",
+        "ref": "None"
       },
       "refs": [],
       "redeemer": {
-        "Struct": {
-          "constructor": 0,
-          "fields": [
-            {
-              "EvalParameter": [
-                "ask",
-                "AnyAsset"
-              ]
-            },
-            {
-              "EvalParameter": [
-                "bid",
-                "AnyAsset"
+        "EvalCoerce": {
+          "IntoDatum": {
+            "Struct": {
+              "constructor": 0,
+              "fields": [
+                {
+                  "EvalParam": {
+                    "ExpectValue": [
+                      "ask",
+                      "AnyAsset"
+                    ]
+                  }
+                },
+                {
+                  "EvalParam": {
+                    "ExpectValue": [
+                      "bid",
+                      "AnyAsset"
+                    ]
+                  }
+                }
               ]
             }
-          ]
+          }
         }
       },
       "policy": null
@@ -40,25 +52,35 @@
       "name": "payment",
       "query": {
         "address": {
-          "EvalParameter": [
-            "buyer",
-            "Address"
-          ]
-        },
-        "min_amount": {
-          "EvalBuiltIn": {
-            "Add": [
-              "FeeQuery",
-              {
-                "EvalParameter": [
-                  "bid",
-                  "AnyAsset"
-                ]
-              }
+          "EvalParam": {
+            "ExpectValue": [
+              "buyer",
+              "Address"
             ]
           }
         },
-        "ref": null
+        "min_amount": {
+          "EvalCoerce": {
+            "IntoAssets": {
+              "EvalBuiltIn": {
+                "Add": [
+                  {
+                    "EvalParam": "ExpectFees"
+                  },
+                  {
+                    "EvalParam": {
+                      "ExpectValue": [
+                        "bid",
+                        "AnyAsset"
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "ref": "None"
       },
       "refs": [],
       "redeemer": null,
@@ -68,120 +90,230 @@
   "outputs": [
     {
       "address": {
-        "EvalParameter": [
-          "dex",
-          "Address"
-        ]
-      },
-      "datum": {
-        "Struct": {
-          "constructor": 0,
-          "fields": [
-            {
-              "EvalBuiltIn": {
-                "Sub": [
-                  {
-                    "EvalBuiltIn": {
-                      "Property": [
-                        {
-                          "EvalInput": "pool"
-                        },
-                        0
-                      ]
-                    }
-                  },
-                  {
-                    "EvalBuiltIn": {
-                      "Property": [
-                        {
-                          "EvalParameter": [
-                            "bid",
-                            "AnyAsset"
-                          ]
-                        },
-                        0
-                      ]
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "EvalBuiltIn": {
-                "Add": [
-                  {
-                    "EvalBuiltIn": {
-                      "Property": [
-                        {
-                          "EvalInput": "pool"
-                        },
-                        1
-                      ]
-                    }
-                  },
-                  {
-                    "EvalBuiltIn": {
-                      "Property": [
-                        {
-                          "EvalParameter": [
-                            "ask",
-                            "AnyAsset"
-                          ]
-                        },
-                        0
-                      ]
-                    }
-                  }
-                ]
-              }
-            }
+        "EvalParam": {
+          "ExpectValue": [
+            "dex",
+            "Address"
           ]
         }
       },
+      "datum": {
+        "EvalCoerce": {
+          "IntoDatum": {
+            "Struct": {
+              "constructor": 0,
+              "fields": [
+                {
+                  "EvalBuiltIn": {
+                    "Sub": [
+                      {
+                        "EvalBuiltIn": {
+                          "Property": [
+                            {
+                              "EvalParam": {
+                                "ExpectInput": [
+                                  "pool",
+                                  {
+                                    "address": {
+                                      "EvalParam": {
+                                        "ExpectValue": [
+                                          "dex",
+                                          "Address"
+                                        ]
+                                      }
+                                    },
+                                    "min_amount": "None",
+                                    "ref": "None"
+                                  }
+                                ]
+                              }
+                            },
+                            0
+                          ]
+                        }
+                      },
+                      {
+                        "EvalBuiltIn": {
+                          "Property": [
+                            {
+                              "EvalParam": {
+                                "ExpectValue": [
+                                  "bid",
+                                  "AnyAsset"
+                                ]
+                              }
+                            },
+                            0
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "EvalBuiltIn": {
+                    "Add": [
+                      {
+                        "EvalBuiltIn": {
+                          "Property": [
+                            {
+                              "EvalParam": {
+                                "ExpectInput": [
+                                  "pool",
+                                  {
+                                    "address": {
+                                      "EvalParam": {
+                                        "ExpectValue": [
+                                          "dex",
+                                          "Address"
+                                        ]
+                                      }
+                                    },
+                                    "min_amount": "None",
+                                    "ref": "None"
+                                  }
+                                ]
+                              }
+                            },
+                            1
+                          ]
+                        }
+                      },
+                      {
+                        "EvalBuiltIn": {
+                          "Property": [
+                            {
+                              "EvalParam": {
+                                "ExpectValue": [
+                                  "ask",
+                                  "AnyAsset"
+                                ]
+                              }
+                            },
+                            0
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
       "amount": {
-        "EvalInput": "pool"
+        "EvalCoerce": {
+          "IntoAssets": {
+            "EvalParam": {
+              "ExpectInput": [
+                "pool",
+                {
+                  "address": {
+                    "EvalParam": {
+                      "ExpectValue": [
+                        "dex",
+                        "Address"
+                      ]
+                    }
+                  },
+                  "min_amount": "None",
+                  "ref": "None"
+                }
+              ]
+            }
+          }
+        }
       }
     },
     {
       "address": {
-        "EvalParameter": [
-          "buyer",
-          "Address"
-        ]
+        "EvalParam": {
+          "ExpectValue": [
+            "buyer",
+            "Address"
+          ]
+        }
       },
-      "datum": null,
+      "datum": "None",
       "amount": {
-        "EvalBuiltIn": {
-          "Sub": [
-            {
-              "EvalBuiltIn": {
-                "Sub": [
-                  {
-                    "EvalBuiltIn": {
-                      "Add": [
-                        {
-                          "EvalInput": "payment"
-                        },
-                        {
-                          "EvalParameter": [
-                            "ask",
+        "EvalCoerce": {
+          "IntoAssets": {
+            "EvalBuiltIn": {
+              "Sub": [
+                {
+                  "EvalBuiltIn": {
+                    "Sub": [
+                      {
+                        "EvalBuiltIn": {
+                          "Add": [
+                            {
+                              "EvalParam": {
+                                "ExpectInput": [
+                                  "payment",
+                                  {
+                                    "address": {
+                                      "EvalParam": {
+                                        "ExpectValue": [
+                                          "buyer",
+                                          "Address"
+                                        ]
+                                      }
+                                    },
+                                    "min_amount": {
+                                      "EvalCoerce": {
+                                        "IntoAssets": {
+                                          "EvalBuiltIn": {
+                                            "Add": [
+                                              {
+                                                "EvalParam": "ExpectFees"
+                                              },
+                                              {
+                                                "EvalParam": {
+                                                  "ExpectValue": [
+                                                    "bid",
+                                                    "AnyAsset"
+                                                  ]
+                                                }
+                                              }
+                                            ]
+                                          }
+                                        }
+                                      }
+                                    },
+                                    "ref": "None"
+                                  }
+                                ]
+                              }
+                            },
+                            {
+                              "EvalParam": {
+                                "ExpectValue": [
+                                  "ask",
+                                  "AnyAsset"
+                                ]
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "EvalParam": {
+                          "ExpectValue": [
+                            "bid",
                             "AnyAsset"
                           ]
                         }
-                      ]
-                    }
-                  },
-                  {
-                    "EvalParameter": [
-                      "bid",
-                      "AnyAsset"
+                      }
                     ]
                   }
-                ]
-              }
-            },
-            "FeeQuery"
-          ]
+                },
+                {
+                  "EvalParam": "ExpectFees"
+                }
+              ]
+            }
+          }
         }
       }
     }

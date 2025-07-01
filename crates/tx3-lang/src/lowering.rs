@@ -4,7 +4,6 @@
 //! into the intermediate representation (IR) of the Tx3 language.
 
 use std::collections::HashSet;
-use std::ops::Deref;
 
 use crate::ast;
 use crate::ir;
@@ -26,6 +25,9 @@ pub enum Error {
 
     #[error("invalid property {0} on type {1:?}")]
     InvalidProperty(String, ast::Type),
+
+    #[error("missing required field {0} for {1:?}")]
+    MissingRequiredField(String, &'static str),
 
     #[error("failed to decode hex string: {0}")]
     DecodeHexError(#[from] hex::FromHexError),
@@ -72,33 +74,14 @@ fn coerce_identifier_into_asset_def(identifier: &ast::Identifier) -> Result<ast:
     }
 }
 
-fn coerce_identifier_into_asset_expr(
-    identifier: &ast::Identifier,
-) -> Result<ir::Expression, Error> {
-    match identifier.try_symbol()? {
-        ast::Symbol::Input(x, _) => Ok(ir::Expression::EvalInput(x.clone())),
-        ast::Symbol::Fees => Ok(ir::Expression::FeeQuery),
-        ast::Symbol::ParamVar(name, ty) => match ty.deref() {
-            ast::Type::AnyAsset => Ok(ir::Expression::EvalParameter(
-                name.to_lowercase().clone(),
-                ir::Type::AnyAsset,
-            )),
-            _ => Err(Error::InvalidSymbolType(
-                identifier.value.clone(),
-                "AnyAsset",
-            )),
-        },
-        _ => Err(Error::InvalidSymbol(identifier.value.clone(), "AssetExpr")),
-    }
-}
-
 fn lower_into_address_expr(identifier: &ast::Identifier) -> Result<ir::Expression, Error> {
     match identifier.try_symbol()? {
         ast::Symbol::PolicyDef(x) => Ok(x.into_lower()?.hash),
-        ast::Symbol::PartyDef(x) => Ok(ir::Expression::EvalParameter(
+        ast::Symbol::PartyDef(x) => Ok(ir::Param::ExpectValue(
             x.name.value.to_lowercase().clone(),
             ir::Type::Address,
-        )),
+        )
+        .into()),
         _ => Err(Error::InvalidSymbol(
             identifier.value.clone(),
             "AddressExpr",
@@ -137,19 +120,25 @@ impl IntoLower for ast::Identifier {
     type Output = ir::Expression;
 
     fn into_lower(&self) -> Result<Self::Output, Error> {
-        let symbol = self.symbol.as_ref().expect("analyze phase must be run");
+        let symbol = self
+            .symbol
+            .as_ref()
+            .ok_or(Error::MissingAnalyzePhase(self.value.clone()))?;
 
         match symbol {
-            ast::Symbol::ParamVar(n, ty) => Ok(ir::Expression::EvalParameter(
-                n.to_lowercase().clone(),
-                ty.into_lower()?,
-            )),
-            ast::Symbol::PartyDef(x) => Ok(ir::Expression::EvalParameter(
+            ast::Symbol::ParamVar(n, ty) => {
+                Ok(ir::Param::ExpectValue(n.to_lowercase().clone(), ty.into_lower()?).into())
+            }
+            ast::Symbol::PartyDef(x) => Ok(ir::Param::ExpectValue(
                 x.name.value.to_lowercase().clone(),
                 ir::Type::Address,
-            )),
-            ast::Symbol::Input(n, _) => Ok(ir::Expression::EvalInput(n.clone())),
-            ast::Symbol::Fees => Ok(ir::Expression::FeeQuery),
+            )
+            .into()),
+            ast::Symbol::Input(n, def) => {
+                let query = def.into_lower()?.query;
+                Ok(ir::Param::ExpectInput(n.clone(), query).into())
+            }
+            ast::Symbol::Fees => Ok(ir::Param::ExpectFees.into()),
             _ => {
                 dbg!(&self);
                 todo!();
@@ -166,6 +155,7 @@ impl IntoLower for ast::UtxoRef {
             txid: self.txid.clone(),
             index: self.index as u32,
         }]);
+
         Ok(x)
     }
 }
@@ -227,31 +217,32 @@ impl IntoLower for ast::PolicyDef {
 
     fn into_lower(&self) -> Result<Self::Output, Error> {
         match &self.value {
-            ast::PolicyValue::Assign(x) => Ok(ir::PolicyExpr {
-                name: self.name.value.clone(),
-                hash: ir::Expression::Hash(hex::decode(&x.value)?),
-                script: None,
-            }),
+            ast::PolicyValue::Assign(x) => {
+                let out = ir::PolicyExpr {
+                    name: self.name.value.clone(),
+                    hash: ir::Expression::Hash(hex::decode(&x.value)?),
+                    script: ir::ScriptSource::expect_parameter(self.name.value.clone()),
+                };
+
+                Ok(out)
+            }
             ast::PolicyValue::Constructor(x) => {
                 let hash = x
                     .find_field("hash")
                     .ok_or(Error::InvalidAst("Missing policy hash".to_string()))?
                     .into_lower()?;
 
-                let ref_field = x.find_field("ref");
-                let script_field = x.find_field("script");
+                let rf = x.find_field("ref").map(|x| x.into_lower()).transpose()?;
 
-                let script = match (ref_field, script_field) {
-                    (Some(x), None) => Some(ir::ScriptSource::UtxoRef {
-                        r#ref: x.into_lower()?,
-                        source: None,
-                    }),
-                    (None, Some(x)) => Some(ir::ScriptSource::Embedded(x.into_lower()?)),
-                    (Some(r#ref), Some(source)) => Some(ir::ScriptSource::UtxoRef {
-                        r#ref: r#ref.into_lower()?,
-                        source: Some(source.into_lower()?),
-                    }),
-                    (None, None) => None,
+                let script = x.find_field("script").map(|x| x.into_lower()).transpose()?;
+
+                let script = match (rf, script) {
+                    (Some(rf), Some(script)) => ir::ScriptSource::new_ref(rf, script),
+                    (Some(rf), None) => {
+                        ir::ScriptSource::expect_ref_input(self.name.value.clone(), rf)
+                    }
+                    (None, Some(script)) => ir::ScriptSource::new_embedded(script),
+                    (None, None) => ir::ScriptSource::expect_parameter(self.name.value.clone()),
                 };
 
                 Ok(ir::PolicyExpr {
@@ -438,8 +429,12 @@ impl IntoLower for ast::InputBlockField {
         match self {
             ast::InputBlockField::From(x) => x.into_lower(),
             ast::InputBlockField::DatumIs(_) => todo!(),
-            ast::InputBlockField::MinAmount(x) => x.into_lower(),
-            ast::InputBlockField::Redeemer(x) => x.into_lower(),
+            ast::InputBlockField::MinAmount(x) => Ok(ir::Expression::EvalCoerce(Box::new(
+                ir::Coerce::IntoAssets(x.into_lower()?),
+            ))),
+            ast::InputBlockField::Redeemer(x) => Ok(ir::Expression::EvalCoerce(Box::new(
+                ir::Coerce::IntoDatum(x.into_lower()?),
+            ))),
             ast::InputBlockField::Ref(x) => x.into_lower(),
         }
     }
@@ -449,12 +444,20 @@ impl IntoLower for ast::InputBlock {
     type Output = ir::Input;
 
     fn into_lower(&self) -> Result<Self::Output, Error> {
-        let from = self.find("from");
-        let min_amount = self.find("min_amount");
-        let r#ref = self.find("ref");
-        let redeemer = self.find("redeemer");
+        let from_field = self.find("from");
 
-        let policy = from
+        let address = from_field.map(|x| x.into_lower()).transpose()?;
+
+        let min_amount = self
+            .find("min_amount")
+            .map(|x| x.into_lower())
+            .transpose()?;
+
+        let r#ref = self.find("ref").map(|x| x.into_lower()).transpose()?;
+
+        let redeemer = self.find("redeemer").map(|x| x.into_lower()).transpose()?;
+
+        let policy = from_field
             .and_then(ast::InputBlockField::as_address_expr)
             .and_then(ast::AddressExpr::as_identifier)
             .and_then(|x| x.symbol.as_ref())
@@ -465,13 +468,12 @@ impl IntoLower for ast::InputBlock {
         let input = ir::Input {
             name: self.name.to_lowercase().clone(),
             query: ir::InputQuery {
-                address: from.into_lower()?,
-                min_amount: min_amount.into_lower()?,
-                r#ref: r#ref.into_lower()?,
-            }
-            .into(),
+                address: address.unwrap_or(ir::Expression::None),
+                min_amount: min_amount.unwrap_or(ir::Expression::None),
+                r#ref: r#ref.unwrap_or(ir::Expression::None),
+            },
             refs: HashSet::new(),
-            redeemer: redeemer.into_lower()?,
+            redeemer,
             policy,
         };
 
@@ -485,8 +487,12 @@ impl IntoLower for ast::OutputBlockField {
     fn into_lower(&self) -> Result<Self::Output, Error> {
         match self {
             ast::OutputBlockField::To(x) => x.into_lower(),
-            ast::OutputBlockField::Amount(x) => x.into_lower(),
-            ast::OutputBlockField::Datum(x) => x.into_lower(),
+            ast::OutputBlockField::Amount(x) => Ok(ir::Expression::EvalCoerce(Box::new(
+                ir::Coerce::IntoAssets(x.into_lower()?),
+            ))),
+            ast::OutputBlockField::Datum(x) => Ok(ir::Expression::EvalCoerce(Box::new(
+                ir::Coerce::IntoDatum(x.into_lower()?),
+            ))),
         }
     }
 }
@@ -495,10 +501,14 @@ impl IntoLower for ast::OutputBlock {
     type Output = ir::Output;
 
     fn into_lower(&self) -> Result<Self::Output, Error> {
+        let address = self.find("to").into_lower()?.unwrap_or_default();
+        let datum = self.find("datum").into_lower()?.unwrap_or_default();
+        let amount = self.find("amount").into_lower()?.unwrap_or_default();
+
         Ok(ir::Output {
-            address: self.find("to").into_lower()?,
-            datum: self.find("datum").into_lower()?,
-            amount: self.find("amount").into_lower()?,
+            address,
+            datum,
+            amount,
         })
     }
 }
@@ -518,10 +528,10 @@ impl IntoLower for ast::ValidityBlock {
     type Output = ir::Validity;
 
     fn into_lower(&self) -> Result<Self::Output, Error> {
-        Ok(ir::Validity {
-            since: self.find("since_slot").into_lower()?,
-            until: self.find("until_slot").into_lower()?,
-        })
+        let since = self.find("since_slot").into_lower()?.unwrap_or_default();
+        let until = self.find("until_slot").into_lower()?.unwrap_or_default();
+
+        Ok(ir::Validity { since, until })
     }
 }
 
@@ -540,10 +550,10 @@ impl IntoLower for ast::MintBlock {
     type Output = ir::Mint;
 
     fn into_lower(&self) -> Result<Self::Output, Error> {
-        Ok(ir::Mint {
-            amount: self.find("amount").into_lower()?,
-            redeemer: self.find("redeemer").into_lower()?,
-        })
+        let amount = self.find("amount").into_lower()?.unwrap_or_default();
+        let redeemer = self.find("redeemer").into_lower()?.unwrap_or_default();
+
+        Ok(ir::Mint { amount, redeemer })
     }
 }
 impl IntoLower for ast::MetadataBlockField {
@@ -604,15 +614,20 @@ impl IntoLower for ast::CollateralBlock {
     type Output = ir::Collateral;
 
     fn into_lower(&self) -> Result<Self::Output, Error> {
-        let from = self.find("from");
-        let min_amount = self.find("min_amount");
-        let r#ref = self.find("ref");
+        let from = self.find("from").map(|x| x.into_lower()).transpose()?;
+
+        let min_amount = self
+            .find("min_amount")
+            .map(|x| x.into_lower())
+            .transpose()?;
+
+        let r#ref = self.find("ref").map(|x| x.into_lower()).transpose()?;
 
         let collateral = ir::Collateral {
             query: ir::InputQuery {
-                address: from.into_lower()?,
-                min_amount: min_amount.into_lower()?,
-                r#ref: r#ref.into_lower()?,
+                address: from.unwrap_or(ir::Expression::None),
+                min_amount: min_amount.unwrap_or(ir::Expression::None),
+                r#ref: r#ref.unwrap_or(ir::Expression::None),
             },
         };
 
@@ -630,51 +645,6 @@ impl IntoLower for ast::SignersBlock {
                 .iter()
                 .map(|x| x.into_lower())
                 .collect::<Result<Vec<_>, _>>()?,
-        })
-    }
-}
-
-impl IntoLower for ast::WithdrawBlockField {
-    type Output = ir::Expression;
-
-    fn into_lower(&self) -> Result<Self::Output, Error> {
-        match self {
-            ast::WithdrawBlockField::From(x) => x.into_lower(),
-            ast::WithdrawBlockField::Amount(x) => x.into_lower(),
-            ast::WithdrawBlockField::Redeemer(x) => x.into_lower(),
-        }
-    }
-}
-
-impl IntoLower for ast::WithdrawBlock {
-    type Output = ir::AdHocDirective;
-
-    fn into_lower(&self) -> Result<Self::Output, Error> {
-        let credential = self
-            .find("from")
-            .ok_or_else(|| {
-                Error::InvalidAst("Missing required 'from' field in withdraw block".to_string())
-            })?
-            .into_lower()?;
-        let amount = self
-            .find("amount")
-            .ok_or_else(|| {
-                Error::InvalidAst("Missing required 'amount' field in withdraw block".to_string())
-            })?
-            .into_lower()?;
-        let redeemer = self
-            .find("redeemer")
-            .map(|r| r.into_lower())
-            .transpose()?
-            .unwrap_or(ir::Expression::None);
-
-        Ok(ir::AdHocDirective {
-            name: "withdraw".to_string(),
-            data: std::collections::HashMap::from([
-                ("credential".to_string(), credential),
-                ("amount".to_string(), amount),
-                ("redeemer".to_string(), redeemer),
-            ]),
         })
     }
 }
@@ -707,7 +677,7 @@ pub fn lower_tx(ast: &ast::TxDef) -> Result<ir::Tx, Error> {
             .iter()
             .map(|x| x.into_lower())
             .collect::<Result<Vec<_>, _>>()?,
-        fees: ir::Expression::FeeQuery,
+        fees: ir::Param::ExpectFees.into(),
         collateral: ast
             .collateral
             .iter()
