@@ -5,7 +5,7 @@ use tx3_lang::ir::InputQuery;
 use tokio::sync::Mutex;
 use utxorpc::CardanoQueryClient;
 
-use crate::PParams;
+use crate::{resolve::ResolveContext, PParams};
 
 impl From<utxorpc::Error> for crate::Error {
     fn from(error: utxorpc::Error) -> Self {
@@ -167,7 +167,7 @@ impl crate::resolve::Ledger for Ledger {
     async fn resolve_input(
         &self,
         query: &InputQuery,
-        ignore: &[tx3_lang::UtxoRef],
+        resolve_context: &ResolveContext,
     ) -> Result<tx3_lang::UtxoSet, crate::Error> {
         let mut utxos = self
             .queries
@@ -180,7 +180,7 @@ impl crate::resolve::Ledger for Ledger {
             .map(utxo_from_u5c_to_tx3)
             .collect::<tx3_lang::UtxoSet>();
 
-        utxos.retain(|utxo| !ignore.contains(&utxo.r#ref));
+        utxos.retain(|utxo| !resolve_context.ignore.contains(&utxo.r#ref));
         utxos.shrink_to(1);
 
         Ok(utxos)

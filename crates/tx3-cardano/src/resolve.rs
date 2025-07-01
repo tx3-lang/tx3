@@ -10,6 +10,11 @@ pub struct TxEval {
     pub ex_units: u64,
 }
 
+#[derive(Debug, Default)]
+pub struct ResolveContext {
+    pub ignore: Vec<UtxoRef>,
+}
+
 #[trait_variant::make(Send)]
 pub trait Ledger {
     async fn get_pparams(&self) -> Result<PParams, Error>;
@@ -17,7 +22,7 @@ pub trait Ledger {
     async fn resolve_input(
         &self,
         query: &InputQuery,
-        ignore: &[UtxoRef],
+        resolve_context: &ResolveContext,
     ) -> Result<tx3_lang::UtxoSet, Error>;
 }
 
@@ -54,7 +59,9 @@ async fn resolve_input_queries<L: Ledger>(
             })
             .flatten()
             .collect::<Vec<_>>();
-        let utxos = ledger.resolve_input(&query, &ignore).await?;
+        let utxos = ledger
+            .resolve_input(&query, &ResolveContext { ignore })
+            .await?;
         if utxos.is_empty() {
             return Err(Error::InputsNotResolved(
                 name.clone(),

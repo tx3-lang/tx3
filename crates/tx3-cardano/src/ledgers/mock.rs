@@ -2,7 +2,10 @@ use std::collections::HashMap;
 
 use tx3_lang::{ir::InputQuery, UtxoSet};
 
-use crate::{resolve::Ledger, Error, PParams};
+use crate::{
+    resolve::{Ledger, ResolveContext},
+    Error, PParams,
+};
 
 const COST_MODEL_PLUTUS_V1: [i64; 166] = [
     100788, 420, 1, 1, 1000, 173, 0, 1, 1000, 59957, 4, 1, 11183, 32, 201305, 8356, 4, 16000, 100,
@@ -49,7 +52,7 @@ impl Ledger for MockLedger {
     async fn resolve_input(
         &self,
         _input: &InputQuery,
-        _ignore: &[tx3_lang::UtxoRef],
+        _resolve_context: &ResolveContext,
     ) -> Result<UtxoSet, Error> {
         let utxo = tx3_lang::Utxo {
         r#ref: tx3_lang::UtxoRef {
