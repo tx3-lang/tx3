@@ -40,6 +40,9 @@ pub enum Error {
     #[error("invalid address")]
     InvalidAddress(#[from] pallas::ledger::addresses::Error),
 
+    #[error("no stake account found")]
+    NoStakeAccount,
+
     #[error("mapping error {0}")]
     MappingError(String),
 
@@ -54,6 +57,9 @@ pub enum Error {
 
     #[error("missing minting policy")]
     MissingMintingPolicy,
+
+    #[error("missing withdrawal")]
+    MissingWithdrawal,
 
     #[error("missing redeemer")]
     MissingRedeemer,
@@ -99,5 +105,11 @@ pub struct PParams {
 }
 
 pub use compile::compile_tx;
+use pallas::ledger::primitives;
 pub use resolve::resolve_tx;
 pub use resolve::Ledger;
+
+pub const EXECUTION_UNITS: primitives::ExUnits = primitives::ExUnits {
+    mem: 2000000,
+    steps: 2000000000,
+};

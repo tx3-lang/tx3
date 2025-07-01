@@ -22,7 +22,7 @@ pub struct Config {
 
 fn expr_to_address_pattern(
     value: &tx3_lang::ir::Expression,
-) -> utxorpc::spec::cardano::AddressPattern {
+) -> Option<utxorpc::spec::cardano::AddressPattern> {
     let address = match value {
         tx3_lang::ir::Expression::Address(address) => address.clone(),
         tx3_lang::ir::Expression::String(address) => {
@@ -30,17 +30,19 @@ fn expr_to_address_pattern(
                 .unwrap()
                 .to_vec()
         }
-        _ => return Default::default(),
+        _ => return None,
     };
 
-    utxorpc::spec::cardano::AddressPattern {
+    let out = utxorpc::spec::cardano::AddressPattern {
         exact_address: address.into(),
         ..Default::default()
-    }
+    };
+
+    Some(out)
 }
 
 fn input_query_to_pattern(query: &InputQuery) -> utxorpc::spec::cardano::TxOutputPattern {
-    let address = query.address.as_ref().map(expr_to_address_pattern);
+    let address = expr_to_address_pattern(&query.address);
 
     utxorpc::spec::cardano::TxOutputPattern {
         address,

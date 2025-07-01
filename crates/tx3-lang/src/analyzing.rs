@@ -38,7 +38,7 @@ pub struct InvalidSymbolError {
 #[error("invalid type ({got}), expected: {expected}")]
 #[diagnostic(code(tx3::invalid_type))]
 pub struct InvalidTargetTypeError {
-    pub expected: &'static str,
+    pub expected: String,
     pub got: String,
 
     #[source_code]
@@ -111,13 +111,13 @@ impl Error {
     }
 
     pub fn invalid_target_type(
-        expected: &'static str,
+        expected: &Type,
         got: &Type,
         ast: &impl crate::parsing::AstNode,
     ) -> Self {
         Self::InvalidTargetType(InvalidTargetTypeError {
-            expected,
-            got: format!("{:?}", got),
+            expected: expected.to_string(),
+            got: got.to_string(),
             src: None,
             span: ast.span().clone(),
         })
@@ -139,6 +139,18 @@ impl AnalyzeReport {
             Ok(())
         } else {
             Err(self)
+        }
+    }
+
+    pub fn expect_data_expr_type(expr: &DataExpr, expected: &Type) -> Self {
+        if expr.target_type().as_ref() != Some(expected) {
+            Self::from(Error::invalid_target_type(
+                expected,
+                expr.target_type().as_ref().unwrap_or(&Type::Undefined),
+                expr,
+            ))
+        } else {
+            Self::default()
         }
     }
 }
@@ -260,10 +272,10 @@ impl Scope {
         );
     }
 
-    pub fn track_input(&mut self, name: &str, datum_type: Type) {
+    pub fn track_input(&mut self, name: &str, input: InputBlock) {
         self.symbols.insert(
             name.to_string(),
-            Symbol::Input(name.to_string(), Box::new(datum_type)),
+            Symbol::Input(name.to_string(), Box::new(input)),
         );
     }
 
@@ -341,6 +353,16 @@ impl<T: Analyzable> Analyzable for Vec<T> {
 
     fn is_resolved(&self) -> bool {
         self.iter().all(|x| x.is_resolved())
+    }
+}
+
+impl Analyzable for PartyDef {
+    fn analyze(&mut self, _parent: Option<Rc<Scope>>) -> AnalyzeReport {
+        AnalyzeReport::default()
+    }
+
+    fn is_resolved(&self) -> bool {
+        true
     }
 }
 
@@ -606,28 +628,8 @@ impl Analyzable for AssetDef {
         let policy = self.policy.analyze(parent.clone());
         let asset_name = self.asset_name.analyze(parent.clone());
 
-        let policy_type = self.policy.target_type();
-        let asset_name_type = self.asset_name.target_type();
-
-        let policy_type = if policy_type != Some(Type::Bytes) {
-            AnalyzeReport::from(Error::invalid_target_type(
-                "Bytes",
-                policy_type.as_ref().unwrap_or(&Type::Undefined),
-                &self.policy,
-            ))
-        } else {
-            AnalyzeReport::default()
-        };
-
-        let asset_name_type = if asset_name_type != Some(Type::Bytes) {
-            AnalyzeReport::from(Error::invalid_target_type(
-                "Bytes",
-                asset_name_type.as_ref().unwrap_or(&Type::Undefined),
-                &self.asset_name,
-            ))
-        } else {
-            AnalyzeReport::default()
-        };
+        let policy_type = AnalyzeReport::expect_data_expr_type(&self.policy, &Type::Bytes);
+        let asset_name_type = AnalyzeReport::expect_data_expr_type(&self.asset_name, &Type::Bytes);
 
         policy + asset_name + policy_type + asset_name_type
     }
@@ -710,6 +712,7 @@ impl Analyzable for MetadataBlockField {
         // TODO: check keys are actually numbers
         self.key.analyze(parent.clone()) + self.value.analyze(parent.clone())
     }
+
     fn is_resolved(&self) -> bool {
         self.key.is_resolved() && self.value.is_resolved()
     }
@@ -719,6 +722,7 @@ impl Analyzable for MetadataBlock {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
         self.fields.analyze(parent)
     }
+
     fn is_resolved(&self) -> bool {
         self.fields.is_resolved()
     }
@@ -743,6 +747,7 @@ impl Analyzable for ValidityBlock {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
         self.fields.analyze(parent)
     }
+
     fn is_resolved(&self) -> bool {
         self.fields.is_resolved()
     }
@@ -894,47 +899,54 @@ impl Analyzable for ChainSpecificBlock {
     }
 }
 
+impl Analyzable for ParamDef {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+        self.r#type.analyze(parent)
+    }
+
+    fn is_resolved(&self) -> bool {
+        self.r#type.is_resolved()
+    }
+}
+
+impl Analyzable for ParameterList {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+        self.parameters.analyze(parent)
+    }
+
+    fn is_resolved(&self) -> bool {
+        self.parameters.is_resolved()
+    }
+}
+
 impl Analyzable for TxDef {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
         // analyze static types before anything else
 
-        let params = self
-            .parameters
-            .parameters
-            .iter_mut()
-            .map(|param| param.r#type.analyze(parent.clone()))
-            .collect::<AnalyzeReport>();
-
-        let input_types = self
-            .inputs
-            .iter_mut()
-            .flat_map(|input| input.fields.iter_mut())
-            .map(|field| match field {
-                InputBlockField::DatumIs(x) => x.analyze(parent.clone()),
-                _ => AnalyzeReport::default(),
-            })
-            .collect::<AnalyzeReport>();
+        let params = self.parameters.analyze(parent.clone());
 
         // create the new scope and populate its symbols
 
-        let mut scope = Scope::new(parent.clone());
+        let mut scope1 = Scope::new(parent.clone());
 
-        scope.symbols.insert("fees".to_string(), Symbol::Fees);
+        scope1.symbols.insert("fees".to_string(), Symbol::Fees);
 
         for param in self.parameters.parameters.iter() {
-            scope.track_param_var(&param.name, param.r#type.clone());
+            scope1.track_param_var(&param.name, param.r#type.clone());
         }
 
+        let scope1 = Rc::new(scope1);
+
+        let inputs = self.inputs.analyze(Some(scope1.clone()));
+
+        let mut scope2 = Scope::new(Some(scope1.clone()));
+
         for input in self.inputs.iter() {
-            let datum_type = input.datum_is().cloned().unwrap_or(Type::Undefined);
-            scope.track_input(&input.name, datum_type);
+            scope2.track_input(&input.name, input.clone());
         }
 
         // enter the new scope and analyze the rest of the program
-
-        self.scope = Some(Rc::new(scope));
-
-        let inputs = self.inputs.analyze(self.scope.clone());
+        self.scope = Some(Rc::new(scope2));
 
         let outputs = self.outputs.analyze(self.scope.clone());
 
@@ -953,7 +965,6 @@ impl Analyzable for TxDef {
         let collateral = self.collateral.analyze(self.scope.clone());
 
         params
-            + input_types
             + inputs
             + outputs
             + mints
@@ -970,6 +981,11 @@ impl Analyzable for TxDef {
             && self.outputs.is_resolved()
             && self.mints.is_resolved()
             && self.adhoc.is_resolved()
+            && self.validity.is_resolved()
+            && self.metadata.is_resolved()
+            && self.signers.is_resolved()
+            && self.references.is_resolved()
+            && self.collateral.is_resolved()
     }
 }
 
@@ -1006,8 +1022,7 @@ impl Analyzable for Program {
 
         self.scope = Some(Rc::new(scope));
 
-        // TODO: Add parties
-        // let parties = self.parties.analyze(self.scope.clone());
+        let parties = self.parties.analyze(self.scope.clone());
 
         let policies = self.policies.analyze(self.scope.clone());
 
@@ -1017,7 +1032,7 @@ impl Analyzable for Program {
 
         let txs = self.txs.analyze(self.scope.clone());
 
-        policies + types + txs + assets
+        parties + policies + types + txs + assets
     }
 
     fn is_resolved(&self) -> bool {
@@ -1071,7 +1086,7 @@ mod tests {
         assert_eq!(
             report.errors[1],
             Error::InvalidTargetType(InvalidTargetTypeError {
-                expected: "Bytes",
+                expected: "Bytes".to_string(),
                 got: "Int".to_string(),
                 src: None,
                 span: Span::DUMMY,
@@ -1081,7 +1096,7 @@ mod tests {
         assert_eq!(
             report.errors[2],
             Error::InvalidTargetType(InvalidTargetTypeError {
-                expected: "Bytes",
+                expected: "Bytes".to_string(),
                 got: "Int".to_string(),
                 src: None,
                 span: Span::DUMMY,

@@ -2070,4 +2070,6 @@ mod tests {
     test_parsing!(faucet);
 
     test_parsing!(disordered);
+
+    test_parsing!(withdrawal);
 }
