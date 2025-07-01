@@ -1,0 +1,290 @@
+{
+  "fees": {
+    "EvalParam": "ExpectFees"
+  },
+  "references": [],
+  "inputs": [
+    {
+      "name": "asteria",
+      "query": {
+        "address": {
+          "String": "addr_test1wqdsuy97njefz53rkhd4v6a2kuqk0md5mrn996ygwekrdyq369wjg"
+        },
+        "min_amount": {
+          "Assets": [
+            {
+              "policy": {
+                "Bytes": [
+                  95,
+                  252,
+                  48,
+                  56,
+                  155,
+                  238,
+                  88,
+                  56,
+                  245,
+                  242,
+                  93,
+                  1,
+                  86,
+                  66,
+                  248,
+                  210,
+                  145,
+                  118,
+                  145,
+                  104,
+                  20,
+                  90,
+                  128,
+                  166,
+                  134,
+                  85,
+                  110,
+                  138
+                ]
+              },
+              "asset_name": {
+                "String": "Final Admin"
+              },
+              "amount": {
+                "Number": 1
+              }
+            }
+          ]
+        },
+        "ref": "None"
+      },
+      "refs": [],
+      "redeemer": null,
+      "policy": null
+    }
+  ],
+  "outputs": [
+    {
+      "address": {
+        "String": "addr_test1wqdsuy97njefz53rkhd4v6a2kuqk0md5mrn996ygwekrdyq369wjg"
+      },
+      "datum": {
+        "Struct": {
+          "constructor": 0,
+          "fields": [
+            {
+              "EvalBuiltIn": {
+                "Add": [
+                  {
+                    "EvalBuiltIn": {
+                      "Property": [
+                        {
+                          "EvalCoerce": {
+                            "IntoDatum": {
+                              "EvalParam": {
+                                "ExpectInput": [
+                                  "asteria",
+                                  {
+                                    "address": {
+                                      "String": "addr_test1wqdsuy97njefz53rkhd4v6a2kuqk0md5mrn996ygwekrdyq369wjg"
+                                    },
+                                    "min_amount": {
+                                      "Assets": [
+                                        {
+                                          "policy": {
+                                            "Bytes": [
+                                              95,
+                                              252,
+                                              48,
+                                              56,
+                                              155,
+                                              238,
+                                              88,
+                                              56,
+                                              245,
+                                              242,
+                                              93,
+                                              1,
+                                              86,
+                                              66,
+                                              248,
+                                              210,
+                                              145,
+                                              118,
+                                              145,
+                                              104,
+                                              20,
+                                              90,
+                                              128,
+                                              166,
+                                              134,
+                                              85,
+                                              110,
+                                              138
+                                            ]
+                                          },
+                                          "asset_name": {
+                                            "String": "Final Admin"
+                                          },
+                                          "amount": {
+                                            "Number": 1
+                                          }
+                                        }
+                                      ]
+                                    },
+                                    "ref": "None"
+                                  }
+                                ]
+                              }
+                            }
+                          }
+                        },
+                        0
+                      ]
+                    }
+                  },
+                  {
+                    "Number": 1
+                  }
+                ]
+              }
+            },
+            {
+              "EvalBuiltIn": {
+                "Property": [
+                  {
+                    "EvalCoerce": {
+                      "IntoDatum": {
+                        "EvalParam": {
+                          "ExpectInput": [
+                            "asteria",
+                            {
+                              "address": {
+                                "String": "addr_test1wqdsuy97njefz53rkhd4v6a2kuqk0md5mrn996ygwekrdyq369wjg"
+                              },
+                              "min_amount": {
+                                "Assets": [
+                                  {
+                                    "policy": {
+                                      "Bytes": [
+                                        95,
+                                        252,
+                                        48,
+                                        56,
+                                        155,
+                                        238,
+                                        88,
+                                        56,
+                                        245,
+                                        242,
+                                        93,
+                                        1,
+                                        86,
+                                        66,
+                                        248,
+                                        210,
+                                        145,
+                                        118,
+                                        145,
+                                        104,
+                                        20,
+                                        90,
+                                        128,
+                                        166,
+                                        134,
+                                        85,
+                                        110,
+                                        138
+                                      ]
+                                    },
+                                    "asset_name": {
+                                      "String": "Final Admin"
+                                    },
+                                    "amount": {
+                                      "Number": 1
+                                    }
+                                  }
+                                ]
+                              },
+                              "ref": "None"
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  1
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "amount": {
+        "EvalCoerce": {
+          "IntoAssets": {
+            "EvalParam": {
+              "ExpectInput": [
+                "asteria",
+                {
+                  "address": {
+                    "String": "addr_test1wqdsuy97njefz53rkhd4v6a2kuqk0md5mrn996ygwekrdyq369wjg"
+                  },
+                  "min_amount": {
+                    "Assets": [
+                      {
+                        "policy": {
+                          "Bytes": [
+                            95,
+                            252,
+                            48,
+                            56,
+                            155,
+                            238,
+                            88,
+                            56,
+                            245,
+                            242,
+                            93,
+                            1,
+                            86,
+                            66,
+                            248,
+                            210,
+                            145,
+                            118,
+                            145,
+                            104,
+                            20,
+                            90,
+                            128,
+                            166,
+                            134,
+                            85,
+                            110,
+                            138
+                          ]
+                        },
+                        "asset_name": {
+                          "String": "Final Admin"
+                        },
+                        "amount": {
+                          "Number": 1
+                        }
+                      }
+                    ]
+                  },
+                  "ref": "None"
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  ],
+  "validity": null,
+  "mints": [],
+  "adhoc": [],
+  "collateral": [],
+  "signers": null,
+  "metadata": []
+}

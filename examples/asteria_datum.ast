@@ -1,0 +1,333 @@
+{
+  "txs": [
+    {
+      "name": "test_datum",
+      "parameters": {
+        "parameters": [],
+        "span": {
+          "dummy": false,
+          "start": 230,
+          "end": 232
+        }
+      },
+      "references": [],
+      "inputs": [
+        {
+          "name": "asteria",
+          "is_many": false,
+          "fields": [
+            {
+              "From": {
+                "String": {
+                  "value": "addr_test1wqdsuy97njefz53rkhd4v6a2kuqk0md5mrn996ygwekrdyq369wjg",
+                  "span": {
+                    "dummy": false,
+                    "start": 297,
+                    "end": 362
+                  }
+                }
+              }
+            },
+            {
+              "MinAmount": {
+                "StaticAssetConstructor": {
+                  "type": {
+                    "value": "AdminToken",
+                    "span": {
+                      "dummy": false,
+                      "start": 384,
+                      "end": 394
+                    }
+                  },
+                  "amount": {
+                    "Number": 1
+                  },
+                  "span": {
+                    "dummy": false,
+                    "start": 384,
+                    "end": 397
+                  }
+                }
+              }
+            },
+            {
+              "DatumIs": {
+                "Custom": {
+                  "value": "AsteriaDatum",
+                  "span": {
+                    "dummy": true,
+                    "start": 0,
+                    "end": 0
+                  }
+                }
+              }
+            }
+          ],
+          "span": {
+            "dummy": false,
+            "start": 239,
+            "end": 436
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": null,
+          "fields": [
+            {
+              "To": {
+                "String": {
+                  "value": "addr_test1wqdsuy97njefz53rkhd4v6a2kuqk0md5mrn996ygwekrdyq369wjg",
+                  "span": {
+                    "dummy": false,
+                    "start": 523,
+                    "end": 588
+                  }
+                }
+              }
+            },
+            {
+              "Amount": {
+                "Identifier": {
+                  "value": "asteria",
+                  "span": {
+                    "dummy": false,
+                    "start": 606,
+                    "end": 613
+                  }
+                }
+              }
+            },
+            {
+              "Datum": {
+                "StructConstructor": {
+                  "type": {
+                    "value": "AsteriaDatum",
+                    "span": {
+                      "dummy": false,
+                      "start": 630,
+                      "end": 642
+                    }
+                  },
+                  "case": {
+                    "name": {
+                      "value": "Default",
+                      "span": {
+                        "dummy": true,
+                        "start": 0,
+                        "end": 0
+                      }
+                    },
+                    "fields": [
+                      {
+                        "name": {
+                          "value": "ship_counter",
+                          "span": {
+                            "dummy": false,
+                            "start": 657,
+                            "end": 669
+                          }
+                        },
+                        "value": {
+                          "AddOp": {
+                            "lhs": {
+                              "PropertyOp": {
+                                "operand": {
+                                  "Identifier": {
+                                    "value": "asteria",
+                                    "span": {
+                                      "dummy": false,
+                                      "start": 671,
+                                      "end": 678
+                                    }
+                                  }
+                                },
+                                "property": {
+                                  "value": "ship_counter",
+                                  "span": {
+                                    "dummy": false,
+                                    "start": 679,
+                                    "end": 691
+                                  }
+                                },
+                                "span": {
+                                  "dummy": false,
+                                  "start": 678,
+                                  "end": 691
+                                }
+                              }
+                            },
+                            "rhs": {
+                              "Number": 1
+                            },
+                            "span": {
+                              "dummy": false,
+                              "start": 692,
+                              "end": 693
+                            }
+                          }
+                        },
+                        "span": {
+                          "dummy": false,
+                          "start": 657,
+                          "end": 695
+                        }
+                      },
+                      {
+                        "name": {
+                          "value": "shipyard_policy",
+                          "span": {
+                            "dummy": false,
+                            "start": 709,
+                            "end": 724
+                          }
+                        },
+                        "value": {
+                          "PropertyOp": {
+                            "operand": {
+                              "Identifier": {
+                                "value": "asteria",
+                                "span": {
+                                  "dummy": false,
+                                  "start": 726,
+                                  "end": 733
+                                }
+                              }
+                            },
+                            "property": {
+                              "value": "shipyard_policy",
+                              "span": {
+                                "dummy": false,
+                                "start": 734,
+                                "end": 749
+                              }
+                            },
+                            "span": {
+                              "dummy": false,
+                              "start": 733,
+                              "end": 749
+                            }
+                          }
+                        },
+                        "span": {
+                          "dummy": false,
+                          "start": 709,
+                          "end": 749
+                        }
+                      }
+                    ],
+                    "spread": null,
+                    "span": {
+                      "dummy": false,
+                      "start": 643,
+                      "end": 760
+                    }
+                  },
+                  "span": {
+                    "dummy": false,
+                    "start": 630,
+                    "end": 760
+                  }
+                }
+              }
+            }
+          ],
+          "span": {
+            "dummy": false,
+            "start": 474,
+            "end": 767
+          }
+        }
+      ],
+      "validity": null,
+      "burn": null,
+      "mints": [],
+      "signers": null,
+      "adhoc": [],
+      "span": {
+        "dummy": false,
+        "start": 217,
+        "end": 769
+      },
+      "collateral": [],
+      "metadata": null
+    }
+  ],
+  "types": [
+    {
+      "name": "AsteriaDatum",
+      "cases": [
+        {
+          "name": "Default",
+          "fields": [
+            {
+              "name": "ship_counter",
+              "type": "Int",
+              "span": {
+                "dummy": false,
+                "start": 129,
+                "end": 146
+              }
+            },
+            {
+              "name": "shipyard_policy",
+              "type": "Bytes",
+              "span": {
+                "dummy": false,
+                "start": 152,
+                "end": 174
+              }
+            }
+          ],
+          "span": {
+            "dummy": false,
+            "start": 105,
+            "end": 215
+          }
+        }
+      ],
+      "span": {
+        "dummy": false,
+        "start": 105,
+        "end": 215
+      }
+    }
+  ],
+  "assets": [
+    {
+      "name": "AdminToken",
+      "policy": {
+        "HexString": {
+          "value": "5ffc30389bee5838f5f25d015642f8d291769168145a80a686556e8a",
+          "span": {
+            "dummy": false,
+            "start": 19,
+            "end": 77
+          }
+        }
+      },
+      "asset_name": {
+        "String": {
+          "value": "Final Admin",
+          "span": {
+            "dummy": false,
+            "start": 78,
+            "end": 91
+          }
+        }
+      },
+      "span": {
+        "dummy": false,
+        "start": 0,
+        "end": 92
+      }
+    }
+  ],
+  "parties": [],
+  "policies": [],
+  "span": {
+    "dummy": false,
+    "start": 0,
+    "end": 769
+  }
+}

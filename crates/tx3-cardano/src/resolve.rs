@@ -134,7 +134,7 @@ mod tests {
             .apply()
             .unwrap();
 
-        let tx = resolve_tx(tx, MockLedger, 3).await.unwrap();
+        let tx = resolve_tx(tx, MockLedger::default(), 3).await.unwrap();
 
         println!("{}", hex::encode(tx.payload));
         println!("{}", tx.fee);
@@ -153,7 +153,7 @@ mod tests {
             .apply()
             .unwrap();
 
-        let tx = resolve_tx(tx, MockLedger, 3).await.unwrap();
+        let tx = resolve_tx(tx, MockLedger::default(), 3).await.unwrap();
 
         println!("{}", hex::encode(tx.payload));
         println!("{}", tx.fee);
@@ -180,7 +180,7 @@ mod tests {
         dbg!(&tx.find_params());
         dbg!(&tx.find_queries());
 
-        let tx = resolve_tx(tx, MockLedger, 3).await.unwrap();
+        let tx = resolve_tx(tx, MockLedger::default(), 3).await.unwrap();
 
         println!("{}", hex::encode(tx.payload));
         println!("{}", tx.fee);
@@ -204,7 +204,37 @@ mod tests {
 
         let tx = tx.apply().unwrap();
 
-        let tx = resolve_tx(tx, MockLedger, 3).await.unwrap();
+        let tx = resolve_tx(tx, MockLedger::default(), 3).await.unwrap();
+
+        println!("{}", hex::encode(&tx.payload));
+        println!("{}", tx.fee);
+    }
+
+    #[tokio::test]
+    async fn asteria_datum_test() {
+        let protocol = load_protocol("asteria_datum");
+
+        let tx = protocol.new_tx("test_datum").unwrap().apply().unwrap();
+
+        dbg!(&tx.find_params());
+
+        let tx = tx.apply().unwrap();
+
+        let tx = resolve_tx(
+            tx,
+            MockLedger {
+                default_datum: Some(tx3_lang::ir::Expression::Struct(tx3_lang::ir::StructExpr {
+                    constructor: 0,
+                    fields: vec![
+                        tx3_lang::ir::Expression::Number(13),
+                        tx3_lang::ir::Expression::Bytes(b"abc".to_vec()),
+                    ],
+                })),
+            },
+            3,
+        )
+        .await
+        .unwrap();
 
         println!("{}", hex::encode(&tx.payload));
         println!("{}", tx.fee);

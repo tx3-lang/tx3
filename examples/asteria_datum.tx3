@@ -1,0 +1,27 @@
+asset AdminToken = 0x5ffc30389bee5838f5f25d015642f8d291769168145a80a686556e8a."Final Admin";
+
+// Asteria
+type AsteriaDatum {
+    ship_counter: Int,
+    shipyard_policy: Bytes, // Is possible to define a maxLength?
+}
+
+tx test_datum() {
+    input asteria {
+        // Asteria Contract
+        from: "addr_test1wqdsuy97njefz53rkhd4v6a2kuqk0md5mrn996ygwekrdyq369wjg",
+        min_amount: AdminToken(1),
+        datum_is: AsteriaDatum,
+    }
+
+    // Output - Pay to Contract
+    output {
+        // Asteria Contract
+        to: "addr_test1wqdsuy97njefz53rkhd4v6a2kuqk0md5mrn996ygwekrdyq369wjg",
+        amount: asteria,
+        datum: AsteriaDatum {
+            ship_counter: asteria.ship_counter + 1,
+            shipyard_policy: asteria.shipyard_policy,
+        },
+    }
+}
