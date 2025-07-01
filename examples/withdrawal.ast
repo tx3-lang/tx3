@@ -35,7 +35,7 @@
             },
             {
               "MinAmount": {
-                "StaticConstructor": {
+                "StaticAssetConstructor": {
                   "type": {
                     "value": "Ada",
                     "span": {
@@ -88,7 +88,7 @@
             },
             {
               "Amount": {
-                "StaticConstructor": {
+                "StaticAssetConstructor": {
                   "type": {
                     "value": "Ada",
                     "span": {
@@ -139,10 +139,10 @@
             },
             {
               "Amount": {
-                "BinaryOp": {
-                  "left": {
-                    "BinaryOp": {
-                      "left": {
+                "SubOp": {
+                  "lhs": {
+                    "SubOp": {
+                      "lhs": {
                         "Identifier": {
                           "value": "source",
                           "span": {
@@ -152,9 +152,8 @@
                           }
                         }
                       },
-                      "operator": "Subtract",
-                      "right": {
-                        "StaticConstructor": {
+                      "rhs": {
+                        "StaticAssetConstructor": {
                           "type": {
                             "value": "Ada",
                             "span": {
@@ -187,8 +186,7 @@
                       }
                     }
                   },
-                  "operator": "Subtract",
-                  "right": {
+                  "rhs": {
                     "Identifier": {
                       "value": "fees",
                       "span": {
@@ -221,7 +219,7 @@
       "adhoc": [
         {
           "Cardano": {
-            "Withdraw": {
+            "Withdrawal": {
               "fields": [
                 {
                   "From": {
@@ -229,8 +227,8 @@
                       "value": "Sender",
                       "span": {
                         "dummy": false,
-                        "start": 352,
-                        "end": 358
+                        "start": 354,
+                        "end": 360
                       }
                     }
                   }
@@ -246,8 +244,8 @@
                       "value": "redeemer",
                       "span": {
                         "dummy": false,
-                        "start": 397,
-                        "end": 407
+                        "start": 399,
+                        "end": 409
                       }
                     }
                   }
@@ -256,7 +254,7 @@
               "span": {
                 "dummy": false,
                 "start": 327,
-                "end": 414
+                "end": 416
               }
             }
           }
@@ -265,7 +263,7 @@
       "span": {
         "dummy": false,
         "start": 32,
-        "end": 416
+        "end": 418
       },
       "collateral": [],
       "metadata": null
@@ -295,6 +293,6 @@
   "span": {
     "dummy": false,
     "start": 0,
-    "end": 416
+    "end": 418
   }
 }

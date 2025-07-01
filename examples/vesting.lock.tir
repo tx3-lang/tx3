@@ -1,31 +1,41 @@
 {
-  "fees": "FeeQuery",
+  "fees": {
+    "EvalParam": "ExpectFees"
+  },
   "references": [],
   "inputs": [
     {
       "name": "source",
       "query": {
         "address": {
-          "EvalParameter": [
-            "owner",
-            "Address"
-          ]
+          "EvalParam": {
+            "ExpectValue": [
+              "owner",
+              "Address"
+            ]
+          }
         },
         "min_amount": {
-          "Assets": [
-            {
-              "policy": "None",
-              "asset_name": "None",
-              "amount": {
-                "EvalParameter": [
-                  "quantity",
-                  "Int"
-                ]
-              }
+          "EvalCoerce": {
+            "IntoAssets": {
+              "Assets": [
+                {
+                  "policy": "None",
+                  "asset_name": "None",
+                  "amount": {
+                    "EvalParam": {
+                      "ExpectValue": [
+                        "quantity",
+                        "Int"
+                      ]
+                    }
+                  }
+                }
+              ]
             }
-          ]
+          }
         },
-        "ref": null
+        "ref": "None"
       },
       "refs": [],
       "redeemer": null,
@@ -67,81 +77,142 @@
         ]
       },
       "datum": {
-        "Struct": {
-          "constructor": 0,
-          "fields": [
-            {
-              "EvalParameter": [
-                "until",
-                "Int"
-              ]
-            },
-            {
-              "EvalParameter": [
-                "owner",
-                "Address"
-              ]
-            },
-            {
-              "EvalParameter": [
-                "beneficiary",
-                "Address"
-              ]
-            }
-          ]
-        }
-      },
-      "amount": {
-        "Assets": [
-          {
-            "policy": "None",
-            "asset_name": "None",
-            "amount": {
-              "EvalParameter": [
-                "quantity",
-                "Int"
+        "EvalCoerce": {
+          "IntoDatum": {
+            "Struct": {
+              "constructor": 0,
+              "fields": [
+                {
+                  "EvalParam": {
+                    "ExpectValue": [
+                      "until",
+                      "Int"
+                    ]
+                  }
+                },
+                {
+                  "EvalParam": {
+                    "ExpectValue": [
+                      "owner",
+                      "Address"
+                    ]
+                  }
+                },
+                {
+                  "EvalParam": {
+                    "ExpectValue": [
+                      "beneficiary",
+                      "Address"
+                    ]
+                  }
+                }
               ]
             }
           }
-        ]
+        }
+      },
+      "amount": {
+        "EvalCoerce": {
+          "IntoAssets": {
+            "Assets": [
+              {
+                "policy": "None",
+                "asset_name": "None",
+                "amount": {
+                  "EvalParam": {
+                    "ExpectValue": [
+                      "quantity",
+                      "Int"
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        }
       }
     },
     {
       "address": {
-        "EvalParameter": [
-          "owner",
-          "Address"
-        ]
+        "EvalParam": {
+          "ExpectValue": [
+            "owner",
+            "Address"
+          ]
+        }
       },
-      "datum": null,
+      "datum": "None",
       "amount": {
-        "EvalBuiltIn": {
-          "Sub": [
-            {
-              "EvalBuiltIn": {
-                "Sub": [
-                  {
-                    "EvalInput": "source"
-                  },
-                  {
-                    "Assets": [
+        "EvalCoerce": {
+          "IntoAssets": {
+            "EvalBuiltIn": {
+              "Sub": [
+                {
+                  "EvalBuiltIn": {
+                    "Sub": [
                       {
-                        "policy": "None",
-                        "asset_name": "None",
-                        "amount": {
-                          "EvalParameter": [
-                            "quantity",
-                            "Int"
+                        "EvalParam": {
+                          "ExpectInput": [
+                            "source",
+                            {
+                              "address": {
+                                "EvalParam": {
+                                  "ExpectValue": [
+                                    "owner",
+                                    "Address"
+                                  ]
+                                }
+                              },
+                              "min_amount": {
+                                "EvalCoerce": {
+                                  "IntoAssets": {
+                                    "Assets": [
+                                      {
+                                        "policy": "None",
+                                        "asset_name": "None",
+                                        "amount": {
+                                          "EvalParam": {
+                                            "ExpectValue": [
+                                              "quantity",
+                                              "Int"
+                                            ]
+                                          }
+                                        }
+                                      }
+                                    ]
+                                  }
+                                }
+                              },
+                              "ref": "None"
+                            }
                           ]
                         }
+                      },
+                      {
+                        "Assets": [
+                          {
+                            "policy": "None",
+                            "asset_name": "None",
+                            "amount": {
+                              "EvalParam": {
+                                "ExpectValue": [
+                                  "quantity",
+                                  "Int"
+                                ]
+                              }
+                            }
+                          }
+                        ]
                       }
                     ]
                   }
-                ]
-              }
-            },
-            "FeeQuery"
-          ]
+                },
+                {
+                  "EvalParam": "ExpectFees"
+                }
+              ]
+            }
+          }
         }
       }
     }

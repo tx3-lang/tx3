@@ -1311,55 +1311,6 @@ impl AstNode for ChainSpecificBlock {
     }
 }
 
-impl AstNode for WithdrawBlockField {
-    const RULE: Rule = Rule::withdraw_block_field;
-
-    fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
-        match pair.as_rule() {
-            Rule::withdraw_block_from => {
-                let pair = pair.into_inner().next().unwrap();
-                Ok(WithdrawBlockField::From(DataExpr::parse(pair)?.into()))
-            }
-            Rule::withdraw_block_amount => {
-                let pair = pair.into_inner().next().unwrap();
-                Ok(WithdrawBlockField::Amount(DataExpr::parse(pair)?.into()))
-            }
-            Rule::withdraw_block_redeemer => {
-                let pair = pair.into_inner().next().unwrap();
-                Ok(WithdrawBlockField::Redeemer(DataExpr::parse(pair)?.into()))
-            }
-            x => unreachable!("Unexpected rule in withdraw_block_field: {:?}", x),
-        }
-    }
-
-    fn span(&self) -> &Span {
-        match self {
-            Self::From(x) => x.span(),
-            Self::Amount(x) => x.span(),
-            Self::Redeemer(x) => x.span(),
-        }
-    }
-}
-
-impl AstNode for WithdrawBlock {
-    const RULE: Rule = Rule::withdraw_block;
-
-    fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
-        let span = pair.as_span().into();
-        let inner = pair.into_inner();
-
-        let fields = inner
-            .map(|x| WithdrawBlockField::parse(x))
-            .collect::<Result<Vec<_>, _>>()?;
-
-        Ok(WithdrawBlock { fields, span })
-    }
-
-    fn span(&self) -> &Span {
-        &self.span
-    }
-}
-
 /// Parses a Tx3 source string into a Program AST.
 ///
 /// # Arguments
@@ -2120,7 +2071,7 @@ mod tests {
 
     test_parsing!(disordered);
 
-    test_parsing!(withdraw);
-
     test_parsing!(asteria_datum);
+
+    test_parsing!(withdrawal);
 }

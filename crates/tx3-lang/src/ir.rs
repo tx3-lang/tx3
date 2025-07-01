@@ -32,6 +32,14 @@ impl StructExpr {
     }
 }
 
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub enum Coerce {
+    NoOp(Expression),
+    IntoAssets(Expression),
+    IntoDatum(Expression),
+    IntoScript(Expression),
+}
+
 pub type PropertyIndex = usize;
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -41,18 +49,6 @@ pub enum BuiltInOp {
     Sub(Expression, Expression),
     Negate(Expression),
     Property(Expression, PropertyIndex),
-}
-
-impl BuiltInOp {
-    pub fn iter_exprs(&self) -> impl Iterator<Item = &Expression> {
-        match self {
-            Self::NoOp(x) => vec![x].into_iter(),
-            Self::Add(x, y) => vec![x, y].into_iter(),
-            Self::Sub(x, y) => vec![x, y].into_iter(),
-            Self::Negate(x) => vec![x].into_iter(),
-            Self::Property(x, _) => vec![x].into_iter(),
-        }
-    }
 }
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -84,6 +80,47 @@ pub enum ScriptSource {
 }
 
 impl ScriptSource {
+    pub fn new_ref(r#ref: Expression, source: Expression) -> Self {
+        Self::UtxoRef {
+            r#ref,
+            source: Some(source),
+        }
+    }
+
+    pub fn new_embedded(source: Expression) -> Self {
+        Self::Embedded(source)
+    }
+
+    pub fn expect_parameter(policy_name: String) -> Self {
+        Self::Embedded(
+            Param::ExpectValue(
+                format!("{}_script", policy_name.to_lowercase()),
+                Type::Bytes,
+            )
+            .into(),
+        )
+    }
+
+    pub fn expect_ref_input(policy_name: String, r#ref: Expression) -> Self {
+        Self::UtxoRef {
+            r#ref: r#ref.clone(),
+            source: Some(
+                Coerce::IntoScript(
+                    Param::ExpectInput(
+                        format!("{}_script", policy_name.to_lowercase()),
+                        InputQuery {
+                            address: Expression::None,
+                            min_amount: Expression::None,
+                            r#ref,
+                        },
+                    )
+                    .into(),
+                )
+                .into(),
+            ),
+        }
+    }
+
     pub fn as_utxo_ref(&self) -> Option<Expression> {
         match self {
             Self::UtxoRef { r#ref, .. } => Some(r#ref.clone()),
@@ -97,7 +134,7 @@ impl ScriptSource {
 pub struct PolicyExpr {
     pub name: String,
     pub hash: Expression,
-    pub script: Option<ScriptSource>,
+    pub script: ScriptSource,
 }
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -116,9 +153,11 @@ pub enum Type {
 }
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-pub struct PropertyAccess {
-    pub object: Box<Expression>,
-    pub field: u64,
+pub enum Param {
+    Set(Expression),
+    ExpectValue(String, Type),
+    ExpectInput(String, InputQuery),
+    ExpectFees,
 }
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -137,34 +176,62 @@ pub enum Expression {
     UtxoSet(HashSet<Utxo>),
     Assets(Vec<AssetExpr>),
 
-    EvalParameter(String, Type),
-    EvalInput(String),
+    EvalParam(Box<Param>),
     EvalBuiltIn(Box<BuiltInOp>),
-
-    // queries
-    FeeQuery,
+    EvalCoerce(Box<Coerce>),
 
     // pass-through
     AdHocDirective(Box<AdHocDirective>),
+}
+
+impl Default for Expression {
+    fn default() -> Self {
+        Self::None
+    }
 }
 
 impl Expression {
     pub fn is_none(&self) -> bool {
         matches!(self, Self::None)
     }
+
+    pub fn as_option(&self) -> Option<&Self> {
+        match self {
+            Self::None => None,
+            _ => Some(self),
+        }
+    }
 }
 
-#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Default)]
+impl From<BuiltInOp> for Expression {
+    fn from(op: BuiltInOp) -> Self {
+        Self::EvalBuiltIn(Box::new(op))
+    }
+}
+
+impl From<Coerce> for Expression {
+    fn from(coerce: Coerce) -> Self {
+        Self::EvalCoerce(Box::new(coerce))
+    }
+}
+
+impl From<Param> for Expression {
+    fn from(param: Param) -> Self {
+        Self::EvalParam(Box::new(param))
+    }
+}
+
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct InputQuery {
-    pub address: Option<Expression>,
-    pub min_amount: Option<Expression>,
-    pub r#ref: Option<Expression>,
+    pub address: Expression,
+    pub min_amount: Expression,
+    pub r#ref: Expression,
 }
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Input {
     pub name: String,
-    pub query: Option<InputQuery>,
+    pub query: InputQuery,
     pub refs: HashSet<UtxoRef>,
     pub redeemer: Option<Expression>,
     pub policy: Option<PolicyExpr>,
@@ -172,21 +239,21 @@ pub struct Input {
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]
 pub struct Output {
-    pub address: Option<Expression>,
-    pub datum: Option<Expression>,
-    pub amount: Option<Expression>,
+    pub address: Expression,
+    pub datum: Expression,
+    pub amount: Expression,
 }
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]
 pub struct Validity {
-    pub since: Option<Expression>,
-    pub until: Option<Expression>,
+    pub since: Expression,
+    pub until: Expression,
 }
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]
 pub struct Mint {
-    pub amount: Option<Expression>,
-    pub redeemer: Option<Expression>,
+    pub amount: Expression,
+    pub redeemer: Expression,
 }
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]
