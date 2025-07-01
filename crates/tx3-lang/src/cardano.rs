@@ -277,7 +277,7 @@ impl IntoLower for StakeDelegationCertificate {
 
     fn into_lower(
         &self,
-        ctx: &crate::lowering::Context,
+        _ctx: &crate::lowering::Context,
     ) -> Result<Self::Output, crate::lowering::Error> {
         todo!("StakeDelegationCertificate lowering not implemented")
     }
