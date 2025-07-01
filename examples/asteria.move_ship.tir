@@ -1,136 +1,156 @@
 {
-  "fees": "FeeQuery",
+  "fees": {
+    "EvalParam": "ExpectFees"
+  },
   "references": [],
   "inputs": [
     {
       "name": "ship",
       "query": {
         "address": {
-          "EvalParameter": [
-            "game",
-            "Address"
-          ]
-        },
-        "min_amount": {
-          "EvalBuiltIn": {
-            "Add": [
-              {
-                "Assets": [
-                  {
-                    "policy": {
-                      "Bytes": [
-                        107,
-                        156,
-                        69,
-                        106,
-                        166,
-                        80,
-                        203,
-                        128,
-                        138,
-                        154,
-                        181,
-                        67,
-                        38,
-                        224,
-                        57,
-                        213,
-                        35,
-                        94,
-                        214,
-                        159,
-                        6,
-                        156,
-                        150,
-                        100,
-                        168,
-                        254,
-                        91,
-                        105
-                      ]
-                    },
-                    "asset_name": {
-                      "String": "SHIP"
-                    },
-                    "amount": {
-                      "EvalParameter": [
-                        "ship_name",
-                        "Bytes"
-                      ]
-                    }
-                  }
-                ]
-              },
-              {
-                "Assets": [
-                  {
-                    "policy": {
-                      "Bytes": [
-                        107,
-                        156,
-                        69,
-                        106,
-                        166,
-                        80,
-                        203,
-                        128,
-                        138,
-                        154,
-                        181,
-                        67,
-                        38,
-                        224,
-                        57,
-                        213,
-                        35,
-                        94,
-                        214,
-                        159,
-                        6,
-                        156,
-                        150,
-                        100,
-                        168,
-                        254,
-                        91,
-                        105
-                      ]
-                    },
-                    "asset_name": {
-                      "String": "FUEL"
-                    },
-                    "amount": {
-                      "EvalParameter": [
-                        "required_fuel",
-                        "Int"
-                      ]
-                    }
-                  }
-                ]
-              }
+          "EvalParam": {
+            "ExpectValue": [
+              "game",
+              "Address"
             ]
           }
         },
-        "ref": null
+        "min_amount": {
+          "EvalCoerce": {
+            "IntoAssets": {
+              "EvalBuiltIn": {
+                "Add": [
+                  {
+                    "Assets": [
+                      {
+                        "policy": {
+                          "Bytes": [
+                            107,
+                            156,
+                            69,
+                            106,
+                            166,
+                            80,
+                            203,
+                            128,
+                            138,
+                            154,
+                            181,
+                            67,
+                            38,
+                            224,
+                            57,
+                            213,
+                            35,
+                            94,
+                            214,
+                            159,
+                            6,
+                            156,
+                            150,
+                            100,
+                            168,
+                            254,
+                            91,
+                            105
+                          ]
+                        },
+                        "asset_name": {
+                          "String": "SHIP"
+                        },
+                        "amount": {
+                          "EvalParam": {
+                            "ExpectValue": [
+                              "ship_name",
+                              "Bytes"
+                            ]
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "Assets": [
+                      {
+                        "policy": {
+                          "Bytes": [
+                            107,
+                            156,
+                            69,
+                            106,
+                            166,
+                            80,
+                            203,
+                            128,
+                            138,
+                            154,
+                            181,
+                            67,
+                            38,
+                            224,
+                            57,
+                            213,
+                            35,
+                            94,
+                            214,
+                            159,
+                            6,
+                            156,
+                            150,
+                            100,
+                            168,
+                            254,
+                            91,
+                            105
+                          ]
+                        },
+                        "asset_name": {
+                          "String": "FUEL"
+                        },
+                        "amount": {
+                          "EvalParam": {
+                            "ExpectValue": [
+                              "required_fuel",
+                              "Int"
+                            ]
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "ref": "None"
       },
       "refs": [],
       "redeemer": {
-        "Struct": {
-          "constructor": 0,
-          "fields": [
-            {
-              "EvalParameter": [
-                "p_delta_x",
-                "Int"
-              ]
-            },
-            {
-              "EvalParameter": [
-                "p_delta_y",
-                "Int"
+        "EvalCoerce": {
+          "IntoDatum": {
+            "Struct": {
+              "constructor": 0,
+              "fields": [
+                {
+                  "EvalParam": {
+                    "ExpectValue": [
+                      "p_delta_x",
+                      "Int"
+                    ]
+                  }
+                },
+                {
+                  "EvalParam": {
+                    "ExpectValue": [
+                      "p_delta_y",
+                      "Int"
+                    ]
+                  }
+                }
               ]
             }
-          ]
+          }
         }
       },
       "policy": null
@@ -139,179 +159,16 @@
       "name": "pilot",
       "query": {
         "address": {
-          "EvalParameter": [
-            "player",
-            "Address"
-          ]
+          "EvalParam": {
+            "ExpectValue": [
+              "player",
+              "Address"
+            ]
+          }
         },
         "min_amount": {
-          "Assets": [
-            {
-              "policy": {
-                "Bytes": [
-                  107,
-                  156,
-                  69,
-                  106,
-                  166,
-                  80,
-                  203,
-                  128,
-                  138,
-                  154,
-                  181,
-                  67,
-                  38,
-                  224,
-                  57,
-                  213,
-                  35,
-                  94,
-                  214,
-                  159,
-                  6,
-                  156,
-                  150,
-                  100,
-                  168,
-                  254,
-                  91,
-                  105
-                ]
-              },
-              "asset_name": {
-                "String": "PILOT"
-              },
-              "amount": {
-                "EvalParameter": [
-                  "ship_name",
-                  "Bytes"
-                ]
-              }
-            }
-          ]
-        },
-        "ref": null
-      },
-      "refs": [],
-      "redeemer": null,
-      "policy": null
-    },
-    {
-      "name": "fees",
-      "query": {
-        "address": {
-          "EvalParameter": [
-            "player",
-            "Address"
-          ]
-        },
-        "min_amount": {
-          "EvalInput": "fees"
-        },
-        "ref": null
-      },
-      "refs": [],
-      "redeemer": null,
-      "policy": null
-    }
-  ],
-  "outputs": [
-    {
-      "address": {
-        "EvalParameter": [
-          "game",
-          "Address"
-        ]
-      },
-      "datum": {
-        "Struct": {
-          "constructor": 0,
-          "fields": [
-            {
-              "EvalBuiltIn": {
-                "Add": [
-                  {
-                    "EvalBuiltIn": {
-                      "Property": [
-                        {
-                          "EvalInput": "ship"
-                        },
-                        0
-                      ]
-                    }
-                  },
-                  {
-                    "EvalParameter": [
-                      "p_delta_x",
-                      "Int"
-                    ]
-                  }
-                ]
-              }
-            },
-            {
-              "EvalBuiltIn": {
-                "Add": [
-                  {
-                    "EvalBuiltIn": {
-                      "Property": [
-                        {
-                          "EvalInput": "ship"
-                        },
-                        1
-                      ]
-                    }
-                  },
-                  {
-                    "EvalParameter": [
-                      "p_delta_y",
-                      "Int"
-                    ]
-                  }
-                ]
-              }
-            },
-            {
-              "EvalBuiltIn": {
-                "Property": [
-                  {
-                    "EvalInput": "ship"
-                  },
-                  2
-                ]
-              }
-            },
-            {
-              "EvalBuiltIn": {
-                "Property": [
-                  {
-                    "EvalInput": "ship"
-                  },
-                  3
-                ]
-              }
-            },
-            {
-              "EvalBuiltIn": {
-                "Property": [
-                  {
-                    "EvalInput": "ship"
-                  },
-                  4
-                ]
-              }
-            }
-          ]
-        }
-      },
-      "amount": {
-        "EvalBuiltIn": {
-          "Sub": [
-            {
-              "EvalInput": "ship"
-            },
-            {
+          "EvalCoerce": {
+            "IntoAssets": {
               "Assets": [
                 {
                   "policy": {
@@ -347,39 +204,1066 @@
                     ]
                   },
                   "asset_name": {
-                    "String": "FUEL"
+                    "String": "PILOT"
                   },
                   "amount": {
-                    "EvalParameter": [
-                      "required_fuel",
-                      "Int"
+                    "EvalParam": {
+                      "ExpectValue": [
+                        "ship_name",
+                        "Bytes"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "ref": "None"
+      },
+      "refs": [],
+      "redeemer": null,
+      "policy": null
+    },
+    {
+      "name": "fees",
+      "query": {
+        "address": {
+          "EvalParam": {
+            "ExpectValue": [
+              "player",
+              "Address"
+            ]
+          }
+        },
+        "min_amount": {
+          "EvalCoerce": {
+            "IntoAssets": {
+              "EvalParam": "ExpectFees"
+            }
+          }
+        },
+        "ref": "None"
+      },
+      "refs": [],
+      "redeemer": null,
+      "policy": null
+    }
+  ],
+  "outputs": [
+    {
+      "address": {
+        "EvalParam": {
+          "ExpectValue": [
+            "game",
+            "Address"
+          ]
+        }
+      },
+      "datum": {
+        "EvalCoerce": {
+          "IntoDatum": {
+            "Struct": {
+              "constructor": 0,
+              "fields": [
+                {
+                  "EvalBuiltIn": {
+                    "Add": [
+                      {
+                        "EvalBuiltIn": {
+                          "Property": [
+                            {
+                              "EvalParam": {
+                                "ExpectInput": [
+                                  "ship",
+                                  {
+                                    "address": {
+                                      "EvalParam": {
+                                        "ExpectValue": [
+                                          "game",
+                                          "Address"
+                                        ]
+                                      }
+                                    },
+                                    "min_amount": {
+                                      "EvalCoerce": {
+                                        "IntoAssets": {
+                                          "EvalBuiltIn": {
+                                            "Add": [
+                                              {
+                                                "Assets": [
+                                                  {
+                                                    "policy": {
+                                                      "Bytes": [
+                                                        107,
+                                                        156,
+                                                        69,
+                                                        106,
+                                                        166,
+                                                        80,
+                                                        203,
+                                                        128,
+                                                        138,
+                                                        154,
+                                                        181,
+                                                        67,
+                                                        38,
+                                                        224,
+                                                        57,
+                                                        213,
+                                                        35,
+                                                        94,
+                                                        214,
+                                                        159,
+                                                        6,
+                                                        156,
+                                                        150,
+                                                        100,
+                                                        168,
+                                                        254,
+                                                        91,
+                                                        105
+                                                      ]
+                                                    },
+                                                    "asset_name": {
+                                                      "String": "SHIP"
+                                                    },
+                                                    "amount": {
+                                                      "EvalParam": {
+                                                        "ExpectValue": [
+                                                          "ship_name",
+                                                          "Bytes"
+                                                        ]
+                                                      }
+                                                    }
+                                                  }
+                                                ]
+                                              },
+                                              {
+                                                "Assets": [
+                                                  {
+                                                    "policy": {
+                                                      "Bytes": [
+                                                        107,
+                                                        156,
+                                                        69,
+                                                        106,
+                                                        166,
+                                                        80,
+                                                        203,
+                                                        128,
+                                                        138,
+                                                        154,
+                                                        181,
+                                                        67,
+                                                        38,
+                                                        224,
+                                                        57,
+                                                        213,
+                                                        35,
+                                                        94,
+                                                        214,
+                                                        159,
+                                                        6,
+                                                        156,
+                                                        150,
+                                                        100,
+                                                        168,
+                                                        254,
+                                                        91,
+                                                        105
+                                                      ]
+                                                    },
+                                                    "asset_name": {
+                                                      "String": "FUEL"
+                                                    },
+                                                    "amount": {
+                                                      "EvalParam": {
+                                                        "ExpectValue": [
+                                                          "required_fuel",
+                                                          "Int"
+                                                        ]
+                                                      }
+                                                    }
+                                                  }
+                                                ]
+                                              }
+                                            ]
+                                          }
+                                        }
+                                      }
+                                    },
+                                    "ref": "None"
+                                  }
+                                ]
+                              }
+                            },
+                            0
+                          ]
+                        }
+                      },
+                      {
+                        "EvalParam": {
+                          "ExpectValue": [
+                            "p_delta_x",
+                            "Int"
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "EvalBuiltIn": {
+                    "Add": [
+                      {
+                        "EvalBuiltIn": {
+                          "Property": [
+                            {
+                              "EvalParam": {
+                                "ExpectInput": [
+                                  "ship",
+                                  {
+                                    "address": {
+                                      "EvalParam": {
+                                        "ExpectValue": [
+                                          "game",
+                                          "Address"
+                                        ]
+                                      }
+                                    },
+                                    "min_amount": {
+                                      "EvalCoerce": {
+                                        "IntoAssets": {
+                                          "EvalBuiltIn": {
+                                            "Add": [
+                                              {
+                                                "Assets": [
+                                                  {
+                                                    "policy": {
+                                                      "Bytes": [
+                                                        107,
+                                                        156,
+                                                        69,
+                                                        106,
+                                                        166,
+                                                        80,
+                                                        203,
+                                                        128,
+                                                        138,
+                                                        154,
+                                                        181,
+                                                        67,
+                                                        38,
+                                                        224,
+                                                        57,
+                                                        213,
+                                                        35,
+                                                        94,
+                                                        214,
+                                                        159,
+                                                        6,
+                                                        156,
+                                                        150,
+                                                        100,
+                                                        168,
+                                                        254,
+                                                        91,
+                                                        105
+                                                      ]
+                                                    },
+                                                    "asset_name": {
+                                                      "String": "SHIP"
+                                                    },
+                                                    "amount": {
+                                                      "EvalParam": {
+                                                        "ExpectValue": [
+                                                          "ship_name",
+                                                          "Bytes"
+                                                        ]
+                                                      }
+                                                    }
+                                                  }
+                                                ]
+                                              },
+                                              {
+                                                "Assets": [
+                                                  {
+                                                    "policy": {
+                                                      "Bytes": [
+                                                        107,
+                                                        156,
+                                                        69,
+                                                        106,
+                                                        166,
+                                                        80,
+                                                        203,
+                                                        128,
+                                                        138,
+                                                        154,
+                                                        181,
+                                                        67,
+                                                        38,
+                                                        224,
+                                                        57,
+                                                        213,
+                                                        35,
+                                                        94,
+                                                        214,
+                                                        159,
+                                                        6,
+                                                        156,
+                                                        150,
+                                                        100,
+                                                        168,
+                                                        254,
+                                                        91,
+                                                        105
+                                                      ]
+                                                    },
+                                                    "asset_name": {
+                                                      "String": "FUEL"
+                                                    },
+                                                    "amount": {
+                                                      "EvalParam": {
+                                                        "ExpectValue": [
+                                                          "required_fuel",
+                                                          "Int"
+                                                        ]
+                                                      }
+                                                    }
+                                                  }
+                                                ]
+                                              }
+                                            ]
+                                          }
+                                        }
+                                      }
+                                    },
+                                    "ref": "None"
+                                  }
+                                ]
+                              }
+                            },
+                            1
+                          ]
+                        }
+                      },
+                      {
+                        "EvalParam": {
+                          "ExpectValue": [
+                            "p_delta_y",
+                            "Int"
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "EvalBuiltIn": {
+                    "Property": [
+                      {
+                        "EvalParam": {
+                          "ExpectInput": [
+                            "ship",
+                            {
+                              "address": {
+                                "EvalParam": {
+                                  "ExpectValue": [
+                                    "game",
+                                    "Address"
+                                  ]
+                                }
+                              },
+                              "min_amount": {
+                                "EvalCoerce": {
+                                  "IntoAssets": {
+                                    "EvalBuiltIn": {
+                                      "Add": [
+                                        {
+                                          "Assets": [
+                                            {
+                                              "policy": {
+                                                "Bytes": [
+                                                  107,
+                                                  156,
+                                                  69,
+                                                  106,
+                                                  166,
+                                                  80,
+                                                  203,
+                                                  128,
+                                                  138,
+                                                  154,
+                                                  181,
+                                                  67,
+                                                  38,
+                                                  224,
+                                                  57,
+                                                  213,
+                                                  35,
+                                                  94,
+                                                  214,
+                                                  159,
+                                                  6,
+                                                  156,
+                                                  150,
+                                                  100,
+                                                  168,
+                                                  254,
+                                                  91,
+                                                  105
+                                                ]
+                                              },
+                                              "asset_name": {
+                                                "String": "SHIP"
+                                              },
+                                              "amount": {
+                                                "EvalParam": {
+                                                  "ExpectValue": [
+                                                    "ship_name",
+                                                    "Bytes"
+                                                  ]
+                                                }
+                                              }
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "Assets": [
+                                            {
+                                              "policy": {
+                                                "Bytes": [
+                                                  107,
+                                                  156,
+                                                  69,
+                                                  106,
+                                                  166,
+                                                  80,
+                                                  203,
+                                                  128,
+                                                  138,
+                                                  154,
+                                                  181,
+                                                  67,
+                                                  38,
+                                                  224,
+                                                  57,
+                                                  213,
+                                                  35,
+                                                  94,
+                                                  214,
+                                                  159,
+                                                  6,
+                                                  156,
+                                                  150,
+                                                  100,
+                                                  168,
+                                                  254,
+                                                  91,
+                                                  105
+                                                ]
+                                              },
+                                              "asset_name": {
+                                                "String": "FUEL"
+                                              },
+                                              "amount": {
+                                                "EvalParam": {
+                                                  "ExpectValue": [
+                                                    "required_fuel",
+                                                    "Int"
+                                                  ]
+                                                }
+                                              }
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              "ref": "None"
+                            }
+                          ]
+                        }
+                      },
+                      2
+                    ]
+                  }
+                },
+                {
+                  "EvalBuiltIn": {
+                    "Property": [
+                      {
+                        "EvalParam": {
+                          "ExpectInput": [
+                            "ship",
+                            {
+                              "address": {
+                                "EvalParam": {
+                                  "ExpectValue": [
+                                    "game",
+                                    "Address"
+                                  ]
+                                }
+                              },
+                              "min_amount": {
+                                "EvalCoerce": {
+                                  "IntoAssets": {
+                                    "EvalBuiltIn": {
+                                      "Add": [
+                                        {
+                                          "Assets": [
+                                            {
+                                              "policy": {
+                                                "Bytes": [
+                                                  107,
+                                                  156,
+                                                  69,
+                                                  106,
+                                                  166,
+                                                  80,
+                                                  203,
+                                                  128,
+                                                  138,
+                                                  154,
+                                                  181,
+                                                  67,
+                                                  38,
+                                                  224,
+                                                  57,
+                                                  213,
+                                                  35,
+                                                  94,
+                                                  214,
+                                                  159,
+                                                  6,
+                                                  156,
+                                                  150,
+                                                  100,
+                                                  168,
+                                                  254,
+                                                  91,
+                                                  105
+                                                ]
+                                              },
+                                              "asset_name": {
+                                                "String": "SHIP"
+                                              },
+                                              "amount": {
+                                                "EvalParam": {
+                                                  "ExpectValue": [
+                                                    "ship_name",
+                                                    "Bytes"
+                                                  ]
+                                                }
+                                              }
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "Assets": [
+                                            {
+                                              "policy": {
+                                                "Bytes": [
+                                                  107,
+                                                  156,
+                                                  69,
+                                                  106,
+                                                  166,
+                                                  80,
+                                                  203,
+                                                  128,
+                                                  138,
+                                                  154,
+                                                  181,
+                                                  67,
+                                                  38,
+                                                  224,
+                                                  57,
+                                                  213,
+                                                  35,
+                                                  94,
+                                                  214,
+                                                  159,
+                                                  6,
+                                                  156,
+                                                  150,
+                                                  100,
+                                                  168,
+                                                  254,
+                                                  91,
+                                                  105
+                                                ]
+                                              },
+                                              "asset_name": {
+                                                "String": "FUEL"
+                                              },
+                                              "amount": {
+                                                "EvalParam": {
+                                                  "ExpectValue": [
+                                                    "required_fuel",
+                                                    "Int"
+                                                  ]
+                                                }
+                                              }
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              "ref": "None"
+                            }
+                          ]
+                        }
+                      },
+                      3
+                    ]
+                  }
+                },
+                {
+                  "EvalBuiltIn": {
+                    "Property": [
+                      {
+                        "EvalParam": {
+                          "ExpectInput": [
+                            "ship",
+                            {
+                              "address": {
+                                "EvalParam": {
+                                  "ExpectValue": [
+                                    "game",
+                                    "Address"
+                                  ]
+                                }
+                              },
+                              "min_amount": {
+                                "EvalCoerce": {
+                                  "IntoAssets": {
+                                    "EvalBuiltIn": {
+                                      "Add": [
+                                        {
+                                          "Assets": [
+                                            {
+                                              "policy": {
+                                                "Bytes": [
+                                                  107,
+                                                  156,
+                                                  69,
+                                                  106,
+                                                  166,
+                                                  80,
+                                                  203,
+                                                  128,
+                                                  138,
+                                                  154,
+                                                  181,
+                                                  67,
+                                                  38,
+                                                  224,
+                                                  57,
+                                                  213,
+                                                  35,
+                                                  94,
+                                                  214,
+                                                  159,
+                                                  6,
+                                                  156,
+                                                  150,
+                                                  100,
+                                                  168,
+                                                  254,
+                                                  91,
+                                                  105
+                                                ]
+                                              },
+                                              "asset_name": {
+                                                "String": "SHIP"
+                                              },
+                                              "amount": {
+                                                "EvalParam": {
+                                                  "ExpectValue": [
+                                                    "ship_name",
+                                                    "Bytes"
+                                                  ]
+                                                }
+                                              }
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "Assets": [
+                                            {
+                                              "policy": {
+                                                "Bytes": [
+                                                  107,
+                                                  156,
+                                                  69,
+                                                  106,
+                                                  166,
+                                                  80,
+                                                  203,
+                                                  128,
+                                                  138,
+                                                  154,
+                                                  181,
+                                                  67,
+                                                  38,
+                                                  224,
+                                                  57,
+                                                  213,
+                                                  35,
+                                                  94,
+                                                  214,
+                                                  159,
+                                                  6,
+                                                  156,
+                                                  150,
+                                                  100,
+                                                  168,
+                                                  254,
+                                                  91,
+                                                  105
+                                                ]
+                                              },
+                                              "asset_name": {
+                                                "String": "FUEL"
+                                              },
+                                              "amount": {
+                                                "EvalParam": {
+                                                  "ExpectValue": [
+                                                    "required_fuel",
+                                                    "Int"
+                                                  ]
+                                                }
+                                              }
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              "ref": "None"
+                            }
+                          ]
+                        }
+                      },
+                      4
                     ]
                   }
                 }
               ]
             }
-          ]
+          }
+        }
+      },
+      "amount": {
+        "EvalCoerce": {
+          "IntoAssets": {
+            "EvalBuiltIn": {
+              "Sub": [
+                {
+                  "EvalParam": {
+                    "ExpectInput": [
+                      "ship",
+                      {
+                        "address": {
+                          "EvalParam": {
+                            "ExpectValue": [
+                              "game",
+                              "Address"
+                            ]
+                          }
+                        },
+                        "min_amount": {
+                          "EvalCoerce": {
+                            "IntoAssets": {
+                              "EvalBuiltIn": {
+                                "Add": [
+                                  {
+                                    "Assets": [
+                                      {
+                                        "policy": {
+                                          "Bytes": [
+                                            107,
+                                            156,
+                                            69,
+                                            106,
+                                            166,
+                                            80,
+                                            203,
+                                            128,
+                                            138,
+                                            154,
+                                            181,
+                                            67,
+                                            38,
+                                            224,
+                                            57,
+                                            213,
+                                            35,
+                                            94,
+                                            214,
+                                            159,
+                                            6,
+                                            156,
+                                            150,
+                                            100,
+                                            168,
+                                            254,
+                                            91,
+                                            105
+                                          ]
+                                        },
+                                        "asset_name": {
+                                          "String": "SHIP"
+                                        },
+                                        "amount": {
+                                          "EvalParam": {
+                                            "ExpectValue": [
+                                              "ship_name",
+                                              "Bytes"
+                                            ]
+                                          }
+                                        }
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "Assets": [
+                                      {
+                                        "policy": {
+                                          "Bytes": [
+                                            107,
+                                            156,
+                                            69,
+                                            106,
+                                            166,
+                                            80,
+                                            203,
+                                            128,
+                                            138,
+                                            154,
+                                            181,
+                                            67,
+                                            38,
+                                            224,
+                                            57,
+                                            213,
+                                            35,
+                                            94,
+                                            214,
+                                            159,
+                                            6,
+                                            156,
+                                            150,
+                                            100,
+                                            168,
+                                            254,
+                                            91,
+                                            105
+                                          ]
+                                        },
+                                        "asset_name": {
+                                          "String": "FUEL"
+                                        },
+                                        "amount": {
+                                          "EvalParam": {
+                                            "ExpectValue": [
+                                              "required_fuel",
+                                              "Int"
+                                            ]
+                                          }
+                                        }
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            }
+                          }
+                        },
+                        "ref": "None"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "Assets": [
+                    {
+                      "policy": {
+                        "Bytes": [
+                          107,
+                          156,
+                          69,
+                          106,
+                          166,
+                          80,
+                          203,
+                          128,
+                          138,
+                          154,
+                          181,
+                          67,
+                          38,
+                          224,
+                          57,
+                          213,
+                          35,
+                          94,
+                          214,
+                          159,
+                          6,
+                          156,
+                          150,
+                          100,
+                          168,
+                          254,
+                          91,
+                          105
+                        ]
+                      },
+                      "asset_name": {
+                        "String": "FUEL"
+                      },
+                      "amount": {
+                        "EvalParam": {
+                          "ExpectValue": [
+                            "required_fuel",
+                            "Int"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          }
         }
       }
     },
     {
       "address": {
-        "EvalParameter": [
-          "player",
-          "Address"
-        ]
-      },
-      "datum": null,
-      "amount": {
-        "EvalBuiltIn": {
-          "Sub": [
-            {
-              "EvalInput": "pilot"
-            },
-            {
-              "EvalInput": "fees"
-            }
+        "EvalParam": {
+          "ExpectValue": [
+            "player",
+            "Address"
           ]
+        }
+      },
+      "datum": "None",
+      "amount": {
+        "EvalCoerce": {
+          "IntoAssets": {
+            "EvalBuiltIn": {
+              "Sub": [
+                {
+                  "EvalParam": {
+                    "ExpectInput": [
+                      "pilot",
+                      {
+                        "address": {
+                          "EvalParam": {
+                            "ExpectValue": [
+                              "player",
+                              "Address"
+                            ]
+                          }
+                        },
+                        "min_amount": {
+                          "EvalCoerce": {
+                            "IntoAssets": {
+                              "Assets": [
+                                {
+                                  "policy": {
+                                    "Bytes": [
+                                      107,
+                                      156,
+                                      69,
+                                      106,
+                                      166,
+                                      80,
+                                      203,
+                                      128,
+                                      138,
+                                      154,
+                                      181,
+                                      67,
+                                      38,
+                                      224,
+                                      57,
+                                      213,
+                                      35,
+                                      94,
+                                      214,
+                                      159,
+                                      6,
+                                      156,
+                                      150,
+                                      100,
+                                      168,
+                                      254,
+                                      91,
+                                      105
+                                    ]
+                                  },
+                                  "asset_name": {
+                                    "String": "PILOT"
+                                  },
+                                  "amount": {
+                                    "EvalParam": {
+                                      "ExpectValue": [
+                                        "ship_name",
+                                        "Bytes"
+                                      ]
+                                    }
+                                  }
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        "ref": "None"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "EvalParam": {
+                    "ExpectInput": [
+                      "fees",
+                      {
+                        "address": {
+                          "EvalParam": {
+                            "ExpectValue": [
+                              "player",
+                              "Address"
+                            ]
+                          }
+                        },
+                        "min_amount": {
+                          "EvalCoerce": {
+                            "IntoAssets": {
+                              "EvalParam": "ExpectFees"
+                            }
+                          }
+                        },
+                        "ref": "None"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
         }
       }
     }

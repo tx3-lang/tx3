@@ -20,7 +20,7 @@ pub struct Scope {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Symbol {
     ParamVar(String, Box<Type>),
-    Input(String, Box<Type>),
+    Input(String, Box<InputBlock>),
     PartyDef(Box<PartyDef>),
     PolicyDef(Box<PolicyDef>),
     AssetDef(Box<AssetDef>),
@@ -111,7 +111,10 @@ impl Symbol {
         match self {
             Symbol::ParamVar(_, ty) => Some(ty.as_ref().clone()),
             Symbol::RecordField(x) => Some(x.r#type.clone()),
-            Symbol::Input(_, ty) => Some(ty.as_ref().clone()),
+            Symbol::Input(_, input) => {
+                let datum_type = input.datum_is().cloned().unwrap_or(Type::Undefined);
+                Some(datum_type)
+            }
             x => {
                 dbg!(x);
                 None
@@ -692,7 +695,7 @@ impl DataExpr {
     pub fn target_type(&self) -> Option<Type> {
         match self {
             DataExpr::Identifier(x) => x.target_type(),
-            DataExpr::None => None,
+            DataExpr::None => Some(Type::Undefined),
             DataExpr::Unit => Some(Type::Unit),
             DataExpr::Number(_) => Some(Type::Int),
             DataExpr::Bool(_) => Some(Type::Bool),

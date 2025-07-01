@@ -73,7 +73,6 @@ fn compile_struct(ir: &ir::StructExpr) -> Result<primitives::PlutusData, Error> 
 
 fn compile_data_expr(ir: &ir::Expression) -> Result<primitives::PlutusData, Error> {
     match ir {
-        ir::Expression::None => Ok(().as_data()),
         ir::Expression::Bytes(x) => Ok(x.as_data()),
         ir::Expression::Number(x) => Ok(x.as_data()),
         ir::Expression::Bool(x) => Ok(x.as_data()),
@@ -153,28 +152,18 @@ fn compile_output_block(
     ir: &ir::Output,
     network: Network,
 ) -> Result<primitives::TransactionOutput<'static>, Error> {
-    let address = ir
-        .address
-        .as_ref()
-        .map(|x| coercion::expr_into_address(x, network))
-        .transpose()?
-        .ok_or(Error::MissingAddress)?;
+    let address = coercion::expr_into_address(&ir.address, network)?;
 
-    let asset_list = ir
-        .amount
-        .iter()
-        .map(coercion::expr_into_assets)
-        .collect::<Result<Vec<_>, _>>()?;
+    let asset_list = coercion::expr_into_assets(&ir.amount)?;
 
     let values = asset_list
         .iter()
-        .flatten()
         .map(compile_value)
         .collect::<Result<Vec<_>, _>>()?;
 
     let value = asset_math::aggregate_values(values);
 
-    let datum_option = ir.datum.as_ref().map(compile_data_expr).transpose()?;
+    let datum_option = ir.datum.as_option().map(compile_data_expr).transpose()?;
 
     let output = primitives::TransactionOutput::PostAlonzo(
         primitives::PostAlonzoTransactionOutput {
@@ -193,11 +182,12 @@ fn compile_output_block(
 
 fn compile_mint_block(tx: &ir::Tx) -> Result<Option<primitives::Mint>, Error> {
     let mint = if !tx.mints.is_empty() {
-        let assets = tx
+        let assets: Vec<_> = tx
             .mints
             .iter()
-            .flat_map(|x| x.amount.as_ref().map(coercion::expr_into_assets))
-            .collect::<Result<Vec<_>, _>>()?;
+            .flat_map(|x| coercion::expr_into_assets(&x.amount))
+            .collect();
+
         let assets = assets
             .iter()
             .flatten()
@@ -246,9 +236,9 @@ pub fn compile_withdrawal_directive(
     network: Network,
 ) -> Result<(primitives::Bytes, u64), Error> {
     let credential = adhoc.data.get("credential").ok_or(Error::MissingAddress)?;
-    let amount = adhoc.data.get("amount").ok_or(Error::MissingAmount)?;
-
     let credential = coercion::expr_into_reward_account(credential, network)?;
+
+    let amount = adhoc.data.get("amount").ok_or(Error::MissingAmount)?;
     let amount = coercion::expr_into_number(amount)?;
     let amount = primitives::Coin::try_from(amount as u64).unwrap();
 
@@ -312,7 +302,7 @@ fn compile_reference_inputs(tx: &ir::Tx) -> Result<Vec<primitives::TransactionIn
         .inputs
         .iter()
         .filter_map(|x| x.policy.as_ref())
-        .filter_map(|x| x.script.as_ref())
+        .map(|x| &x.script)
         .filter_map(|x| x.as_utxo_ref())
         .flat_map(|x| coercion::expr_into_utxo_refs(&x))
         .flatten()
@@ -330,7 +320,7 @@ fn compile_collateral(tx: &ir::Tx) -> Result<Vec<TransactionInput>, Error> {
     Ok(tx
         .collateral
         .iter()
-        .filter_map(|collateral| collateral.query.r#ref.as_ref())
+        .filter_map(|collateral| collateral.query.r#ref.as_option())
         .flat_map(coercion::expr_into_utxo_refs)
         .flatten()
         .map(|x| primitives::TransactionInput {
@@ -384,14 +374,14 @@ fn compile_required_signers(tx: &ir::Tx) -> Result<Option<primitives::RequiredSi
 
 fn compile_validity(validity: Option<&ir::Validity>) -> Result<(Option<u64>, Option<u64>), Error> {
     let since = validity
-        .and_then(|v| v.since.as_ref())
-        .map(|expr| coercion::expr_into_number(expr).map(|n| n as u64))
-        .transpose()?;
+        .map(|v| coercion::expr_into_number(&v.since))
+        .transpose()?
+        .map(|n| n as u64);
 
     let until = validity
-        .and_then(|v| v.until.as_ref())
-        .map(|expr| coercion::expr_into_number(expr).map(|n| n as u64))
-        .transpose()?;
+        .map(|v| coercion::expr_into_number(&v.until))
+        .transpose()?
+        .map(|n| n as u64);
 
     Ok((since, until))
 }
@@ -530,9 +520,8 @@ fn compile_single_mint_redeemer(
     mint: &ir::Mint,
     compiled_body: &primitives::TransactionBody,
 ) -> Result<primitives::Redeemer, Error> {
-    let red = mint.redeemer.clone().ok_or(Error::MissingRedeemer)?;
-    let amount = mint.amount.clone().ok_or(Error::MissingAmount)?;
-    let assets: Vec<ir::AssetExpr> = coercion::expr_into_assets(&amount)?;
+    let red = mint.redeemer.as_option().ok_or(Error::MissingRedeemer)?;
+    let assets: Vec<ir::AssetExpr> = coercion::expr_into_assets(&mint.amount)?;
     // TODO: This only works with the first redeemer.
     // Are we allowed to include more than one?
     let asset = assets.first().ok_or(Error::MissingAsset)?;
