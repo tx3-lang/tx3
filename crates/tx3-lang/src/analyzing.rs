@@ -225,6 +225,13 @@ impl Scope {
         }
     }
 
+    pub fn track_env_var(&mut self, name: &str, ty: Type) {
+        self.symbols.insert(
+            name.to_string(),
+            Symbol::EnvVar(name.to_string(), Box::new(ty)),
+        );
+    }
+
     pub fn track_type_def(&mut self, type_: &TypeDef) {
         self.symbols.insert(
             type_.name.value.clone(),
@@ -274,6 +281,11 @@ impl Scope {
         );
     }
 
+    pub fn track_local_expr(&mut self, name: &str, expr: DataExpr) {
+        self.symbols
+            .insert(name.to_string(), Symbol::LocalExpr(Box::new(expr)));
+    }
+
     pub fn track_input(&mut self, name: &str, input: InputBlock) {
         self.symbols.insert(
             name.to_string(),
@@ -287,10 +299,7 @@ impl Scope {
         for (name, subty) in schema {
             self.track_record_field(&RecordField {
                 name: Identifier::new(name),
-                r#type: TypeRecord {
-                    r#type: subty,
-                    span: Span::DUMMY,
-                },
+                r#type: subty,
                 span: Span::DUMMY,
             });
         }
@@ -662,17 +671,17 @@ impl Analyzable for Identifier {
     }
 }
 
-impl Analyzable for TypeRecord {
+impl Analyzable for Type {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        match self.r#type.clone() {
-            Type::Custom(mut x) => x.analyze(parent),
-            Type::List(mut x) => x.analyze(parent),
+        match self {
+            Type::Custom(x) => x.analyze(parent),
+            Type::List(x) => x.analyze(parent),
             _ => AnalyzeReport::default(),
         }
     }
 
     fn is_resolved(&self) -> bool {
-        match self.r#type.clone() {
+        match self {
             Type::Custom(x) => x.is_resolved(),
             Type::List(x) => x.is_resolved(),
             _ => true,
@@ -904,6 +913,26 @@ impl Analyzable for ChainSpecificBlock {
     }
 }
 
+impl Analyzable for LocalsAssign {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+        self.value.analyze(parent)
+    }
+
+    fn is_resolved(&self) -> bool {
+        self.value.is_resolved()
+    }
+}
+
+impl Analyzable for LocalsBlock {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+        self.assigns.analyze(parent)
+    }
+
+    fn is_resolved(&self) -> bool {
+        self.assigns.is_resolved()
+    }
+}
+
 impl Analyzable for ParamDef {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
         self.r#type.analyze(parent)
@@ -932,44 +961,64 @@ impl Analyzable for TxDef {
 
         // create the new scope and populate its symbols
 
-        let mut scope1 = Scope::new(parent.clone());
+        let parent = {
+            let mut current = Scope::new(parent.clone());
 
-        scope1.symbols.insert("fees".to_string(), Symbol::Fees);
+            current.symbols.insert("fees".to_string(), Symbol::Fees);
 
-        for param in self.parameters.parameters.iter() {
-            scope1.track_param_var(&param.name.value, param.r#type.r#type.clone());
-        }
+            for param in self.parameters.parameters.iter() {
+                current.track_param_var(&param.name.value, param.r#type.clone());
+            }
 
-        let scope1 = Rc::new(scope1);
+            Rc::new(current)
+        };
 
-        let inputs = self.inputs.analyze(Some(scope1.clone()));
+        let mut locals = self.locals.take().unwrap_or_default();
 
-        let mut scope2 = Scope::new(Some(scope1.clone()));
+        let locals_report = locals.analyze(Some(parent.clone()));
 
-        for input in self.inputs.iter() {
-            scope2.track_input(&input.name, input.clone());
-        }
+        let parent = {
+            let mut current = Scope::new(Some(parent.clone()));
 
-        // enter the new scope and analyze the rest of the program
-        self.scope = Some(Rc::new(scope2));
+            for assign in locals.assigns.iter() {
+                current.track_local_expr(&assign.name.value, assign.value.clone());
+            }
 
-        let outputs = self.outputs.analyze(self.scope.clone());
+            Rc::new(current)
+        };
 
-        let mints = self.mints.analyze(self.scope.clone());
+        let inputs = self.inputs.analyze(Some(parent.clone()));
 
-        let adhoc = self.adhoc.analyze(self.scope.clone());
+        let parent = {
+            let mut current = Scope::new(Some(parent.clone()));
 
-        let validity = self.validity.analyze(self.scope.clone());
+            for input in self.inputs.iter() {
+                current.track_input(&input.name, input.clone());
+            }
 
-        let metadata = self.metadata.analyze(self.scope.clone());
+            Rc::new(current)
+        };
 
-        let signers = self.signers.analyze(self.scope.clone());
+        let outputs = self.outputs.analyze(Some(parent.clone()));
 
-        let references = self.references.analyze(self.scope.clone());
+        let mints = self.mints.analyze(Some(parent.clone()));
 
-        let collateral = self.collateral.analyze(self.scope.clone());
+        let adhoc = self.adhoc.analyze(Some(parent.clone()));
+
+        let validity = self.validity.analyze(Some(parent.clone()));
+
+        let metadata = self.metadata.analyze(Some(parent.clone()));
+
+        let signers = self.signers.analyze(Some(parent.clone()));
+
+        let references = self.references.analyze(Some(parent.clone()));
+
+        let collateral = self.collateral.analyze(Some(parent.clone()));
+
+        self.scope = Some(parent);
 
         params
+            + locals_report
             + inputs
             + outputs
             + mints
@@ -1010,6 +1059,12 @@ fn ada_asset_def() -> AssetDef {
 impl Analyzable for Program {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
         let mut scope = Scope::new(parent);
+
+        if let Some(env) = self.env.take() {
+            for field in env.fields.iter() {
+                scope.track_env_var(&field.name, field.r#type.clone());
+            }
+        }
 
         for party in self.parties.iter() {
             scope.track_party_def(party);

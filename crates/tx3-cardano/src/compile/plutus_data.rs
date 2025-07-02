@@ -41,7 +41,7 @@ impl IntoData for PlutusData {
 
 impl IntoData for bool {
     fn as_data(&self) -> PlutusData {
-        PlutusData::BoundedBytes(BoundedBytes::from(vec![*self as u8]))
+        constr(*self as u64, vec![])
     }
 }
 

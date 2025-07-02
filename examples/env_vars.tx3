@@ -1,0 +1,29 @@
+env {
+    mint_script: UtxoRef,
+    mint_policy: Bytes,
+}
+
+party Minter;
+
+tx mint_from_env(
+    quantity: Int
+) {
+    reference myscript {
+        ref: mint_script,
+    }
+
+    mint {
+        amount: AnyAsset(mint_policy, "ABC", 1),
+        redeemer: (),
+    }
+
+    input source {
+        from: Minter,
+        min_amount: fees,
+    }
+    
+    output {
+        to: Minter,
+        amount: AnyAsset(mint_policy, "ABC", 1),
+    }
+}

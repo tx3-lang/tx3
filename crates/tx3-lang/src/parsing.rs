@@ -85,6 +85,7 @@ impl AstNode for Program {
         let inner = pair.into_inner();
 
         let mut program = Self {
+            env: None,
             txs: Vec::new(),
             assets: Vec::new(),
             types: Vec::new(),
@@ -96,6 +97,7 @@ impl AstNode for Program {
 
         for pair in inner {
             match pair.as_rule() {
+                Rule::env_def => program.env = Some(EnvDef::parse(pair)?),
                 Rule::tx_def => program.txs.push(TxDef::parse(pair)?),
                 Rule::asset_def => program.assets.push(AssetDef::parse(pair)?),
                 Rule::record_def => program.types.push(TypeDef::parse(pair)?),
@@ -115,6 +117,46 @@ impl AstNode for Program {
     }
 }
 
+impl AstNode for EnvField {
+    const RULE: Rule = Rule::env_field;
+
+    fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
+        let span = pair.as_span().into();
+        let mut inner = pair.into_inner();
+        let identifier = inner.next().unwrap().as_str().to_string();
+        let r#type = Type::parse(inner.next().unwrap())?;
+
+        Ok(EnvField {
+            name: identifier,
+            r#type,
+            span,
+        })
+    }
+
+    fn span(&self) -> &Span {
+        &self.span
+    }
+}
+
+impl AstNode for EnvDef {
+    const RULE: Rule = Rule::env_def;
+
+    fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
+        let span = pair.as_span().into();
+        let inner = pair.into_inner();
+
+        let fields = inner
+            .map(|x| EnvField::parse(x))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(EnvDef { fields, span })
+    }
+
+    fn span(&self) -> &Span {
+        &self.span
+    }
+}
+
 impl AstNode for ParameterList {
     const RULE: Rule = Rule::parameter_list;
 
@@ -127,7 +169,7 @@ impl AstNode for ParameterList {
         for param in inner {
             let mut inner = param.into_inner();
             let name = Identifier::parse(inner.next().unwrap())?;
-            let r#type = TypeRecord::parse(inner.next().unwrap())?;
+            let r#type = Type::parse(inner.next().unwrap())?;
 
             parameters.push(ParamDef { name, r#type });
         }
@@ -150,6 +192,7 @@ impl AstNode for TxDef {
         let name = Identifier::parse(inner.next().unwrap())?;
         let parameters = ParameterList::parse(inner.next().unwrap())?;
 
+        let mut locals = None;
         let mut references = Vec::new();
         let mut inputs = Vec::new();
         let mut outputs = Vec::new();
@@ -163,6 +206,7 @@ impl AstNode for TxDef {
 
         for item in inner {
             match item.as_rule() {
+                Rule::locals_block => locals = Some(LocalsBlock::parse(item)?),
                 Rule::reference_block => references.push(ReferenceBlock::parse(item)?),
                 Rule::input_block => inputs.push(InputBlock::parse(item)?),
                 Rule::output_block => outputs.push(OutputBlock::parse(item)?),
@@ -180,6 +224,7 @@ impl AstNode for TxDef {
         Ok(TxDef {
             name,
             parameters,
+            locals,
             references,
             inputs,
             outputs,
@@ -258,6 +303,43 @@ impl AstNode for PartyDef {
             name: identifier,
             span,
         })
+    }
+
+    fn span(&self) -> &Span {
+        &self.span
+    }
+}
+
+impl AstNode for LocalsAssign {
+    const RULE: Rule = Rule::locals_assign;
+
+    fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
+        let span = pair.as_span().into();
+        let mut inner = pair.into_inner();
+
+        let name = Identifier::parse(inner.next().unwrap())?;
+        let value = DataExpr::parse(inner.next().unwrap())?;
+
+        Ok(LocalsAssign { name, value, span })
+    }
+
+    fn span(&self) -> &Span {
+        &self.span
+    }
+}
+
+impl AstNode for LocalsBlock {
+    const RULE: Rule = Rule::locals_block;
+
+    fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
+        let span = pair.as_span().into();
+        let inner = pair.into_inner();
+
+        let assigns = inner
+            .map(|x| LocalsAssign::parse(x))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(LocalsBlock { assigns, span })
     }
 
     fn span(&self) -> &Span {
@@ -398,7 +480,7 @@ impl AstNode for InputBlockField {
             }
             Rule::input_block_datum_is => {
                 let pair = pair.into_inner().next().unwrap();
-                let x = InputBlockField::DatumIs(TypeRecord::parse(pair)?);
+                let x = InputBlockField::DatumIs(Type::parse(pair)?);
                 Ok(x)
             }
             Rule::input_block_min_amount => {
@@ -653,7 +735,7 @@ impl AstNode for RecordField {
         let span = pair.as_span().into();
         let mut inner = pair.into_inner();
         let identifier = Identifier::parse(inner.next().unwrap())?;
-        let r#type = TypeRecord::parse(inner.next().unwrap())?;
+        let r#type = Type::parse(inner.next().unwrap())?;
 
         Ok(RecordField {
             name: identifier,
@@ -1126,52 +1208,27 @@ impl AstNode for DataExpr {
     }
 }
 
-impl AstNode for TypeRecord {
+impl AstNode for Type {
     const RULE: Rule = Rule::r#type;
 
     fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
         let inner = pair.into_inner().next().unwrap();
-        let span = inner.as_span().into();
 
         match inner.as_rule() {
             Rule::primitive_type => match inner.as_str() {
-                "Int" => Ok(TypeRecord {
-                    r#type: Type::Int,
-                    span,
-                }),
-                "Bool" => Ok(TypeRecord {
-                    r#type: Type::Bool,
-                    span,
-                }),
-                "Bytes" => Ok(TypeRecord {
-                    r#type: Type::Bytes,
-                    span,
-                }),
-                "Address" => Ok(TypeRecord {
-                    r#type: Type::Address,
-                    span,
-                }),
-                "UtxoRef" => Ok(TypeRecord {
-                    r#type: Type::UtxoRef,
-                    span,
-                }),
-                "AnyAsset" => Ok(TypeRecord {
-                    r#type: Type::AnyAsset,
-                    span,
-                }),
+                "Int" => Ok(Type::Int),
+                "Bool" => Ok(Type::Bool),
+                "Bytes" => Ok(Type::Bytes),
+                "Address" => Ok(Type::Address),
+                "UtxoRef" => Ok(Type::UtxoRef),
+                "AnyAsset" => Ok(Type::AnyAsset),
                 _ => unreachable!("Unexpected string in primitive_type: {:?}", inner.as_str()),
             },
             Rule::list_type => {
                 let inner = inner.into_inner().next().unwrap();
-                Ok(TypeRecord {
-                    r#type: Type::List(Box::new(TypeRecord::parse(inner)?)),
-                    span,
-                })
+                Ok(Type::List(Box::new(Type::parse(inner)?)))
             }
-            Rule::custom_type => Ok(TypeRecord {
-                r#type: Type::Custom(Identifier::new(inner.as_str().to_owned())),
-                span,
-            }),
+            Rule::custom_type => Ok(Type::Custom(Identifier::new(inner.as_str().to_owned()))),
             x => unreachable!("Unexpected rule in type: {:?}", x),
         }
     }
@@ -1398,116 +1455,39 @@ mod tests {
         };
     }
 
-    input_to_ast_check!(
-        TypeRecord,
-        "int",
-        "Int",
-        TypeRecord {
-            r#type: Type::Int,
-            span: Span::DUMMY,
-        }
-    );
+    input_to_ast_check!(Type, "int", "Int", Type::Int);
+
+    input_to_ast_check!(Type, "bool", "Bool", Type::Bool);
+
+    input_to_ast_check!(Type, "bytes", "Bytes", Type::Bytes);
+
+    input_to_ast_check!(Type, "address", "Address", Type::Address);
+
+    input_to_ast_check!(Type, "utxo_ref", "UtxoRef", Type::UtxoRef);
+
+    input_to_ast_check!(Type, "any_asset", "AnyAsset", Type::AnyAsset);
+
+    input_to_ast_check!(Type, "list", "List<Int>", Type::List(Box::new(Type::Int)));
 
     input_to_ast_check!(
-        TypeRecord,
-        "bool",
-        "Bool",
-        TypeRecord {
-            r#type: Type::Bool,
-            span: Span::DUMMY,
-        }
-    );
-
-    input_to_ast_check!(
-        TypeRecord,
-        "bytes",
-        "Bytes",
-        TypeRecord {
-            r#type: Type::Bytes,
-            span: Span::DUMMY,
-        }
-    );
-
-    input_to_ast_check!(
-        TypeRecord,
-        "address",
-        "Address",
-        TypeRecord {
-            r#type: Type::Address,
-            span: Span::DUMMY,
-        }
-    );
-
-    input_to_ast_check!(
-        TypeRecord,
-        "utxo_ref",
-        "UtxoRef",
-        TypeRecord {
-            r#type: Type::UtxoRef,
-            span: Span::DUMMY,
-        }
-    );
-
-    input_to_ast_check!(
-        TypeRecord,
-        "any_asset",
-        "AnyAsset",
-        TypeRecord {
-            r#type: Type::AnyAsset,
-            span: Span::DUMMY,
-        }
-    );
-
-    input_to_ast_check!(
-        TypeRecord,
-        "list",
-        "List<Int>",
-        TypeRecord {
-            r#type: Type::List(Box::new(TypeRecord {
-                r#type: Type::Int,
-                span: Span::DUMMY,
-            })),
-            span: Span::DUMMY,
-        }
-    );
-
-    input_to_ast_check!(
-        TypeRecord,
+        Type,
         "identifier",
         "MyType",
-        TypeRecord {
-            r#type: Type::Custom(Identifier::new("MyType".to_string())),
-            span: Span::DUMMY,
-        }
+        Type::Custom(Identifier::new("MyType".to_string()))
     );
 
     input_to_ast_check!(
-        TypeRecord,
+        Type,
         "other_type",
         "List<Bytes>",
-        TypeRecord {
-            r#type: Type::List(Box::new(TypeRecord {
-                r#type: Type::Bytes,
-                span: Span::DUMMY,
-            })),
-            span: Span::DUMMY,
-        }
+        Type::List(Box::new(Type::Bytes))
     );
 
     input_to_ast_check!(
-        TypeRecord,
+        Type,
         "within_list",
         "List<List<Int>>",
-        TypeRecord {
-            r#type: Type::List(Box::new(TypeRecord {
-                r#type: Type::List(Box::new(TypeRecord {
-                    r#type: Type::Int,
-                    span: Span::DUMMY,
-                })),
-                span: Span::DUMMY,
-            })),
-            span: Span::DUMMY,
-        }
+        Type::List(Box::new(Type::List(Box::new(Type::Int))))
     );
 
     input_to_ast_check!(
@@ -2073,6 +2053,96 @@ mod tests {
     );
 
     input_to_ast_check!(
+        LocalsBlock,
+        "basic",
+        "locals {
+            a: 10,
+        }",
+        LocalsBlock {
+            assigns: vec![LocalsAssign {
+                name: Identifier::new("a"),
+                value: DataExpr::Number(10),
+                span: Span::DUMMY,
+            },],
+            span: Span::DUMMY,
+        }
+    );
+
+    input_to_ast_check!(
+        LocalsBlock,
+        "multiple",
+        "locals {
+            a: 10,
+            b: 20,
+        }",
+        LocalsBlock {
+            assigns: vec![
+                LocalsAssign {
+                    name: Identifier::new("a"),
+                    value: DataExpr::Number(10),
+                    span: Span::DUMMY,
+                },
+                LocalsAssign {
+                    name: Identifier::new("b"),
+                    value: DataExpr::Number(20),
+                    span: Span::DUMMY,
+                },
+            ],
+            span: Span::DUMMY,
+        }
+    );
+
+    input_to_ast_check!(
+        LocalsBlock,
+        "complex_expression",
+        "locals {
+            a: (10 + 20) - 8,
+            b: a.b.c + (5 - d),
+        }",
+        LocalsBlock {
+            assigns: vec![
+                LocalsAssign {
+                    name: Identifier::new("a"),
+                    value: DataExpr::SubOp(SubOp {
+                        lhs: Box::new(DataExpr::AddOp(AddOp {
+                            lhs: Box::new(DataExpr::Number(10)),
+                            rhs: Box::new(DataExpr::Number(20)),
+                            span: Span::DUMMY,
+                        })),
+                        rhs: Box::new(DataExpr::Number(8)),
+                        span: Span::DUMMY,
+                    }),
+                    span: Span::DUMMY,
+                },
+                LocalsAssign {
+                    name: Identifier::new("b"),
+                    value: DataExpr::AddOp(AddOp {
+                        lhs: Box::new(DataExpr::PropertyOp(PropertyOp {
+                            operand: Box::new(DataExpr::PropertyOp(PropertyOp {
+                                operand: Box::new(DataExpr::Identifier(Identifier::new("a"))),
+                                property: Box::new(Identifier::new("b")),
+                                span: Span::DUMMY,
+                                scope: None,
+                            })),
+                            property: Box::new(Identifier::new("c")),
+                            span: Span::DUMMY,
+                            scope: None,
+                        })),
+                        rhs: Box::new(DataExpr::SubOp(SubOp {
+                            lhs: Box::new(DataExpr::Number(5)),
+                            rhs: Box::new(DataExpr::Identifier(Identifier::new("d"))),
+                            span: Span::DUMMY,
+                        })),
+                        span: Span::DUMMY,
+                    }),
+                    span: Span::DUMMY,
+                },
+            ],
+            span: Span::DUMMY,
+        }
+    );
+
+    input_to_ast_check!(
         OutputBlock,
         "output_block_anonymous",
         r#"output {
@@ -2113,14 +2183,38 @@ mod tests {
         ))
     );
 
+    input_to_ast_check!(
+        EnvDef,
+        "basic",
+        "env {
+            field_a: Int,
+            field_b: Bytes,
+        }",
+        EnvDef {
+            fields: vec![
+                EnvField {
+                    name: "field_a".to_string(),
+                    r#type: Type::Int,
+                    span: Span::DUMMY,
+                },
+                EnvField {
+                    name: "field_b".to_string(),
+                    r#type: Type::Bytes,
+                    span: Span::DUMMY,
+                },
+            ],
+            span: Span::DUMMY,
+        }
+    );
+
     #[test]
     fn test_spans_are_respected() {
         let program = parse_well_known_example("lang_tour");
-        assert_eq!(program.span, Span::new(0, 1445));
+        assert_eq!(program.span, Span::new(0, 1497));
 
-        assert_eq!(program.parties[0].span, Span::new(0, 14));
+        assert_eq!(program.parties[0].span, Span::new(47, 61));
 
-        assert_eq!(program.types[0].span, Span::new(16, 111));
+        assert_eq!(program.types[0].span, Span::new(63, 158));
     }
 
     fn make_snapshot_if_missing(example: &str, program: &Program) {
@@ -2173,5 +2267,11 @@ mod tests {
 
     test_parsing!(disordered);
 
+    test_parsing!(input_datum);
+
     test_parsing!(withdrawal);
+
+    test_parsing!(env_vars);
+
+    test_parsing!(local_vars);
 }

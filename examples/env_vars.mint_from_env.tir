@@ -1,0 +1,105 @@
+{
+  "fees": {
+    "EvalParam": "ExpectFees"
+  },
+  "references": [
+    {
+      "EvalParam": {
+        "ExpectValue": [
+          "mint_script",
+          "UtxoRef"
+        ]
+      }
+    }
+  ],
+  "inputs": [
+    {
+      "name": "source",
+      "query": {
+        "address": {
+          "EvalParam": {
+            "ExpectValue": [
+              "minter",
+              "Address"
+            ]
+          }
+        },
+        "min_amount": {
+          "EvalParam": "ExpectFees"
+        },
+        "ref": "None"
+      },
+      "refs": [],
+      "redeemer": null,
+      "policy": null
+    }
+  ],
+  "outputs": [
+    {
+      "address": {
+        "EvalParam": {
+          "ExpectValue": [
+            "minter",
+            "Address"
+          ]
+        }
+      },
+      "datum": "None",
+      "amount": {
+        "Assets": [
+          {
+            "policy": {
+              "EvalParam": {
+                "ExpectValue": [
+                  "mint_policy",
+                  "Bytes"
+                ]
+              }
+            },
+            "asset_name": {
+              "String": "ABC"
+            },
+            "amount": {
+              "Number": 1
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "validity": null,
+  "mints": [
+    {
+      "amount": {
+        "Assets": [
+          {
+            "policy": {
+              "EvalParam": {
+                "ExpectValue": [
+                  "mint_policy",
+                  "Bytes"
+                ]
+              }
+            },
+            "asset_name": {
+              "String": "ABC"
+            },
+            "amount": {
+              "Number": 1
+            }
+          }
+        ]
+      },
+      "redeemer": {
+        "Struct": {
+          "constructor": 0,
+          "fields": []
+        }
+      }
+    }
+  ],
+  "adhoc": [],
+  "collateral": [],
+  "signers": null,
+  "metadata": []
+}

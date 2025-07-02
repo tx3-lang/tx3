@@ -20,30 +20,26 @@
       },
       "refs": [],
       "redeemer": {
-        "EvalCoerce": {
-          "IntoDatum": {
-            "Struct": {
-              "constructor": 0,
-              "fields": [
-                {
-                  "EvalParam": {
-                    "ExpectValue": [
-                      "ask",
-                      "AnyAsset"
-                    ]
-                  }
-                },
-                {
-                  "EvalParam": {
-                    "ExpectValue": [
-                      "bid",
-                      "AnyAsset"
-                    ]
-                  }
-                }
-              ]
+        "Struct": {
+          "constructor": 0,
+          "fields": [
+            {
+              "EvalParam": {
+                "ExpectValue": [
+                  "ask",
+                  "AnyAsset"
+                ]
+              }
+            },
+            {
+              "EvalParam": {
+                "ExpectValue": [
+                  "bid",
+                  "AnyAsset"
+                ]
+              }
             }
-          }
+          ]
         }
       },
       "policy": null
@@ -60,24 +56,20 @@
           }
         },
         "min_amount": {
-          "EvalCoerce": {
-            "IntoAssets": {
-              "EvalBuiltIn": {
-                "Add": [
-                  {
-                    "EvalParam": "ExpectFees"
-                  },
-                  {
-                    "EvalParam": {
-                      "ExpectValue": [
-                        "bid",
-                        "AnyAsset"
-                      ]
-                    }
-                  }
-                ]
+          "EvalBuiltIn": {
+            "Add": [
+              {
+                "EvalParam": "ExpectFees"
+              },
+              {
+                "EvalParam": {
+                  "ExpectValue": [
+                    "bid",
+                    "AnyAsset"
+                  ]
+                }
               }
-            }
+            ]
           }
         },
         "ref": "None"
@@ -98,18 +90,18 @@
         }
       },
       "datum": {
-        "EvalCoerce": {
-          "IntoDatum": {
-            "Struct": {
-              "constructor": 0,
-              "fields": [
-                {
-                  "EvalBuiltIn": {
-                    "Sub": [
-                      {
-                        "EvalBuiltIn": {
-                          "Property": [
-                            {
+        "Struct": {
+          "constructor": 0,
+          "fields": [
+            {
+              "EvalBuiltIn": {
+                "Sub": [
+                  {
+                    "EvalBuiltIn": {
+                      "Property": [
+                        {
+                          "EvalCoerce": {
+                            "IntoDatum": {
                               "EvalParam": {
                                 "ExpectInput": [
                                   "pool",
@@ -127,36 +119,40 @@
                                   }
                                 ]
                               }
-                            },
-                            0
-                          ]
-                        }
-                      },
-                      {
-                        "EvalBuiltIn": {
-                          "Property": [
-                            {
-                              "EvalParam": {
-                                "ExpectValue": [
-                                  "bid",
-                                  "AnyAsset"
-                                ]
-                              }
-                            },
-                            0
-                          ]
-                        }
-                      }
-                    ]
+                            }
+                          }
+                        },
+                        0
+                      ]
+                    }
+                  },
+                  {
+                    "EvalBuiltIn": {
+                      "Property": [
+                        {
+                          "EvalParam": {
+                            "ExpectValue": [
+                              "bid",
+                              "AnyAsset"
+                            ]
+                          }
+                        },
+                        0
+                      ]
+                    }
                   }
-                },
-                {
-                  "EvalBuiltIn": {
-                    "Add": [
-                      {
-                        "EvalBuiltIn": {
-                          "Property": [
-                            {
+                ]
+              }
+            },
+            {
+              "EvalBuiltIn": {
+                "Add": [
+                  {
+                    "EvalBuiltIn": {
+                      "Property": [
+                        {
+                          "EvalCoerce": {
+                            "IntoDatum": {
                               "EvalParam": {
                                 "ExpectInput": [
                                   "pool",
@@ -174,32 +170,32 @@
                                   }
                                 ]
                               }
-                            },
-                            1
-                          ]
-                        }
-                      },
-                      {
-                        "EvalBuiltIn": {
-                          "Property": [
-                            {
-                              "EvalParam": {
-                                "ExpectValue": [
-                                  "ask",
-                                  "AnyAsset"
-                                ]
-                              }
-                            },
-                            0
-                          ]
-                        }
-                      }
-                    ]
+                            }
+                          }
+                        },
+                        1
+                      ]
+                    }
+                  },
+                  {
+                    "EvalBuiltIn": {
+                      "Property": [
+                        {
+                          "EvalParam": {
+                            "ExpectValue": [
+                              "ask",
+                              "AnyAsset"
+                            ]
+                          }
+                        },
+                        0
+                      ]
+                    }
                   }
-                }
-              ]
+                ]
+              }
             }
-          }
+          ]
         }
       },
       "amount": {
@@ -237,17 +233,17 @@
       },
       "datum": "None",
       "amount": {
-        "EvalCoerce": {
-          "IntoAssets": {
-            "EvalBuiltIn": {
-              "Sub": [
-                {
-                  "EvalBuiltIn": {
-                    "Sub": [
-                      {
-                        "EvalBuiltIn": {
-                          "Add": [
-                            {
+        "EvalBuiltIn": {
+          "Sub": [
+            {
+              "EvalBuiltIn": {
+                "Sub": [
+                  {
+                    "EvalBuiltIn": {
+                      "Add": [
+                        {
+                          "EvalCoerce": {
+                            "IntoAssets": {
                               "EvalParam": {
                                 "ExpectInput": [
                                   "payment",
@@ -261,59 +257,55 @@
                                       }
                                     },
                                     "min_amount": {
-                                      "EvalCoerce": {
-                                        "IntoAssets": {
-                                          "EvalBuiltIn": {
-                                            "Add": [
-                                              {
-                                                "EvalParam": "ExpectFees"
-                                              },
-                                              {
-                                                "EvalParam": {
-                                                  "ExpectValue": [
-                                                    "bid",
-                                                    "AnyAsset"
-                                                  ]
-                                                }
-                                              }
-                                            ]
+                                      "EvalBuiltIn": {
+                                        "Add": [
+                                          {
+                                            "EvalParam": "ExpectFees"
+                                          },
+                                          {
+                                            "EvalParam": {
+                                              "ExpectValue": [
+                                                "bid",
+                                                "AnyAsset"
+                                              ]
+                                            }
                                           }
-                                        }
+                                        ]
                                       }
                                     },
                                     "ref": "None"
                                   }
                                 ]
                               }
-                            },
-                            {
-                              "EvalParam": {
-                                "ExpectValue": [
-                                  "ask",
-                                  "AnyAsset"
-                                ]
-                              }
                             }
-                          ]
+                          }
+                        },
+                        {
+                          "EvalParam": {
+                            "ExpectValue": [
+                              "ask",
+                              "AnyAsset"
+                            ]
+                          }
                         }
-                      },
-                      {
-                        "EvalParam": {
-                          "ExpectValue": [
-                            "bid",
-                            "AnyAsset"
-                          ]
-                        }
-                      }
-                    ]
+                      ]
+                    }
+                  },
+                  {
+                    "EvalParam": {
+                      "ExpectValue": [
+                        "bid",
+                        "AnyAsset"
+                      ]
+                    }
                   }
-                },
-                {
-                  "EvalParam": "ExpectFees"
-                }
-              ]
+                ]
+              }
+            },
+            {
+              "EvalParam": "ExpectFees"
             }
-          }
+          ]
         }
       }
     }
