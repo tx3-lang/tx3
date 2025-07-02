@@ -180,6 +180,9 @@ impl IntoLower for ast::Identifier {
                 Ok(out)
             }
             ast::Symbol::Fees => Ok(ir::Param::ExpectFees.into()),
+            ast::Symbol::EnvVar(n, ty) => {
+                Ok(ir::Param::ExpectValue(n.to_lowercase().clone(), ty.into_lower(ctx)?).into())
+            }
             _ => {
                 dbg!(&self);
                 todo!();
@@ -853,4 +856,6 @@ mod tests {
     test_lowering!(faucet);
 
     test_lowering!(input_datum);
+
+    test_lowering!(env_vars);
 }

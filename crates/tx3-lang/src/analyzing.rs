@@ -225,6 +225,13 @@ impl Scope {
         }
     }
 
+    pub fn track_env_var(&mut self, name: &str, ty: Type) {
+        self.symbols.insert(
+            name.to_string(),
+            Symbol::EnvVar(name.to_string(), Box::new(ty)),
+        );
+    }
+
     pub fn track_type_def(&mut self, type_: &TypeDef) {
         self.symbols
             .insert(type_.name.clone(), Symbol::TypeDef(Box::new(type_.clone())));
@@ -1001,6 +1008,12 @@ fn ada_asset_def() -> AssetDef {
 impl Analyzable for Program {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
         let mut scope = Scope::new(parent);
+
+        if let Some(env) = self.env.take() {
+            for field in env.fields.iter() {
+                scope.track_env_var(&field.name, field.r#type.clone());
+            }
+        }
 
         for party in self.parties.iter() {
             scope.track_party_def(party);

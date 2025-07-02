@@ -39,7 +39,12 @@
           "constructor": 0,
           "fields": [
             {
-              "Number": 10
+              "EvalParam": {
+                "ExpectValue": [
+                  "field_a",
+                  "Int"
+                ]
+              }
             },
             {
               "Bytes": [

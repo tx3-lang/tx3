@@ -1,3 +1,8 @@
+env {
+    field_a: Int,
+    field_b: Bytes,
+}
+
 party MyParty;
 
 type MyRecord {
@@ -36,7 +41,7 @@ tx my_tx(
         datum_is: MyRecord,
         min_amount: Ada(quantity),
         redeemer: MyVariant::Case1 {
-            field1: 10,
+            field1: field_a,
             field2: 0xAFAFAF,
             field3: quantity,
         },

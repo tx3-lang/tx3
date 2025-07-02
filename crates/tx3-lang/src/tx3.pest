@@ -340,8 +340,14 @@ metadata_block = {
     "metadata" ~ "{" ~  (metadata_block_field ~ ",")+ ~ "}"
 }
 
+locals_field = { identifier ~ ":" ~ data_expr }
+
+locals_block = {
+    "locals" ~ "{" ~ (locals_field ~ ",")+ ~ "}"
+}
 
 tx_body_block = _{
+    locals_block |
     reference_block |
     input_block |
     collateral_block |
@@ -354,6 +360,12 @@ tx_body_block = _{
     validity_block
 }
 
+env_field = { identifier ~ ":" ~ type }
+
+env_def = {
+    "env" ~ "{" ~ (env_field ~ ",")+ ~ "}"
+}
+
 // Transaction definition
 tx_def = {
     "tx" ~ identifier ~ parameter_list ~ "{" ~ tx_body_block* ~ "}"
@@ -362,6 +374,6 @@ tx_def = {
 // Program
 program = {
     SOI ~
-    (asset_def | party_def | policy_def | type_def | tx_def)* ~
+    (env_def | asset_def | party_def | policy_def | type_def | tx_def)* ~
     EOI
 }

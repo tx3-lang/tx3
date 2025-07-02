@@ -85,6 +85,7 @@ impl AstNode for Program {
         let inner = pair.into_inner();
 
         let mut program = Self {
+            env: None,
             txs: Vec::new(),
             assets: Vec::new(),
             types: Vec::new(),
@@ -96,6 +97,7 @@ impl AstNode for Program {
 
         for pair in inner {
             match pair.as_rule() {
+                Rule::env_def => program.env = Some(EnvDef::parse(pair)?),
                 Rule::tx_def => program.txs.push(TxDef::parse(pair)?),
                 Rule::asset_def => program.assets.push(AssetDef::parse(pair)?),
                 Rule::record_def => program.types.push(TypeDef::parse(pair)?),
@@ -108,6 +110,46 @@ impl AstNode for Program {
         }
 
         Ok(program)
+    }
+
+    fn span(&self) -> &Span {
+        &self.span
+    }
+}
+
+impl AstNode for EnvField {
+    const RULE: Rule = Rule::env_field;
+
+    fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
+        let span = pair.as_span().into();
+        let mut inner = pair.into_inner();
+        let identifier = inner.next().unwrap().as_str().to_string();
+        let r#type = Type::parse(inner.next().unwrap())?;
+
+        Ok(EnvField {
+            name: identifier,
+            r#type,
+            span,
+        })
+    }
+
+    fn span(&self) -> &Span {
+        &self.span
+    }
+}
+
+impl AstNode for EnvDef {
+    const RULE: Rule = Rule::env_def;
+
+    fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
+        let span = pair.as_span().into();
+        let inner = pair.into_inner();
+
+        let fields = inner
+            .map(|x| EnvField::parse(x))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(EnvDef { fields, span })
     }
 
     fn span(&self) -> &Span {
@@ -2011,14 +2053,38 @@ mod tests {
         ))
     );
 
+    input_to_ast_check!(
+        EnvDef,
+        "basic",
+        "env {
+            field_a: Int,
+            field_b: Bytes,
+        }",
+        EnvDef {
+            fields: vec![
+                EnvField {
+                    name: "field_a".to_string(),
+                    r#type: Type::Int,
+                    span: Span::DUMMY,
+                },
+                EnvField {
+                    name: "field_b".to_string(),
+                    r#type: Type::Bytes,
+                    span: Span::DUMMY,
+                },
+            ],
+            span: Span::DUMMY,
+        }
+    );
+
     #[test]
     fn test_spans_are_respected() {
         let program = parse_well_known_example("lang_tour");
-        assert_eq!(program.span, Span::new(0, 1445));
+        assert_eq!(program.span, Span::new(0, 1497));
 
-        assert_eq!(program.parties[0].span, Span::new(0, 14));
+        assert_eq!(program.parties[0].span, Span::new(47, 61));
 
-        assert_eq!(program.types[0].span, Span::new(16, 111));
+        assert_eq!(program.types[0].span, Span::new(63, 158));
     }
 
     fn make_snapshot_if_missing(example: &str, program: &Program) {
