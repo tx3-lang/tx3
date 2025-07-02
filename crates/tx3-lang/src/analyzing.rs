@@ -540,11 +540,22 @@ impl Analyzable for ListConstructor {
     }
 }
 
+impl Analyzable for TupleConstructor {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+        self.fst.analyze(parent.clone()) + self.snd.analyze(parent.clone())
+    }
+
+    fn is_resolved(&self) -> bool {
+        self.fst.is_resolved() && self.snd.is_resolved()
+    }
+}
+
 impl Analyzable for DataExpr {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
         match self {
             DataExpr::StructConstructor(x) => x.analyze(parent),
             DataExpr::ListConstructor(x) => x.analyze(parent),
+            DataExpr::TupleConstructor(x) => x.analyze(parent),
             DataExpr::Identifier(x) => x.analyze(parent),
             DataExpr::AddOp(x) => x.analyze(parent),
             DataExpr::SubOp(x) => x.analyze(parent),
@@ -676,6 +687,7 @@ impl Analyzable for Type {
         match self {
             Type::Custom(x) => x.analyze(parent),
             Type::List(x) => x.analyze(parent),
+            Type::Tuple(fst, snd) => fst.analyze(parent.clone()) + snd.analyze(parent),
             _ => AnalyzeReport::default(),
         }
     }
@@ -684,6 +696,7 @@ impl Analyzable for Type {
         match self {
             Type::Custom(x) => x.is_resolved(),
             Type::List(x) => x.is_resolved(),
+            Type::Tuple(fst, snd) => fst.is_resolved() && snd.is_resolved(),
             _ => true,
         }
     }

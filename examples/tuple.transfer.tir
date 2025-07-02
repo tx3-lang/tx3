@@ -1,0 +1,172 @@
+{
+  "fees": {
+    "EvalParam": "ExpectFees"
+  },
+  "references": [],
+  "inputs": [
+    {
+      "name": "source",
+      "query": {
+        "address": {
+          "EvalParam": {
+            "ExpectValue": [
+              "sender",
+              "Address"
+            ]
+          }
+        },
+        "min_amount": {
+          "Assets": [
+            {
+              "policy": "None",
+              "asset_name": "None",
+              "amount": {
+                "EvalParam": {
+                  "ExpectValue": [
+                    "quantity",
+                    "Int"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "ref": "None"
+      },
+      "refs": [],
+      "redeemer": null,
+      "policy": null
+    }
+  ],
+  "outputs": [
+    {
+      "address": {
+        "EvalParam": {
+          "ExpectValue": [
+            "receiver",
+            "Address"
+          ]
+        }
+      },
+      "datum": "None",
+      "amount": {
+        "Assets": [
+          {
+            "policy": "None",
+            "asset_name": "None",
+            "amount": {
+              "EvalParam": {
+                "ExpectValue": [
+                  "quantity",
+                  "Int"
+                ]
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "address": {
+        "EvalParam": {
+          "ExpectValue": [
+            "sender",
+            "Address"
+          ]
+        }
+      },
+      "datum": {
+        "Struct": {
+          "constructor": 0,
+          "fields": [
+            {
+              "Tuple": [
+                {
+                  "Number": 1
+                },
+                {
+                  "Number": 2
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "amount": {
+        "EvalBuiltIn": {
+          "Sub": [
+            {
+              "EvalBuiltIn": {
+                "Sub": [
+                  {
+                    "EvalCoerce": {
+                      "IntoAssets": {
+                        "EvalParam": {
+                          "ExpectInput": [
+                            "source",
+                            {
+                              "address": {
+                                "EvalParam": {
+                                  "ExpectValue": [
+                                    "sender",
+                                    "Address"
+                                  ]
+                                }
+                              },
+                              "min_amount": {
+                                "Assets": [
+                                  {
+                                    "policy": "None",
+                                    "asset_name": "None",
+                                    "amount": {
+                                      "EvalParam": {
+                                        "ExpectValue": [
+                                          "quantity",
+                                          "Int"
+                                        ]
+                                      }
+                                    }
+                                  }
+                                ]
+                              },
+                              "ref": "None"
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "Assets": [
+                      {
+                        "policy": "None",
+                        "asset_name": "None",
+                        "amount": {
+                          "EvalParam": {
+                            "ExpectValue": [
+                              "quantity",
+                              "Int"
+                            ]
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "EvalParam": "ExpectFees"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "validity": null,
+  "mints": [],
+  "adhoc": [],
+  "collateral": [],
+  "signers": null,
+  "metadata": []
+}
