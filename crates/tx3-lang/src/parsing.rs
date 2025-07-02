@@ -192,6 +192,7 @@ impl AstNode for TxDef {
         let name = inner.next().unwrap().as_str().to_string();
         let parameters = ParameterList::parse(inner.next().unwrap())?;
 
+        let mut locals = None;
         let mut references = Vec::new();
         let mut inputs = Vec::new();
         let mut outputs = Vec::new();
@@ -205,6 +206,7 @@ impl AstNode for TxDef {
 
         for item in inner {
             match item.as_rule() {
+                Rule::locals_block => locals = Some(LocalsBlock::parse(item)?),
                 Rule::reference_block => references.push(ReferenceBlock::parse(item)?),
                 Rule::input_block => inputs.push(InputBlock::parse(item)?),
                 Rule::output_block => outputs.push(OutputBlock::parse(item)?),
@@ -222,6 +224,7 @@ impl AstNode for TxDef {
         Ok(TxDef {
             name,
             parameters,
+            locals,
             references,
             inputs,
             outputs,
@@ -300,6 +303,43 @@ impl AstNode for PartyDef {
             name: identifier,
             span,
         })
+    }
+
+    fn span(&self) -> &Span {
+        &self.span
+    }
+}
+
+impl AstNode for LocalsAssign {
+    const RULE: Rule = Rule::locals_assign;
+
+    fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
+        let span = pair.as_span().into();
+        let mut inner = pair.into_inner();
+
+        let name = Identifier::parse(inner.next().unwrap())?;
+        let value = DataExpr::parse(inner.next().unwrap())?;
+
+        Ok(LocalsAssign { name, value, span })
+    }
+
+    fn span(&self) -> &Span {
+        &self.span
+    }
+}
+
+impl AstNode for LocalsBlock {
+    const RULE: Rule = Rule::locals_block;
+
+    fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
+        let span = pair.as_span().into();
+        let inner = pair.into_inner();
+
+        let assigns = inner
+            .map(|x| LocalsAssign::parse(x))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(LocalsBlock { assigns, span })
     }
 
     fn span(&self) -> &Span {
@@ -2013,6 +2053,96 @@ mod tests {
     );
 
     input_to_ast_check!(
+        LocalsBlock,
+        "basic",
+        "locals {
+            a: 10,
+        }",
+        LocalsBlock {
+            assigns: vec![LocalsAssign {
+                name: Identifier::new("a"),
+                value: DataExpr::Number(10),
+                span: Span::DUMMY,
+            },],
+            span: Span::DUMMY,
+        }
+    );
+
+    input_to_ast_check!(
+        LocalsBlock,
+        "multiple",
+        "locals {
+            a: 10,
+            b: 20,
+        }",
+        LocalsBlock {
+            assigns: vec![
+                LocalsAssign {
+                    name: Identifier::new("a"),
+                    value: DataExpr::Number(10),
+                    span: Span::DUMMY,
+                },
+                LocalsAssign {
+                    name: Identifier::new("b"),
+                    value: DataExpr::Number(20),
+                    span: Span::DUMMY,
+                },
+            ],
+            span: Span::DUMMY,
+        }
+    );
+
+    input_to_ast_check!(
+        LocalsBlock,
+        "complex_expression",
+        "locals {
+            a: (10 + 20) - 8,
+            b: a.b.c + (5 - d),
+        }",
+        LocalsBlock {
+            assigns: vec![
+                LocalsAssign {
+                    name: Identifier::new("a"),
+                    value: DataExpr::SubOp(SubOp {
+                        lhs: Box::new(DataExpr::AddOp(AddOp {
+                            lhs: Box::new(DataExpr::Number(10)),
+                            rhs: Box::new(DataExpr::Number(20)),
+                            span: Span::DUMMY,
+                        })),
+                        rhs: Box::new(DataExpr::Number(8)),
+                        span: Span::DUMMY,
+                    }),
+                    span: Span::DUMMY,
+                },
+                LocalsAssign {
+                    name: Identifier::new("b"),
+                    value: DataExpr::AddOp(AddOp {
+                        lhs: Box::new(DataExpr::PropertyOp(PropertyOp {
+                            operand: Box::new(DataExpr::PropertyOp(PropertyOp {
+                                operand: Box::new(DataExpr::Identifier(Identifier::new("a"))),
+                                property: Box::new(Identifier::new("b")),
+                                span: Span::DUMMY,
+                                scope: None,
+                            })),
+                            property: Box::new(Identifier::new("c")),
+                            span: Span::DUMMY,
+                            scope: None,
+                        })),
+                        rhs: Box::new(DataExpr::SubOp(SubOp {
+                            lhs: Box::new(DataExpr::Number(5)),
+                            rhs: Box::new(DataExpr::Identifier(Identifier::new("d"))),
+                            span: Span::DUMMY,
+                        })),
+                        span: Span::DUMMY,
+                    }),
+                    span: Span::DUMMY,
+                },
+            ],
+            span: Span::DUMMY,
+        }
+    );
+
+    input_to_ast_check!(
         OutputBlock,
         "output_block_anonymous",
         r#"output {
@@ -2140,4 +2270,8 @@ mod tests {
     test_parsing!(input_datum);
 
     test_parsing!(withdrawal);
+
+    test_parsing!(env_vars);
+
+    test_parsing!(local_vars);
 }

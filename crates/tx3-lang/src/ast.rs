@@ -21,6 +21,7 @@ pub struct Scope {
 pub enum Symbol {
     EnvVar(String, Box<Type>),
     ParamVar(String, Box<Type>),
+    LocalExpr(Box<DataExpr>),
     Input(String, Box<InputBlock>),
     PartyDef(Box<PartyDef>),
     PolicyDef(Box<PolicyDef>),
@@ -201,6 +202,7 @@ pub struct ParameterList {
 pub struct TxDef {
     pub name: String,
     pub parameters: ParameterList,
+    pub locals: Option<LocalsBlock>,
     pub references: Vec<ReferenceBlock>,
     pub inputs: Vec<InputBlock>,
     pub outputs: Vec<OutputBlock>,
@@ -216,6 +218,19 @@ pub struct TxDef {
     // analysis
     #[serde(skip)]
     pub(crate) scope: Option<Rc<Scope>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct LocalsAssign {
+    pub name: Identifier,
+    pub value: DataExpr,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub struct LocalsBlock {
+    pub assigns: Vec<LocalsAssign>,
+    pub span: Span,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]

@@ -90,7 +90,12 @@
           }
         ]
       },
-      "redeemer": "None"
+      "redeemer": {
+        "Struct": {
+          "constructor": 0,
+          "fields": []
+        }
+      }
     }
   ],
   "adhoc": [],
