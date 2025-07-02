@@ -1,15 +1,37 @@
 {
+  "env": null,
   "txs": [
     {
-      "name": "lock",
+      "name": {
+        "value": "lock",
+        "span": {
+          "dummy": false,
+          "start": 189,
+          "end": 193
+        }
+      },
       "parameters": {
         "parameters": [
           {
-            "name": "quantity",
+            "name": {
+              "value": "quantity",
+              "span": {
+                "dummy": false,
+                "start": 199,
+                "end": 207
+              }
+            },
             "type": "Int"
           },
           {
-            "name": "until",
+            "name": {
+              "value": "until",
+              "span": {
+                "dummy": false,
+                "start": 218,
+                "end": 223
+              }
+            },
             "type": "Int"
           }
         ],
@@ -19,6 +41,7 @@
           "end": 230
         }
       },
+      "locals": null,
       "references": [],
       "inputs": [
         {
@@ -342,11 +365,25 @@
       "metadata": null
     },
     {
-      "name": "unlock",
+      "name": {
+        "value": "unlock",
+        "span": {
+          "dummy": false,
+          "start": 619,
+          "end": 625
+        }
+      },
       "parameters": {
         "parameters": [
           {
-            "name": "locked_utxo",
+            "name": {
+              "value": "locked_utxo",
+              "span": {
+                "dummy": false,
+                "start": 631,
+                "end": 642
+              }
+            },
             "type": "UtxoRef"
           }
         ],
@@ -356,6 +393,7 @@
           "end": 653
         }
       },
+      "locals": null,
       "references": [],
       "inputs": [
         {
@@ -522,13 +560,34 @@
   ],
   "types": [
     {
-      "name": "State",
+      "name": {
+        "value": "State",
+        "span": {
+          "dummy": false,
+          "start": 118,
+          "end": 123
+        }
+      },
       "cases": [
         {
-          "name": "Default",
+          "name": {
+            "value": "Default",
+            "span": {
+              "dummy": true,
+              "start": 0,
+              "end": 0
+            }
+          },
           "fields": [
             {
-              "name": "lock_until",
+              "name": {
+                "value": "lock_until",
+                "span": {
+                  "dummy": false,
+                  "start": 128,
+                  "end": 138
+                }
+              },
               "type": "Int",
               "span": {
                 "dummy": false,
@@ -537,7 +596,14 @@
               }
             },
             {
-              "name": "owner",
+              "name": {
+                "value": "owner",
+                "span": {
+                  "dummy": false,
+                  "start": 147,
+                  "end": 152
+                }
+              },
               "type": "Bytes",
               "span": {
                 "dummy": false,
@@ -546,7 +612,14 @@
               }
             },
             {
-              "name": "beneficiary",
+              "name": {
+                "value": "beneficiary",
+                "span": {
+                  "dummy": false,
+                  "start": 163,
+                  "end": 174
+                }
+              },
               "type": "Bytes",
               "span": {
                 "dummy": false,
@@ -572,7 +645,14 @@
   "assets": [],
   "parties": [
     {
-      "name": "Owner",
+      "name": {
+        "value": "Owner",
+        "span": {
+          "dummy": false,
+          "start": 6,
+          "end": 11
+        }
+      },
       "span": {
         "dummy": false,
         "start": 0,
@@ -580,7 +660,14 @@
       }
     },
     {
-      "name": "Beneficiary",
+      "name": {
+        "value": "Beneficiary",
+        "span": {
+          "dummy": false,
+          "start": 20,
+          "end": 31
+        }
+      },
       "span": {
         "dummy": false,
         "start": 14,
@@ -590,7 +677,14 @@
   ],
   "policies": [
     {
-      "name": "TimeLock",
+      "name": {
+        "value": "TimeLock",
+        "span": {
+          "dummy": false,
+          "start": 41,
+          "end": 49
+        }
+      },
       "value": {
         "Assign": {
           "value": "6b9c456aa650cb808a9ab54326e039d5235ed69f069c9664a8fe5b69",

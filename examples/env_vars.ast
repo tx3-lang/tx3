@@ -28,11 +28,25 @@
   },
   "txs": [
     {
-      "name": "mint_from_env",
+      "name": {
+        "value": "mint_from_env",
+        "span": {
+          "dummy": false,
+          "start": 77,
+          "end": 90
+        }
+      },
       "parameters": {
         "parameters": [
           {
-            "name": "quantity",
+            "name": {
+              "value": "quantity",
+              "span": {
+                "dummy": false,
+                "start": 96,
+                "end": 104
+              }
+            },
             "type": "Int"
           }
         ],
@@ -223,7 +237,14 @@
   "assets": [],
   "parties": [
     {
-      "name": "Minter",
+      "name": {
+        "value": "Minter",
+        "span": {
+          "dummy": false,
+          "start": 65,
+          "end": 71
+        }
+      },
       "span": {
         "dummy": false,
         "start": 59,

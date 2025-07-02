@@ -1,23 +1,59 @@
 {
+  "env": null,
   "txs": [
     {
-      "name": "move_ship",
+      "name": {
+        "value": "move_ship",
+        "span": {
+          "dummy": false,
+          "start": 578,
+          "end": 587
+        }
+      },
       "parameters": {
         "parameters": [
           {
-            "name": "ship_name",
+            "name": {
+              "value": "ship_name",
+              "span": {
+                "dummy": false,
+                "start": 593,
+                "end": 602
+              }
+            },
             "type": "Bytes"
           },
           {
-            "name": "p_delta_x",
+            "name": {
+              "value": "p_delta_x",
+              "span": {
+                "dummy": false,
+                "start": 615,
+                "end": 624
+              }
+            },
             "type": "Int"
           },
           {
-            "name": "p_delta_y",
+            "name": {
+              "value": "p_delta_y",
+              "span": {
+                "dummy": false,
+                "start": 635,
+                "end": 644
+              }
+            },
             "type": "Int"
           },
           {
-            "name": "required_fuel",
+            "name": {
+              "value": "required_fuel",
+              "span": {
+                "dummy": false,
+                "start": 655,
+                "end": 668
+              }
+            },
             "type": "Int"
           }
         ],
@@ -27,6 +63,7 @@
           "end": 675
         }
       },
+      "locals": null,
       "references": [],
       "inputs": [
         {
@@ -650,13 +687,34 @@
   ],
   "types": [
     {
-      "name": "ShipState",
+      "name": {
+        "value": "ShipState",
+        "span": {
+          "dummy": false,
+          "start": 278,
+          "end": 287
+        }
+      },
       "cases": [
         {
-          "name": "Default",
+          "name": {
+            "value": "Default",
+            "span": {
+              "dummy": true,
+              "start": 0,
+              "end": 0
+            }
+          },
           "fields": [
             {
-              "name": "pos_x",
+              "name": {
+                "value": "pos_x",
+                "span": {
+                  "dummy": false,
+                  "start": 294,
+                  "end": 299
+                }
+              },
               "type": "Int",
               "span": {
                 "dummy": false,
@@ -665,7 +723,14 @@
               }
             },
             {
-              "name": "pos_y",
+              "name": {
+                "value": "pos_y",
+                "span": {
+                  "dummy": false,
+                  "start": 310,
+                  "end": 315
+                }
+              },
               "type": "Int",
               "span": {
                 "dummy": false,
@@ -674,7 +739,14 @@
               }
             },
             {
-              "name": "ship_token_name",
+              "name": {
+                "value": "ship_token_name",
+                "span": {
+                  "dummy": false,
+                  "start": 326,
+                  "end": 341
+                }
+              },
               "type": "Bytes",
               "span": {
                 "dummy": false,
@@ -683,7 +755,14 @@
               }
             },
             {
-              "name": "pilot_token_name",
+              "name": {
+                "value": "pilot_token_name",
+                "span": {
+                  "dummy": false,
+                  "start": 354,
+                  "end": 370
+                }
+              },
               "type": "Bytes",
               "span": {
                 "dummy": false,
@@ -692,7 +771,14 @@
               }
             },
             {
-              "name": "last_move_latest_time",
+              "name": {
+                "value": "last_move_latest_time",
+                "span": {
+                  "dummy": false,
+                  "start": 383,
+                  "end": 404
+                }
+              },
               "type": "Int",
               "span": {
                 "dummy": false,
@@ -715,13 +801,34 @@
       }
     },
     {
-      "name": "ShipCommand",
+      "name": {
+        "value": "ShipCommand",
+        "span": {
+          "dummy": false,
+          "start": 419,
+          "end": 430
+        }
+      },
       "cases": [
         {
-          "name": "MoveShip",
+          "name": {
+            "value": "MoveShip",
+            "span": {
+              "dummy": false,
+              "start": 437,
+              "end": 445
+            }
+          },
           "fields": [
             {
-              "name": "delta_x",
+              "name": {
+                "value": "delta_x",
+                "span": {
+                  "dummy": false,
+                  "start": 457,
+                  "end": 464
+                }
+              },
               "type": "Int",
               "span": {
                 "dummy": false,
@@ -730,7 +837,14 @@
               }
             },
             {
-              "name": "delta_y",
+              "name": {
+                "value": "delta_y",
+                "span": {
+                  "dummy": false,
+                  "start": 479,
+                  "end": 486
+                }
+              },
               "type": "Int",
               "span": {
                 "dummy": false,
@@ -746,10 +860,24 @@
           }
         },
         {
-          "name": "GatherFuel",
+          "name": {
+            "value": "GatherFuel",
+            "span": {
+              "dummy": false,
+              "start": 504,
+              "end": 514
+            }
+          },
           "fields": [
             {
-              "name": "amount",
+              "name": {
+                "value": "amount",
+                "span": {
+                  "dummy": false,
+                  "start": 525,
+                  "end": 531
+                }
+              },
               "type": "Int",
               "span": {
                 "dummy": false,
@@ -765,7 +893,14 @@
           }
         },
         {
-          "name": "MineAsteria",
+          "name": {
+            "value": "MineAsteria",
+            "span": {
+              "dummy": false,
+              "start": 549,
+              "end": 560
+            }
+          },
           "fields": [],
           "span": {
             "dummy": false,
@@ -774,7 +909,14 @@
           }
         },
         {
-          "name": "Quit",
+          "name": {
+            "value": "Quit",
+            "span": {
+              "dummy": false,
+              "start": 566,
+              "end": 570
+            }
+          },
           "fields": [],
           "span": {
             "dummy": false,
@@ -792,7 +934,14 @@
   ],
   "assets": [
     {
-      "name": "Fuel",
+      "name": {
+        "value": "Fuel",
+        "span": {
+          "dummy": false,
+          "start": 34,
+          "end": 38
+        }
+      },
       "policy": {
         "HexString": {
           "value": "6b9c456aa650cb808a9ab54326e039d5235ed69f069c9664a8fe5b69",
@@ -820,7 +969,14 @@
       }
     },
     {
-      "name": "Ship",
+      "name": {
+        "value": "Ship",
+        "span": {
+          "dummy": false,
+          "start": 115,
+          "end": 119
+        }
+      },
       "policy": {
         "HexString": {
           "value": "6b9c456aa650cb808a9ab54326e039d5235ed69f069c9664a8fe5b69",
@@ -848,7 +1004,14 @@
       }
     },
     {
-      "name": "Pilot",
+      "name": {
+        "value": "Pilot",
+        "span": {
+          "dummy": false,
+          "start": 196,
+          "end": 201
+        }
+      },
       "policy": {
         "HexString": {
           "value": "6b9c456aa650cb808a9ab54326e039d5235ed69f069c9664a8fe5b69",
@@ -878,7 +1041,14 @@
   ],
   "parties": [
     {
-      "name": "Player",
+      "name": {
+        "value": "Player",
+        "span": {
+          "dummy": false,
+          "start": 6,
+          "end": 12
+        }
+      },
       "span": {
         "dummy": false,
         "start": 0,
@@ -886,7 +1056,14 @@
       }
     },
     {
-      "name": "Game",
+      "name": {
+        "value": "Game",
+        "span": {
+          "dummy": false,
+          "start": 21,
+          "end": 25
+        }
+      },
       "span": {
         "dummy": false,
         "start": 15,
