@@ -1,15 +1,37 @@
 {
+  "env": null,
   "txs": [
     {
-      "name": "claim_with_password",
+      "name": {
+        "value": "claim_with_password",
+        "span": {
+          "dummy": false,
+          "start": 193,
+          "end": 212
+        }
+      },
       "parameters": {
         "parameters": [
           {
-            "name": "password",
+            "name": {
+              "value": "password",
+              "span": {
+                "dummy": false,
+                "start": 218,
+                "end": 226
+              }
+            },
             "type": "Bytes"
           },
           {
-            "name": "quantity",
+            "name": {
+              "value": "quantity",
+              "span": {
+                "dummy": false,
+                "start": 239,
+                "end": 247
+              }
+            },
             "type": "Int"
           }
         ],
@@ -19,6 +41,7 @@
           "end": 254
         }
       },
+      "locals": null,
       "references": [],
       "inputs": [
         {
@@ -216,7 +239,14 @@
   "types": [],
   "assets": [
     {
-      "name": "MyToken",
+      "name": {
+        "value": "MyToken",
+        "span": {
+          "dummy": false,
+          "start": 91,
+          "end": 98
+        }
+      },
       "policy": {
         "HexString": {
           "value": "ef7a1cebb2dc7de884ddf82f8fcbc91fe9750dcd8c12ec7643a99bbe",
@@ -246,7 +276,14 @@
   ],
   "parties": [
     {
-      "name": "Requester",
+      "name": {
+        "value": "Requester",
+        "span": {
+          "dummy": false,
+          "start": 178,
+          "end": 187
+        }
+      },
       "span": {
         "dummy": false,
         "start": 172,
@@ -256,7 +293,14 @@
   ],
   "policies": [
     {
-      "name": "PasswordPolicy",
+      "name": {
+        "value": "PasswordPolicy",
+        "span": {
+          "dummy": false,
+          "start": 7,
+          "end": 21
+        }
+      },
       "value": {
         "Assign": {
           "value": "ef7a1cebb2dc7de884ddf82f8fcbc91fe9750dcd8c12ec7643a99bbe",

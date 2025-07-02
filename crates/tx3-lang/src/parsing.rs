@@ -168,7 +168,7 @@ impl AstNode for ParameterList {
 
         for param in inner {
             let mut inner = param.into_inner();
-            let name = inner.next().unwrap().as_str().to_string();
+            let name = Identifier::parse(inner.next().unwrap())?;
             let r#type = Type::parse(inner.next().unwrap())?;
 
             parameters.push(ParamDef { name, r#type });
@@ -189,7 +189,7 @@ impl AstNode for TxDef {
         let span = pair.as_span().into();
         let mut inner = pair.into_inner();
 
-        let name = inner.next().unwrap().as_str().to_string();
+        let name = Identifier::parse(inner.next().unwrap())?;
         let parameters = ParameterList::parse(inner.next().unwrap())?;
 
         let mut locals = None;
@@ -297,7 +297,7 @@ impl AstNode for PartyDef {
     fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
         let span = pair.as_span().into();
         let mut inner = pair.into_inner();
-        let identifier = inner.next().unwrap().as_str().to_string();
+        let identifier = Identifier::parse(inner.next().unwrap())?;
 
         Ok(PartyDef {
             name: identifier,
@@ -734,7 +734,7 @@ impl AstNode for RecordField {
     fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
         let span = pair.as_span().into();
         let mut inner = pair.into_inner();
-        let identifier = inner.next().unwrap().as_str().to_string();
+        let identifier = Identifier::parse(inner.next().unwrap())?;
         let r#type = Type::parse(inner.next().unwrap())?;
 
         Ok(RecordField {
@@ -824,7 +824,7 @@ impl AstNode for PolicyDef {
     fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
         let span = pair.as_span().into();
         let mut inner = pair.into_inner();
-        let name = inner.next().unwrap().as_str().to_string();
+        let name = Identifier::parse(inner.next().unwrap())?;
         let value = PolicyValue::parse(inner.next().unwrap())?;
 
         Ok(PolicyDef { name, value, span })
@@ -1243,7 +1243,7 @@ impl TypeDef {
         let span = pair.as_span().into();
         let mut inner = pair.into_inner();
 
-        let identifier = inner.next().unwrap().as_str().to_string();
+        let identifier = Identifier::parse(inner.next().unwrap())?;
 
         let cases = inner
             .map(VariantCase::parse)
@@ -1260,7 +1260,7 @@ impl TypeDef {
         let span: Span = pair.as_span().into();
         let mut inner = pair.into_inner();
 
-        let identifier = inner.next().unwrap().as_str().to_string();
+        let identifier = Identifier::parse(inner.next().unwrap())?;
 
         let fields = inner
             .map(RecordField::parse)
@@ -1269,7 +1269,7 @@ impl TypeDef {
         Ok(TypeDef {
             name: identifier.clone(),
             cases: vec![VariantCase {
-                name: "Default".to_string(),
+                name: Identifier::new("Default"),
                 fields,
                 span: span.clone(),
             }],
@@ -1299,7 +1299,7 @@ impl VariantCase {
         let span = pair.as_span().into();
         let mut inner = pair.into_inner();
 
-        let identifier = inner.next().unwrap().as_str().to_string();
+        let identifier = Identifier::parse(inner.next().unwrap())?;
 
         let fields = inner
             .map(RecordField::parse)
@@ -1316,7 +1316,7 @@ impl VariantCase {
         let span = pair.as_span().into();
         let mut inner = pair.into_inner();
 
-        let identifier = inner.next().unwrap().as_str().to_string();
+        let identifier = Identifier::parse(inner.next().unwrap())?;
 
         Ok(Self {
             name: identifier,
@@ -1352,7 +1352,7 @@ impl AstNode for AssetDef {
         let span = pair.as_span().into();
         let mut inner = pair.into_inner();
 
-        let identifier = inner.next().unwrap().as_str().to_string();
+        let identifier = Identifier::parse(inner.next().unwrap())?;
         let policy = DataExpr::parse(inner.next().unwrap())?;
         let asset_name = DataExpr::parse(inner.next().unwrap())?;
 
@@ -1498,9 +1498,9 @@ mod tests {
             field2: Bytes,
         }",
         TypeDef {
-            name: "MyRecord".to_string(),
+            name: Identifier::new("MyRecord"),
             cases: vec![VariantCase {
-                name: "Default".to_string(),
+                name: Identifier::new("Default"),
                 fields: vec![
                     RecordField::new("field1", Type::Int),
                     RecordField::new("field2", Type::Bytes)
@@ -1522,10 +1522,10 @@ mod tests {
             Case2,
         }",
         TypeDef {
-            name: "MyVariant".to_string(),
+            name: Identifier::new("MyVariant"),
             cases: vec![
                 VariantCase {
-                    name: "Case1".to_string(),
+                    name: Identifier::new("Case1"),
                     fields: vec![
                         RecordField::new("field1", Type::Int),
                         RecordField::new("field2", Type::Bytes)
@@ -1533,7 +1533,7 @@ mod tests {
                     span: Span::DUMMY,
                 },
                 VariantCase {
-                    name: "Case2".to_string(),
+                    name: Identifier::new("Case2"),
                     fields: vec![],
                     span: Span::DUMMY,
                 },
@@ -1657,7 +1657,7 @@ mod tests {
         "policy_def_assign",
         "policy MyPolicy = 0xAFAFAF;",
         PolicyDef {
-            name: "MyPolicy".to_string(),
+            name: Identifier::new("MyPolicy"),
             value: PolicyValue::Assign(HexStringLiteral::new("AFAFAF".to_string())),
             span: Span::DUMMY,
         }
@@ -1672,7 +1672,7 @@ mod tests {
             ref: 0x1234567890,
         };",
         PolicyDef {
-            name: "MyPolicy".to_string(),
+            name: Identifier::new("MyPolicy"),
             value: PolicyValue::Constructor(PolicyConstructor {
                 fields: vec![
                     PolicyField::Hash(DataExpr::HexString(HexStringLiteral::new(
@@ -1696,7 +1696,7 @@ mod tests {
         "hex_hex",
         "asset MyToken = 0xef7a1cebb2dc7de884ddf82f8fcbc91fe9750dcd8c12ec7643a99bbe.0xef7a1ceb;",
         AssetDef {
-            name: "MyToken".to_string(),
+            name: Identifier::new("MyToken"),
             policy: DataExpr::HexString(HexStringLiteral::new(
                 "ef7a1cebb2dc7de884ddf82f8fcbc91fe9750dcd8c12ec7643a99bbe".to_string()
             )),
@@ -1710,7 +1710,7 @@ mod tests {
         "hex_string",
         "asset MyToken = 0xef7a1cebb2dc7de884ddf82f8fcbc91fe9750dcd8c12ec7643a99bbe.\"MY TOKEN\";",
         AssetDef {
-            name: "MyToken".to_string(),
+            name: Identifier::new("MyToken"),
             policy: DataExpr::HexString(HexStringLiteral::new(
                 "ef7a1cebb2dc7de884ddf82f8fcbc91fe9750dcd8c12ec7643a99bbe".to_string()
             )),

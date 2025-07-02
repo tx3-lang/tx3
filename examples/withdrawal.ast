@@ -1,11 +1,26 @@
 {
+  "env": null,
   "txs": [
     {
-      "name": "transfer",
+      "name": {
+        "value": "transfer",
+        "span": {
+          "dummy": false,
+          "start": 35,
+          "end": 43
+        }
+      },
       "parameters": {
         "parameters": [
           {
-            "name": "quantity",
+            "name": {
+              "value": "quantity",
+              "span": {
+                "dummy": false,
+                "start": 49,
+                "end": 57
+              }
+            },
             "type": "Int"
           }
         ],
@@ -15,6 +30,7 @@
           "end": 64
         }
       },
+      "locals": null,
       "references": [],
       "inputs": [
         {
@@ -273,7 +289,14 @@
   "assets": [],
   "parties": [
     {
-      "name": "Sender",
+      "name": {
+        "value": "Sender",
+        "span": {
+          "dummy": false,
+          "start": 6,
+          "end": 12
+        }
+      },
       "span": {
         "dummy": false,
         "start": 0,
@@ -281,7 +304,14 @@
       }
     },
     {
-      "name": "Receiver",
+      "name": {
+        "value": "Receiver",
+        "span": {
+          "dummy": false,
+          "start": 21,
+          "end": 29
+        }
+      },
       "span": {
         "dummy": false,
         "start": 15,

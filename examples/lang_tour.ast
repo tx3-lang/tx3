@@ -28,19 +28,47 @@
   },
   "txs": [
     {
-      "name": "my_tx",
+      "name": {
+        "value": "my_tx",
+        "span": {
+          "dummy": false,
+          "start": 466,
+          "end": 471
+        }
+      },
       "parameters": {
         "parameters": [
           {
-            "name": "quantity",
+            "name": {
+              "value": "quantity",
+              "span": {
+                "dummy": false,
+                "start": 477,
+                "end": 485
+              }
+            },
             "type": "Int"
           },
           {
-            "name": "validUntil",
+            "name": {
+              "value": "validUntil",
+              "span": {
+                "dummy": false,
+                "start": 496,
+                "end": 506
+              }
+            },
             "type": "Int"
           },
           {
-            "name": "metadata",
+            "name": {
+              "value": "metadata",
+              "span": {
+                "dummy": false,
+                "start": 517,
+                "end": 525
+              }
+            },
             "type": "Bytes"
           }
         ],
@@ -50,6 +78,7 @@
           "end": 535
         }
       },
+      "locals": null,
       "references": [],
       "inputs": [
         {
@@ -739,13 +768,34 @@
   ],
   "types": [
     {
-      "name": "MyRecord",
+      "name": {
+        "value": "MyRecord",
+        "span": {
+          "dummy": false,
+          "start": 68,
+          "end": 76
+        }
+      },
       "cases": [
         {
-          "name": "Default",
+          "name": {
+            "value": "Default",
+            "span": {
+              "dummy": true,
+              "start": 0,
+              "end": 0
+            }
+          },
           "fields": [
             {
-              "name": "field1",
+              "name": {
+                "value": "field1",
+                "span": {
+                  "dummy": false,
+                  "start": 83,
+                  "end": 89
+                }
+              },
               "type": "Int",
               "span": {
                 "dummy": false,
@@ -754,7 +804,14 @@
               }
             },
             {
-              "name": "field2",
+              "name": {
+                "value": "field2",
+                "span": {
+                  "dummy": false,
+                  "start": 100,
+                  "end": 106
+                }
+              },
               "type": "Bytes",
               "span": {
                 "dummy": false,
@@ -763,7 +820,14 @@
               }
             },
             {
-              "name": "field3",
+              "name": {
+                "value": "field3",
+                "span": {
+                  "dummy": false,
+                  "start": 119,
+                  "end": 125
+                }
+              },
               "type": "Bytes",
               "span": {
                 "dummy": false,
@@ -772,7 +836,14 @@
               }
             },
             {
-              "name": "field4",
+              "name": {
+                "value": "field4",
+                "span": {
+                  "dummy": false,
+                  "start": 138,
+                  "end": 144
+                }
+              },
               "type": {
                 "List": "Int"
               },
@@ -797,13 +868,34 @@
       }
     },
     {
-      "name": "MyVariant",
+      "name": {
+        "value": "MyVariant",
+        "span": {
+          "dummy": false,
+          "start": 165,
+          "end": 174
+        }
+      },
       "cases": [
         {
-          "name": "Case1",
+          "name": {
+            "value": "Case1",
+            "span": {
+              "dummy": false,
+              "start": 181,
+              "end": 186
+            }
+          },
           "fields": [
             {
-              "name": "field1",
+              "name": {
+                "value": "field1",
+                "span": {
+                  "dummy": false,
+                  "start": 197,
+                  "end": 203
+                }
+              },
               "type": "Int",
               "span": {
                 "dummy": false,
@@ -812,7 +904,14 @@
               }
             },
             {
-              "name": "field2",
+              "name": {
+                "value": "field2",
+                "span": {
+                  "dummy": false,
+                  "start": 218,
+                  "end": 224
+                }
+              },
               "type": "Bytes",
               "span": {
                 "dummy": false,
@@ -821,7 +920,14 @@
               }
             },
             {
-              "name": "field3",
+              "name": {
+                "value": "field3",
+                "span": {
+                  "dummy": false,
+                  "start": 241,
+                  "end": 247
+                }
+              },
               "type": "Int",
               "span": {
                 "dummy": false,
@@ -837,7 +943,14 @@
           }
         },
         {
-          "name": "Case2",
+          "name": {
+            "value": "Case2",
+            "span": {
+              "dummy": false,
+              "start": 265,
+              "end": 270
+            }
+          },
           "fields": [],
           "span": {
             "dummy": false,
@@ -855,7 +968,14 @@
   ],
   "assets": [
     {
-      "name": "StaticAsset",
+      "name": {
+        "value": "StaticAsset",
+        "span": {
+          "dummy": false,
+          "start": 320,
+          "end": 331
+        }
+      },
       "policy": {
         "HexString": {
           "value": "ABCDEF1234",
@@ -885,7 +1005,14 @@
   ],
   "parties": [
     {
-      "name": "MyParty",
+      "name": {
+        "value": "MyParty",
+        "span": {
+          "dummy": false,
+          "start": 53,
+          "end": 60
+        }
+      },
       "span": {
         "dummy": false,
         "start": 47,
@@ -895,7 +1022,14 @@
   ],
   "policies": [
     {
-      "name": "OnlyHashPolicy",
+      "name": {
+        "value": "OnlyHashPolicy",
+        "span": {
+          "dummy": false,
+          "start": 282,
+          "end": 296
+        }
+      },
       "value": {
         "Assign": {
           "value": "ABCDEF1234",
@@ -913,7 +1047,14 @@
       }
     },
     {
-      "name": "FullyDefinedPolicy",
+      "name": {
+        "value": "FullyDefinedPolicy",
+        "span": {
+          "dummy": false,
+          "start": 366,
+          "end": 384
+        }
+      },
       "value": {
         "Constructor": {
           "fields": [

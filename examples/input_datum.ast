@@ -1,7 +1,15 @@
 {
+  "env": null,
   "txs": [
     {
-      "name": "increase_counter",
+      "name": {
+        "value": "increase_counter",
+        "span": {
+          "dummy": false,
+          "start": 80,
+          "end": 96
+        }
+      },
       "parameters": {
         "parameters": [],
         "span": {
@@ -10,6 +18,7 @@
           "end": 98
         }
       },
+      "locals": null,
       "references": [],
       "inputs": [
         {
@@ -264,13 +273,34 @@
   ],
   "types": [
     {
-      "name": "MyRecord",
+      "name": {
+        "value": "MyRecord",
+        "span": {
+          "dummy": false,
+          "start": 5,
+          "end": 13
+        }
+      },
       "cases": [
         {
-          "name": "Default",
+          "name": {
+            "value": "Default",
+            "span": {
+              "dummy": true,
+              "start": 0,
+              "end": 0
+            }
+          },
           "fields": [
             {
-              "name": "counter",
+              "name": {
+                "value": "counter",
+                "span": {
+                  "dummy": false,
+                  "start": 20,
+                  "end": 27
+                }
+              },
               "type": "Int",
               "span": {
                 "dummy": false,
@@ -279,7 +309,14 @@
               }
             },
             {
-              "name": "other_field",
+              "name": {
+                "value": "other_field",
+                "span": {
+                  "dummy": false,
+                  "start": 38,
+                  "end": 49
+                }
+              },
               "type": "Bytes",
               "span": {
                 "dummy": false,
@@ -305,7 +342,14 @@
   "assets": [],
   "parties": [
     {
-      "name": "MyParty",
+      "name": {
+        "value": "MyParty",
+        "span": {
+          "dummy": false,
+          "start": 67,
+          "end": 74
+        }
+      },
       "span": {
         "dummy": false,
         "start": 61,

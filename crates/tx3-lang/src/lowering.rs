@@ -80,9 +80,11 @@ fn lower_into_address_expr(
 ) -> Result<ir::Expression, Error> {
     match identifier.try_symbol()? {
         ast::Symbol::PolicyDef(x) => Ok(x.into_lower(ctx)?.hash),
-        ast::Symbol::PartyDef(x) => {
-            Ok(ir::Param::ExpectValue(x.name.to_lowercase().clone(), ir::Type::Address).into())
-        }
+        ast::Symbol::PartyDef(x) => Ok(ir::Param::ExpectValue(
+            x.name.value.to_lowercase().clone(),
+            ir::Type::Address,
+        )
+        .into()),
         _ => Err(Error::InvalidSymbol(
             identifier.value.clone(),
             "AddressExpr",
@@ -162,9 +164,11 @@ impl IntoLower for ast::Identifier {
                 Ok(ir::Param::ExpectValue(n.to_lowercase().clone(), ty.into_lower(ctx)?).into())
             }
             ast::Symbol::LocalExpr(expr) => Ok(expr.into_lower(ctx)?),
-            ast::Symbol::PartyDef(x) => {
-                Ok(ir::Param::ExpectValue(x.name.to_lowercase().clone(), ir::Type::Address).into())
-            }
+            ast::Symbol::PartyDef(x) => Ok(ir::Param::ExpectValue(
+                x.name.value.to_lowercase().clone(),
+                ir::Type::Address,
+            )
+            .into()),
             ast::Symbol::Input(n, def) => {
                 let query = def.into_lower(ctx)?.query;
 
@@ -220,7 +224,7 @@ impl IntoLower for ast::StructConstructor {
         let mut fields = vec![];
 
         for (index, field_def) in case_def.fields.iter().enumerate() {
-            let value = self.case.find_field_value(&field_def.name);
+            let value = self.case.find_field_value(&field_def.name.value);
 
             if let Some(value) = value {
                 fields.push(value.into_lower(ctx)?);
@@ -264,9 +268,9 @@ impl IntoLower for ast::PolicyDef {
         match &self.value {
             ast::PolicyValue::Assign(x) => {
                 let out = ir::PolicyExpr {
-                    name: self.name.clone(),
+                    name: self.name.value.clone(),
                     hash: ir::Expression::Hash(hex::decode(&x.value)?),
-                    script: ir::ScriptSource::expect_parameter(self.name.clone()),
+                    script: ir::ScriptSource::expect_parameter(self.name.value.clone()),
                 };
 
                 Ok(out)
@@ -286,13 +290,15 @@ impl IntoLower for ast::PolicyDef {
 
                 let script = match (rf, script) {
                     (Some(rf), Some(script)) => ir::ScriptSource::new_ref(rf, script),
-                    (Some(rf), None) => ir::ScriptSource::expect_ref_input(self.name.clone(), rf),
+                    (Some(rf), None) => {
+                        ir::ScriptSource::expect_ref_input(self.name.value.clone(), rf)
+                    }
                     (None, Some(script)) => ir::ScriptSource::new_embedded(script),
-                    (None, None) => ir::ScriptSource::expect_parameter(self.name.clone()),
+                    (None, None) => ir::ScriptSource::expect_parameter(self.name.value.clone()),
                 };
 
                 Ok(ir::PolicyExpr {
-                    name: self.name.clone(),
+                    name: self.name.value.clone(),
                     hash,
                     script,
                 })
@@ -784,7 +790,7 @@ pub fn lower(ast: &ast::Program, template: &str) -> Result<ir::Tx, Error> {
     let tx = ast
         .txs
         .iter()
-        .find(|x| x.name == template)
+        .find(|x| x.name.value == template)
         .ok_or(Error::InvalidAst("tx not found".to_string()))?;
 
     lower_tx(tx)
@@ -816,13 +822,13 @@ mod tests {
         crate::analyzing::analyze(&mut program).ok().unwrap();
 
         for tx in program.txs.iter() {
-            let tir = lower(&program, &tx.name).unwrap();
+            let tir = lower(&program, &tx.name.value).unwrap();
 
-            make_snapshot_if_missing(example, &tx.name, &tir);
+            make_snapshot_if_missing(example, &tx.name.value, &tir);
 
             let tir_file = format!(
                 "{}/../../examples/{}.{}.tir",
-                manifest_dir, example, tx.name
+                manifest_dir, example, tx.name.value
             );
 
             let expected = std::fs::read_to_string(tir_file).unwrap();
