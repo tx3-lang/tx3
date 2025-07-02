@@ -19,6 +19,7 @@ pub struct Scope {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Symbol {
+    EnvVar(String, Box<Type>),
     ParamVar(String, Box<Type>),
     Input(String, Box<InputBlock>),
     PartyDef(Box<PartyDef>),
@@ -164,6 +165,7 @@ impl AsRef<str> for Identifier {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct Program {
+    pub env: Option<EnvDef>,
     pub txs: Vec<TxDef>,
     pub types: Vec<TypeDef>,
     pub assets: Vec<AssetDef>,
@@ -174,6 +176,19 @@ pub struct Program {
     // analysis
     #[serde(skip)]
     pub(crate) scope: Option<Rc<Scope>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct EnvField {
+    pub name: String,
+    pub r#type: Type,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct EnvDef {
+    pub fields: Vec<EnvField>,
+    pub span: Span,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
