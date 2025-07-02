@@ -161,6 +161,7 @@ impl IntoLower for ast::Identifier {
             ast::Symbol::ParamVar(n, ty) => {
                 Ok(ir::Param::ExpectValue(n.to_lowercase().clone(), ty.into_lower(ctx)?).into())
             }
+            ast::Symbol::LocalExpr(expr) => Ok(expr.into_lower(ctx)?),
             ast::Symbol::PartyDef(x) => {
                 Ok(ir::Param::ExpectValue(x.name.to_lowercase().clone(), ir::Type::Address).into())
             }
@@ -858,4 +859,6 @@ mod tests {
     test_lowering!(input_datum);
 
     test_lowering!(env_vars);
+
+    test_lowering!(local_vars);
 }

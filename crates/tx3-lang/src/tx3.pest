@@ -340,10 +340,10 @@ metadata_block = {
     "metadata" ~ "{" ~  (metadata_block_field ~ ",")+ ~ "}"
 }
 
-locals_field = { identifier ~ ":" ~ data_expr }
+locals_assign = { identifier ~ ":" ~ data_expr }
 
 locals_block = {
-    "locals" ~ "{" ~ (locals_field ~ ",")+ ~ "}"
+    "locals" ~ "{" ~ (locals_assign ~ ",")+ ~ "}"
 }
 
 tx_body_block = _{
