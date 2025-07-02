@@ -2207,6 +2207,105 @@ mod tests {
         }
     );
 
+    input_to_ast_check!(
+        TxDef,
+        "empty",
+        "tx my_tx() {}",
+        TxDef {
+            name: Identifier::new("my_tx"),
+            parameters: ParameterList {
+                parameters: vec![],
+                span: Span::DUMMY,
+            },
+            locals: None,
+            references: vec![],
+            inputs: vec![],
+            outputs: vec![],
+            validity: None,
+            burn: None,
+            mints: vec![],
+            signers: None,
+            adhoc: vec![],
+            collateral: vec![],
+            metadata: None,
+            scope: None,
+            span: Span::DUMMY,
+        }
+    );
+
+    input_to_ast_check!(
+        TxDef,
+        "with_parameters",
+        "tx my_tx(a: Int, b: Bytes) {}",
+        TxDef {
+            name: Identifier::new("my_tx"),
+            parameters: ParameterList {
+                parameters: vec![
+                    ParamDef {
+                        name: Identifier::new("a"),
+                        r#type: Type::Int,
+                    },
+                    ParamDef {
+                        name: Identifier::new("b"),
+                        r#type: Type::Bytes,
+                    },
+                ],
+                span: Span::DUMMY,
+            },
+            locals: None,
+            references: vec![],
+            inputs: vec![],
+            outputs: vec![],
+            validity: None,
+            burn: None,
+            mints: vec![],
+            signers: None,
+            adhoc: vec![],
+            collateral: vec![],
+            metadata: None,
+            scope: None,
+            span: Span::DUMMY,
+        }
+    );
+
+    input_to_ast_check!(
+        Program,
+        "basic",
+        "party Abc; tx my_tx() {}",
+        Program {
+            parties: vec![PartyDef {
+                name: Identifier::new("Abc"),
+                span: Span::DUMMY,
+            }],
+            types: vec![],
+            txs: vec![TxDef {
+                name: Identifier::new("my_tx"),
+                parameters: ParameterList {
+                    parameters: vec![],
+                    span: Span::DUMMY,
+                },
+                locals: None,
+                references: vec![],
+                inputs: vec![],
+                outputs: vec![],
+                validity: None,
+                burn: None,
+                mints: vec![],
+                signers: None,
+                adhoc: vec![],
+                collateral: vec![],
+                metadata: None,
+                scope: None,
+                span: Span::DUMMY,
+            }],
+            env: None,
+            assets: vec![],
+            policies: vec![],
+            span: Span::DUMMY,
+            scope: None,
+        }
+    );
+
     #[test]
     fn test_spans_are_respected() {
         let program = parse_well_known_example("lang_tour");
