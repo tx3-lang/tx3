@@ -1312,6 +1312,33 @@ impl VariantCase {
         })
     }
 
+    fn tuple_case_parse(pair: pest::iterators::Pair<Rule>) -> Result<Self, Error> {
+        let span: Span = pair.as_span().into();
+        let mut inner = pair.into_inner();
+
+        let identifier = Identifier::parse(inner.next().unwrap())?;
+
+        let types = inner.map(Type::parse).collect::<Result<Vec<_>, _>>()?;
+
+        // REVIEW
+        // Convert types to record fields with auto-generated names (_0, _1, _2, ...)
+        let fields = types
+            .into_iter()
+            .enumerate()
+            .map(|(index, r#type)| RecordField {
+                name: Identifier::new(format!("_{}", index)),
+                r#type,
+                span: span.clone(),
+            })
+            .collect();
+
+        Ok(Self {
+            name: identifier,
+            fields,
+            span,
+        })
+    }
+
     fn unit_case_parse(pair: pest::iterators::Pair<Rule>) -> Result<Self, Error> {
         let span = pair.as_span().into();
         let mut inner = pair.into_inner();
@@ -1332,7 +1359,7 @@ impl AstNode for VariantCase {
     fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
         let case = match pair.as_rule() {
             Rule::variant_case_struct => Self::struct_case_parse(pair),
-            Rule::variant_case_tuple => todo!("parse variant case tuple"),
+            Rule::variant_case_tuple => Self::tuple_case_parse(pair),
             Rule::variant_case_unit => Self::unit_case_parse(pair),
             x => unreachable!("Unexpected rule in datum_variant: {:?}", x),
         }?;
