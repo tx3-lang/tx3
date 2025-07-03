@@ -247,6 +247,10 @@ impl ProtoTx {
         let (ir, _) = bincode::decode_from_slice::<ir::Tx, _>(bytes, config)?;
         Ok(Self::from(ir))
     }
+
+    pub fn inputs(&self) -> impl Iterator<Item = (&String, &UtxoSet)> {
+        self.inputs.iter()
+    }
 }
 
 impl AsRef<ir::Tx> for ProtoTx {
