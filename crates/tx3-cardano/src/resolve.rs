@@ -304,4 +304,27 @@ mod tests {
         println!("{}", hex::encode(&tx.payload));
         println!("{}", tx.fee);
     }
+
+    #[tokio::test]
+    async fn adhoc_witness_test() {
+        let protocol = load_protocol("cardano_witness");
+
+        let mut tx = protocol
+            .new_tx("mint_from_script")
+            .unwrap()
+            .apply()
+            .unwrap();
+
+        tx.set_arg("minter", "addr1qx2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzer3n0d3vllmyqwsx5wktcd8cc3sq835lu7drv2xwl2wywfgse35a3x".into());
+        tx.set_arg("quantity", ArgValue::Int(100_000_000));
+
+        dbg!(&tx.find_params());
+
+        let tx = tx.apply().unwrap();
+
+        let tx = resolve_tx(tx, MockLedger::default(), 3).await.unwrap();
+
+        println!("{}", hex::encode(&tx.payload));
+        println!("{}", tx.fee);
+    }
 }

@@ -867,4 +867,6 @@ mod tests {
     test_lowering!(env_vars);
 
     test_lowering!(local_vars);
+
+    test_lowering!(cardano_witness);
 }

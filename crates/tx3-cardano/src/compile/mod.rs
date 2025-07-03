@@ -1,12 +1,12 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 
 use pallas::{
-    codec::utils::{KeepRaw, MaybeIndefArray},
+    codec::utils::{KeepRaw, MaybeIndefArray, NonEmptySet},
     ledger::{
         addresses::{Address, ShelleyPaymentPart},
         primitives::{
             conway::{self as primitives, Redeemers},
-            TransactionInput,
+            PlutusScript, TransactionInput,
         },
         traverse::ComputeHash,
     },
@@ -635,20 +635,86 @@ fn compile_redeemers(
     }
 }
 
+/// Crawls the transaction body to find all the required scripts.
+fn infer_required_scripts(
+    compiled_body: &primitives::TransactionBody,
+) -> HashSet<primitives::Hash<28>> {
+    let mint_policies = compiled_body
+        .mint
+        .iter()
+        .flatten()
+        .map(|(p, _)| *p)
+        .collect::<Vec<_>>();
+
+    // TODO: evaluate inputs searching for script addresses
+
+    // TODO: evaluate withdrawals searching for script addresses
+
+    // TODO: other sources for scripts
+
+    let all_scripts = HashSet::from_iter(mint_policies.into_iter());
+
+    // TODO: remove if script is already present via reference inputs
+
+    all_scripts
+}
+
+fn find_script_for_hash(tx: &ir::Tx, hash: primitives::Hash<28>) -> Option<ir::Expression> {
+    // TODO: we need to track script symbols as part of the IR
+    todo!()
+}
+
+fn compile_adhoc_plutus_witness<const V: usize>(tx: &ir::Tx) -> Vec<PlutusScript<V>> {
+    let out: Vec<_> = tx
+        .adhoc
+        .iter()
+        .filter(|x| x.name.as_str() == "plutus_witness")
+        .filter(|adhoc| {
+            adhoc
+                .data
+                .get("version")
+                .map(|x| coercion::expr_into_number(x).unwrap_or(0))
+                .map(|x| x == V as i128)
+                .unwrap_or(false)
+        })
+        .filter_map(|adhoc| {
+            adhoc
+                .data
+                .get("script")
+                .map(coercion::expr_into_bytes)
+                .transpose()
+                .unwrap_or(None)
+        })
+        .map(|x| PlutusScript::<V>(x))
+        .collect();
+
+    out
+}
+
 fn compile_witness_set(
     tx: &ir::Tx,
     compiled_body: &primitives::TransactionBody,
     network: Network,
 ) -> Result<primitives::WitnessSet<'static>, Error> {
+    // TODO: the long-term goal is for the compiler to infer the required scripts by
+    // inspecting the built transaction. We can do that right now, but we're block
+    // trying to get the actual bytes for the scripts. The Tx IR that reaches
+    // the compiler erases script data since it's not part of the Tx body.
+
+    /*
+    let required_scripts = infer_required_scripts(compiled_body);
+    let scripts = required_scripts.iter().find_map(|hash| find_script_for_hash(tx, *hash));
+     */
+
     let witness_set = primitives::WitnessSet {
         redeemer: compile_redeemers(tx, compiled_body, network)?.map(|x| x.into()),
         vkeywitness: None,
         native_script: None,
         bootstrap_witness: None,
-        plutus_v1_script: None,
         plutus_data: None,
-        plutus_v2_script: None,
-        plutus_v3_script: None,
+        plutus_v1_script: NonEmptySet::from_vec(compile_adhoc_plutus_witness::<1>(tx)),
+        plutus_v2_script: NonEmptySet::from_vec(compile_adhoc_plutus_witness::<2>(tx)),
+        plutus_v3_script: NonEmptySet::from_vec(compile_adhoc_plutus_witness::<3>(tx)),
     };
 
     Ok(witness_set)
