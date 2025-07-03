@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [unreleased]
+## [0.7.0] - 2025-07-03
 
 ### 🚀 Features
 
@@ -33,6 +33,8 @@ All notable changes to this project will be documented in this file.
 ### ⚙️ Miscellaneous Tasks
 
 - Bump TIR version to v1alpha6 (#180)
+- Introduce cliff for changelog generation (#181)
+- Move release config to file
 
 ## [0.6.0] - 2025-06-06
 
