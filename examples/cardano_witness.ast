@@ -1,0 +1,317 @@
+{
+  "env": null,
+  "txs": [
+    {
+      "name": {
+        "value": "mint_from_script",
+        "span": {
+          "dummy": false,
+          "start": 18,
+          "end": 34
+        }
+      },
+      "parameters": {
+        "parameters": [
+          {
+            "name": {
+              "value": "quantity",
+              "span": {
+                "dummy": false,
+                "start": 40,
+                "end": 48
+              }
+            },
+            "type": "Int"
+          }
+        ],
+        "span": {
+          "dummy": false,
+          "start": 34,
+          "end": 55
+        }
+      },
+      "locals": {
+        "assigns": [
+          {
+            "name": {
+              "value": "new_token",
+              "span": {
+                "dummy": false,
+                "start": 78,
+                "end": 87
+              }
+            },
+            "value": {
+              "AnyAssetConstructor": {
+                "policy": {
+                  "HexString": {
+                    "value": "bd3ae991b5aafccafe5ca70758bd36a9b2f872f57f6d3a1ffa0eb777",
+                    "span": {
+                      "dummy": false,
+                      "start": 98,
+                      "end": 156
+                    }
+                  }
+                },
+                "asset_name": {
+                  "String": {
+                    "value": "ABC",
+                    "span": {
+                      "dummy": false,
+                      "start": 158,
+                      "end": 163
+                    }
+                  }
+                },
+                "amount": {
+                  "Identifier": {
+                    "value": "quantity",
+                    "span": {
+                      "dummy": false,
+                      "start": 165,
+                      "end": 173
+                    }
+                  }
+                },
+                "span": {
+                  "dummy": false,
+                  "start": 89,
+                  "end": 174
+                }
+              }
+            },
+            "span": {
+              "dummy": false,
+              "start": 78,
+              "end": 174
+            }
+          }
+        ],
+        "span": {
+          "dummy": false,
+          "start": 62,
+          "end": 181
+        }
+      },
+      "references": [],
+      "inputs": [
+        {
+          "name": "source",
+          "is_many": false,
+          "fields": [
+            {
+              "From": {
+                "Identifier": {
+                  "value": "Minter",
+                  "span": {
+                    "dummy": false,
+                    "start": 216,
+                    "end": 222
+                  }
+                }
+              }
+            },
+            {
+              "MinAmount": {
+                "Identifier": {
+                  "value": "fees",
+                  "span": {
+                    "dummy": false,
+                    "start": 244,
+                    "end": 248
+                  }
+                }
+              }
+            }
+          ],
+          "span": {
+            "dummy": false,
+            "start": 187,
+            "end": 255
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": null,
+          "fields": [
+            {
+              "To": {
+                "Identifier": {
+                  "value": "Minter",
+                  "span": {
+                    "dummy": false,
+                    "start": 353,
+                    "end": 359
+                  }
+                }
+              }
+            },
+            {
+              "Amount": {
+                "SubOp": {
+                  "lhs": {
+                    "AddOp": {
+                      "lhs": {
+                        "Identifier": {
+                          "value": "source",
+                          "span": {
+                            "dummy": false,
+                            "start": 377,
+                            "end": 383
+                          }
+                        }
+                      },
+                      "rhs": {
+                        "Identifier": {
+                          "value": "new_token",
+                          "span": {
+                            "dummy": false,
+                            "start": 386,
+                            "end": 395
+                          }
+                        }
+                      },
+                      "span": {
+                        "dummy": false,
+                        "start": 384,
+                        "end": 385
+                      }
+                    }
+                  },
+                  "rhs": {
+                    "Identifier": {
+                      "value": "fees",
+                      "span": {
+                        "dummy": false,
+                        "start": 398,
+                        "end": 402
+                      }
+                    }
+                  },
+                  "span": {
+                    "dummy": false,
+                    "start": 396,
+                    "end": 397
+                  }
+                }
+              }
+            }
+          ],
+          "span": {
+            "dummy": false,
+            "start": 332,
+            "end": 409
+          }
+        }
+      ],
+      "validity": null,
+      "burn": null,
+      "mints": [
+        {
+          "fields": [
+            {
+              "Amount": {
+                "Identifier": {
+                  "value": "new_token",
+                  "span": {
+                    "dummy": false,
+                    "start": 284,
+                    "end": 293
+                  }
+                }
+              }
+            },
+            {
+              "Redeemer": "Unit"
+            }
+          ],
+          "span": {
+            "dummy": false,
+            "start": 261,
+            "end": 322
+          }
+        }
+      ],
+      "signers": null,
+      "adhoc": [
+        {
+          "Cardano": {
+            "PlutusWitness": {
+              "fields": [
+                {
+                  "Version": [
+                    {
+                      "Number": 3
+                    },
+                    {
+                      "dummy": false,
+                      "start": 449,
+                      "end": 459
+                    }
+                  ]
+                },
+                {
+                  "Script": [
+                    {
+                      "HexString": {
+                        "value": "5101010023259800a518a4d136564004ae69",
+                        "span": {
+                          "dummy": false,
+                          "start": 477,
+                          "end": 515
+                        }
+                      }
+                    },
+                    {
+                      "dummy": false,
+                      "start": 469,
+                      "end": 515
+                    }
+                  ]
+                }
+              ],
+              "span": {
+                "dummy": false,
+                "start": 424,
+                "end": 522
+              }
+            }
+          }
+        }
+      ],
+      "span": {
+        "dummy": false,
+        "start": 15,
+        "end": 524
+      },
+      "collateral": [],
+      "metadata": null
+    }
+  ],
+  "types": [],
+  "assets": [],
+  "parties": [
+    {
+      "name": {
+        "value": "Minter",
+        "span": {
+          "dummy": false,
+          "start": 6,
+          "end": 12
+        }
+      },
+      "span": {
+        "dummy": false,
+        "start": 0,
+        "end": 13
+      }
+    }
+  ],
+  "policies": [],
+  "span": {
+    "dummy": false,
+    "start": 0,
+    "end": 525
+  }
+}
