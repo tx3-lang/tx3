@@ -1,4 +1,5 @@
 pub use pallas::codec::utils::Int;
+use pallas::codec::utils::KeyValuePairs;
 pub use pallas::ledger::primitives::{BigInt, BoundedBytes, Constr, MaybeIndefArray, PlutusData};
 use tx3_lang::ir;
 
@@ -90,12 +91,41 @@ impl IntoData for i128 {
 
 impl TryIntoData for Vec<ir::Expression> {
     fn try_as_data(&self) -> Result<PlutusData, super::Error> {
-        let items = self
+        let all_tuples = self
             .iter()
-            .map(TryIntoData::try_as_data)
-            .collect::<Result<Vec<_>, _>>()?;
+            .all(|expr| matches!(expr, ir::Expression::Tuple(_)));
 
-        Ok(PlutusData::Array(MaybeIndefArray::Def(items)))
+        if all_tuples && !self.is_empty() {
+            let key_value_pairs = self
+                .iter()
+                .map(|expr| -> Result<(PlutusData, PlutusData), super::Error> {
+                    if let ir::Expression::Tuple(tuple) = expr {
+                        Ok((tuple.0.try_as_data()?, tuple.1.try_as_data()?))
+                    } else {
+                        unreachable!("Already checked all are tuples")
+                    }
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+
+            Ok(PlutusData::Map(KeyValuePairs::Def(key_value_pairs)))
+        } else {
+            let items = self
+                .iter()
+                .map(TryIntoData::try_as_data)
+                .collect::<Result<Vec<_>, _>>()?;
+
+            Ok(PlutusData::Array(MaybeIndefArray::Def(items)))
+        }
+    }
+}
+
+impl TryIntoData for (ir::Expression, ir::Expression) {
+    fn try_as_data(&self) -> Result<PlutusData, super::Error> {
+        let (fst, snd) = self;
+        Ok(PlutusData::Map(KeyValuePairs::Def(vec![(
+            fst.try_as_data()?,
+            snd.try_as_data()?,
+        )])))
     }
 }
 
@@ -135,6 +165,7 @@ impl TryIntoData for ir::Expression {
             ir::Expression::Address(x) => Ok(x.as_data()),
             ir::Expression::Hash(x) => Ok(x.as_data()),
             ir::Expression::List(x) => x.try_as_data(),
+            ir::Expression::Tuple(x) => x.try_as_data(),
             x => Err(super::Error::CoerceError(
                 format!("{:?}", x),
                 "PlutusData".to_string(),

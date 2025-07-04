@@ -1,0 +1,408 @@
+{
+  "env": null,
+  "txs": [
+    {
+      "name": {
+        "value": "transfer",
+        "span": {
+          "dummy": false,
+          "start": 73,
+          "end": 81
+        }
+      },
+      "parameters": {
+        "parameters": [
+          {
+            "name": {
+              "value": "quantity",
+              "span": {
+                "dummy": false,
+                "start": 87,
+                "end": 95
+              }
+            },
+            "type": "Int"
+          }
+        ],
+        "span": {
+          "dummy": false,
+          "start": 81,
+          "end": 102
+        }
+      },
+      "locals": null,
+      "references": [],
+      "inputs": [
+        {
+          "name": "source",
+          "is_many": false,
+          "fields": [
+            {
+              "From": {
+                "Identifier": {
+                  "value": "Sender",
+                  "span": {
+                    "dummy": false,
+                    "start": 138,
+                    "end": 144
+                  }
+                }
+              }
+            },
+            {
+              "MinAmount": {
+                "StaticAssetConstructor": {
+                  "type": {
+                    "value": "Ada",
+                    "span": {
+                      "dummy": false,
+                      "start": 166,
+                      "end": 169
+                    }
+                  },
+                  "amount": {
+                    "Identifier": {
+                      "value": "quantity",
+                      "span": {
+                        "dummy": false,
+                        "start": 170,
+                        "end": 178
+                      }
+                    }
+                  },
+                  "span": {
+                    "dummy": false,
+                    "start": 166,
+                    "end": 179
+                  }
+                }
+              }
+            }
+          ],
+          "span": {
+            "dummy": false,
+            "start": 109,
+            "end": 186
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": null,
+          "fields": [
+            {
+              "To": {
+                "Identifier": {
+                  "value": "Receiver",
+                  "span": {
+                    "dummy": false,
+                    "start": 217,
+                    "end": 225
+                  }
+                }
+              }
+            },
+            {
+              "Amount": {
+                "StaticAssetConstructor": {
+                  "type": {
+                    "value": "Ada",
+                    "span": {
+                      "dummy": false,
+                      "start": 243,
+                      "end": 246
+                    }
+                  },
+                  "amount": {
+                    "Identifier": {
+                      "value": "quantity",
+                      "span": {
+                        "dummy": false,
+                        "start": 247,
+                        "end": 255
+                      }
+                    }
+                  },
+                  "span": {
+                    "dummy": false,
+                    "start": 243,
+                    "end": 256
+                  }
+                }
+              }
+            }
+          ],
+          "span": {
+            "dummy": false,
+            "start": 196,
+            "end": 263
+          }
+        },
+        {
+          "name": null,
+          "fields": [
+            {
+              "To": {
+                "Identifier": {
+                  "value": "Sender",
+                  "span": {
+                    "dummy": false,
+                    "start": 290,
+                    "end": 296
+                  }
+                }
+              }
+            },
+            {
+              "Amount": {
+                "SubOp": {
+                  "lhs": {
+                    "SubOp": {
+                      "lhs": {
+                        "Identifier": {
+                          "value": "source",
+                          "span": {
+                            "dummy": false,
+                            "start": 314,
+                            "end": 320
+                          }
+                        }
+                      },
+                      "rhs": {
+                        "StaticAssetConstructor": {
+                          "type": {
+                            "value": "Ada",
+                            "span": {
+                              "dummy": false,
+                              "start": 323,
+                              "end": 326
+                            }
+                          },
+                          "amount": {
+                            "Identifier": {
+                              "value": "quantity",
+                              "span": {
+                                "dummy": false,
+                                "start": 327,
+                                "end": 335
+                              }
+                            }
+                          },
+                          "span": {
+                            "dummy": false,
+                            "start": 323,
+                            "end": 336
+                          }
+                        }
+                      },
+                      "span": {
+                        "dummy": false,
+                        "start": 321,
+                        "end": 322
+                      }
+                    }
+                  },
+                  "rhs": {
+                    "Identifier": {
+                      "value": "fees",
+                      "span": {
+                        "dummy": false,
+                        "start": 339,
+                        "end": 343
+                      }
+                    }
+                  },
+                  "span": {
+                    "dummy": false,
+                    "start": 337,
+                    "end": 338
+                  }
+                }
+              }
+            },
+            {
+              "Datum": {
+                "StructConstructor": {
+                  "type": {
+                    "value": "Datum",
+                    "span": {
+                      "dummy": false,
+                      "start": 360,
+                      "end": 365
+                    }
+                  },
+                  "case": {
+                    "name": {
+                      "value": "Default",
+                      "span": {
+                        "dummy": true,
+                        "start": 0,
+                        "end": 0
+                      }
+                    },
+                    "fields": [
+                      {
+                        "name": {
+                          "value": "A",
+                          "span": {
+                            "dummy": false,
+                            "start": 378,
+                            "end": 379
+                          }
+                        },
+                        "value": {
+                          "TupleConstructor": {
+                            "fst": {
+                              "Number": 1
+                            },
+                            "snd": {
+                              "Number": 2
+                            },
+                            "span": {
+                              "dummy": false,
+                              "start": 381,
+                              "end": 386
+                            }
+                          }
+                        },
+                        "span": {
+                          "dummy": false,
+                          "start": 378,
+                          "end": 386
+                        }
+                      }
+                    ],
+                    "spread": null,
+                    "span": {
+                      "dummy": false,
+                      "start": 366,
+                      "end": 397
+                    }
+                  },
+                  "span": {
+                    "dummy": false,
+                    "start": 360,
+                    "end": 397
+                  }
+                }
+              }
+            }
+          ],
+          "span": {
+            "dummy": false,
+            "start": 269,
+            "end": 404
+          }
+        }
+      ],
+      "validity": null,
+      "burn": null,
+      "mints": [],
+      "signers": null,
+      "adhoc": [],
+      "span": {
+        "dummy": false,
+        "start": 70,
+        "end": 406
+      },
+      "collateral": [],
+      "metadata": null
+    }
+  ],
+  "types": [
+    {
+      "name": {
+        "value": "Datum",
+        "span": {
+          "dummy": false,
+          "start": 5,
+          "end": 10
+        }
+      },
+      "cases": [
+        {
+          "name": {
+            "value": "Default",
+            "span": {
+              "dummy": true,
+              "start": 0,
+              "end": 0
+            }
+          },
+          "fields": [
+            {
+              "name": {
+                "value": "A",
+                "span": {
+                  "dummy": false,
+                  "start": 15,
+                  "end": 16
+                }
+              },
+              "type": {
+                "Tuple": [
+                  "Int",
+                  "Int"
+                ]
+              },
+              "span": {
+                "dummy": false,
+                "start": 15,
+                "end": 33
+              }
+            }
+          ],
+          "span": {
+            "dummy": false,
+            "start": 0,
+            "end": 36
+          }
+        }
+      ],
+      "span": {
+        "dummy": false,
+        "start": 0,
+        "end": 36
+      }
+    }
+  ],
+  "assets": [],
+  "parties": [
+    {
+      "name": {
+        "value": "Sender",
+        "span": {
+          "dummy": false,
+          "start": 44,
+          "end": 50
+        }
+      },
+      "span": {
+        "dummy": false,
+        "start": 38,
+        "end": 51
+      }
+    },
+    {
+      "name": {
+        "value": "Receiver",
+        "span": {
+          "dummy": false,
+          "start": 59,
+          "end": 67
+        }
+      },
+      "span": {
+        "dummy": false,
+        "start": 53,
+        "end": 68
+      }
+    }
+  ],
+  "policies": [],
+  "span": {
+    "dummy": false,
+    "start": 0,
+    "end": 406
+  }
+}
