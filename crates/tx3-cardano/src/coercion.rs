@@ -69,6 +69,7 @@ pub fn expr_into_metadatum(
 pub fn expr_into_utxo_refs(expr: &ir::Expression) -> Result<Vec<tx3_lang::UtxoRef>, Error> {
     match expr {
         ir::Expression::UtxoRefs(x) => Ok(x.clone()),
+        ir::Expression::UtxoSet(x) => Ok(x.iter().map(|x| x.r#ref.clone()).collect()),
         ir::Expression::String(x) => {
             let (raw_txid, raw_output_ix) = x.split_once("#").expect("Invalid utxo ref");
             Ok(vec![tx3_lang::UtxoRef {

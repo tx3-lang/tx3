@@ -46,6 +46,9 @@ pub enum Error {
     #[error("mapping error {0}")]
     MappingError(String),
 
+    #[error("missing input utxo")]
+    MissingInputUtxo,
+
     #[error("missing amount")]
     MissingAmount,
 

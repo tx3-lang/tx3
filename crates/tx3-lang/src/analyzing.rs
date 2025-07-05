@@ -287,10 +287,8 @@ impl Scope {
     }
 
     pub fn track_input(&mut self, name: &str, input: InputBlock) {
-        self.symbols.insert(
-            name.to_string(),
-            Symbol::Input(name.to_string(), Box::new(input)),
-        );
+        self.symbols
+            .insert(name.to_string(), Symbol::Input(Box::new(input)));
     }
 
     pub fn track_record_fields_for_type(&mut self, ty: &Type) {

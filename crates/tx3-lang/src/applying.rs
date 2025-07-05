@@ -694,10 +694,8 @@ impl ir::AssetExpr {
 
 impl Composite for ir::Input {
     fn components(&self) -> Vec<&ir::Expression> {
-        self.query
-            .components()
+        vec![&self.utxos, &self.redeemer]
             .into_iter()
-            .chain(self.redeemer.iter())
             .chain(self.policy.iter().flat_map(|x| x.components()))
             .collect()
     }
@@ -708,9 +706,8 @@ impl Composite for ir::Input {
     {
         Ok(Self {
             name: self.name,
-            query: self.query.try_map_components(&f)?,
-            refs: self.refs,
-            redeemer: self.redeemer.map(&f).transpose()?,
+            utxos: f(self.utxos)?,
+            redeemer: f(self.redeemer)?,
             policy: self.policy.map(|x| x.try_map_components(f)).transpose()?,
         })
     }
@@ -1339,6 +1336,52 @@ mod tests {
 
         let params = find_params(&after);
         assert_eq!(params.len(), 0);
+    }
+
+    #[test]
+    fn test_apply_inputs() {
+        let mut ast = crate::parsing::parse_string(SUBJECT_PROTOCOL).unwrap();
+        crate::analyzing::analyze(&mut ast).ok().unwrap();
+
+        let before = crate::lowering::lower(&ast, "swap").unwrap();
+
+        let args = BTreeMap::from([
+            ("sender".to_string(), ArgValue::Address(b"abc".to_vec())),
+            ("a".to_string(), ArgValue::Int(100)),
+            ("b".to_string(), ArgValue::Int(200)),
+        ]);
+
+        let before = apply_args(before, &args).unwrap();
+
+        let before = before.reduce().unwrap();
+
+        let queries = find_queries(&before);
+        dbg!(&queries);
+
+        assert_eq!(queries.len(), 1);
+        assert!(queries.contains_key("source"));
+
+        let inputs = BTreeMap::from([(
+            "source".to_string(),
+            HashSet::from([Utxo {
+                r#ref: UtxoRef::new(b"abc", 0),
+                address: b"abc".to_vec(),
+                datum: None,
+                assets: vec![ir::AssetExpr {
+                    policy: ir::Expression::None,
+                    asset_name: ir::Expression::None,
+                    amount: ir::Expression::Number(300),
+                }],
+                script: None,
+            }]),
+        )]);
+
+        let after = apply_inputs(before, &inputs).unwrap();
+
+        let queries = find_queries(&after);
+        dbg!(&queries);
+
+        assert_eq!(queries.len(), 0);
     }
 
     #[test]
