@@ -2385,7 +2385,7 @@ dependencies = [
 
 [[package]]
 name = "tx3-cardano"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "hex",
  "pallas",
@@ -2399,7 +2399,7 @@ dependencies = [
 
 [[package]]
 name = "tx3-lang"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "assert-json-diff",
  "bincode",
@@ -2415,7 +2415,7 @@ dependencies = [
 
 [[package]]
 name = "tx3-test"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "base64 0.22.1",
  "hex",
