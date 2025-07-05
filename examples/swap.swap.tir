@@ -6,19 +6,25 @@
   "inputs": [
     {
       "name": "pool",
-      "query": {
-        "address": {
-          "EvalParam": {
-            "ExpectValue": [
-              "dex",
-              "Address"
-            ]
-          }
-        },
-        "min_amount": "None",
-        "ref": "None"
+      "utxos": {
+        "EvalParam": {
+          "ExpectInput": [
+            "pool",
+            {
+              "address": {
+                "EvalParam": {
+                  "ExpectValue": [
+                    "dex",
+                    "Address"
+                  ]
+                }
+              },
+              "min_amount": "None",
+              "ref": "None"
+            }
+          ]
+        }
       },
-      "refs": [],
       "redeemer": {
         "Struct": {
           "constructor": 0,
@@ -46,36 +52,42 @@
     },
     {
       "name": "payment",
-      "query": {
-        "address": {
-          "EvalParam": {
-            "ExpectValue": [
-              "buyer",
-              "Address"
-            ]
-          }
-        },
-        "min_amount": {
-          "EvalBuiltIn": {
-            "Add": [
-              {
-                "EvalParam": "ExpectFees"
-              },
-              {
+      "utxos": {
+        "EvalParam": {
+          "ExpectInput": [
+            "payment",
+            {
+              "address": {
                 "EvalParam": {
                   "ExpectValue": [
-                    "bid",
-                    "AnyAsset"
+                    "buyer",
+                    "Address"
                   ]
                 }
-              }
-            ]
-          }
-        },
-        "ref": "None"
+              },
+              "min_amount": {
+                "EvalBuiltIn": {
+                  "Add": [
+                    {
+                      "EvalParam": "ExpectFees"
+                    },
+                    {
+                      "EvalParam": {
+                        "ExpectValue": [
+                          "bid",
+                          "AnyAsset"
+                        ]
+                      }
+                    }
+                  ]
+                }
+              },
+              "ref": "None"
+            }
+          ]
+        }
       },
-      "refs": [],
-      "redeemer": null,
+      "redeemer": "None",
       "policy": null
     }
   ],

@@ -22,7 +22,7 @@ pub enum Symbol {
     EnvVar(String, Box<Type>),
     ParamVar(String, Box<Type>),
     LocalExpr(Box<DataExpr>),
-    Input(String, Box<InputBlock>),
+    Input(Box<InputBlock>),
     PartyDef(Box<PartyDef>),
     PolicyDef(Box<PolicyDef>),
     AssetDef(Box<AssetDef>),
@@ -113,7 +113,7 @@ impl Symbol {
         match self {
             Symbol::ParamVar(_, ty) => Some(ty.as_ref().clone()),
             Symbol::RecordField(x) => Some(x.r#type.clone()),
-            Symbol::Input(_, input) => input.datum_is().cloned(),
+            Symbol::Input(x) => x.datum_is().cloned(),
             x => {
                 dbg!(x);
                 None

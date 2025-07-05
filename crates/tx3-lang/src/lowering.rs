@@ -169,17 +169,15 @@ impl IntoLower for ast::Identifier {
                 ir::Type::Address,
             )
             .into()),
-            ast::Symbol::Input(n, def) => {
-                let query = def.into_lower(ctx)?.query;
+            ast::Symbol::Input(def) => {
+                let inner = def.into_lower(ctx)?.utxos;
 
                 let out = if ctx.is_asset_expr() {
-                    let inner = ir::Param::ExpectInput(n.clone(), query).into();
                     ir::Coerce::IntoAssets(inner).into()
                 } else if ctx.is_datum_expr() {
-                    let inner = ir::Param::ExpectInput(n.clone(), query).into();
                     ir::Coerce::IntoDatum(inner).into()
                 } else {
-                    ir::Param::ExpectInput(n.clone(), query).into()
+                    inner
                 };
 
                 Ok(out)
@@ -512,7 +510,8 @@ impl IntoLower for ast::InputBlock {
         let redeemer = self
             .find("redeemer")
             .map(|x| x.into_lower(ctx))
-            .transpose()?;
+            .transpose()?
+            .unwrap_or(ir::Expression::None);
 
         let policy = from_field
             .and_then(ast::InputBlockField::as_address_expr)
@@ -522,14 +521,17 @@ impl IntoLower for ast::InputBlock {
             .map(|x| x.into_lower(ctx))
             .transpose()?;
 
+        let query = ir::InputQuery {
+            address: address.unwrap_or(ir::Expression::None),
+            min_amount: min_amount.unwrap_or(ir::Expression::None),
+            r#ref: r#ref.unwrap_or(ir::Expression::None),
+        };
+
+        let param = ir::Param::ExpectInput(self.name.to_lowercase().clone(), query);
+
         let input = ir::Input {
             name: self.name.to_lowercase().clone(),
-            query: ir::InputQuery {
-                address: address.unwrap_or(ir::Expression::None),
-                min_amount: min_amount.unwrap_or(ir::Expression::None),
-                r#ref: r#ref.unwrap_or(ir::Expression::None),
-            },
-            refs: HashSet::new(),
+            utxos: param.into(),
             redeemer,
             policy,
         };
