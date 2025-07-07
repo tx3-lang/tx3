@@ -375,12 +375,14 @@ fn compile_required_signers(tx: &ir::Tx) -> Result<Option<primitives::RequiredSi
 
 fn compile_validity(validity: Option<&ir::Validity>) -> Result<(Option<u64>, Option<u64>), Error> {
     let since = validity
-        .map(|v| coercion::expr_into_number(&v.since))
+        .and_then(|v| v.since.as_option())
+        .map(|v| coercion::expr_into_number(v))
         .transpose()?
         .map(|n| n as u64);
 
     let until = validity
-        .map(|v| coercion::expr_into_number(&v.until))
+        .and_then(|v| v.until.as_option())
+        .map(|v| coercion::expr_into_number(v))
         .transpose()?
         .map(|n| n as u64);
 
