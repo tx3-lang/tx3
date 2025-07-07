@@ -772,6 +772,10 @@ impl Apply for ir::Param {
                     amount: ir::Expression::Number(fees as i128),
                 },
             ]))),
+            // queries can have nested params
+            ir::Param::ExpectInput(name, query) => {
+                Ok(ir::Param::ExpectInput(name, query.apply_fees(fees)?))
+            }
             x => Ok(x),
         }
     }
@@ -1236,14 +1240,14 @@ mod tests {
     use super::*;
 
     const SUBJECT_PROTOCOL: &str = r#"
-    party Sender;
+        party Sender;
 
-    tx swap(a: Int, b: Int) {
-        input source {
-            from: Sender,
-            min_amount: Ada(a) + Ada(b),
+        tx swap(a: Int, b: Int) {
+            input source {
+                from: Sender,
+                min_amount: Ada(a) + Ada(b) + fees,
+            }
         }
-    }
     "#;
 
     #[test]
@@ -1382,6 +1386,41 @@ mod tests {
         dbg!(&queries);
 
         assert_eq!(queries.len(), 0);
+    }
+
+    #[test]
+    fn test_apply_fees() {
+        let mut ast = crate::parsing::parse_string(SUBJECT_PROTOCOL).unwrap();
+        crate::analyzing::analyze(&mut ast).ok().unwrap();
+
+        let before = crate::lowering::lower(&ast, "swap").unwrap();
+
+        let args = BTreeMap::from([
+            ("sender".to_string(), ArgValue::Address(b"abc".to_vec())),
+            ("a".to_string(), ArgValue::Int(100)),
+            ("b".to_string(), ArgValue::Int(200)),
+        ]);
+
+        let before = apply_args(before, &args).unwrap().reduce().unwrap();
+
+        let after = before.apply_fees(100).unwrap().reduce().unwrap();
+
+        let queries = find_queries(&after);
+
+        let query = queries.get("source").unwrap();
+
+        assert_eq!(
+            query,
+            &ir::InputQuery {
+                address: ir::Expression::Address(b"abc".to_vec()),
+                min_amount: ir::Expression::Assets(vec![ir::AssetExpr {
+                    policy: ir::Expression::None,
+                    asset_name: ir::Expression::None,
+                    amount: ir::Expression::Number(400),
+                }]),
+                r#ref: ir::Expression::None,
+            }
+        );
     }
 
     #[test]

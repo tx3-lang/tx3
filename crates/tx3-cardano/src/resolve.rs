@@ -39,6 +39,8 @@ async fn eval_pass<L: Ledger>(
 
     attempt = attempt.apply()?;
 
+    dbg!(&attempt);
+
     for (name, query) in attempt.find_queries() {
         let utxos = ledger.resolve_input(&query).await?;
 
