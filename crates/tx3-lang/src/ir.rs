@@ -175,7 +175,7 @@ pub enum Expression {
     UtxoRefs(Vec<UtxoRef>),
     UtxoSet(HashSet<Utxo>),
     Assets(Vec<AssetExpr>),
-
+    MinUtxo(Box<Expression>),
     EvalParam(Box<Param>),
     EvalBuiltIn(Box<BuiltInOp>),
     EvalCoerce(Box<Coerce>),

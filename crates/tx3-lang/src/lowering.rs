@@ -188,6 +188,11 @@ impl IntoLower for ast::Identifier {
             ast::Symbol::EnvVar(n, ty) => {
                 Ok(ir::Param::ExpectValue(n.to_lowercase().clone(), ty.into_lower(ctx)?).into())
             }
+            ast::Symbol::Output(_, _) => Ok(ir::Expression::Assets(vec![ir::AssetExpr {
+                policy: ir::Expression::None,
+                asset_name: ir::Expression::None,
+                amount: ir::Expression::Number(2_000_000),
+            }])),
             _ => {
                 dbg!(&self);
                 todo!();
@@ -421,6 +426,7 @@ impl IntoLower for ast::DataExpr {
             ast::DataExpr::NegateOp(x) => x.into_lower(ctx)?,
             ast::DataExpr::PropertyOp(x) => x.into_lower(ctx)?,
             ast::DataExpr::UtxoRef(x) => x.into_lower(ctx)?,
+            ast::DataExpr::MinUtxo(x) => ir::Expression::MinUtxo(Box::new(x.into_lower(ctx)?)),
         };
 
         Ok(out)

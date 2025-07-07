@@ -23,6 +23,7 @@ pub enum Symbol {
     ParamVar(String, Box<Type>),
     LocalExpr(Box<DataExpr>),
     Input(String, Box<InputBlock>),
+    Output(String, Box<OutputBlock>),
     PartyDef(Box<PartyDef>),
     PolicyDef(Box<PolicyDef>),
     AssetDef(Box<AssetDef>),
@@ -709,6 +710,7 @@ pub enum DataExpr {
     NegateOp(NegateOp),
     PropertyOp(PropertyOp),
     UtxoRef(UtxoRef),
+    MinUtxo(Identifier),
 }
 
 impl DataExpr {
@@ -737,6 +739,8 @@ impl DataExpr {
             DataExpr::StaticAssetConstructor(x) => x.target_type(),
             DataExpr::AnyAssetConstructor(x) => x.target_type(),
             DataExpr::UtxoRef(_) => Some(Type::UtxoRef),
+            // TODO: check if this is correct. Not sure
+            DataExpr::MinUtxo(_) => Some(Type::AnyAsset),
         }
     }
 }

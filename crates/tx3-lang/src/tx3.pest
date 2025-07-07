@@ -120,6 +120,8 @@ any_asset_constructor = {
     "AnyAsset" ~ "(" ~ data_expr ~ "," ~ data_expr ~ "," ~ data_expr ~ ")"
 }
 
+min_utxo = { "min_utxo" ~ "(" ~ identifier ~ ")" }
+
 data_expr = { data_prefix* ~ data_primary ~ data_postfix* ~ (data_infix ~ data_prefix* ~ data_primary ~ data_postfix* )* }
 
     data_infix = _{ data_add | data_sub }
@@ -138,6 +140,7 @@ data_expr = { data_prefix* ~ data_primary ~ data_postfix* ~ (data_infix ~ data_p
         hex_string |
         number |
         bool |
+        min_utxo |
         string |
         struct_constructor |
         list_constructor |
