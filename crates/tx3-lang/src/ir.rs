@@ -157,7 +157,7 @@ pub enum Param {
     Set(Expression),
     ExpectValue(String, Type),
     ExpectInput(String, InputQuery),
-    ExpectMinUtxo(String, Expression),
+    ExpectMinUtxo(String),
     ExpectFees,
 }
 

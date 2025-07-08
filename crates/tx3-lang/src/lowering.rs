@@ -188,12 +188,10 @@ impl IntoLower for ast::Identifier {
             }
             ast::Symbol::Output(def) => {
                 let name = def.name.clone().unwrap();
-                let min_amount = def
-                    .find("min_amount")
-                    .map(|x| x.into_lower(ctx))
-                    .transpose()?
-                    .unwrap();
-                Ok(ir::Param::ExpectMinUtxo(name, min_amount).into())
+                // TODO: think about the information needed to estimate size of output in bytes if
+                // at all possible
+                // Simple workaround for now would be to return a fixed amount of ada here
+                Ok(ir::Param::ExpectMinUtxo(name).into())
             }
             _ => {
                 dbg!(&self);
