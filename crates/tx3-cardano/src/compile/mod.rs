@@ -209,7 +209,8 @@ fn compile_inputs(tx: &ir::Tx) -> Result<Vec<primitives::TransactionInput>, Erro
     let refs = tx
         .inputs
         .iter()
-        .flat_map(|x| x.refs.iter())
+        .flat_map(|x| coercion::expr_into_utxo_refs(&x.utxos))
+        .flatten()
         .map(|x| primitives::TransactionInput {
             transaction_id: x.txid.as_slice().into(),
             index: x.index as u64,
@@ -375,12 +376,14 @@ fn compile_required_signers(tx: &ir::Tx) -> Result<Option<primitives::RequiredSi
 
 fn compile_validity(validity: Option<&ir::Validity>) -> Result<(Option<u64>, Option<u64>), Error> {
     let since = validity
-        .map(|v| coercion::expr_into_number(&v.since))
+        .and_then(|v| v.since.as_option())
+        .map(|v| coercion::expr_into_number(v))
         .transpose()?
         .map(|n| n as u64);
 
     let until = validity
-        .map(|v| coercion::expr_into_number(&v.until))
+        .and_then(|v| v.until.as_option())
+        .map(|v| coercion::expr_into_number(v))
         .transpose()?
         .map(|n| n as u64);
 
@@ -484,12 +487,13 @@ fn compile_spend_redeemers(
     let mut redeemers = Vec::new();
 
     for input in tx.inputs.iter() {
-        for ref_ in input.refs.iter() {
-            if let Some(redeemer) = &input.redeemer {
-                let redeemer =
-                    compile_single_spend_redeemer(ref_, redeemer, compiled_inputs.as_slice())?;
-                redeemers.push(redeemer);
-            }
+        let utxo = coercion::expr_into_utxo_refs(&input.utxos)?;
+        let utxo = utxo.iter().next().ok_or(Error::MissingInputUtxo)?;
+
+        if let Some(redeemer) = input.redeemer.as_option() {
+            let redeemer =
+                compile_single_spend_redeemer(utxo, redeemer, compiled_inputs.as_slice())?;
+            redeemers.push(redeemer);
         }
     }
 

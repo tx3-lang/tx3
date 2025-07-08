@@ -231,9 +231,11 @@ pub struct InputQuery {
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Input {
     pub name: String,
-    pub query: InputQuery,
-    pub refs: HashSet<UtxoRef>,
-    pub redeemer: Option<Expression>,
+    pub utxos: Expression,
+    pub redeemer: Expression,
+
+    // TODO: revisit this value. This is meant to support adding reference scripts by pointing to a
+    // policy that specifies the ref. This is not straightforward and hard to reason about.
     pub policy: Option<PolicyExpr>,
 }
 

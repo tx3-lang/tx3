@@ -6,22 +6,28 @@
   "inputs": [
     {
       "name": "source",
-      "query": {
-        "address": {
-          "EvalParam": {
-            "ExpectValue": [
-              "minter",
-              "Address"
-            ]
-          }
-        },
-        "min_amount": {
-          "EvalParam": "ExpectFees"
-        },
-        "ref": "None"
+      "utxos": {
+        "EvalParam": {
+          "ExpectInput": [
+            "source",
+            {
+              "address": {
+                "EvalParam": {
+                  "ExpectValue": [
+                    "minter",
+                    "Address"
+                  ]
+                }
+              },
+              "min_amount": {
+                "EvalParam": "ExpectFees"
+              },
+              "ref": "None"
+            }
+          ]
+        }
       },
-      "refs": [],
-      "redeemer": null,
+      "redeemer": "None",
       "policy": null
     }
   ],
@@ -191,9 +197,6 @@
     {
       "name": "plutus_witness",
       "data": {
-        "version": {
-          "Number": 3
-        },
         "script": {
           "Bytes": [
             81,
@@ -215,6 +218,9 @@
             174,
             105
           ]
+        },
+        "version": {
+          "Number": 3
         }
       }
     }
