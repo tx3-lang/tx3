@@ -745,6 +745,9 @@ impl Apply for ir::Param {
             ir::Param::ExpectInput(name, query) => {
                 Ok(ir::Param::ExpectInput(name, query.apply_args(args)?))
             }
+            ir::Param::ExpectMinUtxo(name) => {
+                todo!("Not implemented apply for expect min utxo{}", name)
+            }
             x => Ok(x),
         }
     }

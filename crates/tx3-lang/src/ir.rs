@@ -157,6 +157,7 @@ pub enum Param {
     Set(Expression),
     ExpectValue(String, Type),
     ExpectInput(String, InputQuery),
+    ExpectMinUtxo(String),
     ExpectFees,
 }
 
@@ -175,7 +176,7 @@ pub enum Expression {
     UtxoRefs(Vec<UtxoRef>),
     UtxoSet(HashSet<Utxo>),
     Assets(Vec<AssetExpr>),
-
+    MinUtxo(Box<Expression>),
     EvalParam(Box<Param>),
     EvalBuiltIn(Box<BuiltInOp>),
     EvalCoerce(Box<Coerce>),
