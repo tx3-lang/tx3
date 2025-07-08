@@ -186,11 +186,15 @@ impl IntoLower for ast::Identifier {
             ast::Symbol::EnvVar(n, ty) => {
                 Ok(ir::Param::ExpectValue(n.to_lowercase().clone(), ty.into_lower(ctx)?).into())
             }
-            ast::Symbol::Output(_) => Ok(ir::Expression::Assets(vec![ir::AssetExpr {
-                policy: ir::Expression::None,
-                asset_name: ir::Expression::None,
-                amount: ir::Expression::Number(2_000_000),
-            }])),
+            ast::Symbol::Output(def) => {
+                let name = def.name.clone().unwrap();
+                let min_amount = def
+                    .find("min_amount")
+                    .map(|x| x.into_lower(ctx))
+                    .transpose()?
+                    .unwrap();
+                Ok(ir::Param::ExpectMinUtxo(name, min_amount).into())
+            }
             _ => {
                 dbg!(&self);
                 todo!();
