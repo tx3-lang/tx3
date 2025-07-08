@@ -293,10 +293,8 @@ impl Scope {
 
     pub fn track_output(&mut self, name: &str, output: OutputBlock) {
         if let Some(_) = output.name {
-            self.symbols.insert(
-                name.to_string(),
-                Symbol::Output(name.to_string(), Box::new(output.clone())),
-            );
+            self.symbols
+                .insert(name.to_string(), Symbol::Output(Box::new(output.clone())));
         }
     }
 
