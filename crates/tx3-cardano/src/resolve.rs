@@ -5,14 +5,14 @@ use crate::{compile::compile_tx, Error, PParams};
 
 const DEFAULT_EXTRA_FEES: u64 = 200_000;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, PartialEq)]
 pub struct TxEval {
     pub payload: Vec<u8>,
     pub fee: u64,
     pub ex_units: u64,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Config {
     pub max_optimize_rounds: usize,
     pub extra_fees: Option<u64>,
@@ -42,11 +42,13 @@ async fn eval_pass<L: Ledger>(
     tx: &tx3_lang::ProtoTx,
     pparams: &PParams,
     ledger: &L,
-    best_fees: u64,
+    last_eval: Option<&TxEval>,
     config: &Config,
 ) -> Result<Option<TxEval>, Error> {
     let mut attempt = tx.clone();
-    attempt.set_fees(best_fees);
+
+    let fees = last_eval.as_ref().map(|e| e.fee).unwrap_or(0);
+    attempt.set_fees(fees);
 
     attempt = attempt.apply()?;
 
@@ -74,14 +76,14 @@ async fn eval_pass<L: Ledger>(
 
     //let redeemer_fees = eval_redeemer_fees(tx, pparams)?;
 
-    let eval = TxEval {
+    let eval = Some(TxEval {
         payload,
         fee: size_fees, // TODO: add redeemer fees
         ex_units: 0,
-    };
+    });
 
-    if eval.fee != best_fees {
-        return Ok(Some(eval));
+    if eval.as_ref() != last_eval {
+        return Ok(eval);
     }
 
     Ok(None)
@@ -93,14 +95,14 @@ pub async fn resolve_tx<T: Ledger>(
     config: Config,
 ) -> Result<TxEval, Error> {
     let pparams = ledger.get_pparams().await?;
-    let mut last_eval = TxEval::default();
+    let mut last_eval = None;
     let mut rounds = 0;
 
     // one initial pass to reduce any available params;
     let tx = tx.apply()?;
 
-    while let Some(better) = eval_pass(&tx, &pparams, &ledger, last_eval.fee, &config).await? {
-        last_eval = better;
+    while let Some(better) = eval_pass(&tx, &pparams, &ledger, last_eval.as_ref(), &config).await? {
+        last_eval = Some(better);
 
         if rounds > config.max_optimize_rounds {
             return Err(Error::MaxOptimizeRoundsReached);
@@ -109,7 +111,7 @@ pub async fn resolve_tx<T: Ledger>(
         rounds += 1;
     }
 
-    Ok(last_eval)
+    Ok(last_eval.unwrap())
 }
 
 #[cfg(test)]
@@ -386,5 +388,33 @@ mod tests {
         println!("{}", tx.fee);
 
         assert!(tx.fee >= extra_fees);
+    }
+
+    #[tokio::test]
+    async fn extra_fees_zero_test() {
+        let protocol = load_protocol("transfer");
+
+        let tx = protocol.new_tx("transfer")
+            .unwrap()
+            .with_arg("Sender", address_to_bytes("addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"))
+            .with_arg("Receiver", address_to_bytes("addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"))
+            .with_arg("quantity", ArgValue::Int(100_000_000))
+            .apply()
+            .unwrap();
+
+        let config = Config {
+            extra_fees: Some(0),
+            ..Default::default()
+        };
+
+        let tx = resolve_tx(tx, MockLedger::default(), config.clone())
+            .await
+            .unwrap();
+
+        println!("{}", hex::encode(&tx.payload));
+        println!("{}", tx.fee);
+
+        assert!(!tx.payload.is_empty());
+        assert!(tx.fee < DEFAULT_EXTRA_FEES);
     }
 }
