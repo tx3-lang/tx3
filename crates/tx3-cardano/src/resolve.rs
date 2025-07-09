@@ -3,7 +3,7 @@ use tx3_lang::{applying::Apply, ir::InputQuery};
 
 use crate::{compile::compile_tx, Error, PParams};
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, PartialEq)]
 pub struct TxEval {
     pub payload: Vec<u8>,
     pub fee: u64,
@@ -32,10 +32,12 @@ async fn eval_pass<L: Ledger>(
     tx: &tx3_lang::ProtoTx,
     pparams: &PParams,
     ledger: &L,
-    best_fees: u64,
+    last_eval: Option<&TxEval>,
 ) -> Result<Option<TxEval>, Error> {
     let mut attempt = tx.clone();
-    attempt.set_fees(best_fees);
+
+    let fees = last_eval.as_ref().map(|e| e.fee).unwrap_or(0);
+    attempt.set_fees(fees);
 
     attempt = attempt.apply()?;
 
@@ -63,14 +65,14 @@ async fn eval_pass<L: Ledger>(
 
     //let redeemer_fees = eval_redeemer_fees(tx, pparams)?;
 
-    let eval = TxEval {
+    let eval = Some(TxEval {
         payload,
         fee: size_fees, // TODO: add redeemer fees
         ex_units: 0,
-    };
+    });
 
-    if eval.fee != best_fees {
-        return Ok(Some(eval));
+    if eval.as_ref() != last_eval {
+        return Ok(eval);
     }
 
     Ok(None)
@@ -82,14 +84,14 @@ pub async fn resolve_tx<T: Ledger>(
     max_optimize_rounds: usize,
 ) -> Result<TxEval, Error> {
     let pparams = ledger.get_pparams().await?;
-    let mut last_eval = TxEval::default();
+    let mut last_eval = None;
     let mut rounds = 0;
 
     // one initial pass to reduce any available params;
     let tx = tx.apply()?;
 
-    while let Some(better) = eval_pass(&tx, &pparams, &ledger, last_eval.fee).await? {
-        last_eval = better;
+    while let Some(better) = eval_pass(&tx, &pparams, &ledger, last_eval.as_ref()).await? {
+        last_eval = Some(better);
 
         if rounds > max_optimize_rounds {
             return Err(Error::MaxOptimizeRoundsReached);
@@ -98,7 +100,7 @@ pub async fn resolve_tx<T: Ledger>(
         rounds += 1;
     }
 
-    Ok(last_eval)
+    Ok(last_eval.unwrap())
 }
 
 #[cfg(test)]
