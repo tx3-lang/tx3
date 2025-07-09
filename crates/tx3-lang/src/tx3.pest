@@ -180,15 +180,9 @@ list_constructor = {
     "[" ~ (data_expr ~ ",")* ~ data_expr? ~ "]"
 }
 
-address_expr = {
-    identifier |
-    hex_string |
-    string
-}
-
 // input block
 
-input_block_from = { "from" ~ ":" ~ address_expr }
+input_block_from = { "from" ~ ":" ~ data_expr }
 input_block_datum_is = { "datum_is" ~ ":" ~ type }
 input_block_min_amount = { "min_amount" ~ ":" ~ data_expr }
 input_block_redeemer = { "redeemer" ~ ":" ~ data_expr }
@@ -226,7 +220,7 @@ reference_block = {
     "}"
 }
 
-output_block_to = { "to" ~ ":" ~ address_expr }
+output_block_to = { "to" ~ ":" ~ data_expr }
 output_block_amount = { "amount" ~ ":" ~ data_expr }
 output_block_datum = { "datum" ~ ":" ~ data_expr }
 
