@@ -3,8 +3,6 @@
 //! This module takes an AST and performs lowering on it. It converts the AST
 //! into the intermediate representation (IR) of the Tx3 language.
 
-use std::collections::HashSet;
-
 use crate::ast;
 use crate::ir;
 use crate::UtxoRef;
@@ -24,13 +22,18 @@ pub enum Error {
     InvalidAst(String),
 
     #[error("invalid property {0} on type {1:?}")]
-    InvalidProperty(String, ast::Type),
+    InvalidProperty(String, String),
 
     #[error("missing required field {0} for {1:?}")]
     MissingRequiredField(String, &'static str),
 
-    #[error("failed to decode hex string: {0}")]
-    DecodeHexError(#[from] hex::FromHexError),
+    #[error("failed to decode hex string {0}")]
+    DecodeHexError(String),
+}
+
+#[inline]
+fn hex_decode(s: &str) -> Result<Vec<u8>, Error> {
+    hex::decode(s).map_err(|_| Error::DecodeHexError(s.to_string()))
 }
 
 fn expect_type_def(ident: &ast::Identifier) -> Result<&ast::TypeDef, Error> {
@@ -267,7 +270,7 @@ impl IntoLower for ast::PolicyDef {
             ast::PolicyValue::Assign(x) => {
                 let out = ir::PolicyExpr {
                     name: self.name.value.clone(),
-                    hash: ir::Expression::Hash(hex::decode(&x.value)?),
+                    hash: ir::Expression::Hash(hex_decode(&x.value)?),
                     script: ir::ScriptSource::expect_parameter(self.name.value.clone()),
                 };
 
@@ -376,7 +379,10 @@ impl IntoLower for ast::PropertyOp {
 
         let prop_index = ty
             .property_index(&self.property.value)
-            .ok_or(Error::InvalidProperty(self.property.value.clone(), ty))?;
+            .ok_or(Error::InvalidProperty(
+                self.property.value.clone(),
+                ty.to_string(),
+            ))?;
 
         Ok(ir::Expression::EvalBuiltIn(Box::new(
             ir::BuiltInOp::Property(object, prop_index),
@@ -407,7 +413,7 @@ impl IntoLower for ast::DataExpr {
             ast::DataExpr::Number(x) => Self::Output::Number(*x as i128),
             ast::DataExpr::Bool(x) => ir::Expression::Bool(*x),
             ast::DataExpr::String(x) => ir::Expression::String(x.value.clone()),
-            ast::DataExpr::HexString(x) => ir::Expression::Bytes(hex::decode(&x.value)?),
+            ast::DataExpr::HexString(x) => ir::Expression::Bytes(hex_decode(&x.value)?),
             ast::DataExpr::StructConstructor(x) => ir::Expression::Struct(x.into_lower(ctx)?),
             ast::DataExpr::ListConstructor(x) => ir::Expression::List(x.into_lower(ctx)?),
             ast::DataExpr::StaticAssetConstructor(x) => x.into_lower(ctx)?,
@@ -466,7 +472,7 @@ impl IntoLower for ast::AddressExpr {
     fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
         match self {
             ast::AddressExpr::String(x) => Ok(ir::Expression::String(x.value.clone())),
-            ast::AddressExpr::HexString(x) => Ok(ir::Expression::Bytes(hex::decode(&x.value)?)),
+            ast::AddressExpr::HexString(x) => Ok(ir::Expression::Bytes(hex_decode(&x.value)?)),
             ast::AddressExpr::Identifier(x) => lower_into_address_expr(x, ctx),
         }
     }
