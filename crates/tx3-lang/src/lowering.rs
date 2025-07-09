@@ -77,28 +77,11 @@ fn coerce_identifier_into_asset_def(identifier: &ast::Identifier) -> Result<ast:
     }
 }
 
-fn lower_into_address_expr(
-    identifier: &ast::Identifier,
-    ctx: &Context,
-) -> Result<ir::Expression, Error> {
-    match identifier.try_symbol()? {
-        ast::Symbol::PolicyDef(x) => Ok(x.into_lower(ctx)?.hash),
-        ast::Symbol::PartyDef(x) => Ok(ir::Param::ExpectValue(
-            x.name.value.to_lowercase().clone(),
-            ir::Type::Address,
-        )
-        .into()),
-        _ => Err(Error::InvalidSymbol(
-            identifier.value.clone(),
-            "AddressExpr",
-        )),
-    }
-}
-
 #[derive(Debug, Default)]
 pub(crate) struct Context {
     is_asset_expr: bool,
     is_datum_expr: bool,
+    is_address_expr: bool,
 }
 
 impl Context {
@@ -106,6 +89,7 @@ impl Context {
         Self {
             is_asset_expr: true,
             is_datum_expr: false,
+            is_address_expr: false,
         }
     }
 
@@ -113,7 +97,20 @@ impl Context {
         Self {
             is_asset_expr: false,
             is_datum_expr: true,
+            is_address_expr: false,
         }
+    }
+
+    pub fn enter_address_expr(&self) -> Self {
+        Self {
+            is_asset_expr: false,
+            is_datum_expr: false,
+            is_address_expr: true,
+        }
+    }
+
+    pub fn is_address_expr(&self) -> bool {
+        self.is_address_expr
     }
 
     pub fn is_asset_expr(&self) -> bool {
@@ -188,6 +185,15 @@ impl IntoLower for ast::Identifier {
             ast::Symbol::Fees => Ok(ir::Param::ExpectFees.into()),
             ast::Symbol::EnvVar(n, ty) => {
                 Ok(ir::Param::ExpectValue(n.to_lowercase().clone(), ty.into_lower(ctx)?).into())
+            }
+            ast::Symbol::PolicyDef(x) => {
+                let policy = x.into_lower(ctx)?;
+
+                if ctx.is_address_expr() {
+                    Ok(ir::CompilerOp::BuildScriptAddress(policy.hash).into())
+                } else {
+                    Ok(policy.hash)
+                }
             }
             _ => {
                 dbg!(&self);
@@ -466,24 +472,15 @@ impl IntoLower for ast::AnyAssetConstructor {
     }
 }
 
-impl IntoLower for ast::AddressExpr {
-    type Output = ir::Expression;
-
-    fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
-        match self {
-            ast::AddressExpr::String(x) => Ok(ir::Expression::String(x.value.clone())),
-            ast::AddressExpr::HexString(x) => Ok(ir::Expression::Bytes(hex_decode(&x.value)?)),
-            ast::AddressExpr::Identifier(x) => lower_into_address_expr(x, ctx),
-        }
-    }
-}
-
 impl IntoLower for ast::InputBlockField {
     type Output = ir::Expression;
 
     fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
         match self {
-            ast::InputBlockField::From(x) => x.into_lower(ctx),
+            ast::InputBlockField::From(x) => {
+                let ctx = ctx.enter_address_expr();
+                x.into_lower(&ctx)
+            }
             ast::InputBlockField::DatumIs(_) => todo!(),
             ast::InputBlockField::MinAmount(x) => {
                 let ctx = ctx.enter_asset_expr();
@@ -519,14 +516,6 @@ impl IntoLower for ast::InputBlock {
             .transpose()?
             .unwrap_or(ir::Expression::None);
 
-        let policy = from_field
-            .and_then(ast::InputBlockField::as_address_expr)
-            .and_then(ast::AddressExpr::as_identifier)
-            .and_then(|x| x.symbol.as_ref())
-            .and_then(|x| x.as_policy_def())
-            .map(|x| x.into_lower(ctx))
-            .transpose()?;
-
         let query = ir::InputQuery {
             address: address.unwrap_or(ir::Expression::None),
             min_amount: min_amount.unwrap_or(ir::Expression::None),
@@ -539,7 +528,9 @@ impl IntoLower for ast::InputBlock {
             name: self.name.to_lowercase().clone(),
             utxos: param.into(),
             redeemer,
-            policy,
+
+            // DEPRECATED
+            policy: None,
         };
 
         Ok(input)
@@ -551,7 +542,10 @@ impl IntoLower for ast::OutputBlockField {
 
     fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
         match self {
-            ast::OutputBlockField::To(x) => x.into_lower(ctx),
+            ast::OutputBlockField::To(x) => {
+                let ctx = ctx.enter_address_expr();
+                x.into_lower(&ctx)
+            }
             ast::OutputBlockField::Amount(x) => {
                 let ctx = ctx.enter_asset_expr();
                 x.into_lower(&ctx)
