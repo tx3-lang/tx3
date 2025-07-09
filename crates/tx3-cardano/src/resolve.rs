@@ -3,7 +3,7 @@ use tx3_lang::{applying::Apply, ir::InputQuery};
 
 use crate::{compile::compile_tx, Error, PParams};
 
-const DEFAULT_FEES: u64 = 200_000;
+const DEFAULT_EXTRA_FEES: u64 = 200_000;
 
 #[derive(Debug, Default)]
 pub struct TxEval {
@@ -28,7 +28,7 @@ pub trait Ledger {
 fn eval_size_fees(tx: &[u8], pparams: &PParams, extra_fees: Option<u64>) -> Result<u64, Error> {
     Ok(tx.len() as u64 * pparams.min_fee_coefficient
         + pparams.min_fee_constant
-        + extra_fees.unwrap_or(DEFAULT_FEES))
+        + extra_fees.unwrap_or(DEFAULT_EXTRA_FEES))
 }
 
 #[allow(dead_code)]
