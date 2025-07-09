@@ -135,7 +135,15 @@ async fn handle_resolve_proto_tx(
         }
     }
 
-    let tx = tx3_cardano::resolve_tx(tx, ledger, 5).await?;
+    let tx = tx3_cardano::resolve_tx(
+        tx,
+        ledger,
+        tx3_cardano::resolve::Config {
+            max_optimize_rounds: 5,
+            extra_fees: None,
+        },
+    )
+    .await?;
 
     let reply = json!({ "tx": hex::encode(tx.payload) });
 
