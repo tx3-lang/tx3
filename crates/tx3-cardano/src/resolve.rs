@@ -3,11 +3,19 @@ use tx3_lang::{applying::Apply, ir::InputQuery};
 
 use crate::{compile::compile_tx, Error, PParams};
 
+const DEFAULT_EXTRA_FEES: u64 = 200_000;
+
 #[derive(Debug, Default)]
 pub struct TxEval {
     pub payload: Vec<u8>,
     pub fee: u64,
     pub ex_units: u64,
+}
+
+#[derive(Debug)]
+pub struct Config {
+    pub max_optimize_rounds: usize,
+    pub extra_fees: Option<u64>,
 }
 
 #[trait_variant::make(Send)]
@@ -17,8 +25,10 @@ pub trait Ledger {
     async fn resolve_input(&self, query: &InputQuery) -> Result<tx3_lang::UtxoSet, Error>;
 }
 
-fn eval_size_fees(tx: &[u8], pparams: &PParams) -> Result<u64, Error> {
-    Ok(tx.len() as u64 * pparams.min_fee_coefficient + pparams.min_fee_constant + 1_200_000)
+fn eval_size_fees(tx: &[u8], pparams: &PParams, extra_fees: Option<u64>) -> Result<u64, Error> {
+    Ok(tx.len() as u64 * pparams.min_fee_coefficient
+        + pparams.min_fee_constant
+        + extra_fees.unwrap_or(DEFAULT_EXTRA_FEES))
 }
 
 #[allow(dead_code)]
@@ -33,6 +43,7 @@ async fn eval_pass<L: Ledger>(
     pparams: &PParams,
     ledger: &L,
     best_fees: u64,
+    config: &Config,
 ) -> Result<Option<TxEval>, Error> {
     let mut attempt = tx.clone();
     attempt.set_fees(best_fees);
@@ -59,7 +70,7 @@ async fn eval_pass<L: Ledger>(
 
     let payload = pallas::codec::minicbor::to_vec(&tx).unwrap();
 
-    let size_fees = eval_size_fees(&payload, pparams)?;
+    let size_fees = eval_size_fees(&payload, pparams, config.extra_fees)?;
 
     //let redeemer_fees = eval_redeemer_fees(tx, pparams)?;
 
@@ -79,7 +90,7 @@ async fn eval_pass<L: Ledger>(
 pub async fn resolve_tx<T: Ledger>(
     tx: tx3_lang::ProtoTx,
     ledger: T,
-    max_optimize_rounds: usize,
+    config: Config,
 ) -> Result<TxEval, Error> {
     let pparams = ledger.get_pparams().await?;
     let mut last_eval = TxEval::default();
@@ -88,10 +99,10 @@ pub async fn resolve_tx<T: Ledger>(
     // one initial pass to reduce any available params;
     let tx = tx.apply()?;
 
-    while let Some(better) = eval_pass(&tx, &pparams, &ledger, last_eval.fee).await? {
+    while let Some(better) = eval_pass(&tx, &pparams, &ledger, last_eval.fee, &config).await? {
         last_eval = better;
 
-        if rounds > max_optimize_rounds {
+        if rounds > config.max_optimize_rounds {
             return Err(Error::MaxOptimizeRoundsReached);
         }
 
@@ -107,6 +118,15 @@ mod tests {
 
     use super::*;
     use crate::ledgers::mock::MockLedger;
+
+    impl Default for Config {
+        fn default() -> Self {
+            Self {
+                max_optimize_rounds: 3,
+                extra_fees: None,
+            }
+        }
+    }
 
     fn load_protocol(example_name: &str) -> Protocol {
         let manifest_dir = env!("CARGO_MANIFEST_DIR");
@@ -134,7 +154,9 @@ mod tests {
             .apply()
             .unwrap();
 
-        let tx = resolve_tx(tx, MockLedger::default(), 3).await.unwrap();
+        let tx = resolve_tx(tx, MockLedger::default(), Config::default())
+            .await
+            .unwrap();
 
         println!("{}", hex::encode(tx.payload));
         println!("{}", tx.fee);
@@ -153,7 +175,9 @@ mod tests {
             .apply()
             .unwrap();
 
-        let tx = resolve_tx(tx, MockLedger::default(), 3).await.unwrap();
+        let tx = resolve_tx(tx, MockLedger::default(), Config::default())
+            .await
+            .unwrap();
 
         println!("{}", hex::encode(tx.payload));
         println!("{}", tx.fee);
@@ -180,7 +204,9 @@ mod tests {
         dbg!(&tx.find_params());
         dbg!(&tx.find_queries());
 
-        let tx = resolve_tx(tx, MockLedger::default(), 3).await.unwrap();
+        let tx = resolve_tx(tx, MockLedger::default(), Config::default())
+            .await
+            .unwrap();
 
         println!("{}", hex::encode(tx.payload));
         println!("{}", tx.fee);
@@ -204,7 +230,9 @@ mod tests {
 
         let tx = tx.apply().unwrap();
 
-        let tx = resolve_tx(tx, MockLedger::default(), 3).await.unwrap();
+        let tx = resolve_tx(tx, MockLedger::default(), Config::default())
+            .await
+            .unwrap();
 
         println!("{}", hex::encode(&tx.payload));
         println!("{}", tx.fee);
@@ -237,7 +265,7 @@ mod tests {
                     ],
                 })),
             },
-            3,
+            Config::default(),
         )
         .await
         .unwrap();
@@ -274,7 +302,9 @@ mod tests {
 
         let tx = tx.apply().unwrap();
 
-        let tx = resolve_tx(tx, MockLedger::default(), 3).await.unwrap();
+        let tx = resolve_tx(tx, MockLedger::default(), Config::default())
+            .await
+            .unwrap();
 
         println!("{}", hex::encode(&tx.payload));
         println!("{}", tx.fee);
@@ -299,7 +329,9 @@ mod tests {
 
         let tx = tx.apply().unwrap();
 
-        let tx = resolve_tx(tx, MockLedger::default(), 3).await.unwrap();
+        let tx = resolve_tx(tx, MockLedger::default(), Config::default())
+            .await
+            .unwrap();
 
         println!("{}", hex::encode(&tx.payload));
         println!("{}", tx.fee);
@@ -322,9 +354,37 @@ mod tests {
 
         let tx = tx.apply().unwrap();
 
-        let tx = resolve_tx(tx, MockLedger::default(), 3).await.unwrap();
+        let tx = resolve_tx(tx, MockLedger::default(), Config::default())
+            .await
+            .unwrap();
 
         println!("{}", hex::encode(&tx.payload));
         println!("{}", tx.fee);
+    }
+
+    #[tokio::test]
+    async fn extra_fees_test() {
+        let protocol = load_protocol("transfer");
+
+        let tx = protocol.new_tx("transfer")
+            .unwrap()
+            .with_arg("Sender", address_to_bytes("addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"))
+            .with_arg("Receiver", address_to_bytes("addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"))
+            .with_arg("quantity", ArgValue::Int(100_000_000))
+            .apply()
+            .unwrap();
+
+        let extra_fees = 1_200_000;
+        let config = Config {
+            extra_fees: Some(extra_fees),
+            ..Default::default()
+        };
+
+        let tx = resolve_tx(tx, MockLedger::default(), config).await.unwrap();
+
+        println!("{}", hex::encode(tx.payload));
+        println!("{}", tx.fee);
+
+        assert!(tx.fee >= extra_fees);
     }
 }
