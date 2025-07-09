@@ -80,7 +80,7 @@ async fn eval_pass<L: Ledger>(
         ex_units: 0,
     };
 
-    if eval.fee != best_fees {
+    if eval.fee == 0 || eval.fee != best_fees {
         return Ok(Some(eval));
     }
 
@@ -101,6 +101,10 @@ pub async fn resolve_tx<T: Ledger>(
 
     while let Some(better) = eval_pass(&tx, &pparams, &ledger, last_eval.fee, &config).await? {
         last_eval = better;
+
+        if last_eval.fee == 0 {
+            break;
+        }
 
         if rounds > config.max_optimize_rounds {
             return Err(Error::MaxOptimizeRoundsReached);
