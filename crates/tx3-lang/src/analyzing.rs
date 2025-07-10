@@ -5,6 +5,8 @@
 
 use std::{collections::HashMap, rc::Rc};
 
+use miette::Diagnostic;
+
 use crate::ast::*;
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic, PartialEq, Eq)]
@@ -124,8 +126,10 @@ impl Error {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, thiserror::Error, Diagnostic)]
+#[error("analyze report")]
 pub struct AnalyzeReport {
+    #[related]
     pub errors: Vec<Error>,
 }
 
@@ -152,14 +156,6 @@ impl AnalyzeReport {
         } else {
             Self::default()
         }
-    }
-}
-
-impl std::error::Error for AnalyzeReport {}
-
-impl std::fmt::Display for AnalyzeReport {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "AnalyzeReport {{ errors: {:?} }}", self.errors)
     }
 }
 
@@ -287,10 +283,8 @@ impl Scope {
     }
 
     pub fn track_input(&mut self, name: &str, input: InputBlock) {
-        self.symbols.insert(
-            name.to_string(),
-            Symbol::Input(name.to_string(), Box::new(input)),
-        );
+        self.symbols
+            .insert(name.to_string(), Symbol::Input(Box::new(input)));
     }
 
     pub fn track_record_fields_for_type(&mut self, ty: &Type) {

@@ -69,6 +69,7 @@ pub fn expr_into_metadatum(
 pub fn expr_into_utxo_refs(expr: &ir::Expression) -> Result<Vec<tx3_lang::UtxoRef>, Error> {
     match expr {
         ir::Expression::UtxoRefs(x) => Ok(x.clone()),
+        ir::Expression::UtxoSet(x) => Ok(x.iter().map(|x| x.r#ref.clone()).collect()),
         ir::Expression::String(x) => {
             let (raw_txid, raw_output_ix) = x.split_once("#").expect("Invalid utxo ref");
             Ok(vec![tx3_lang::UtxoRef {
@@ -156,6 +157,16 @@ pub fn expr_into_address(
         ir::Expression::Hash(x) => policy_into_address(x, network),
         ir::Expression::Bytes(x) => bytes_into_address(x),
         ir::Expression::String(x) => string_into_address(x),
+        ir::Expression::EvalCompiler(x) => match x.as_ref() {
+            ir::CompilerOp::BuildScriptAddress(x) => {
+                let hash: primitives::Hash<28> = expr_into_hash(x)?;
+                policy_into_address(&hash.to_vec(), network)
+            }
+            _ => Err(Error::CoerceError(
+                format!("{:?}", expr),
+                "Address".to_string(),
+            )),
+        },
         _ => Err(Error::CoerceError(
             format!("{:?}", expr),
             "Address".to_string(),
@@ -176,6 +187,7 @@ pub fn expr_into_hash<const SIZE: usize>(
 ) -> Result<primitives::Hash<SIZE>, Error> {
     match ir {
         ir::Expression::Bytes(x) => Ok(primitives::Hash::from(x.as_slice())),
+        ir::Expression::Hash(x) => Ok(primitives::Hash::from(x.as_slice())),
         _ => Err(Error::CoerceError(format!("{:?}", ir), "Hash".to_string())),
     }
 }

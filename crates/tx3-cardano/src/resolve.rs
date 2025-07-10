@@ -1,11 +1,17 @@
-use pallas::ledger::{primitives::conway as primitives, traverse::OutputRef};
+use pallas::{
+    crypto::hash::Hash,
+    ledger::{primitives::conway as primitives, traverse::ComputeHash},
+};
 use tx3_lang::{applying::Apply, ir::InputQuery, UtxoRef};
 
-use crate::{coercion::expr_into_number, compile::compile_tx, Error, PParams};
+use crate::{compile::compile_tx, Error, PParams};
 
-#[derive(Debug, Default)]
+const DEFAULT_EXTRA_FEES: u64 = 200_000;
+
+#[derive(Debug, PartialEq)]
 pub struct TxEval {
     pub payload: Vec<u8>,
+    pub hash: Hash<32>,
     pub fee: u64,
     pub ex_units: u64,
 }
@@ -13,6 +19,12 @@ pub struct TxEval {
 #[derive(Debug, Default)]
 pub struct ResolveContext {
     pub ignore: Vec<UtxoRef>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Config {
+    pub max_optimize_rounds: usize,
+    pub extra_fees: Option<u64>,
 }
 
 #[trait_variant::make(Send)]
@@ -26,8 +38,10 @@ pub trait Ledger {
     ) -> Result<tx3_lang::UtxoSet, Error>;
 }
 
-fn eval_size_fees(tx: &[u8], pparams: &PParams) -> Result<u64, Error> {
-    Ok(tx.len() as u64 * pparams.min_fee_coefficient + pparams.min_fee_constant + 1_200_000)
+fn eval_size_fees(tx: &[u8], pparams: &PParams, extra_fees: Option<u64>) -> Result<u64, Error> {
+    Ok(tx.len() as u64 * pparams.min_fee_coefficient
+        + pparams.min_fee_constant
+        + extra_fees.unwrap_or(DEFAULT_EXTRA_FEES))
 }
 
 #[allow(dead_code)]
@@ -78,10 +92,13 @@ async fn eval_pass<L: Ledger>(
     tx: &tx3_lang::ProtoTx,
     pparams: &PParams,
     ledger: &L,
-    best_fees: u64,
+    last_eval: Option<&TxEval>,
+    config: &Config,
 ) -> Result<Option<TxEval>, Error> {
     let mut attempt = tx.clone();
-    attempt.set_fees(best_fees);
+
+    let fees = last_eval.as_ref().map(|e| e.fee).unwrap_or(0);
+    attempt.set_fees(fees);
 
     attempt = attempt.apply()?;
 
@@ -95,20 +112,23 @@ async fn eval_pass<L: Ledger>(
 
     let tx = compile_tx(attempt.as_ref(), pparams)?;
 
+    let hash = tx.transaction_body.compute_hash();
+
     let payload = pallas::codec::minicbor::to_vec(&tx).unwrap();
 
-    let size_fees = eval_size_fees(&payload, pparams)?;
+    let size_fees = eval_size_fees(&payload, pparams, config.extra_fees)?;
 
     //let redeemer_fees = eval_redeemer_fees(tx, pparams)?;
 
-    let eval = TxEval {
+    let eval = Some(TxEval {
         payload,
+        hash,
         fee: size_fees, // TODO: add redeemer fees
         ex_units: 0,
-    };
+    });
 
-    if eval.fee != best_fees {
-        return Ok(Some(eval));
+    if eval.as_ref() != last_eval {
+        return Ok(eval);
     }
 
     Ok(None)
@@ -117,34 +137,45 @@ async fn eval_pass<L: Ledger>(
 pub async fn resolve_tx<T: Ledger>(
     tx: tx3_lang::ProtoTx,
     ledger: T,
-    max_optimize_rounds: usize,
+    config: Config,
 ) -> Result<TxEval, Error> {
     let pparams = ledger.get_pparams().await?;
-    let mut last_eval = TxEval::default();
+    let mut last_eval = None;
     let mut rounds = 0;
 
     // one initial pass to reduce any available params;
     let tx = tx.apply()?;
 
-    while let Some(better) = eval_pass(&tx, &pparams, &ledger, last_eval.fee).await? {
-        last_eval = better;
+    while let Some(better) = eval_pass(&tx, &pparams, &ledger, last_eval.as_ref(), &config).await? {
+        last_eval = Some(better);
 
-        if rounds > max_optimize_rounds {
+        if rounds > config.max_optimize_rounds {
             return Err(Error::MaxOptimizeRoundsReached);
         }
 
         rounds += 1;
     }
 
-    Ok(last_eval)
+    Ok(last_eval.unwrap())
 }
 
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+
     use tx3_lang::{ArgValue, Protocol, UtxoRef};
 
     use super::*;
     use crate::ledgers::mock::MockLedger;
+
+    impl Default for Config {
+        fn default() -> Self {
+            Self {
+                max_optimize_rounds: 3,
+                extra_fees: None,
+            }
+        }
+    }
 
     fn load_protocol(example_name: &str) -> Protocol {
         let manifest_dir = env!("CARGO_MANIFEST_DIR");
@@ -172,7 +203,9 @@ mod tests {
             .apply()
             .unwrap();
 
-        let tx = resolve_tx(tx, MockLedger::default(), 3).await.unwrap();
+        let tx = resolve_tx(tx, MockLedger::default(), Config::default())
+            .await
+            .unwrap();
 
         println!("{}", hex::encode(tx.payload));
         println!("{}", tx.fee);
@@ -191,10 +224,16 @@ mod tests {
             .apply()
             .unwrap();
 
-        let tx = resolve_tx(tx, MockLedger::default(), 3).await.unwrap();
+        let tx = resolve_tx(tx, MockLedger::default(), Config::default())
+            .await
+            .unwrap();
 
-        println!("{}", hex::encode(tx.payload));
-        println!("{}", tx.fee);
+        dbg!(&tx);
+
+        assert_eq!(
+            tx.hash.to_string(),
+            "405feba6368a73bac826c2114640eaefcd46178fdce2aa0dda4be3b2d3daeb28"
+        );
     }
 
     #[tokio::test]
@@ -218,10 +257,16 @@ mod tests {
         dbg!(&tx.find_params());
         dbg!(&tx.find_queries());
 
-        let tx = resolve_tx(tx, MockLedger::default(), 3).await.unwrap();
+        let tx = resolve_tx(tx, MockLedger::default(), Config::default())
+            .await
+            .unwrap();
 
-        println!("{}", hex::encode(tx.payload));
-        println!("{}", tx.fee);
+        dbg!(&tx);
+
+        assert_eq!(
+            tx.hash.to_string(),
+            "25d3d58935f885f14ff9af81864a4838ef7207c9d49701d94fae21e1e3ae6cbd"
+        );
     }
 
     #[tokio::test]
@@ -242,10 +287,16 @@ mod tests {
 
         let tx = tx.apply().unwrap();
 
-        let tx = resolve_tx(tx, MockLedger::default(), 3).await.unwrap();
+        let tx = resolve_tx(tx, MockLedger::default(), Config::default())
+            .await
+            .unwrap();
 
-        println!("{}", hex::encode(&tx.payload));
-        println!("{}", tx.fee);
+        dbg!(&tx);
+
+        assert_eq!(
+            tx.hash.to_string(),
+            "fd7c9b7b6a6e4f1989681a08930a0f542b284f23f56c87a2456139a782842fa6"
+        );
     }
 
     #[tokio::test]
@@ -275,13 +326,17 @@ mod tests {
                     ],
                 })),
             },
-            3,
+            Config::default(),
         )
         .await
         .unwrap();
 
-        println!("{}", hex::encode(&tx.payload));
-        println!("{}", tx.fee);
+        dbg!(&tx);
+
+        assert_eq!(
+            tx.hash.to_string(),
+            "650a2e8f4850737f4cdcacaa6069db9eae3af64adb04811a715441c24292a76f"
+        );
     }
 
     #[tokio::test]
@@ -312,10 +367,16 @@ mod tests {
 
         let tx = tx.apply().unwrap();
 
-        let tx = resolve_tx(tx, MockLedger::default(), 3).await.unwrap();
+        let tx = resolve_tx(tx, MockLedger::default(), Config::default())
+            .await
+            .unwrap();
 
-        println!("{}", hex::encode(&tx.payload));
-        println!("{}", tx.fee);
+        dbg!(&tx);
+
+        assert_eq!(
+            tx.hash.to_string(),
+            "d426d1054e93de90c666cbf495b79c33782e42c6259216b8463bbe138f5ac5b6"
+        );
     }
 
     #[tokio::test]
@@ -337,10 +398,16 @@ mod tests {
 
         let tx = tx.apply().unwrap();
 
-        let tx = resolve_tx(tx, MockLedger::default(), 3).await.unwrap();
+        let tx = resolve_tx(tx, MockLedger::default(), Config::default())
+            .await
+            .unwrap();
 
-        println!("{}", hex::encode(&tx.payload));
-        println!("{}", tx.fee);
+        dbg!(&tx);
+
+        assert_eq!(
+            tx.hash.to_string(),
+            "8cc7d414c54c3169b3179998514e19a9015eb597f2ce232b929a9b070bc63ec4"
+        );
     }
 
     #[tokio::test]
@@ -360,9 +427,63 @@ mod tests {
 
         let tx = tx.apply().unwrap();
 
-        let tx = resolve_tx(tx, MockLedger::default(), 3).await.unwrap();
+        let tx = resolve_tx(tx, MockLedger::default(), Config::default())
+            .await
+            .unwrap();
 
-        println!("{}", hex::encode(&tx.payload));
-        println!("{}", tx.fee);
+        dbg!(&tx);
+
+        assert_eq!(
+            tx.hash.to_string(),
+            "dd32c0fbfe556c1c497aab103867ea2cff7bd89e88d25caacd4fa69a33f20997"
+        );
+    }
+
+    #[tokio::test]
+    async fn extra_fees_test() {
+        let protocol = load_protocol("transfer");
+
+        let tx = protocol.new_tx("transfer")
+            .unwrap()
+            .with_arg("Sender", address_to_bytes("addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"))
+            .with_arg("Receiver", address_to_bytes("addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"))
+            .with_arg("quantity", ArgValue::Int(100_000_000))
+            .apply()
+            .unwrap();
+
+        let extra_fees = 1_200_000;
+        let config = Config {
+            extra_fees: Some(extra_fees),
+            ..Default::default()
+        };
+
+        let tx = resolve_tx(tx, MockLedger::default(), config).await.unwrap();
+
+        assert!(tx.fee >= extra_fees);
+    }
+
+    #[tokio::test]
+    async fn extra_fees_zero_test() {
+        let protocol = load_protocol("transfer");
+
+        let tx = protocol.new_tx("transfer")
+            .unwrap()
+            .with_arg("Sender", address_to_bytes("addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"))
+            .with_arg("Receiver", address_to_bytes("addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"))
+            .with_arg("quantity", ArgValue::Int(100_000_000))
+            .apply()
+            .unwrap();
+
+        let config = Config {
+            extra_fees: Some(0),
+            ..Default::default()
+        };
+
+        let tx = resolve_tx(tx, MockLedger::default(), config.clone())
+            .await
+            .unwrap();
+
+        assert!(!tx.payload.is_empty());
+        assert!(tx.fee < DEFAULT_EXTRA_FEES);
     }
 }

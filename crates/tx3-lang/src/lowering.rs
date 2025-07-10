@@ -3,8 +3,6 @@
 //! This module takes an AST and performs lowering on it. It converts the AST
 //! into the intermediate representation (IR) of the Tx3 language.
 
-use std::collections::HashSet;
-
 use crate::ast;
 use crate::ir;
 use crate::UtxoRef;
@@ -24,13 +22,18 @@ pub enum Error {
     InvalidAst(String),
 
     #[error("invalid property {0} on type {1:?}")]
-    InvalidProperty(String, ast::Type),
+    InvalidProperty(String, String),
 
     #[error("missing required field {0} for {1:?}")]
     MissingRequiredField(String, &'static str),
 
-    #[error("failed to decode hex string: {0}")]
-    DecodeHexError(#[from] hex::FromHexError),
+    #[error("failed to decode hex string {0}")]
+    DecodeHexError(String),
+}
+
+#[inline]
+fn hex_decode(s: &str) -> Result<Vec<u8>, Error> {
+    hex::decode(s).map_err(|_| Error::DecodeHexError(s.to_string()))
 }
 
 fn expect_type_def(ident: &ast::Identifier) -> Result<&ast::TypeDef, Error> {
@@ -74,28 +77,11 @@ fn coerce_identifier_into_asset_def(identifier: &ast::Identifier) -> Result<ast:
     }
 }
 
-fn lower_into_address_expr(
-    identifier: &ast::Identifier,
-    ctx: &Context,
-) -> Result<ir::Expression, Error> {
-    match identifier.try_symbol()? {
-        ast::Symbol::PolicyDef(x) => Ok(x.into_lower(ctx)?.hash),
-        ast::Symbol::PartyDef(x) => Ok(ir::Param::ExpectValue(
-            x.name.value.to_lowercase().clone(),
-            ir::Type::Address,
-        )
-        .into()),
-        _ => Err(Error::InvalidSymbol(
-            identifier.value.clone(),
-            "AddressExpr",
-        )),
-    }
-}
-
 #[derive(Debug, Default)]
 pub(crate) struct Context {
     is_asset_expr: bool,
     is_datum_expr: bool,
+    is_address_expr: bool,
 }
 
 impl Context {
@@ -103,6 +89,7 @@ impl Context {
         Self {
             is_asset_expr: true,
             is_datum_expr: false,
+            is_address_expr: false,
         }
     }
 
@@ -110,7 +97,20 @@ impl Context {
         Self {
             is_asset_expr: false,
             is_datum_expr: true,
+            is_address_expr: false,
         }
+    }
+
+    pub fn enter_address_expr(&self) -> Self {
+        Self {
+            is_asset_expr: false,
+            is_datum_expr: false,
+            is_address_expr: true,
+        }
+    }
+
+    pub fn is_address_expr(&self) -> bool {
+        self.is_address_expr
     }
 
     pub fn is_asset_expr(&self) -> bool {
@@ -169,17 +169,15 @@ impl IntoLower for ast::Identifier {
                 ir::Type::Address,
             )
             .into()),
-            ast::Symbol::Input(n, def) => {
-                let query = def.into_lower(ctx)?.query;
+            ast::Symbol::Input(def) => {
+                let inner = def.into_lower(ctx)?.utxos;
 
                 let out = if ctx.is_asset_expr() {
-                    let inner = ir::Param::ExpectInput(n.clone(), query).into();
                     ir::Coerce::IntoAssets(inner).into()
                 } else if ctx.is_datum_expr() {
-                    let inner = ir::Param::ExpectInput(n.clone(), query).into();
                     ir::Coerce::IntoDatum(inner).into()
                 } else {
-                    ir::Param::ExpectInput(n.clone(), query).into()
+                    inner
                 };
 
                 Ok(out)
@@ -187,6 +185,15 @@ impl IntoLower for ast::Identifier {
             ast::Symbol::Fees => Ok(ir::Param::ExpectFees.into()),
             ast::Symbol::EnvVar(n, ty) => {
                 Ok(ir::Param::ExpectValue(n.to_lowercase().clone(), ty.into_lower(ctx)?).into())
+            }
+            ast::Symbol::PolicyDef(x) => {
+                let policy = x.into_lower(ctx)?;
+
+                if ctx.is_address_expr() {
+                    Ok(ir::CompilerOp::BuildScriptAddress(policy.hash).into())
+                } else {
+                    Ok(policy.hash)
+                }
             }
             _ => {
                 dbg!(&self);
@@ -269,7 +276,7 @@ impl IntoLower for ast::PolicyDef {
             ast::PolicyValue::Assign(x) => {
                 let out = ir::PolicyExpr {
                     name: self.name.value.clone(),
-                    hash: ir::Expression::Hash(hex::decode(&x.value)?),
+                    hash: ir::Expression::Hash(hex_decode(&x.value)?),
                     script: ir::ScriptSource::expect_parameter(self.name.value.clone()),
                 };
 
@@ -378,7 +385,10 @@ impl IntoLower for ast::PropertyOp {
 
         let prop_index = ty
             .property_index(&self.property.value)
-            .ok_or(Error::InvalidProperty(self.property.value.clone(), ty))?;
+            .ok_or(Error::InvalidProperty(
+                self.property.value.clone(),
+                ty.to_string(),
+            ))?;
 
         Ok(ir::Expression::EvalBuiltIn(Box::new(
             ir::BuiltInOp::Property(object, prop_index),
@@ -409,7 +419,7 @@ impl IntoLower for ast::DataExpr {
             ast::DataExpr::Number(x) => Self::Output::Number(*x as i128),
             ast::DataExpr::Bool(x) => ir::Expression::Bool(*x),
             ast::DataExpr::String(x) => ir::Expression::String(x.value.clone()),
-            ast::DataExpr::HexString(x) => ir::Expression::Bytes(hex::decode(&x.value)?),
+            ast::DataExpr::HexString(x) => ir::Expression::Bytes(hex_decode(&x.value)?),
             ast::DataExpr::StructConstructor(x) => ir::Expression::Struct(x.into_lower(ctx)?),
             ast::DataExpr::ListConstructor(x) => ir::Expression::List(x.into_lower(ctx)?),
             ast::DataExpr::StaticAssetConstructor(x) => x.into_lower(ctx)?,
@@ -462,24 +472,15 @@ impl IntoLower for ast::AnyAssetConstructor {
     }
 }
 
-impl IntoLower for ast::AddressExpr {
-    type Output = ir::Expression;
-
-    fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
-        match self {
-            ast::AddressExpr::String(x) => Ok(ir::Expression::String(x.value.clone())),
-            ast::AddressExpr::HexString(x) => Ok(ir::Expression::Bytes(hex::decode(&x.value)?)),
-            ast::AddressExpr::Identifier(x) => lower_into_address_expr(x, ctx),
-        }
-    }
-}
-
 impl IntoLower for ast::InputBlockField {
     type Output = ir::Expression;
 
     fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
         match self {
-            ast::InputBlockField::From(x) => x.into_lower(ctx),
+            ast::InputBlockField::From(x) => {
+                let ctx = ctx.enter_address_expr();
+                x.into_lower(&ctx)
+            }
             ast::InputBlockField::DatumIs(_) => todo!(),
             ast::InputBlockField::MinAmount(x) => {
                 let ctx = ctx.enter_asset_expr();
@@ -512,26 +513,21 @@ impl IntoLower for ast::InputBlock {
         let redeemer = self
             .find("redeemer")
             .map(|x| x.into_lower(ctx))
-            .transpose()?;
+            .transpose()?
+            .unwrap_or(ir::Expression::None);
 
-        let policy = from_field
-            .and_then(ast::InputBlockField::as_address_expr)
-            .and_then(ast::AddressExpr::as_identifier)
-            .and_then(|x| x.symbol.as_ref())
-            .and_then(|x| x.as_policy_def())
-            .map(|x| x.into_lower(ctx))
-            .transpose()?;
+        let query = ir::InputQuery {
+            address: address.unwrap_or(ir::Expression::None),
+            min_amount: min_amount.unwrap_or(ir::Expression::None),
+            r#ref: r#ref.unwrap_or(ir::Expression::None),
+        };
+
+        let param = ir::Param::ExpectInput(self.name.to_lowercase().clone(), query);
 
         let input = ir::Input {
             name: self.name.to_lowercase().clone(),
-            query: ir::InputQuery {
-                address: address.unwrap_or(ir::Expression::None),
-                min_amount: min_amount.unwrap_or(ir::Expression::None),
-                r#ref: r#ref.unwrap_or(ir::Expression::None),
-            },
-            refs: HashSet::new(),
+            utxos: param.into(),
             redeemer,
-            policy,
         };
 
         Ok(input)
@@ -543,7 +539,10 @@ impl IntoLower for ast::OutputBlockField {
 
     fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
         match self {
-            ast::OutputBlockField::To(x) => x.into_lower(ctx),
+            ast::OutputBlockField::To(x) => {
+                let ctx = ctx.enter_address_expr();
+                x.into_lower(&ctx)
+            }
             ast::OutputBlockField::Amount(x) => {
                 let ctx = ctx.enter_asset_expr();
                 x.into_lower(&ctx)
@@ -682,12 +681,16 @@ impl IntoLower for ast::CollateralBlock {
 
         let r#ref = self.find("ref").map(|x| x.into_lower(ctx)).transpose()?;
 
+        let query = ir::InputQuery {
+            address: from.unwrap_or(ir::Expression::None),
+            min_amount: min_amount.unwrap_or(ir::Expression::None),
+            r#ref: r#ref.unwrap_or(ir::Expression::None),
+        };
+
+        let param = ir::Param::ExpectInput("collateral".to_string(), query);
+
         let collateral = ir::Collateral {
-            query: ir::InputQuery {
-                address: from.unwrap_or(ir::Expression::None),
-                min_amount: min_amount.unwrap_or(ir::Expression::None),
-                r#ref: r#ref.unwrap_or(ir::Expression::None),
-            },
+            utxos: param.into(),
         };
 
         Ok(collateral)

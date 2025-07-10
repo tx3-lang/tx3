@@ -6,71 +6,81 @@
   "inputs": [
     {
       "name": "source",
-      "query": {
-        "address": {
-          "EvalParam": {
-            "ExpectValue": [
-              "owner",
-              "Address"
-            ]
-          }
-        },
-        "min_amount": {
-          "Assets": [
+      "utxos": {
+        "EvalParam": {
+          "ExpectInput": [
+            "source",
             {
-              "policy": "None",
-              "asset_name": "None",
-              "amount": {
+              "address": {
                 "EvalParam": {
                   "ExpectValue": [
-                    "quantity",
-                    "Int"
+                    "owner",
+                    "Address"
                   ]
                 }
-              }
+              },
+              "min_amount": {
+                "Assets": [
+                  {
+                    "policy": "None",
+                    "asset_name": "None",
+                    "amount": {
+                      "EvalParam": {
+                        "ExpectValue": [
+                          "quantity",
+                          "Int"
+                        ]
+                      }
+                    }
+                  }
+                ]
+              },
+              "ref": "None"
             }
           ]
-        },
-        "ref": "None"
+        }
       },
-      "refs": [],
-      "redeemer": null,
+      "redeemer": "None",
       "policy": null
     }
   ],
   "outputs": [
     {
       "address": {
-        "Hash": [
-          107,
-          156,
-          69,
-          106,
-          166,
-          80,
-          203,
-          128,
-          138,
-          154,
-          181,
-          67,
-          38,
-          224,
-          57,
-          213,
-          35,
-          94,
-          214,
-          159,
-          6,
-          156,
-          150,
-          100,
-          168,
-          254,
-          91,
-          105
-        ]
+        "EvalCompiler": {
+          "BuildScriptAddress": {
+            "Hash": [
+              107,
+              156,
+              69,
+              106,
+              166,
+              80,
+              203,
+              128,
+              138,
+              154,
+              181,
+              67,
+              38,
+              224,
+              57,
+              213,
+              35,
+              94,
+              214,
+              159,
+              6,
+              156,
+              150,
+              100,
+              168,
+              254,
+              91,
+              105
+            ]
+          }
+        }
       },
       "datum": {
         "Struct": {
