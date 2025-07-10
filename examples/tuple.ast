@@ -253,22 +253,36 @@
                         "value": {
                           "TupleConstructor": {
                             "fst": {
-                              "Number": 1
+                              "Identifier": {
+                                "value": "quantity",
+                                "span": {
+                                  "dummy": false,
+                                  "start": 382,
+                                  "end": 390
+                                }
+                              }
                             },
                             "snd": {
-                              "Number": 2
+                              "Identifier": {
+                                "value": "quantity",
+                                "span": {
+                                  "dummy": false,
+                                  "start": 391,
+                                  "end": 399
+                                }
+                              }
                             },
                             "span": {
                               "dummy": false,
                               "start": 381,
-                              "end": 386
+                              "end": 400
                             }
                           }
                         },
                         "span": {
                           "dummy": false,
                           "start": 378,
-                          "end": 386
+                          "end": 400
                         }
                       }
                     ],
@@ -276,13 +290,13 @@
                     "span": {
                       "dummy": false,
                       "start": 366,
-                      "end": 397
+                      "end": 411
                     }
                   },
                   "span": {
                     "dummy": false,
                     "start": 360,
-                    "end": 397
+                    "end": 411
                   }
                 }
               }
@@ -291,7 +305,7 @@
           "span": {
             "dummy": false,
             "start": 269,
-            "end": 404
+            "end": 418
           }
         }
       ],
@@ -303,7 +317,7 @@
       "span": {
         "dummy": false,
         "start": 70,
-        "end": 406
+        "end": 420
       },
       "collateral": [],
       "metadata": null
@@ -403,6 +417,6 @@
   "span": {
     "dummy": false,
     "start": 0,
-    "end": 406
+    "end": 420
   }
 }

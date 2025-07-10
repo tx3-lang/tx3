@@ -6,36 +6,41 @@
   "inputs": [
     {
       "name": "source",
-      "query": {
-        "address": {
-          "EvalParam": {
-            "ExpectValue": [
-              "sender",
-              "Address"
-            ]
-          }
-        },
-        "min_amount": {
-          "Assets": [
+      "utxos": {
+        "EvalParam": {
+          "ExpectInput": [
+            "source",
             {
-              "policy": "None",
-              "asset_name": "None",
-              "amount": {
+              "address": {
                 "EvalParam": {
                   "ExpectValue": [
-                    "quantity",
-                    "Int"
+                    "sender",
+                    "Address"
                   ]
                 }
-              }
+              },
+              "min_amount": {
+                "Assets": [
+                  {
+                    "policy": "None",
+                    "asset_name": "None",
+                    "amount": {
+                      "EvalParam": {
+                        "ExpectValue": [
+                          "quantity",
+                          "Int"
+                        ]
+                      }
+                    }
+                  }
+                ]
+              },
+              "ref": "None"
             }
           ]
-        },
-        "ref": "None"
+        }
       },
-      "refs": [],
-      "redeemer": null,
-      "policy": null
+      "redeemer": "None"
     }
   ],
   "outputs": [
@@ -82,10 +87,20 @@
             {
               "Tuple": [
                 {
-                  "Number": 1
+                  "EvalParam": {
+                    "ExpectValue": [
+                      "quantity",
+                      "Int"
+                    ]
+                  }
                 },
                 {
-                  "Number": 2
+                  "EvalParam": {
+                    "ExpectValue": [
+                      "quantity",
+                      "Int"
+                    ]
+                  }
                 }
               ]
             }
