@@ -8,14 +8,8 @@ authors = ["TxPipe"]
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/tx3-lang/tx3"
-version = "0.6.0"
+version = "0.7.0"
 keywords = ["blockchain", "cardano", "utxo", "dsl"]
 documentation = "https://docs.rs/tx3-lang"
 homepage = "https://github.com/tx3-lang/tx3"
 readme = "README.md"
-
-[workspace.metadata.release]
-push = false
-publish = false
-tag-name = "v{{version}}"
-pre-release-commit-message = "release: v{{version}}"

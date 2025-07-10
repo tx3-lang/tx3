@@ -1,0 +1,23 @@
+type MyRecord {
+    counter: Int,
+    other_field: Bytes,
+}
+
+party MyParty;
+
+tx increase_counter() {
+    input source {
+        from: MyParty,
+        min_amount: fees,
+        datum_is: MyRecord,
+    }
+
+    output {
+        to: MyParty,
+        amount: source - fees,
+        datum: MyRecord {
+            counter: source.counter + 1,
+            other_field: source.other_field,
+        },
+    }
+}

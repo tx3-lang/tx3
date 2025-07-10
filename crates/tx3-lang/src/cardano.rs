@@ -124,11 +124,14 @@ impl Analyzable for WithdrawalBlock {
 impl IntoLower for WithdrawalField {
     type Output = ir::Expression;
 
-    fn into_lower(&self) -> Result<Self::Output, crate::lowering::Error> {
+    fn into_lower(
+        &self,
+        ctx: &crate::lowering::Context,
+    ) -> Result<Self::Output, crate::lowering::Error> {
         match self {
-            WithdrawalField::From(x) => x.into_lower(),
-            WithdrawalField::Amount(x) => x.into_lower(),
-            WithdrawalField::Redeemer(x) => x.into_lower(),
+            WithdrawalField::From(x) => x.into_lower(ctx),
+            WithdrawalField::Amount(x) => x.into_lower(ctx),
+            WithdrawalField::Redeemer(x) => x.into_lower(ctx),
         }
     }
 }
@@ -136,13 +139,16 @@ impl IntoLower for WithdrawalField {
 impl IntoLower for WithdrawalBlock {
     type Output = ir::AdHocDirective;
 
-    fn into_lower(&self) -> Result<Self::Output, crate::lowering::Error> {
+    fn into_lower(
+        &self,
+        ctx: &crate::lowering::Context,
+    ) -> Result<Self::Output, crate::lowering::Error> {
         let credential = self
             .find("from")
             .ok_or_else(|| {
                 crate::lowering::Error::MissingRequiredField("from".to_string(), "WithdrawalBlock")
             })?
-            .into_lower()?;
+            .into_lower(ctx)?;
 
         let amount = self
             .find("amount")
@@ -152,11 +158,11 @@ impl IntoLower for WithdrawalBlock {
                     "WithdrawalBlock",
                 )
             })?
-            .into_lower()?;
+            .into_lower(ctx)?;
 
         let redeemer = self
             .find("redeemer")
-            .map(|r| r.into_lower())
+            .map(|r| r.into_lower(ctx))
             .transpose()?
             .unwrap_or(ir::Expression::None);
 
@@ -213,12 +219,15 @@ impl Analyzable for VoteDelegationCertificate {
 impl IntoLower for VoteDelegationCertificate {
     type Output = ir::AdHocDirective;
 
-    fn into_lower(&self) -> Result<Self::Output, crate::lowering::Error> {
+    fn into_lower(
+        &self,
+        ctx: &crate::lowering::Context,
+    ) -> Result<Self::Output, crate::lowering::Error> {
         Ok(ir::AdHocDirective {
             name: "vote_delegation_certificate".to_string(),
             data: HashMap::from([
-                ("drep".to_string(), self.drep.into_lower()?),
-                ("stake".to_string(), self.stake.into_lower()?),
+                ("drep".to_string(), self.drep.into_lower(ctx)?),
+                ("stake".to_string(), self.stake.into_lower(ctx)?),
             ]),
         })
     }
@@ -266,8 +275,127 @@ impl Analyzable for StakeDelegationCertificate {
 impl IntoLower for StakeDelegationCertificate {
     type Output = ir::AdHocDirective;
 
-    fn into_lower(&self) -> Result<Self::Output, crate::lowering::Error> {
+    fn into_lower(
+        &self,
+        _ctx: &crate::lowering::Context,
+    ) -> Result<Self::Output, crate::lowering::Error> {
         todo!("StakeDelegationCertificate lowering not implemented")
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum PlutusWitnessField {
+    Version(DataExpr, Span),
+    Script(DataExpr, Span),
+}
+
+impl IntoLower for PlutusWitnessField {
+    type Output = (String, ir::Expression);
+
+    fn into_lower(
+        &self,
+        ctx: &crate::lowering::Context,
+    ) -> Result<Self::Output, crate::lowering::Error> {
+        match self {
+            PlutusWitnessField::Version(x, _) => Ok(("version".to_string(), x.into_lower(ctx)?)),
+            PlutusWitnessField::Script(x, _) => Ok(("script".to_string(), x.into_lower(ctx)?)),
+        }
+    }
+}
+
+impl AstNode for PlutusWitnessField {
+    const RULE: Rule = Rule::cardano_plutus_witness_field;
+
+    fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
+        let span = pair.as_span().into();
+
+        match pair.as_rule() {
+            Rule::cardano_plutus_witness_version => {
+                Ok(PlutusWitnessField::Version(DataExpr::parse(pair)?, span))
+            }
+            Rule::cardano_plutus_witness_script => {
+                Ok(PlutusWitnessField::Script(DataExpr::parse(pair)?, span))
+            }
+            x => unreachable!("Unexpected rule in cardano_plutus_witness_field: {:?}", x),
+        }
+    }
+
+    fn span(&self) -> &Span {
+        match self {
+            PlutusWitnessField::Version(_, span) => span,
+            PlutusWitnessField::Script(_, span) => span,
+        }
+    }
+}
+
+impl Analyzable for PlutusWitnessField {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+        match self {
+            PlutusWitnessField::Version(x, _) => x.analyze(parent),
+            PlutusWitnessField::Script(x, _) => x.analyze(parent),
+        }
+    }
+
+    fn is_resolved(&self) -> bool {
+        match self {
+            PlutusWitnessField::Version(x, _) => x.is_resolved(),
+            PlutusWitnessField::Script(x, _) => x.is_resolved(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PlutusWitnessBlock {
+    pub fields: Vec<PlutusWitnessField>,
+    pub span: Span,
+}
+
+impl AstNode for PlutusWitnessBlock {
+    const RULE: Rule = Rule::cardano_plutus_witness_block;
+
+    fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
+        let span = pair.as_span().into();
+        let inner = pair.into_inner();
+
+        let fields = inner
+            .map(|x| PlutusWitnessField::parse(x))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(PlutusWitnessBlock { fields, span })
+    }
+
+    fn span(&self) -> &Span {
+        &self.span
+    }
+}
+
+impl Analyzable for PlutusWitnessBlock {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+        self.fields.analyze(parent)
+    }
+
+    fn is_resolved(&self) -> bool {
+        self.fields.is_resolved()
+    }
+}
+
+impl IntoLower for PlutusWitnessBlock {
+    type Output = ir::AdHocDirective;
+
+    fn into_lower(
+        &self,
+        ctx: &crate::lowering::Context,
+    ) -> Result<Self::Output, crate::lowering::Error> {
+        let data = self
+            .fields
+            .iter()
+            .map(|x| x.into_lower(ctx))
+            .collect::<Result<_, _>>()?;
+
+        Ok(ir::AdHocDirective {
+            name: "plutus_witness".to_string(),
+            data,
+        })
     }
 }
 
@@ -276,6 +404,7 @@ pub enum CardanoBlock {
     VoteDelegationCertificate(VoteDelegationCertificate),
     StakeDelegationCertificate(StakeDelegationCertificate),
     Withdrawal(WithdrawalBlock),
+    PlutusWitness(PlutusWitnessBlock),
 }
 
 impl AstNode for CardanoBlock {
@@ -295,6 +424,9 @@ impl AstNode for CardanoBlock {
             Rule::cardano_withdrawal_block => {
                 Ok(CardanoBlock::Withdrawal(WithdrawalBlock::parse(item)?))
             }
+            Rule::cardano_plutus_witness_block => Ok(CardanoBlock::PlutusWitness(
+                PlutusWitnessBlock::parse(item)?,
+            )),
             x => unreachable!("Unexpected rule in cardano_block: {:?}", x),
         }
     }
@@ -304,6 +436,7 @@ impl AstNode for CardanoBlock {
             CardanoBlock::VoteDelegationCertificate(x) => x.span(),
             CardanoBlock::StakeDelegationCertificate(x) => x.span(),
             CardanoBlock::Withdrawal(x) => x.span(),
+            CardanoBlock::PlutusWitness(x) => x.span(),
         }
     }
 }
@@ -314,6 +447,7 @@ impl Analyzable for CardanoBlock {
             CardanoBlock::VoteDelegationCertificate(x) => x.analyze(parent),
             CardanoBlock::StakeDelegationCertificate(x) => x.analyze(parent),
             CardanoBlock::Withdrawal(x) => x.analyze(parent),
+            CardanoBlock::PlutusWitness(x) => x.analyze(parent),
         }
     }
 
@@ -322,6 +456,7 @@ impl Analyzable for CardanoBlock {
             CardanoBlock::VoteDelegationCertificate(x) => x.is_resolved(),
             CardanoBlock::StakeDelegationCertificate(x) => x.is_resolved(),
             CardanoBlock::Withdrawal(x) => x.is_resolved(),
+            CardanoBlock::PlutusWitness(x) => x.is_resolved(),
         }
     }
 }
@@ -329,11 +464,56 @@ impl Analyzable for CardanoBlock {
 impl IntoLower for CardanoBlock {
     type Output = ir::AdHocDirective;
 
-    fn into_lower(&self) -> Result<Self::Output, crate::lowering::Error> {
+    fn into_lower(
+        &self,
+        ctx: &crate::lowering::Context,
+    ) -> Result<Self::Output, crate::lowering::Error> {
         match self {
-            CardanoBlock::VoteDelegationCertificate(x) => x.into_lower(),
-            CardanoBlock::StakeDelegationCertificate(x) => x.into_lower(),
-            CardanoBlock::Withdrawal(x) => x.into_lower(),
+            CardanoBlock::VoteDelegationCertificate(x) => x.into_lower(ctx),
+            CardanoBlock::StakeDelegationCertificate(x) => x.into_lower(ctx),
+            CardanoBlock::Withdrawal(x) => x.into_lower(ctx),
+            CardanoBlock::PlutusWitness(x) => x.into_lower(ctx),
         }
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ast::*;
+    use pest::Parser;
+
+    macro_rules! input_to_ast_check {
+        ($ast:ty, $name:expr, $input:expr, $expected:expr) => {
+            paste::paste! {
+                #[test]
+                fn [<test_parse_ $ast:snake _ $name>]() {
+                    let pairs = crate::parsing::Tx3Grammar::parse(<$ast>::RULE, $input).unwrap();
+                    let single_match = pairs.into_iter().next().unwrap();
+                    let result = <$ast>::parse(single_match).unwrap();
+
+                    assert_eq!(result, $expected);
+                }
+            }
+        };
+    }
+
+    input_to_ast_check!(
+        PlutusWitnessBlock,
+        "basic",
+        "plutus_witness {
+            version: 3,
+            script: 0xABCDEF,
+        }",
+        PlutusWitnessBlock {
+            fields: vec![
+                PlutusWitnessField::Version(DataExpr::Number(3), Span::DUMMY),
+                PlutusWitnessField::Script(
+                    DataExpr::HexString(HexStringLiteral::new("ABCDEF".to_string())),
+                    Span::DUMMY
+                )
+            ],
+            span: Span::DUMMY,
+        }
+    );
 }

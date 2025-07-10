@@ -33,7 +33,10 @@ static COST_MODEL_PLUTUS_V2: [i64; 175] = [
     32, 24623, 32, 43053543, 10, 53384111, 14333, 10, 43574283, 26308, 10,
 ];
 
-pub struct MockLedger;
+#[derive(Debug, Default)]
+pub struct MockLedger {
+    pub default_datum: Option<tx3_lang::ir::Expression>,
+}
 
 impl Ledger for MockLedger {
     async fn get_pparams(&self) -> Result<PParams, Error> {
@@ -63,7 +66,7 @@ impl Ledger for MockLedger {
             index: 0,
         },
         address: pallas::ledger::addresses::Address::from_bech32("addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2").unwrap().to_vec(),
-        datum: None,
+        datum: self.default_datum.clone(),
         assets: vec![tx3_lang::ir::AssetExpr {
             policy: tx3_lang::ir::Expression::None,
             asset_name: tx3_lang::ir::Expression::None,

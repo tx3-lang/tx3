@@ -1,11 +1,26 @@
 {
+  "env": null,
   "txs": [
     {
-      "name": "some_action",
+      "name": {
+        "value": "some_action",
+        "span": {
+          "dummy": false,
+          "start": 19,
+          "end": 30
+        }
+      },
       "parameters": {
         "parameters": [
           {
-            "name": "quantity",
+            "name": {
+              "value": "quantity",
+              "span": {
+                "dummy": false,
+                "start": 36,
+                "end": 44
+              }
+            },
             "type": "Int"
           }
         ],
@@ -15,6 +30,7 @@
           "end": 51
         }
       },
+      "locals": null,
       "references": [
         {
           "name": "abc",
@@ -249,7 +265,14 @@
   "assets": [],
   "parties": [
     {
-      "name": "Sender",
+      "name": {
+        "value": "Sender",
+        "span": {
+          "dummy": false,
+          "start": 7,
+          "end": 13
+        }
+      },
       "span": {
         "dummy": false,
         "start": 1,
@@ -257,7 +280,14 @@
       }
     },
     {
-      "name": "Receiver",
+      "name": {
+        "value": "Receiver",
+        "span": {
+          "dummy": false,
+          "start": 414,
+          "end": 422
+        }
+      },
       "span": {
         "dummy": false,
         "start": 408,

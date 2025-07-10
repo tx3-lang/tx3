@@ -19,7 +19,9 @@ pub struct Scope {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Symbol {
+    EnvVar(String, Box<Type>),
     ParamVar(String, Box<Type>),
+    LocalExpr(Box<DataExpr>),
     Input(String, Box<InputBlock>),
     PartyDef(Box<PartyDef>),
     PolicyDef(Box<PolicyDef>),
@@ -111,10 +113,7 @@ impl Symbol {
         match self {
             Symbol::ParamVar(_, ty) => Some(ty.as_ref().clone()),
             Symbol::RecordField(x) => Some(x.r#type.clone()),
-            Symbol::Input(_, input) => {
-                let datum_type = input.datum_is().cloned().unwrap_or(Type::Undefined);
-                Some(datum_type)
-            }
+            Symbol::Input(_, input) => input.datum_is().cloned(),
             x => {
                 dbg!(x);
                 None
@@ -164,6 +163,7 @@ impl AsRef<str> for Identifier {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct Program {
+    pub env: Option<EnvDef>,
     pub txs: Vec<TxDef>,
     pub types: Vec<TypeDef>,
     pub assets: Vec<AssetDef>,
@@ -177,6 +177,19 @@ pub struct Program {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct EnvField {
+    pub name: String,
+    pub r#type: Type,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct EnvDef {
+    pub fields: Vec<EnvField>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ParameterList {
     pub parameters: Vec<ParamDef>,
     pub span: Span,
@@ -184,8 +197,9 @@ pub struct ParameterList {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct TxDef {
-    pub name: String,
+    pub name: Identifier,
     pub parameters: ParameterList,
+    pub locals: Option<LocalsBlock>,
     pub references: Vec<ReferenceBlock>,
     pub inputs: Vec<InputBlock>,
     pub outputs: Vec<OutputBlock>,
@@ -201,6 +215,19 @@ pub struct TxDef {
     // analysis
     #[serde(skip)]
     pub(crate) scope: Option<Rc<Scope>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct LocalsAssign {
+    pub name: Identifier,
+    pub value: DataExpr,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub struct LocalsBlock {
+    pub assigns: Vec<LocalsAssign>,
+    pub span: Span,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -455,7 +482,7 @@ pub struct BurnBlock {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct RecordField {
-    pub name: String,
+    pub name: Identifier,
     pub r#type: Type,
     pub span: Span,
 }
@@ -463,16 +490,16 @@ pub struct RecordField {
 impl RecordField {
     pub fn new(name: &str, r#type: Type) -> Self {
         Self {
-            name: name.to_string(),
+            name: Identifier::new(name),
             r#type,
             span: Span::DUMMY,
         }
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PartyDef {
-    pub name: String,
+    pub name: Identifier,
     pub span: Span,
 }
 
@@ -484,7 +511,7 @@ pub struct PartyField {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PolicyDef {
-    pub name: String,
+    pub name: Identifier,
     pub value: PolicyValue,
     pub span: Span,
 }
@@ -745,6 +772,24 @@ pub enum Type {
     Custom(Identifier),
 }
 
+impl std::fmt::Display for Type {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Type::Undefined => write!(f, "Undefined"),
+            Type::Unit => write!(f, "Unit"),
+            Type::Int => write!(f, "Int"),
+            Type::Bool => write!(f, "Bool"),
+            Type::Bytes => write!(f, "Bytes"),
+            Type::Address => write!(f, "Address"),
+            Type::UtxoRef => write!(f, "UtxoRef"),
+            Type::AnyAsset => write!(f, "AnyAsset"),
+            Type::Utxo => write!(f, "Utxo"),
+            Type::List(inner) => write!(f, "List<{}>", inner),
+            Type::Custom(id) => write!(f, "{}", id.value),
+        }
+    }
+}
+
 impl Type {
     pub fn properties(&self) -> Vec<(String, Type)> {
         match self {
@@ -768,7 +813,7 @@ impl Type {
                     Some(ty) if ty.cases.len() == 1 => ty.cases[0]
                         .fields
                         .iter()
-                        .map(|f| (f.name.clone(), f.r#type.clone()))
+                        .map(|f| (f.name.value.clone(), f.r#type.clone()))
                         .collect(),
                     _ => vec![],
                 }
@@ -783,51 +828,33 @@ impl Type {
     }
 }
 
-impl std::fmt::Display for Type {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Type::Undefined => write!(f, "Undefined"),
-            Type::Unit => write!(f, "Unit"),
-            Type::Int => write!(f, "Int"),
-            Type::Bool => write!(f, "Bool"),
-            Type::Bytes => write!(f, "Bytes"),
-            Type::Address => write!(f, "Address"),
-            Type::Utxo => write!(f, "Utxo"),
-            Type::UtxoRef => write!(f, "UtxoRef"),
-            Type::AnyAsset => write!(f, "AnyAsset"),
-            Type::List(x) => write!(f, "List({})", x),
-            Type::Custom(x) => write!(f, "Custom({})", x.value),
-        }
-    }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ParamDef {
-    pub name: String,
+    pub name: Identifier,
     pub r#type: Type,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct TypeDef {
-    pub name: String,
+    pub name: Identifier,
     pub cases: Vec<VariantCase>,
     pub span: Span,
 }
 
 impl TypeDef {
     pub(crate) fn find_case_index(&self, case: &str) -> Option<usize> {
-        self.cases.iter().position(|x| x.name == case)
+        self.cases.iter().position(|x| x.name.value == case)
     }
 
     #[allow(dead_code)]
     pub(crate) fn find_case(&self, case: &str) -> Option<&VariantCase> {
-        self.cases.iter().find(|x| x.name == case)
+        self.cases.iter().find(|x| x.name.value == case)
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct VariantCase {
-    pub name: String,
+    pub name: Identifier,
     pub fields: Vec<RecordField>,
     pub span: Span,
 }
@@ -835,18 +862,18 @@ pub struct VariantCase {
 impl VariantCase {
     #[allow(dead_code)]
     pub(crate) fn find_field_index(&self, field: &str) -> Option<usize> {
-        self.fields.iter().position(|x| x.name == field)
+        self.fields.iter().position(|x| x.name.value == field)
     }
 
     #[allow(dead_code)]
     pub(crate) fn find_field(&self, field: &str) -> Option<&RecordField> {
-        self.fields.iter().find(|x| x.name == field)
+        self.fields.iter().find(|x| x.name.value == field)
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AssetDef {
-    pub name: String,
+    pub name: Identifier,
     pub policy: DataExpr,
     pub asset_name: DataExpr,
     pub span: Span,

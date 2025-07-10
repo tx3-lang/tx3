@@ -16,24 +16,20 @@
           }
         },
         "min_amount": {
-          "EvalCoerce": {
-            "IntoAssets": {
-              "Assets": [
-                {
-                  "policy": "None",
-                  "asset_name": "None",
-                  "amount": {
-                    "EvalParam": {
-                      "ExpectValue": [
-                        "quantity",
-                        "Int"
-                      ]
-                    }
-                  }
+          "Assets": [
+            {
+              "policy": "None",
+              "asset_name": "None",
+              "amount": {
+                "EvalParam": {
+                  "ExpectValue": [
+                    "quantity",
+                    "Int"
+                  ]
                 }
-              ]
+              }
             }
-          }
+          ]
         },
         "ref": "None"
       },
@@ -77,59 +73,51 @@
         ]
       },
       "datum": {
-        "EvalCoerce": {
-          "IntoDatum": {
-            "Struct": {
-              "constructor": 0,
-              "fields": [
-                {
-                  "EvalParam": {
-                    "ExpectValue": [
-                      "until",
-                      "Int"
-                    ]
-                  }
-                },
-                {
-                  "EvalParam": {
-                    "ExpectValue": [
-                      "owner",
-                      "Address"
-                    ]
-                  }
-                },
-                {
-                  "EvalParam": {
-                    "ExpectValue": [
-                      "beneficiary",
-                      "Address"
-                    ]
-                  }
-                }
-              ]
+        "Struct": {
+          "constructor": 0,
+          "fields": [
+            {
+              "EvalParam": {
+                "ExpectValue": [
+                  "until",
+                  "Int"
+                ]
+              }
+            },
+            {
+              "EvalParam": {
+                "ExpectValue": [
+                  "owner",
+                  "Address"
+                ]
+              }
+            },
+            {
+              "EvalParam": {
+                "ExpectValue": [
+                  "beneficiary",
+                  "Address"
+                ]
+              }
             }
-          }
+          ]
         }
       },
       "amount": {
-        "EvalCoerce": {
-          "IntoAssets": {
-            "Assets": [
-              {
-                "policy": "None",
-                "asset_name": "None",
-                "amount": {
-                  "EvalParam": {
-                    "ExpectValue": [
-                      "quantity",
-                      "Int"
-                    ]
-                  }
-                }
+        "Assets": [
+          {
+            "policy": "None",
+            "asset_name": "None",
+            "amount": {
+              "EvalParam": {
+                "ExpectValue": [
+                  "quantity",
+                  "Int"
+                ]
               }
-            ]
+            }
           }
-        }
+        ]
       }
     },
     {
@@ -143,14 +131,14 @@
       },
       "datum": "None",
       "amount": {
-        "EvalCoerce": {
-          "IntoAssets": {
-            "EvalBuiltIn": {
-              "Sub": [
-                {
-                  "EvalBuiltIn": {
-                    "Sub": [
-                      {
+        "EvalBuiltIn": {
+          "Sub": [
+            {
+              "EvalBuiltIn": {
+                "Sub": [
+                  {
+                    "EvalCoerce": {
+                      "IntoAssets": {
                         "EvalParam": {
                           "ExpectInput": [
                             "source",
@@ -164,55 +152,51 @@
                                 }
                               },
                               "min_amount": {
-                                "EvalCoerce": {
-                                  "IntoAssets": {
-                                    "Assets": [
-                                      {
-                                        "policy": "None",
-                                        "asset_name": "None",
-                                        "amount": {
-                                          "EvalParam": {
-                                            "ExpectValue": [
-                                              "quantity",
-                                              "Int"
-                                            ]
-                                          }
-                                        }
+                                "Assets": [
+                                  {
+                                    "policy": "None",
+                                    "asset_name": "None",
+                                    "amount": {
+                                      "EvalParam": {
+                                        "ExpectValue": [
+                                          "quantity",
+                                          "Int"
+                                        ]
                                       }
-                                    ]
+                                    }
                                   }
-                                }
+                                ]
                               },
                               "ref": "None"
                             }
                           ]
                         }
-                      },
+                      }
+                    }
+                  },
+                  {
+                    "Assets": [
                       {
-                        "Assets": [
-                          {
-                            "policy": "None",
-                            "asset_name": "None",
-                            "amount": {
-                              "EvalParam": {
-                                "ExpectValue": [
-                                  "quantity",
-                                  "Int"
-                                ]
-                              }
-                            }
+                        "policy": "None",
+                        "asset_name": "None",
+                        "amount": {
+                          "EvalParam": {
+                            "ExpectValue": [
+                              "quantity",
+                              "Int"
+                            ]
                           }
-                        ]
+                        }
                       }
                     ]
                   }
-                },
-                {
-                  "EvalParam": "ExpectFees"
-                }
-              ]
+                ]
+              }
+            },
+            {
+              "EvalParam": "ExpectFees"
             }
-          }
+          ]
         }
       }
     }

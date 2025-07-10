@@ -225,42 +225,51 @@ impl Scope {
         }
     }
 
+    pub fn track_env_var(&mut self, name: &str, ty: Type) {
+        self.symbols.insert(
+            name.to_string(),
+            Symbol::EnvVar(name.to_string(), Box::new(ty)),
+        );
+    }
+
     pub fn track_type_def(&mut self, type_: &TypeDef) {
-        self.symbols
-            .insert(type_.name.clone(), Symbol::TypeDef(Box::new(type_.clone())));
+        self.symbols.insert(
+            type_.name.value.clone(),
+            Symbol::TypeDef(Box::new(type_.clone())),
+        );
     }
 
     pub fn track_variant_case(&mut self, case: &VariantCase) {
         self.symbols.insert(
-            case.name.clone(),
+            case.name.value.clone(),
             Symbol::VariantCase(Box::new(case.clone())),
         );
     }
 
     pub fn track_record_field(&mut self, field: &RecordField) {
         self.symbols.insert(
-            field.name.clone(),
+            field.name.value.clone(),
             Symbol::RecordField(Box::new(field.clone())),
         );
     }
 
     pub fn track_party_def(&mut self, party: &PartyDef) {
         self.symbols.insert(
-            party.name.clone(),
+            party.name.value.clone(),
             Symbol::PartyDef(Box::new(party.clone())),
         );
     }
 
     pub fn track_policy_def(&mut self, policy: &PolicyDef) {
         self.symbols.insert(
-            policy.name.clone(),
+            policy.name.value.clone(),
             Symbol::PolicyDef(Box::new(policy.clone())),
         );
     }
 
     pub fn track_asset_def(&mut self, asset: &AssetDef) {
         self.symbols.insert(
-            asset.name.clone(),
+            asset.name.value.clone(),
             Symbol::AssetDef(Box::new(asset.clone())),
         );
     }
@@ -270,6 +279,11 @@ impl Scope {
             param.to_string(),
             Symbol::ParamVar(param.to_string(), Box::new(ty)),
         );
+    }
+
+    pub fn track_local_expr(&mut self, name: &str, expr: DataExpr) {
+        self.symbols
+            .insert(name.to_string(), Symbol::LocalExpr(Box::new(expr)));
     }
 
     pub fn track_input(&mut self, name: &str, input: InputBlock) {
@@ -284,7 +298,7 @@ impl Scope {
 
         for (name, subty) in schema {
             self.track_record_field(&RecordField {
-                name,
+                name: Identifier::new(name),
                 r#type: subty,
                 span: Span::DUMMY,
             });
@@ -899,6 +913,26 @@ impl Analyzable for ChainSpecificBlock {
     }
 }
 
+impl Analyzable for LocalsAssign {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+        self.value.analyze(parent)
+    }
+
+    fn is_resolved(&self) -> bool {
+        self.value.is_resolved()
+    }
+}
+
+impl Analyzable for LocalsBlock {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+        self.assigns.analyze(parent)
+    }
+
+    fn is_resolved(&self) -> bool {
+        self.assigns.is_resolved()
+    }
+}
+
 impl Analyzable for ParamDef {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
         self.r#type.analyze(parent)
@@ -927,44 +961,64 @@ impl Analyzable for TxDef {
 
         // create the new scope and populate its symbols
 
-        let mut scope1 = Scope::new(parent.clone());
+        let parent = {
+            let mut current = Scope::new(parent.clone());
 
-        scope1.symbols.insert("fees".to_string(), Symbol::Fees);
+            current.symbols.insert("fees".to_string(), Symbol::Fees);
 
-        for param in self.parameters.parameters.iter() {
-            scope1.track_param_var(&param.name, param.r#type.clone());
-        }
+            for param in self.parameters.parameters.iter() {
+                current.track_param_var(&param.name.value, param.r#type.clone());
+            }
 
-        let scope1 = Rc::new(scope1);
+            Rc::new(current)
+        };
 
-        let inputs = self.inputs.analyze(Some(scope1.clone()));
+        let mut locals = self.locals.take().unwrap_or_default();
 
-        let mut scope2 = Scope::new(Some(scope1.clone()));
+        let locals_report = locals.analyze(Some(parent.clone()));
 
-        for input in self.inputs.iter() {
-            scope2.track_input(&input.name, input.clone());
-        }
+        let parent = {
+            let mut current = Scope::new(Some(parent.clone()));
 
-        // enter the new scope and analyze the rest of the program
-        self.scope = Some(Rc::new(scope2));
+            for assign in locals.assigns.iter() {
+                current.track_local_expr(&assign.name.value, assign.value.clone());
+            }
 
-        let outputs = self.outputs.analyze(self.scope.clone());
+            Rc::new(current)
+        };
 
-        let mints = self.mints.analyze(self.scope.clone());
+        let inputs = self.inputs.analyze(Some(parent.clone()));
 
-        let adhoc = self.adhoc.analyze(self.scope.clone());
+        let parent = {
+            let mut current = Scope::new(Some(parent.clone()));
 
-        let validity = self.validity.analyze(self.scope.clone());
+            for input in self.inputs.iter() {
+                current.track_input(&input.name, input.clone());
+            }
 
-        let metadata = self.metadata.analyze(self.scope.clone());
+            Rc::new(current)
+        };
 
-        let signers = self.signers.analyze(self.scope.clone());
+        let outputs = self.outputs.analyze(Some(parent.clone()));
 
-        let references = self.references.analyze(self.scope.clone());
+        let mints = self.mints.analyze(Some(parent.clone()));
 
-        let collateral = self.collateral.analyze(self.scope.clone());
+        let adhoc = self.adhoc.analyze(Some(parent.clone()));
+
+        let validity = self.validity.analyze(Some(parent.clone()));
+
+        let metadata = self.metadata.analyze(Some(parent.clone()));
+
+        let signers = self.signers.analyze(Some(parent.clone()));
+
+        let references = self.references.analyze(Some(parent.clone()));
+
+        let collateral = self.collateral.analyze(Some(parent.clone()));
+
+        self.scope = Some(parent);
 
         params
+            + locals_report
             + inputs
             + outputs
             + mints
@@ -991,7 +1045,11 @@ impl Analyzable for TxDef {
 
 fn ada_asset_def() -> AssetDef {
     AssetDef {
-        name: "Ada".to_string(),
+        name: Identifier {
+            value: "Ada".to_string(),
+            symbol: None,
+            span: Span::DUMMY,
+        },
         policy: DataExpr::None,
         asset_name: DataExpr::None,
         span: Span::DUMMY,
@@ -1001,6 +1059,12 @@ fn ada_asset_def() -> AssetDef {
 impl Analyzable for Program {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
         let mut scope = Scope::new(parent);
+
+        if let Some(env) = self.env.take() {
+            for field in env.fields.iter() {
+                scope.track_env_var(&field.name, field.r#type.clone());
+            }
+        }
 
         for party in self.parties.iter() {
             scope.track_party_def(party);

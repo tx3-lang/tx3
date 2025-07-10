@@ -1,15 +1,37 @@
 {
+  "env": null,
   "txs": [
     {
-      "name": "swap",
+      "name": {
+        "value": "swap",
+        "span": {
+          "dummy": false,
+          "start": 164,
+          "end": 168
+        }
+      },
       "parameters": {
         "parameters": [
           {
-            "name": "ask",
+            "name": {
+              "value": "ask",
+              "span": {
+                "dummy": false,
+                "start": 174,
+                "end": 177
+              }
+            },
             "type": "AnyAsset"
           },
           {
-            "name": "bid",
+            "name": {
+              "value": "bid",
+              "span": {
+                "dummy": false,
+                "start": 193,
+                "end": 196
+              }
+            },
             "type": "AnyAsset"
           }
         ],
@@ -19,6 +41,7 @@
           "end": 209
         }
       },
+      "locals": null,
       "references": [],
       "inputs": [
         {
@@ -543,13 +566,34 @@
   ],
   "types": [
     {
-      "name": "PoolState",
+      "name": {
+        "value": "PoolState",
+        "span": {
+          "dummy": false,
+          "start": 5,
+          "end": 14
+        }
+      },
       "cases": [
         {
-          "name": "Default",
+          "name": {
+            "value": "Default",
+            "span": {
+              "dummy": true,
+              "start": 0,
+              "end": 0
+            }
+          },
           "fields": [
             {
-              "name": "pair_a",
+              "name": {
+                "value": "pair_a",
+                "span": {
+                  "dummy": false,
+                  "start": 21,
+                  "end": 27
+                }
+              },
               "type": "AnyAsset",
               "span": {
                 "dummy": false,
@@ -558,7 +602,14 @@
               }
             },
             {
-              "name": "pair_b",
+              "name": {
+                "value": "pair_b",
+                "span": {
+                  "dummy": false,
+                  "start": 43,
+                  "end": 49
+                }
+              },
               "type": "AnyAsset",
               "span": {
                 "dummy": false,
@@ -581,13 +632,34 @@
       }
     },
     {
-      "name": "SwapParams",
+      "name": {
+        "value": "SwapParams",
+        "span": {
+          "dummy": false,
+          "start": 69,
+          "end": 79
+        }
+      },
       "cases": [
         {
-          "name": "Default",
+          "name": {
+            "value": "Default",
+            "span": {
+              "dummy": true,
+              "start": 0,
+              "end": 0
+            }
+          },
           "fields": [
             {
-              "name": "ask_value",
+              "name": {
+                "value": "ask_value",
+                "span": {
+                  "dummy": false,
+                  "start": 86,
+                  "end": 95
+                }
+              },
               "type": "AnyAsset",
               "span": {
                 "dummy": false,
@@ -596,7 +668,14 @@
               }
             },
             {
-              "name": "bid_value",
+              "name": {
+                "value": "bid_value",
+                "span": {
+                  "dummy": false,
+                  "start": 111,
+                  "end": 120
+                }
+              },
               "type": "AnyAsset",
               "span": {
                 "dummy": false,
@@ -622,7 +701,14 @@
   "assets": [],
   "parties": [
     {
-      "name": "Buyer",
+      "name": {
+        "value": "Buyer",
+        "span": {
+          "dummy": false,
+          "start": 141,
+          "end": 146
+        }
+      },
       "span": {
         "dummy": false,
         "start": 135,
@@ -630,7 +716,14 @@
       }
     },
     {
-      "name": "Dex",
+      "name": {
+        "value": "Dex",
+        "span": {
+          "dummy": false,
+          "start": 155,
+          "end": 158
+        }
+      },
       "span": {
         "dummy": false,
         "start": 149,

@@ -223,15 +223,10 @@ pub trait Apply: Sized + std::fmt::Debug {
     fn queries(&self) -> BTreeMap<String, ir::InputQuery>;
 
     fn reduce(self) -> Result<Self, Error>;
-    fn distribute(self) -> Result<Self, Error>;
 }
 
 trait Composite: Sized {
     fn reduce_self(self) -> Result<Self, Error> {
-        Ok(self)
-    }
-
-    fn distribute_self(self) -> Result<Self, Error> {
         Ok(self)
     }
 
@@ -243,10 +238,6 @@ trait Composite: Sized {
 
     fn reduce_nested(self) -> Result<Self, Error> {
         self.try_map_components(|x| x.reduce())
-    }
-
-    fn distribute_nested(self) -> Result<Self, Error> {
-        self.try_map_components(|x| x.distribute())
     }
 }
 
@@ -276,11 +267,6 @@ where
 
     fn queries(&self) -> BTreeMap<String, ir::InputQuery> {
         self.components().iter().flat_map(|x| x.queries()).collect()
-    }
-
-    fn distribute(self) -> Result<Self, Error> {
-        let x = self.distribute_self()?;
-        x.distribute_nested()
     }
 
     fn reduce(self) -> Result<Self, Error> {
@@ -334,10 +320,6 @@ where
     fn reduce(self) -> Result<Self, Error> {
         self.map(|x| x.reduce()).transpose()
     }
-
-    fn distribute(self) -> Result<Self, Error> {
-        self.map(|x| x.distribute()).transpose()
-    }
 }
 
 impl<T> Apply for Vec<T>
@@ -370,10 +352,6 @@ where
 
     fn reduce(self) -> Result<Self, Error> {
         self.into_iter().map(|x| x.reduce()).collect()
-    }
-
-    fn distribute(self) -> Result<Self, Error> {
-        self.into_iter().map(|x| x.distribute()).collect()
     }
 }
 
@@ -416,20 +394,10 @@ where
             .map(|(k, v)| v.reduce().map(|v| (k, v)))
             .collect()
     }
-
-    fn distribute(self) -> Result<Self, Error> {
-        self.into_iter()
-            .map(|(k, v)| v.distribute().map(|v| (k, v)))
-            .collect()
-    }
 }
 
 impl Composite for ir::ScriptSource {
     fn reduce_self(self) -> Result<Self, Error> {
-        Ok(self)
-    }
-
-    fn distribute_self(self) -> Result<Self, Error> {
         Ok(self)
     }
 
@@ -545,26 +513,6 @@ impl Composite for ir::Coerce {
             Self::IntoDatum(x) => Ok(Self::IntoDatum(f(x)?)),
             Self::IntoScript(x) => Ok(Self::IntoScript(f(x)?)),
             Self::NoOp(x) => Ok(Self::NoOp(f(x)?)),
-        }
-    }
-
-    fn distribute_self(self) -> Result<Self, Error> {
-        match self {
-            Self::IntoAssets(inner) => match inner {
-                ir::Expression::EvalBuiltIn(op) => {
-                    let wrapped = op.try_map_components(|x| Ok(Self::IntoAssets(x).into()))?;
-                    Ok(Self::NoOp(wrapped.into()))
-                }
-                x => Ok(Self::IntoAssets(x)),
-            },
-            Self::IntoDatum(inner) => match inner {
-                ir::Expression::EvalBuiltIn(op) => {
-                    let wrapped = op.try_map_components(|x| Ok(Self::IntoDatum(x).into()))?;
-                    Ok(Self::NoOp(wrapped.into()))
-                }
-                x => Ok(Self::IntoDatum(x)),
-            },
-            x => Ok(x),
         }
     }
 
@@ -863,16 +811,6 @@ impl Apply for ir::Param {
             x => Ok(x),
         }
     }
-
-    fn distribute(self) -> Result<Self, Error> {
-        match self {
-            // queries can have nested expressions that need to be distributed
-            ir::Param::ExpectInput(name, query) => {
-                Ok(ir::Param::ExpectInput(name, query.distribute()?))
-            }
-            x => Ok(x),
-        }
-    }
 }
 
 impl Apply for ir::Expression {
@@ -1005,45 +943,6 @@ impl Apply for ir::Expression {
 
             // it's safe to skip the remaining expressions as they are constant
             _ => BTreeMap::new(),
-        }
-    }
-
-    fn distribute(self) -> Result<Self, Error> {
-        match self {
-            // the following expressions can only be reduced internally
-            ir::Expression::List(x) => Ok(Self::List(
-                x.into_iter()
-                    .map(|x| x.distribute())
-                    .collect::<Result<_, _>>()?,
-            )),
-            ir::Expression::Tuple(x) => Ok(Self::Tuple(Box::new((
-                x.0.distribute()?,
-                x.1.distribute()?,
-            )))),
-            ir::Expression::Struct(x) => Ok(Self::Struct(x.distribute()?)),
-            ir::Expression::Assets(x) => Ok(Self::Assets(
-                x.into_iter()
-                    .map(|x| x.distribute())
-                    .collect::<Result<_, _>>()?,
-            )),
-            ir::Expression::AdHocDirective(x) => {
-                Ok(Self::AdHocDirective(Box::new(x.distribute()?)))
-            }
-
-            // the following ones can be turned into simpler expressions
-            ir::Expression::EvalBuiltIn(op) => match *op {
-                ir::BuiltInOp::NoOp(x) => Ok(x),
-                x => Ok(ir::Expression::EvalBuiltIn(Box::new(x.distribute()?))),
-            },
-            ir::Expression::EvalCoerce(x) => match *x {
-                ir::Coerce::NoOp(x) => Ok(x),
-                x => Ok(ir::Expression::EvalCoerce(Box::new(x.distribute()?))),
-            },
-            ir::Expression::EvalParam(x) => match *x {
-                ir::Param::Set(x) => Ok(x),
-                x => Ok(ir::Expression::EvalParam(Box::new(x.distribute()?))),
-            },
-            _ => Ok(self),
         }
     }
 
@@ -1289,21 +1188,6 @@ impl Apply for ir::Tx {
         queries
     }
 
-    fn distribute(self) -> Result<Self, Error> {
-        Ok(Self {
-            references: self.references.distribute()?,
-            inputs: self.inputs.distribute()?,
-            outputs: self.outputs.distribute()?,
-            validity: self.validity.distribute()?,
-            mints: self.mints.distribute()?,
-            fees: self.fees.distribute()?,
-            adhoc: self.adhoc.distribute()?,
-            collateral: self.collateral.distribute()?,
-            signers: self.signers.distribute()?,
-            metadata: self.metadata.distribute()?,
-        })
-    }
-
     fn reduce(self) -> Result<Self, Error> {
         Ok(Self {
             references: self.references.reduce()?,
@@ -1336,8 +1220,7 @@ pub fn apply_fees(template: ir::Tx, fees: u64) -> Result<ir::Tx, Error> {
 }
 
 pub fn reduce(template: ir::Tx) -> Result<ir::Tx, Error> {
-    let x = template.distribute()?;
-    x.reduce()
+    template.reduce()
 }
 
 pub fn find_params(template: &ir::Tx) -> BTreeMap<String, ir::Type> {
@@ -1658,43 +1541,6 @@ mod tests {
         let reduced = op.reduce().unwrap();
 
         assert_eq!(reduced, ir::Coerce::NoOp(utxos[0].datum.clone().unwrap()));
-    }
-
-    #[test]
-    fn test_coerce_distributes_itself() {
-        let utxos = vec![Utxo {
-            r#ref: UtxoRef::new(b"abc", 1),
-            address: b"abc".into(),
-            datum: None,
-            assets: vec![ir::AssetExpr {
-                policy: ir::Expression::None,
-                asset_name: ir::Expression::None,
-                amount: ir::Expression::Number(2),
-            }],
-            script: None,
-        }];
-
-        let op = ir::BuiltInOp::Add(
-            ir::Expression::UtxoSet(HashSet::from_iter(utxos.clone().into_iter())),
-            ir::Expression::Assets(vec![ir::AssetExpr {
-                policy: ir::Expression::None,
-                asset_name: ir::Expression::None,
-                amount: ir::Expression::Number(1),
-            }]),
-        );
-
-        let expr = ir::Expression::from(ir::Coerce::IntoAssets(op.into()));
-
-        let after = expr.distribute().unwrap().reduce().unwrap();
-
-        assert_eq!(
-            after,
-            ir::Expression::Assets(vec![ir::AssetExpr {
-                policy: ir::Expression::None,
-                asset_name: ir::Expression::None,
-                amount: ir::Expression::Number(3),
-            }])
-        );
     }
 
     #[test]

@@ -85,6 +85,7 @@ impl AstNode for Program {
         let inner = pair.into_inner();
 
         let mut program = Self {
+            env: None,
             txs: Vec::new(),
             assets: Vec::new(),
             types: Vec::new(),
@@ -96,6 +97,7 @@ impl AstNode for Program {
 
         for pair in inner {
             match pair.as_rule() {
+                Rule::env_def => program.env = Some(EnvDef::parse(pair)?),
                 Rule::tx_def => program.txs.push(TxDef::parse(pair)?),
                 Rule::asset_def => program.assets.push(AssetDef::parse(pair)?),
                 Rule::record_def => program.types.push(TypeDef::parse(pair)?),
@@ -115,6 +117,46 @@ impl AstNode for Program {
     }
 }
 
+impl AstNode for EnvField {
+    const RULE: Rule = Rule::env_field;
+
+    fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
+        let span = pair.as_span().into();
+        let mut inner = pair.into_inner();
+        let identifier = inner.next().unwrap().as_str().to_string();
+        let r#type = Type::parse(inner.next().unwrap())?;
+
+        Ok(EnvField {
+            name: identifier,
+            r#type,
+            span,
+        })
+    }
+
+    fn span(&self) -> &Span {
+        &self.span
+    }
+}
+
+impl AstNode for EnvDef {
+    const RULE: Rule = Rule::env_def;
+
+    fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
+        let span = pair.as_span().into();
+        let inner = pair.into_inner();
+
+        let fields = inner
+            .map(|x| EnvField::parse(x))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(EnvDef { fields, span })
+    }
+
+    fn span(&self) -> &Span {
+        &self.span
+    }
+}
+
 impl AstNode for ParameterList {
     const RULE: Rule = Rule::parameter_list;
 
@@ -126,7 +168,7 @@ impl AstNode for ParameterList {
 
         for param in inner {
             let mut inner = param.into_inner();
-            let name = inner.next().unwrap().as_str().to_string();
+            let name = Identifier::parse(inner.next().unwrap())?;
             let r#type = Type::parse(inner.next().unwrap())?;
 
             parameters.push(ParamDef { name, r#type });
@@ -147,9 +189,10 @@ impl AstNode for TxDef {
         let span = pair.as_span().into();
         let mut inner = pair.into_inner();
 
-        let name = inner.next().unwrap().as_str().to_string();
+        let name = Identifier::parse(inner.next().unwrap())?;
         let parameters = ParameterList::parse(inner.next().unwrap())?;
 
+        let mut locals = None;
         let mut references = Vec::new();
         let mut inputs = Vec::new();
         let mut outputs = Vec::new();
@@ -163,6 +206,7 @@ impl AstNode for TxDef {
 
         for item in inner {
             match item.as_rule() {
+                Rule::locals_block => locals = Some(LocalsBlock::parse(item)?),
                 Rule::reference_block => references.push(ReferenceBlock::parse(item)?),
                 Rule::input_block => inputs.push(InputBlock::parse(item)?),
                 Rule::output_block => outputs.push(OutputBlock::parse(item)?),
@@ -180,6 +224,7 @@ impl AstNode for TxDef {
         Ok(TxDef {
             name,
             parameters,
+            locals,
             references,
             inputs,
             outputs,
@@ -252,12 +297,49 @@ impl AstNode for PartyDef {
     fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
         let span = pair.as_span().into();
         let mut inner = pair.into_inner();
-        let identifier = inner.next().unwrap().as_str().to_string();
+        let identifier = Identifier::parse(inner.next().unwrap())?;
 
         Ok(PartyDef {
             name: identifier,
             span,
         })
+    }
+
+    fn span(&self) -> &Span {
+        &self.span
+    }
+}
+
+impl AstNode for LocalsAssign {
+    const RULE: Rule = Rule::locals_assign;
+
+    fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
+        let span = pair.as_span().into();
+        let mut inner = pair.into_inner();
+
+        let name = Identifier::parse(inner.next().unwrap())?;
+        let value = DataExpr::parse(inner.next().unwrap())?;
+
+        Ok(LocalsAssign { name, value, span })
+    }
+
+    fn span(&self) -> &Span {
+        &self.span
+    }
+}
+
+impl AstNode for LocalsBlock {
+    const RULE: Rule = Rule::locals_block;
+
+    fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
+        let span = pair.as_span().into();
+        let inner = pair.into_inner();
+
+        let assigns = inner
+            .map(|x| LocalsAssign::parse(x))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(LocalsBlock { assigns, span })
     }
 
     fn span(&self) -> &Span {
@@ -652,7 +734,7 @@ impl AstNode for RecordField {
     fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
         let span = pair.as_span().into();
         let mut inner = pair.into_inner();
-        let identifier = inner.next().unwrap().as_str().to_string();
+        let identifier = Identifier::parse(inner.next().unwrap())?;
         let r#type = Type::parse(inner.next().unwrap())?;
 
         Ok(RecordField {
@@ -742,7 +824,7 @@ impl AstNode for PolicyDef {
     fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
         let span = pair.as_span().into();
         let mut inner = pair.into_inner();
-        let name = inner.next().unwrap().as_str().to_string();
+        let name = Identifier::parse(inner.next().unwrap())?;
         let value = PolicyValue::parse(inner.next().unwrap())?;
 
         Ok(PolicyDef { name, value, span })
@@ -1161,7 +1243,7 @@ impl TypeDef {
         let span = pair.as_span().into();
         let mut inner = pair.into_inner();
 
-        let identifier = inner.next().unwrap().as_str().to_string();
+        let identifier = Identifier::parse(inner.next().unwrap())?;
 
         let cases = inner
             .map(VariantCase::parse)
@@ -1178,7 +1260,7 @@ impl TypeDef {
         let span: Span = pair.as_span().into();
         let mut inner = pair.into_inner();
 
-        let identifier = inner.next().unwrap().as_str().to_string();
+        let identifier = Identifier::parse(inner.next().unwrap())?;
 
         let fields = inner
             .map(RecordField::parse)
@@ -1187,7 +1269,7 @@ impl TypeDef {
         Ok(TypeDef {
             name: identifier.clone(),
             cases: vec![VariantCase {
-                name: "Default".to_string(),
+                name: Identifier::new("Default"),
                 fields,
                 span: span.clone(),
             }],
@@ -1217,7 +1299,7 @@ impl VariantCase {
         let span = pair.as_span().into();
         let mut inner = pair.into_inner();
 
-        let identifier = inner.next().unwrap().as_str().to_string();
+        let identifier = Identifier::parse(inner.next().unwrap())?;
 
         let fields = inner
             .map(RecordField::parse)
@@ -1234,7 +1316,7 @@ impl VariantCase {
         let span = pair.as_span().into();
         let mut inner = pair.into_inner();
 
-        let identifier = inner.next().unwrap().as_str().to_string();
+        let identifier = Identifier::parse(inner.next().unwrap())?;
 
         Ok(Self {
             name: identifier,
@@ -1270,7 +1352,7 @@ impl AstNode for AssetDef {
         let span = pair.as_span().into();
         let mut inner = pair.into_inner();
 
-        let identifier = inner.next().unwrap().as_str().to_string();
+        let identifier = Identifier::parse(inner.next().unwrap())?;
         let policy = DataExpr::parse(inner.next().unwrap())?;
         let asset_name = DataExpr::parse(inner.next().unwrap())?;
 
@@ -1416,9 +1498,9 @@ mod tests {
             field2: Bytes,
         }",
         TypeDef {
-            name: "MyRecord".to_string(),
+            name: Identifier::new("MyRecord"),
             cases: vec![VariantCase {
-                name: "Default".to_string(),
+                name: Identifier::new("Default"),
                 fields: vec![
                     RecordField::new("field1", Type::Int),
                     RecordField::new("field2", Type::Bytes)
@@ -1440,10 +1522,10 @@ mod tests {
             Case2,
         }",
         TypeDef {
-            name: "MyVariant".to_string(),
+            name: Identifier::new("MyVariant"),
             cases: vec![
                 VariantCase {
-                    name: "Case1".to_string(),
+                    name: Identifier::new("Case1"),
                     fields: vec![
                         RecordField::new("field1", Type::Int),
                         RecordField::new("field2", Type::Bytes)
@@ -1451,7 +1533,7 @@ mod tests {
                     span: Span::DUMMY,
                 },
                 VariantCase {
-                    name: "Case2".to_string(),
+                    name: Identifier::new("Case2"),
                     fields: vec![],
                     span: Span::DUMMY,
                 },
@@ -1575,7 +1657,7 @@ mod tests {
         "policy_def_assign",
         "policy MyPolicy = 0xAFAFAF;",
         PolicyDef {
-            name: "MyPolicy".to_string(),
+            name: Identifier::new("MyPolicy"),
             value: PolicyValue::Assign(HexStringLiteral::new("AFAFAF".to_string())),
             span: Span::DUMMY,
         }
@@ -1590,7 +1672,7 @@ mod tests {
             ref: 0x1234567890,
         };",
         PolicyDef {
-            name: "MyPolicy".to_string(),
+            name: Identifier::new("MyPolicy"),
             value: PolicyValue::Constructor(PolicyConstructor {
                 fields: vec![
                     PolicyField::Hash(DataExpr::HexString(HexStringLiteral::new(
@@ -1614,7 +1696,7 @@ mod tests {
         "hex_hex",
         "asset MyToken = 0xef7a1cebb2dc7de884ddf82f8fcbc91fe9750dcd8c12ec7643a99bbe.0xef7a1ceb;",
         AssetDef {
-            name: "MyToken".to_string(),
+            name: Identifier::new("MyToken"),
             policy: DataExpr::HexString(HexStringLiteral::new(
                 "ef7a1cebb2dc7de884ddf82f8fcbc91fe9750dcd8c12ec7643a99bbe".to_string()
             )),
@@ -1628,7 +1710,7 @@ mod tests {
         "hex_string",
         "asset MyToken = 0xef7a1cebb2dc7de884ddf82f8fcbc91fe9750dcd8c12ec7643a99bbe.\"MY TOKEN\";",
         AssetDef {
-            name: "MyToken".to_string(),
+            name: Identifier::new("MyToken"),
             policy: DataExpr::HexString(HexStringLiteral::new(
                 "ef7a1cebb2dc7de884ddf82f8fcbc91fe9750dcd8c12ec7643a99bbe".to_string()
             )),
@@ -1971,6 +2053,96 @@ mod tests {
     );
 
     input_to_ast_check!(
+        LocalsBlock,
+        "basic",
+        "locals {
+            a: 10,
+        }",
+        LocalsBlock {
+            assigns: vec![LocalsAssign {
+                name: Identifier::new("a"),
+                value: DataExpr::Number(10),
+                span: Span::DUMMY,
+            },],
+            span: Span::DUMMY,
+        }
+    );
+
+    input_to_ast_check!(
+        LocalsBlock,
+        "multiple",
+        "locals {
+            a: 10,
+            b: 20,
+        }",
+        LocalsBlock {
+            assigns: vec![
+                LocalsAssign {
+                    name: Identifier::new("a"),
+                    value: DataExpr::Number(10),
+                    span: Span::DUMMY,
+                },
+                LocalsAssign {
+                    name: Identifier::new("b"),
+                    value: DataExpr::Number(20),
+                    span: Span::DUMMY,
+                },
+            ],
+            span: Span::DUMMY,
+        }
+    );
+
+    input_to_ast_check!(
+        LocalsBlock,
+        "complex_expression",
+        "locals {
+            a: (10 + 20) - 8,
+            b: a.b.c + (5 - d),
+        }",
+        LocalsBlock {
+            assigns: vec![
+                LocalsAssign {
+                    name: Identifier::new("a"),
+                    value: DataExpr::SubOp(SubOp {
+                        lhs: Box::new(DataExpr::AddOp(AddOp {
+                            lhs: Box::new(DataExpr::Number(10)),
+                            rhs: Box::new(DataExpr::Number(20)),
+                            span: Span::DUMMY,
+                        })),
+                        rhs: Box::new(DataExpr::Number(8)),
+                        span: Span::DUMMY,
+                    }),
+                    span: Span::DUMMY,
+                },
+                LocalsAssign {
+                    name: Identifier::new("b"),
+                    value: DataExpr::AddOp(AddOp {
+                        lhs: Box::new(DataExpr::PropertyOp(PropertyOp {
+                            operand: Box::new(DataExpr::PropertyOp(PropertyOp {
+                                operand: Box::new(DataExpr::Identifier(Identifier::new("a"))),
+                                property: Box::new(Identifier::new("b")),
+                                span: Span::DUMMY,
+                                scope: None,
+                            })),
+                            property: Box::new(Identifier::new("c")),
+                            span: Span::DUMMY,
+                            scope: None,
+                        })),
+                        rhs: Box::new(DataExpr::SubOp(SubOp {
+                            lhs: Box::new(DataExpr::Number(5)),
+                            rhs: Box::new(DataExpr::Identifier(Identifier::new("d"))),
+                            span: Span::DUMMY,
+                        })),
+                        span: Span::DUMMY,
+                    }),
+                    span: Span::DUMMY,
+                },
+            ],
+            span: Span::DUMMY,
+        }
+    );
+
+    input_to_ast_check!(
         OutputBlock,
         "output_block_anonymous",
         r#"output {
@@ -2011,14 +2183,137 @@ mod tests {
         ))
     );
 
+    input_to_ast_check!(
+        EnvDef,
+        "basic",
+        "env {
+            field_a: Int,
+            field_b: Bytes,
+        }",
+        EnvDef {
+            fields: vec![
+                EnvField {
+                    name: "field_a".to_string(),
+                    r#type: Type::Int,
+                    span: Span::DUMMY,
+                },
+                EnvField {
+                    name: "field_b".to_string(),
+                    r#type: Type::Bytes,
+                    span: Span::DUMMY,
+                },
+            ],
+            span: Span::DUMMY,
+        }
+    );
+
+    input_to_ast_check!(
+        TxDef,
+        "empty",
+        "tx my_tx() {}",
+        TxDef {
+            name: Identifier::new("my_tx"),
+            parameters: ParameterList {
+                parameters: vec![],
+                span: Span::DUMMY,
+            },
+            locals: None,
+            references: vec![],
+            inputs: vec![],
+            outputs: vec![],
+            validity: None,
+            burn: None,
+            mints: vec![],
+            signers: None,
+            adhoc: vec![],
+            collateral: vec![],
+            metadata: None,
+            scope: None,
+            span: Span::DUMMY,
+        }
+    );
+
+    input_to_ast_check!(
+        TxDef,
+        "with_parameters",
+        "tx my_tx(a: Int, b: Bytes) {}",
+        TxDef {
+            name: Identifier::new("my_tx"),
+            parameters: ParameterList {
+                parameters: vec![
+                    ParamDef {
+                        name: Identifier::new("a"),
+                        r#type: Type::Int,
+                    },
+                    ParamDef {
+                        name: Identifier::new("b"),
+                        r#type: Type::Bytes,
+                    },
+                ],
+                span: Span::DUMMY,
+            },
+            locals: None,
+            references: vec![],
+            inputs: vec![],
+            outputs: vec![],
+            validity: None,
+            burn: None,
+            mints: vec![],
+            signers: None,
+            adhoc: vec![],
+            collateral: vec![],
+            metadata: None,
+            scope: None,
+            span: Span::DUMMY,
+        }
+    );
+
+    input_to_ast_check!(
+        Program,
+        "basic",
+        "party Abc; tx my_tx() {}",
+        Program {
+            parties: vec![PartyDef {
+                name: Identifier::new("Abc"),
+                span: Span::DUMMY,
+            }],
+            types: vec![],
+            txs: vec![TxDef {
+                name: Identifier::new("my_tx"),
+                parameters: ParameterList {
+                    parameters: vec![],
+                    span: Span::DUMMY,
+                },
+                locals: None,
+                references: vec![],
+                inputs: vec![],
+                outputs: vec![],
+                validity: None,
+                burn: None,
+                mints: vec![],
+                signers: None,
+                adhoc: vec![],
+                collateral: vec![],
+                metadata: None,
+                scope: None,
+                span: Span::DUMMY,
+            }],
+            env: None,
+            assets: vec![],
+            policies: vec![],
+            span: Span::DUMMY,
+            scope: None,
+        }
+    );
+
     #[test]
     fn test_spans_are_respected() {
         let program = parse_well_known_example("lang_tour");
-        assert_eq!(program.span, Span::new(0, 1445));
+        assert_eq!(program.span, Span::new(0, 1497));
 
-        assert_eq!(program.parties[0].span, Span::new(0, 14));
+        assert_eq!(program.parties[0].span, Span::new(47, 61));
 
-        assert_eq!(program.types[0].span, Span::new(16, 111));
+        assert_eq!(program.types[0].span, Span::new(63, 158));
     }
 
     fn make_snapshot_if_missing(example: &str, program: &Program) {
@@ -2071,5 +2366,13 @@ mod tests {
 
     test_parsing!(disordered);
 
+    test_parsing!(input_datum);
+
     test_parsing!(withdrawal);
+
+    test_parsing!(env_vars);
+
+    test_parsing!(local_vars);
+
+    test_parsing!(cardano_witness);
 }
