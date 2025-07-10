@@ -96,6 +96,7 @@ fn lower_into_address_expr(
 pub(crate) struct Context {
     is_asset_expr: bool,
     is_datum_expr: bool,
+    is_script_expr: bool,
 }
 
 impl Context {
@@ -103,6 +104,7 @@ impl Context {
         Self {
             is_asset_expr: true,
             is_datum_expr: false,
+            is_script_expr: false,
         }
     }
 
@@ -110,7 +112,20 @@ impl Context {
         Self {
             is_asset_expr: false,
             is_datum_expr: true,
+            is_script_expr: false,
         }
+    }
+
+    pub fn enter_script_expr(&self) -> Self {
+        Self {
+            is_asset_expr: false,
+            is_datum_expr: false,
+            is_script_expr: true,
+        }
+    }
+
+    pub fn is_script_expr(&self) -> bool {
+        self.is_script_expr
     }
 
     pub fn is_asset_expr(&self) -> bool {
@@ -178,6 +193,9 @@ impl IntoLower for ast::Identifier {
                 } else if ctx.is_datum_expr() {
                     let inner = ir::Param::ExpectInput(n.clone(), query).into();
                     ir::Coerce::IntoDatum(inner).into()
+                } else if ctx.is_script_expr() {
+                    let inner = ir::Param::ExpectInput(n.clone(), query).into();
+                    ir::Coerce::IntoScript(inner).into()
                 } else {
                     ir::Param::ExpectInput(n.clone(), query).into()
                 };
@@ -552,6 +570,10 @@ impl IntoLower for ast::OutputBlockField {
                 let ctx = ctx.enter_datum_expr();
                 x.into_lower(&ctx)
             }
+            ast::OutputBlockField::ReferenceScript(x) => {
+                let ctx = ctx.enter_script_expr();
+                x.into_lower(&ctx)
+            }
         }
     }
 }
@@ -563,11 +585,13 @@ impl IntoLower for ast::OutputBlock {
         let address = self.find("to").into_lower(ctx)?.unwrap_or_default();
         let datum = self.find("datum").into_lower(ctx)?.unwrap_or_default();
         let amount = self.find("amount").into_lower(ctx)?.unwrap_or_default();
+        let ref_script = self.find("ref_script").into_lower(ctx)?.unwrap_or_default();
 
         Ok(ir::Output {
             address,
             datum,
             amount,
+            ref_script,
         })
     }
 }
@@ -869,4 +893,8 @@ mod tests {
     test_lowering!(local_vars);
 
     test_lowering!(cardano_witness);
+
+    test_lowering!(reference_script);
+
+    test_lowering!(withdrawal);
 }

@@ -14,7 +14,7 @@ use pallas::{
 
 use tx3_lang::ir;
 
-use crate::coercion::{expr_into_metadatum, expr_into_number};
+use crate::coercion::{expr_into_bytes, expr_into_metadatum, expr_into_number};
 
 use super::*;
 
@@ -132,6 +132,12 @@ fn compile_value(ir: &ir::AssetExpr) -> Result<primitives::Value, Error> {
     }
 }
 
+fn expr_into_script_ref(expr: &ir::Expression) -> Result<primitives::ScriptRef, Error> {
+    let script_bytes = expr_into_bytes(expr)?.to_vec();
+    let script = primitives::PlutusScript::<2>(script_bytes.into());
+    let script_ref = primitives::ScriptRef::PlutusV2Script(script);
+    Ok(script_ref)
+}
 // calculate min utxo lovelace according to spec
 // https://cips.cardano.org/cip/CIP-55
 
@@ -165,6 +171,12 @@ fn compile_output_block(
 
     let datum_option = ir.datum.as_option().map(compile_data_expr).transpose()?;
 
+    let ref_script = ir
+        .ref_script
+        .as_option()
+        .map(compile_data_expr)
+        .transpose()?;
+
     let output = primitives::TransactionOutput::PostAlonzo(
         primitives::PostAlonzoTransactionOutput {
             address: address.to_vec().into(),
@@ -172,7 +184,13 @@ fn compile_output_block(
             datum_option: datum_option.map(|x| {
                 primitives::DatumOption::Data(pallas::codec::utils::CborWrap(x.into())).into()
             }),
-            script_ref: None, // TODO: add script ref
+            script_ref: ref_script.map(|data| {
+                // Convert PlutusData to ScriptRef - assuming PlutusV2Script for now
+                let script_bytes = pallas::codec::minicbor::to_vec(&data).unwrap();
+                let script = primitives::PlutusScript::<2>(script_bytes.into());
+                let script_ref = primitives::ScriptRef::PlutusV2Script(script);
+                pallas::codec::utils::CborWrap(script_ref)
+            }),
         }
         .into(),
     );

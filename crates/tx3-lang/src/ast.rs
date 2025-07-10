@@ -11,6 +11,8 @@
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, rc::Rc};
 
+use crate::cardano::PlutusWitnessBlock;
+
 #[derive(Debug, PartialEq, Eq)]
 pub struct Scope {
     pub(crate) symbols: HashMap<String, Symbol>,
@@ -389,6 +391,7 @@ pub enum OutputBlockField {
     To(Box<AddressExpr>),
     Amount(Box<DataExpr>),
     Datum(Box<DataExpr>),
+    ReferenceScript(Box<PlutusWitnessBlock>),
 }
 
 impl OutputBlockField {
@@ -397,6 +400,7 @@ impl OutputBlockField {
             OutputBlockField::To(_) => "to",
             OutputBlockField::Amount(_) => "amount",
             OutputBlockField::Datum(_) => "datum",
+            OutputBlockField::ReferenceScript(_) => "ref_script",
         }
     }
 }

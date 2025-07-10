@@ -12,8 +12,10 @@ use pest::{
 };
 use pest_derive::Parser;
 
-use crate::ast::*;
-
+use crate::{
+    ast::*,
+    cardano::{PlutusWitnessBlock, PlutusWitnessField},
+};
 #[derive(Parser)]
 #[grammar = "tx3.pest"]
 pub(crate) struct Tx3Grammar;
@@ -559,6 +561,11 @@ impl AstNode for OutputBlockField {
                 let x = OutputBlockField::Datum(DataExpr::parse(pair)?.into());
                 Ok(x)
             }
+            Rule::output_block_reference_script => {
+                let x =
+                    OutputBlockField::ReferenceScript(Box::new(PlutusWitnessBlock::parse(pair)?));
+                Ok(x)
+            }
             x => unreachable!("Unexpected rule in output_block_field: {:?}", x),
         }
     }
@@ -568,6 +575,7 @@ impl AstNode for OutputBlockField {
             Self::To(x) => x.span(),
             Self::Amount(x) => x.span(),
             Self::Datum(x) => x.span(),
+            Self::ReferenceScript(x) => x.span(),
         }
     }
 }
@@ -2375,4 +2383,6 @@ mod tests {
     test_parsing!(local_vars);
 
     test_parsing!(cardano_witness);
+
+    test_parsing!(reference_script);
 }

@@ -242,6 +242,7 @@ pub struct Output {
     pub address: Expression,
     pub datum: Expression,
     pub amount: Expression,
+    pub ref_script: Expression,
 }
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]

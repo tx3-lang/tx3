@@ -229,11 +229,13 @@ reference_block = {
 output_block_to = { "to" ~ ":" ~ address_expr }
 output_block_amount = { "amount" ~ ":" ~ data_expr }
 output_block_datum = { "datum" ~ ":" ~ data_expr }
+output_block_reference_script = { "ref_script" ~ ":" ~ "{" ~ (cardano_plutus_witness_field ~ ",")+ ~ "}"}
 
 output_block_field = _{
     output_block_to |
     output_block_amount |
-    output_block_datum
+    output_block_datum |
+    output_block_reference_script
 }
 
 output_block = {

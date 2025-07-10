@@ -130,12 +130,17 @@
                   }
                 }
               }
+            },
+            {
+              "ReferenceScript": {
+                "Number": 3
+              }
             }
           ],
           "span": {
             "dummy": false,
             "start": 158,
-            "end": 225
+            "end": 338
           }
         },
         {
@@ -147,8 +152,8 @@
                   "value": "Sender",
                   "span": {
                     "dummy": false,
-                    "start": 252,
-                    "end": 258
+                    "start": 365,
+                    "end": 371
                   }
                 }
               }
@@ -163,8 +168,8 @@
                           "value": "source",
                           "span": {
                             "dummy": false,
-                            "start": 276,
-                            "end": 282
+                            "start": 389,
+                            "end": 395
                           }
                         }
                       },
@@ -174,8 +179,8 @@
                             "value": "Ada",
                             "span": {
                               "dummy": false,
-                              "start": 285,
-                              "end": 288
+                              "start": 398,
+                              "end": 401
                             }
                           },
                           "amount": {
@@ -183,22 +188,22 @@
                               "value": "quantity",
                               "span": {
                                 "dummy": false,
-                                "start": 289,
-                                "end": 297
+                                "start": 402,
+                                "end": 410
                               }
                             }
                           },
                           "span": {
                             "dummy": false,
-                            "start": 285,
-                            "end": 298
+                            "start": 398,
+                            "end": 411
                           }
                         }
                       },
                       "span": {
                         "dummy": false,
-                        "start": 283,
-                        "end": 284
+                        "start": 396,
+                        "end": 397
                       }
                     }
                   },
@@ -207,15 +212,15 @@
                       "value": "fees",
                       "span": {
                         "dummy": false,
-                        "start": 301,
-                        "end": 305
+                        "start": 414,
+                        "end": 418
                       }
                     }
                   },
                   "span": {
                     "dummy": false,
-                    "start": 299,
-                    "end": 300
+                    "start": 412,
+                    "end": 413
                   }
                 }
               }
@@ -223,8 +228,8 @@
           ],
           "span": {
             "dummy": false,
-            "start": 231,
-            "end": 312
+            "start": 344,
+            "end": 425
           }
         }
       ],
@@ -232,45 +237,11 @@
       "burn": null,
       "mints": [],
       "signers": null,
-      "adhoc": [
-        {
-          "Cardano": {
-            "Withdrawal": {
-              "fields": [
-                {
-                  "From": {
-                    "Identifier": {
-                      "value": "Sender",
-                      "span": {
-                        "dummy": false,
-                        "start": 354,
-                        "end": 360
-                      }
-                    }
-                  }
-                },
-                {
-                  "Amount": {
-                    "Number": 0
-                  }
-                },
-                {
-                  "Redeemer": "Unit"
-                }
-              ],
-              "span": {
-                "dummy": false,
-                "start": 327,
-                "end": 408
-              }
-            }
-          }
-        }
-      ],
+      "adhoc": [],
       "span": {
         "dummy": false,
         "start": 32,
-        "end": 410
+        "end": 427
       },
       "collateral": [],
       "metadata": null
@@ -314,6 +285,6 @@
   "span": {
     "dummy": false,
     "start": 0,
-    "end": 410
+    "end": 427
   }
 }
