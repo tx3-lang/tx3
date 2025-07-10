@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.1] - 2025-07-10
+
+### 🐛 Bug Fixes
+
+- Bump TIR version to flag breaking changes
+
 ## [0.8.0] - 2025-07-10
 
 ### 🚀 Features
