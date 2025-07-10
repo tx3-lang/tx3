@@ -881,5 +881,6 @@ mod tests {
 
     test_lowering!(local_vars);
 
+    test_lowering!(cardano_witness);
     test_lowering!(tuple);
 }
