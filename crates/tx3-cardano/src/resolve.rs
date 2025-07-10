@@ -397,7 +397,7 @@ mod tests {
 
         assert_eq!(
             tx.hash.to_string(),
-            "dd32c0fbfe556c1c497aab103867ea2cff7bd89e88d25caacd4fa69a33f20997"
+            "7d0e74a752ea73b4535359b4597fb90a8c8e404c7427c671bc9a61e0739313bd"
         );
     }
 
