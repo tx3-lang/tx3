@@ -12,6 +12,11 @@ tx mint_from_script(
         min_amount: fees,
     }
 
+    collateral {
+        from: Minter,
+        min_amount: fees,
+    }
+
     mint {
         amount: new_token,
         redeemer: (),

@@ -141,8 +141,8 @@
                   "value": "Minter",
                   "span": {
                     "dummy": false,
-                    "start": 353,
-                    "end": 359
+                    "start": 425,
+                    "end": 431
                   }
                 }
               }
@@ -157,8 +157,8 @@
                           "value": "source",
                           "span": {
                             "dummy": false,
-                            "start": 377,
-                            "end": 383
+                            "start": 449,
+                            "end": 455
                           }
                         }
                       },
@@ -167,15 +167,15 @@
                           "value": "new_token",
                           "span": {
                             "dummy": false,
-                            "start": 386,
-                            "end": 395
+                            "start": 458,
+                            "end": 467
                           }
                         }
                       },
                       "span": {
                         "dummy": false,
-                        "start": 384,
-                        "end": 385
+                        "start": 456,
+                        "end": 457
                       }
                     }
                   },
@@ -184,15 +184,15 @@
                       "value": "fees",
                       "span": {
                         "dummy": false,
-                        "start": 398,
-                        "end": 402
+                        "start": 470,
+                        "end": 474
                       }
                     }
                   },
                   "span": {
                     "dummy": false,
-                    "start": 396,
-                    "end": 397
+                    "start": 468,
+                    "end": 469
                   }
                 }
               }
@@ -200,8 +200,8 @@
           ],
           "span": {
             "dummy": false,
-            "start": 332,
-            "end": 409
+            "start": 404,
+            "end": 481
           }
         }
       ],
@@ -216,8 +216,8 @@
                   "value": "new_token",
                   "span": {
                     "dummy": false,
-                    "start": 284,
-                    "end": 293
+                    "start": 356,
+                    "end": 365
                   }
                 }
               }
@@ -228,8 +228,8 @@
           ],
           "span": {
             "dummy": false,
-            "start": 261,
-            "end": 322
+            "start": 333,
+            "end": 394
           }
         }
       ],
@@ -246,8 +246,8 @@
                     },
                     {
                       "dummy": false,
-                      "start": 449,
-                      "end": 459
+                      "start": 521,
+                      "end": 531
                     }
                   ]
                 },
@@ -258,23 +258,23 @@
                         "value": "5101010023259800a518a4d136564004ae69",
                         "span": {
                           "dummy": false,
-                          "start": 477,
-                          "end": 515
+                          "start": 549,
+                          "end": 587
                         }
                       }
                     },
                     {
                       "dummy": false,
-                      "start": 469,
-                      "end": 515
+                      "start": 541,
+                      "end": 587
                     }
                   ]
                 }
               ],
               "span": {
                 "dummy": false,
-                "start": 424,
-                "end": 522
+                "start": 496,
+                "end": 594
               }
             }
           }
@@ -283,9 +283,43 @@
       "span": {
         "dummy": false,
         "start": 15,
-        "end": 524
+        "end": 596
       },
-      "collateral": [],
+      "collateral": [
+        {
+          "fields": [
+            {
+              "From": {
+                "Identifier": {
+                  "value": "Minter",
+                  "span": {
+                    "dummy": false,
+                    "start": 288,
+                    "end": 294
+                  }
+                }
+              }
+            },
+            {
+              "MinAmount": {
+                "Identifier": {
+                  "value": "fees",
+                  "span": {
+                    "dummy": false,
+                    "start": 316,
+                    "end": 320
+                  }
+                }
+              }
+            }
+          ],
+          "span": {
+            "dummy": false,
+            "start": 261,
+            "end": 327
+          }
+        }
+      ],
       "metadata": null
     }
   ],
@@ -312,6 +346,6 @@
   "span": {
     "dummy": false,
     "start": 0,
-    "end": 525
+    "end": 597
   }
 }

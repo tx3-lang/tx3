@@ -261,10 +261,6 @@ pub struct Input {
     pub name: String,
     pub utxos: Expression,
     pub redeemer: Expression,
-
-    // TODO: revisit this value. This is meant to support adding reference scripts by pointing to a
-    // policy that specifies the ref. This is not straightforward and hard to reason about.
-    pub policy: Option<PolicyExpr>,
 }
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]
@@ -288,7 +284,7 @@ pub struct Mint {
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]
 pub struct Collateral {
-    pub query: InputQuery,
+    pub utxos: Expression,
 }
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]

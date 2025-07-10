@@ -695,9 +695,6 @@ impl ir::AssetExpr {
 impl Composite for ir::Input {
     fn components(&self) -> Vec<&ir::Expression> {
         vec![&self.utxos, &self.redeemer]
-            .into_iter()
-            .chain(self.policy.iter().flat_map(|x| x.components()))
-            .collect()
     }
 
     fn try_map_components<F>(self, f: F) -> Result<Self, Error>
@@ -708,7 +705,6 @@ impl Composite for ir::Input {
             name: self.name,
             utxos: f(self.utxos)?,
             redeemer: f(self.redeemer)?,
-            policy: self.policy.map(|x| x.try_map_components(f)).transpose()?,
         })
     }
 }
@@ -1148,7 +1144,7 @@ impl Composite for ir::Signers {
 
 impl Composite for ir::Collateral {
     fn components(&self) -> Vec<&ir::Expression> {
-        self.query.components()
+        vec![&self.utxos]
     }
 
     fn try_map_components<F>(self, f: F) -> Result<Self, Error>
@@ -1156,7 +1152,7 @@ impl Composite for ir::Collateral {
         F: Fn(ir::Expression) -> Result<ir::Expression, Error> + Clone,
     {
         Ok(Self {
-            query: self.query.try_map_components(f)?,
+            utxos: f(self.utxos)?,
         })
     }
 }

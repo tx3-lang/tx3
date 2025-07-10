@@ -289,7 +289,7 @@ fn compile_certs(tx: &ir::Tx, network: Network) -> Result<Vec<primitives::Certif
 }
 
 fn compile_reference_inputs(tx: &ir::Tx) -> Result<Vec<primitives::TransactionInput>, Error> {
-    let explicit_ref_inputs = tx
+    let refs = tx
         .references
         .iter()
         .flat_map(coercion::expr_into_utxo_refs)
@@ -297,21 +297,7 @@ fn compile_reference_inputs(tx: &ir::Tx) -> Result<Vec<primitives::TransactionIn
         .map(|x| primitives::TransactionInput {
             transaction_id: x.txid.as_slice().into(),
             index: x.index as u64,
-        });
-
-    let refs = tx
-        .inputs
-        .iter()
-        .filter_map(|x| x.policy.as_ref())
-        .map(|x| &x.script)
-        .filter_map(|x| x.as_utxo_ref())
-        .flat_map(|x| coercion::expr_into_utxo_refs(&x))
-        .flatten()
-        .map(|x| primitives::TransactionInput {
-            transaction_id: x.txid.as_slice().into(),
-            index: x.index as u64,
         })
-        .chain(explicit_ref_inputs)
         .collect();
 
     Ok(refs)
@@ -321,7 +307,7 @@ fn compile_collateral(tx: &ir::Tx) -> Result<Vec<TransactionInput>, Error> {
     Ok(tx
         .collateral
         .iter()
-        .filter_map(|collateral| collateral.query.r#ref.as_option())
+        .filter_map(|collateral| collateral.utxos.as_option())
         .flat_map(coercion::expr_into_utxo_refs)
         .flatten()
         .map(|x| primitives::TransactionInput {
