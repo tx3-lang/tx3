@@ -6,34 +6,40 @@
   "inputs": [
     {
       "name": "source",
-      "query": {
-        "address": {
-          "EvalParam": {
-            "ExpectValue": [
-              "myparty",
-              "Address"
-            ]
-          }
-        },
-        "min_amount": {
-          "Assets": [
+      "utxos": {
+        "EvalParam": {
+          "ExpectInput": [
+            "source",
             {
-              "policy": "None",
-              "asset_name": "None",
-              "amount": {
+              "address": {
                 "EvalParam": {
                   "ExpectValue": [
-                    "quantity",
-                    "Int"
+                    "myparty",
+                    "Address"
                   ]
                 }
-              }
+              },
+              "min_amount": {
+                "Assets": [
+                  {
+                    "policy": "None",
+                    "asset_name": "None",
+                    "amount": {
+                      "EvalParam": {
+                        "ExpectValue": [
+                          "quantity",
+                          "Int"
+                        ]
+                      }
+                    }
+                  }
+                ]
+              },
+              "ref": "None"
             }
           ]
-        },
-        "ref": "None"
+        }
       },
-      "refs": [],
       "redeemer": {
         "Struct": {
           "constructor": 0,

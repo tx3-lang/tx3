@@ -22,7 +22,7 @@ pub enum Symbol {
     EnvVar(String, Box<Type>),
     ParamVar(String, Box<Type>),
     LocalExpr(Box<DataExpr>),
-    Input(String, Box<InputBlock>),
+    Input(Box<InputBlock>),
     PartyDef(Box<PartyDef>),
     PolicyDef(Box<PolicyDef>),
     AssetDef(Box<AssetDef>),
@@ -113,7 +113,7 @@ impl Symbol {
         match self {
             Symbol::ParamVar(_, ty) => Some(ty.as_ref().clone()),
             Symbol::RecordField(x) => Some(x.r#type.clone()),
-            Symbol::Input(_, input) => input.datum_is().cloned(),
+            Symbol::Input(x) => x.datum_is().cloned(),
             x => {
                 dbg!(x);
                 None
@@ -262,7 +262,7 @@ impl HexStringLiteral {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum CollateralBlockField {
-    From(AddressExpr),
+    From(DataExpr),
     MinAmount(DataExpr),
     Ref(DataExpr),
 }
@@ -273,13 +273,6 @@ impl CollateralBlockField {
             CollateralBlockField::From(_) => "from",
             CollateralBlockField::MinAmount(_) => "min_amount",
             CollateralBlockField::Ref(_) => "ref",
-        }
-    }
-
-    pub fn as_address_expr(&self) -> Option<&AddressExpr> {
-        match self {
-            CollateralBlockField::From(x) => Some(x),
-            _ => None,
         }
     }
 
@@ -305,7 +298,7 @@ impl CollateralBlock {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum InputBlockField {
-    From(AddressExpr),
+    From(DataExpr),
     DatumIs(Type),
     MinAmount(DataExpr),
     Redeemer(DataExpr),
@@ -320,13 +313,6 @@ impl InputBlockField {
             InputBlockField::MinAmount(_) => "min_amount",
             InputBlockField::Redeemer(_) => "redeemer",
             InputBlockField::Ref(_) => "ref",
-        }
-    }
-
-    pub fn as_address_expr(&self) -> Option<&AddressExpr> {
-        match self {
-            InputBlockField::From(x) => Some(x),
-            _ => None,
         }
     }
 
@@ -386,7 +372,7 @@ impl InputBlock {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum OutputBlockField {
-    To(Box<AddressExpr>),
+    To(Box<DataExpr>),
     Amount(Box<DataExpr>),
     Datum(Box<DataExpr>),
 }
