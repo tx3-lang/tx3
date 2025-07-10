@@ -1,13 +1,17 @@
-use pallas::ledger::primitives::conway as primitives;
+use pallas::{
+    crypto::hash::Hash,
+    ledger::{primitives::conway as primitives, traverse::ComputeHash},
+};
 use tx3_lang::{applying::Apply, ir::InputQuery};
 
 use crate::{compile::compile_tx, Error, PParams};
 
 const DEFAULT_EXTRA_FEES: u64 = 200_000;
 
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct TxEval {
     pub payload: Vec<u8>,
+    pub hash: Hash<32>,
     pub fee: u64,
     pub ex_units: u64,
 }
@@ -70,6 +74,8 @@ async fn eval_pass<L: Ledger>(
 
     let tx = compile_tx(attempt.as_ref(), pparams)?;
 
+    let hash = tx.transaction_body.compute_hash();
+
     let payload = pallas::codec::minicbor::to_vec(&tx).unwrap();
 
     let size_fees = eval_size_fees(&payload, pparams, config.extra_fees)?;
@@ -78,6 +84,7 @@ async fn eval_pass<L: Ledger>(
 
     let eval = Some(TxEval {
         payload,
+        hash,
         fee: size_fees, // TODO: add redeemer fees
         ex_units: 0,
     });
@@ -116,6 +123,8 @@ pub async fn resolve_tx<T: Ledger>(
 
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+
     use tx3_lang::{ArgValue, Protocol, UtxoRef};
 
     use super::*;
@@ -181,8 +190,12 @@ mod tests {
             .await
             .unwrap();
 
-        println!("{}", hex::encode(tx.payload));
-        println!("{}", tx.fee);
+        dbg!(&tx);
+
+        assert_eq!(
+            tx.hash.to_string(),
+            "405feba6368a73bac826c2114640eaefcd46178fdce2aa0dda4be3b2d3daeb28"
+        );
     }
 
     #[tokio::test]
@@ -210,8 +223,12 @@ mod tests {
             .await
             .unwrap();
 
-        println!("{}", hex::encode(tx.payload));
-        println!("{}", tx.fee);
+        dbg!(&tx);
+
+        assert_eq!(
+            tx.hash.to_string(),
+            "25d3d58935f885f14ff9af81864a4838ef7207c9d49701d94fae21e1e3ae6cbd"
+        );
     }
 
     #[tokio::test]
@@ -236,8 +253,12 @@ mod tests {
             .await
             .unwrap();
 
-        println!("{}", hex::encode(&tx.payload));
-        println!("{}", tx.fee);
+        dbg!(&tx);
+
+        assert_eq!(
+            tx.hash.to_string(),
+            "fd7c9b7b6a6e4f1989681a08930a0f542b284f23f56c87a2456139a782842fa6"
+        );
     }
 
     #[tokio::test]
@@ -272,8 +293,12 @@ mod tests {
         .await
         .unwrap();
 
-        println!("{}", hex::encode(&tx.payload));
-        println!("{}", tx.fee);
+        dbg!(&tx);
+
+        assert_eq!(
+            tx.hash.to_string(),
+            "650a2e8f4850737f4cdcacaa6069db9eae3af64adb04811a715441c24292a76f"
+        );
     }
 
     #[tokio::test]
@@ -308,8 +333,12 @@ mod tests {
             .await
             .unwrap();
 
-        println!("{}", hex::encode(&tx.payload));
-        println!("{}", tx.fee);
+        dbg!(&tx);
+
+        assert_eq!(
+            tx.hash.to_string(),
+            "d426d1054e93de90c666cbf495b79c33782e42c6259216b8463bbe138f5ac5b6"
+        );
     }
 
     #[tokio::test]
@@ -335,8 +364,12 @@ mod tests {
             .await
             .unwrap();
 
-        println!("{}", hex::encode(&tx.payload));
-        println!("{}", tx.fee);
+        dbg!(&tx);
+
+        assert_eq!(
+            tx.hash.to_string(),
+            "8cc7d414c54c3169b3179998514e19a9015eb597f2ce232b929a9b070bc63ec4"
+        );
     }
 
     #[tokio::test]
@@ -360,8 +393,12 @@ mod tests {
             .await
             .unwrap();
 
-        println!("{}", hex::encode(&tx.payload));
-        println!("{}", tx.fee);
+        dbg!(&tx);
+
+        assert_eq!(
+            tx.hash.to_string(),
+            "dd32c0fbfe556c1c497aab103867ea2cff7bd89e88d25caacd4fa69a33f20997"
+        );
     }
 
     #[tokio::test]
@@ -383,9 +420,6 @@ mod tests {
         };
 
         let tx = resolve_tx(tx, MockLedger::default(), config).await.unwrap();
-
-        println!("{}", hex::encode(tx.payload));
-        println!("{}", tx.fee);
 
         assert!(tx.fee >= extra_fees);
     }
@@ -410,9 +444,6 @@ mod tests {
         let tx = resolve_tx(tx, MockLedger::default(), config.clone())
             .await
             .unwrap();
-
-        println!("{}", hex::encode(&tx.payload));
-        println!("{}", tx.fee);
 
         assert!(!tx.payload.is_empty());
         assert!(tx.fee < DEFAULT_EXTRA_FEES);
