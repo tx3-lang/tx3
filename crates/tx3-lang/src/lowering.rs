@@ -528,9 +528,6 @@ impl IntoLower for ast::InputBlock {
             name: self.name.to_lowercase().clone(),
             utxos: param.into(),
             redeemer,
-
-            // DEPRECATED
-            policy: None,
         };
 
         Ok(input)
@@ -684,12 +681,16 @@ impl IntoLower for ast::CollateralBlock {
 
         let r#ref = self.find("ref").map(|x| x.into_lower(ctx)).transpose()?;
 
+        let query = ir::InputQuery {
+            address: from.unwrap_or(ir::Expression::None),
+            min_amount: min_amount.unwrap_or(ir::Expression::None),
+            r#ref: r#ref.unwrap_or(ir::Expression::None),
+        };
+
+        let param = ir::Param::ExpectInput("collateral".to_string(), query);
+
         let collateral = ir::Collateral {
-            query: ir::InputQuery {
-                address: from.unwrap_or(ir::Expression::None),
-                min_amount: min_amount.unwrap_or(ir::Expression::None),
-                r#ref: r#ref.unwrap_or(ir::Expression::None),
-            },
+            utxos: param.into(),
         };
 
         Ok(collateral)
