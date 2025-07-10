@@ -710,17 +710,27 @@ fn compile_witness_set(
     Ok(witness_set)
 }
 
-fn infer_plutus_version(_transaction_body: &primitives::TransactionBody) -> PlutusVersion {
-    // TODO: infer plutus version from existing scripts
-    1
+fn infer_plutus_version(witness_set: &primitives::WitnessSet) -> PlutusVersion {
+    // TODO: how do we handle this for reference scripts?
+
+    if witness_set.plutus_v1_script.is_some() {
+        0
+    } else if witness_set.plutus_v2_script.is_some() {
+        1
+    } else if witness_set.plutus_v3_script.is_some() {
+        2
+    } else {
+        // TODO: should we error here?
+        // Defaulting to Plutus V2 for now
+        1
+    }
 }
 
 fn compute_script_data_hash(
-    body: &primitives::TransactionBody,
     witness_set: &primitives::WitnessSet,
     pparams: &PParams,
 ) -> Option<primitives::Hash<32>> {
-    let version = infer_plutus_version(body);
+    let version = infer_plutus_version(&witness_set);
 
     let cost_model = pparams.cost_models.get(&version).unwrap();
 
@@ -736,8 +746,7 @@ pub fn compile_tx(tx: &ir::Tx, pparams: &PParams) -> Result<primitives::Tx<'stat
     let transaction_witness_set = compile_witness_set(tx, &transaction_body, pparams.network)?;
     let auxiliary_data = compile_auxiliary_data(tx)?;
 
-    transaction_body.script_data_hash =
-        compute_script_data_hash(&transaction_body, &transaction_witness_set, pparams);
+    transaction_body.script_data_hash = compute_script_data_hash(&transaction_witness_set, pparams);
 
     transaction_body.auxiliary_data_hash = auxiliary_data
         .as_ref()
