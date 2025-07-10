@@ -63,16 +63,20 @@ async fn resolve_input_queries<L: Ledger>(
         .collect::<Vec<_>>();
 
     for (name, query) in queries {
-        let ignore = attempt
-            .inputs()
-            .map(|(_, utxos)| {
-                utxos
-                    .iter()
-                    .map(|utxo| utxo.r#ref.clone())
-                    .collect::<Vec<_>>()
-            })
-            .flatten()
-            .collect::<Vec<_>>();
+        let ignore = if name == "collateral" {
+            vec![]
+        } else {
+            attempt
+                .inputs()
+                .map(|(_, utxos)| {
+                    utxos
+                        .iter()
+                        .map(|utxo| utxo.r#ref.clone())
+                        .collect::<Vec<_>>()
+                })
+                .flatten()
+                .collect::<Vec<_>>()
+        };
         let utxos = ledger
             .resolve_input(&query, &ResolveContext { ignore })
             .await?;
