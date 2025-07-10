@@ -1,5 +1,4 @@
 pub use pallas::codec::utils::Int;
-use pallas::codec::utils::KeyValuePairs;
 pub use pallas::ledger::primitives::{BigInt, BoundedBytes, Constr, MaybeIndefArray, PlutusData};
 use tx3_lang::ir;
 
@@ -91,41 +90,22 @@ impl IntoData for i128 {
 
 impl TryIntoData for Vec<ir::Expression> {
     fn try_as_data(&self) -> Result<PlutusData, super::Error> {
-        let all_tuples = self
+        let items = self
             .iter()
-            .all(|expr| matches!(expr, ir::Expression::Tuple(_)));
+            .map(TryIntoData::try_as_data)
+            .collect::<Result<Vec<_>, _>>()?;
 
-        if all_tuples && !self.is_empty() {
-            let key_value_pairs = self
-                .iter()
-                .map(|expr| -> Result<(PlutusData, PlutusData), super::Error> {
-                    if let ir::Expression::Tuple(tuple) = expr {
-                        Ok((tuple.0.try_as_data()?, tuple.1.try_as_data()?))
-                    } else {
-                        unreachable!("Already checked all are tuples")
-                    }
-                })
-                .collect::<Result<Vec<_>, _>>()?;
-
-            Ok(PlutusData::Map(KeyValuePairs::Def(key_value_pairs)))
-        } else {
-            let items = self
-                .iter()
-                .map(TryIntoData::try_as_data)
-                .collect::<Result<Vec<_>, _>>()?;
-
-            Ok(PlutusData::Array(MaybeIndefArray::Def(items)))
-        }
+        Ok(PlutusData::Array(MaybeIndefArray::Def(items)))
     }
 }
 
 impl TryIntoData for (ir::Expression, ir::Expression) {
     fn try_as_data(&self) -> Result<PlutusData, super::Error> {
         let (fst, snd) = self;
-        Ok(PlutusData::Map(KeyValuePairs::Def(vec![(
+        Ok(PlutusData::Array(MaybeIndefArray::Def(vec![
             fst.try_as_data()?,
             snd.try_as_data()?,
-        )])))
+        ])))
     }
 }
 
