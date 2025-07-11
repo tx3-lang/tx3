@@ -741,9 +741,6 @@ impl Apply for ir::Param {
             ir::Param::ExpectInput(name, query) => {
                 Ok(ir::Param::ExpectInput(name, query.apply_args(args)?))
             }
-            ir::Param::ExpectMinUtxo(name) => {
-                todo!("Not implemented apply for expect min utxo{}", name)
-            }
             x => Ok(x),
         }
     }
@@ -1117,6 +1114,7 @@ impl Composite for ir::CompilerOp {
     fn components(&self) -> Vec<&ir::Expression> {
         match self {
             ir::CompilerOp::BuildScriptAddress(x) => vec![x],
+            ir::CompilerOp::ComputeMinUtxo(x) => vec![x],
         }
     }
 
@@ -1126,6 +1124,7 @@ impl Composite for ir::CompilerOp {
     {
         match self {
             ir::CompilerOp::BuildScriptAddress(x) => Ok(ir::CompilerOp::BuildScriptAddress(f(x)?)),
+            ir::CompilerOp::ComputeMinUtxo(x) => Ok(ir::CompilerOp::ComputeMinUtxo(f(x)?)),
         }
     }
 }

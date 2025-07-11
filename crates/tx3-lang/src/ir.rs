@@ -70,6 +70,7 @@ pub enum BuiltInOp {
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum CompilerOp {
     BuildScriptAddress(Expression),
+    ComputeMinUtxo(Expression),
 }
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -178,7 +179,6 @@ pub enum Param {
     Set(Expression),
     ExpectValue(String, Type),
     ExpectInput(String, InputQuery),
-    ExpectMinUtxo(String),
     ExpectFees,
 }
 
@@ -197,7 +197,6 @@ pub enum Expression {
     UtxoRefs(Vec<UtxoRef>),
     UtxoSet(HashSet<Utxo>),
     Assets(Vec<AssetExpr>),
-    MinUtxo(Box<Expression>),
     EvalParam(Box<Param>),
     EvalBuiltIn(Box<BuiltInOp>),
     EvalCompiler(Box<CompilerOp>),
