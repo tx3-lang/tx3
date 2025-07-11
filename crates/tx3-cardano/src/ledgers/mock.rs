@@ -45,6 +45,8 @@ impl Ledger for MockLedger {
             cost_models: HashMap::from([
                 (0, COST_MODEL_PLUTUS_V1.to_vec()),
                 (1, COST_MODEL_PLUTUS_V2.to_vec()),
+                // using the same cost model for v3 for now, need to lookup a valid one
+                (2, COST_MODEL_PLUTUS_V2.to_vec()),
             ]),
         })
     }

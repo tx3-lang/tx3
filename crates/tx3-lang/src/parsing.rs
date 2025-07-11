@@ -379,7 +379,7 @@ impl AstNode for CollateralBlockField {
         match pair.as_rule() {
             Rule::input_block_from => {
                 let pair = pair.into_inner().next().unwrap();
-                let x = CollateralBlockField::From(AddressExpr::parse(pair)?);
+                let x = CollateralBlockField::From(DataExpr::parse(pair)?);
                 Ok(x)
             }
             Rule::input_block_min_amount => {
@@ -475,7 +475,7 @@ impl AstNode for InputBlockField {
         match pair.as_rule() {
             Rule::input_block_from => {
                 let pair = pair.into_inner().next().unwrap();
-                let x = InputBlockField::From(AddressExpr::parse(pair)?);
+                let x = InputBlockField::From(DataExpr::parse(pair)?);
                 Ok(x)
             }
             Rule::input_block_datum_is => {
@@ -546,7 +546,7 @@ impl AstNode for OutputBlockField {
         match pair.as_rule() {
             Rule::output_block_to => {
                 let pair = pair.into_inner().next().unwrap();
-                let x = OutputBlockField::To(Box::new(AddressExpr::parse(pair)?));
+                let x = OutputBlockField::To(Box::new(DataExpr::parse(pair)?));
                 Ok(x)
             }
             Rule::output_block_amount => {
@@ -832,31 +832,6 @@ impl AstNode for PolicyDef {
 
     fn span(&self) -> &Span {
         &self.span
-    }
-}
-
-impl AstNode for AddressExpr {
-    const RULE: Rule = Rule::address_expr;
-
-    fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
-        let mut inner = pair.into_inner();
-
-        let value = inner.next().unwrap();
-
-        match value.as_rule() {
-            Rule::string => Ok(AddressExpr::String(StringLiteral::parse(value)?)),
-            Rule::hex_string => Ok(AddressExpr::HexString(HexStringLiteral::parse(value)?)),
-            Rule::identifier => Ok(AddressExpr::Identifier(Identifier::parse(value)?)),
-            x => unreachable!("Unexpected rule in address_expr: {:?}", x),
-        }
-    }
-
-    fn span(&self) -> &Span {
-        match self {
-            Self::String(x) => x.span(),
-            Self::HexString(x) => x.span(),
-            Self::Identifier(x) => x.span(),
-        }
     }
 }
 
@@ -1938,29 +1913,6 @@ mod tests {
     );
 
     input_to_ast_check!(
-        AddressExpr,
-        "address_string",
-        "\"addr1qx234567890abcdefghijklmnopqrstuvwxyz\"",
-        AddressExpr::String(StringLiteral::new(
-            "addr1qx234567890abcdefghijklmnopqrstuvwxyz".to_string()
-        ))
-    );
-
-    input_to_ast_check!(
-        AddressExpr,
-        "address_hex_string",
-        "0x1234567890abcdef",
-        AddressExpr::HexString(HexStringLiteral::new("1234567890abcdef".to_string()))
-    );
-
-    input_to_ast_check!(
-        AddressExpr,
-        "address_identifier",
-        "my_address",
-        AddressExpr::Identifier(Identifier::new("my_address"))
-    );
-
-    input_to_ast_check!(
         StructConstructor,
         "struct_constructor_record",
         "MyRecord {
@@ -2159,7 +2111,7 @@ mod tests {
         OutputBlock {
             name: None,
             fields: vec![
-                OutputBlockField::To(Box::new(AddressExpr::Identifier(Identifier::new(
+                OutputBlockField::To(Box::new(DataExpr::Identifier(Identifier::new(
                     "my_party".to_string(),
                 )))),
                 OutputBlockField::Amount(Box::new(DataExpr::StaticAssetConstructor(

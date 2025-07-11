@@ -2,6 +2,44 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.1] - 2025-07-10
+
+### 🐛 Bug Fixes
+
+- Bump TIR version to flag breaking changes
+
+## [0.8.0] - 2025-07-10
+
+### 🚀 Features
+
+- *(cardano)* Introduce extra fee config (#193)
+- Introduce compiler ops (#196)
+- *(cardano)* Provide tx hash as resolve output (#199)
+
+### 🐛 Bug Fixes
+
+- *(cardano)* Improve eval pass logic (#195)
+- Implement apply for compiler op (#197)
+- Resolve collateral using new param approach (#198)
+- *(cardano)* Use Plutus version in witnesses for script data hash (#200)
+
+### 🚜 Refactor
+
+- Improve errors for better miette support (#192)
+
+## [0.7.2] - 2025-07-07
+
+### 🐛 Bug Fixes
+
+- *(applying)* Apply fees to pending input queries (#187)
+- *(cardano)* Handle validity with none expressions (#188)
+
+## [0.7.1] - 2025-07-05
+
+### 🐛 Bug Fixes
+
+- Use new Param IR for input queries (#186)
+
 ## [0.7.0] - 2025-07-03
 
 ### 🚀 Features

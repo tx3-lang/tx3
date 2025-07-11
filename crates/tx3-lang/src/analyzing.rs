@@ -5,6 +5,8 @@
 
 use std::{collections::HashMap, rc::Rc};
 
+use miette::Diagnostic;
+
 use crate::ast::*;
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic, PartialEq, Eq)]
@@ -124,8 +126,10 @@ impl Error {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, thiserror::Error, Diagnostic)]
+#[error("analyze report")]
 pub struct AnalyzeReport {
+    #[related]
     pub errors: Vec<Error>,
 }
 
@@ -152,14 +156,6 @@ impl AnalyzeReport {
         } else {
             Self::default()
         }
-    }
-}
-
-impl std::error::Error for AnalyzeReport {}
-
-impl std::fmt::Display for AnalyzeReport {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "AnalyzeReport {{ errors: {:?} }}", self.errors)
     }
 }
 
