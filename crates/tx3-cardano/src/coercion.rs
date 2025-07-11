@@ -174,6 +174,36 @@ pub fn expr_into_address(
     }
 }
 
+pub fn address_into_keyhash(
+    address: &pallas::ledger::addresses::Address,
+) -> Result<primitives::AddrKeyhash, Error> {
+    let pallas::ledger::addresses::Address::Shelley(address) = address else {
+        return Err(Error::CoerceError(
+            format!("{:?}", address),
+            "Shelley address".to_string(),
+        ));
+    };
+
+    match address.payment() {
+        pallas::ledger::addresses::ShelleyPaymentPart::Key(x) => Ok(*x),
+        pallas::ledger::addresses::ShelleyPaymentPart::Script(x) => Ok(*x),
+    }
+}
+
+pub fn expr_into_address_keyhash(expr: &ir::Expression) -> Result<primitives::AddrKeyhash, Error> {
+    match expr {
+        ir::Expression::Bytes(x) => Ok(primitives::AddrKeyhash::from(x.as_slice())),
+        ir::Expression::Address(x) => {
+            let address = bytes_into_address(x)?;
+            address_into_keyhash(&address)
+        }
+        _ => Err(Error::CoerceError(
+            format!("{:?}", expr),
+            "AddrKeyhash".to_string(),
+        )),
+    }
+}
+
 pub fn expr_into_bytes(ir: &ir::Expression) -> Result<primitives::Bytes, Error> {
     match ir {
         ir::Expression::Bytes(x) => Ok(primitives::Bytes::from(x.clone())),
