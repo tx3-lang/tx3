@@ -418,7 +418,7 @@ impl IntoLower for ast::TupleConstructor {
         let fst = self.fst.into_lower(ctx)?;
         let snd = self.snd.into_lower(ctx)?;
 
-        Ok(ir::Expression::Tuple(Box::new((fst, snd))))
+        Ok(ir::Expression::List(vec![fst, snd]))
     }
 }
 

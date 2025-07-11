@@ -99,16 +99,6 @@ impl TryIntoData for Vec<ir::Expression> {
     }
 }
 
-impl TryIntoData for (ir::Expression, ir::Expression) {
-    fn try_as_data(&self) -> Result<PlutusData, super::Error> {
-        let (fst, snd) = self;
-        Ok(PlutusData::Array(MaybeIndefArray::Def(vec![
-            fst.try_as_data()?,
-            snd.try_as_data()?,
-        ])))
-    }
-}
-
 impl TryIntoData for ir::StructExpr {
     fn try_as_data(&self) -> Result<PlutusData, super::Error> {
         let fields = self
@@ -145,7 +135,6 @@ impl TryIntoData for ir::Expression {
             ir::Expression::Address(x) => Ok(x.as_data()),
             ir::Expression::Hash(x) => Ok(x.as_data()),
             ir::Expression::List(x) => x.try_as_data(),
-            ir::Expression::Tuple(x) => x.try_as_data(),
             x => Err(super::Error::CoerceError(
                 format!("{:?}", x),
                 "PlutusData".to_string(),
