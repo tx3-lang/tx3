@@ -318,43 +318,15 @@ fn compile_collateral(tx: &ir::Tx) -> Result<Vec<TransactionInput>, Error> {
 }
 
 fn compile_required_signers(tx: &ir::Tx) -> Result<Option<primitives::RequiredSigners>, Error> {
-    let mut hashes = Vec::new();
     let Some(signers) = &tx.signers else {
-        return Ok(primitives::RequiredSigners::from_vec(hashes));
+        return Ok(None);
     };
 
-    for signer in &signers.signers {
-        match signer {
-            ir::Expression::String(s) => {
-                let signer_addr = coercion::string_into_address(s)?;
-                let Address::Shelley(addr) = signer_addr else {
-                    return Err(Error::CoerceError(
-                        format!("{:?}", signer),
-                        "Shelley address".to_string(),
-                    ));
-                };
-
-                let ShelleyPaymentPart::Key(key) = addr.payment() else {
-                    return Err(Error::CoerceError(
-                        format!("{:?}", signer),
-                        "Key payment credential".to_string(),
-                    ));
-                };
-
-                hashes.push(*key);
-            }
-            ir::Expression::Bytes(b) => {
-                let bytes = primitives::Bytes::from(b.clone());
-                hashes.push(primitives::AddrKeyhash::from(bytes.as_slice()));
-            }
-            _ => {
-                return Err(Error::CoerceError(
-                    format!("{:?}", signer),
-                    "Signer".to_string(),
-                ));
-            }
-        }
-    }
+    let hashes = signers
+        .signers
+        .iter()
+        .map(coercion::expr_into_address_keyhash)
+        .collect::<Result<Vec<_>, _>>()?;
 
     Ok(primitives::RequiredSigners::from_vec(hashes))
 }
