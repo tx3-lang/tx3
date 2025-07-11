@@ -171,6 +171,7 @@ pub enum Type {
     AnyAsset,
     List,
     Custom(String),
+    Tuple,
 }
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -185,7 +186,6 @@ pub enum Param {
 pub enum Expression {
     None,
     List(Vec<Expression>),
-    Tuple(Box<(Expression, Expression)>),
     Struct(StructExpr),
     Bytes(Vec<u8>),
     Number(i128),
