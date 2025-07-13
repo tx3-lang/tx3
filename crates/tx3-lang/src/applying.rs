@@ -63,6 +63,10 @@ impl Indexable for ir::Expression {
     }
 }
 
+pub trait Concatenable {
+    fn concat(self, other: ir::Expression) -> Result<ir::Expression, Error>;
+}
+
 pub trait Arithmetic {
     fn add(self, other: ir::Expression) -> Result<ir::Expression, Error>;
     fn sub(self, other: ir::Expression) -> Result<ir::Expression, Error>;
@@ -158,6 +162,53 @@ impl Arithmetic for ir::Expression {
             ir::Expression::Number(x) => Arithmetic::neg(x),
             ir::Expression::Assets(x) => Arithmetic::neg(x),
             x => Err(Error::InvalidUnaryOp("neg".to_string(), format!("{:?}", x))),
+        }
+    }
+}
+
+impl Concatenable for String {
+    fn concat(self, other: ir::Expression) -> Result<ir::Expression, Error> {
+        match other {
+            ir::Expression::String(y) => Ok(ir::Expression::String(self + &y)),
+            ir::Expression::None => Ok(ir::Expression::String(self)),
+            _ => Err(Error::InvalidBinaryOp(
+                "concat".to_string(),
+                format!("String({:?})", self),
+                format!("{:?}", other),
+            )),
+        }
+    }
+}
+
+impl Concatenable for Vec<u8> {
+    fn concat(self, other: ir::Expression) -> Result<ir::Expression, Error> {
+        match other {
+            ir::Expression::Bytes(y) => {
+                let mut result = self;
+                result.extend(y);
+                Ok(ir::Expression::Bytes(result))
+            }
+            ir::Expression::None => Ok(ir::Expression::Bytes(self)),
+            _ => Err(Error::InvalidBinaryOp(
+                "concat".to_string(),
+                format!("Bytes({:?})", self),
+                format!("{:?}", other),
+            )),
+        }
+    }
+}
+
+impl Concatenable for ir::Expression {
+    fn concat(self, other: ir::Expression) -> Result<ir::Expression, Error> {
+        match self {
+            ir::Expression::None => Ok(other),
+            ir::Expression::String(x) => Concatenable::concat(x, other),
+            ir::Expression::Bytes(x) => Concatenable::concat(x, other),
+            x => Err(Error::InvalidBinaryOp(
+                "concat".to_string(),
+                format!("{:?}", x),
+                format!("{:?}", other),
+            )),
         }
     }
 }
@@ -532,6 +583,7 @@ impl Composite for ir::BuiltInOp {
             Self::NoOp(x) => vec![x],
             Self::Add(x, y) => vec![x, y],
             Self::Sub(x, y) => vec![x, y],
+            Self::Concat(x, y) => vec![x, y],
             Self::Negate(x) => vec![x],
             Self::Property(x, _) => vec![x],
         }
@@ -545,6 +597,7 @@ impl Composite for ir::BuiltInOp {
             Self::NoOp(x) => Ok(Self::NoOp(f(x)?)),
             Self::Add(x, y) => Ok(Self::Add(f(x)?, f(y)?)),
             Self::Sub(x, y) => Ok(Self::Sub(f(x)?, f(y)?)),
+            Self::Concat(x, y) => Ok(Self::Concat(f(x)?, f(y)?)),
             Self::Negate(x) => Ok(Self::Negate(f(x)?)),
             Self::Property(x, prop) => Ok(Self::Property(f(x)?, prop)),
         }
@@ -554,6 +607,7 @@ impl Composite for ir::BuiltInOp {
         match self {
             Self::Add(x, y) => Ok(Self::NoOp(x.add(y)?)),
             Self::Sub(x, y) => Ok(Self::NoOp(x.sub(y)?)),
+            Self::Concat(x, y) => Ok(Self::NoOp(x.concat(y)?)),
             Self::Negate(x) => Ok(Self::NoOp(x.neg()?)),
             Self::Property(x, prop) => Ok(Self::NoOp(x.index_or_err(prop)?)),
             Self::NoOp(x) => Ok(Self::NoOp(x)),
@@ -564,6 +618,7 @@ impl Composite for ir::BuiltInOp {
         match self {
             Self::Add(x, y) => Ok(Self::Add(x.reduce()?, y.reduce()?)),
             Self::Sub(x, y) => Ok(Self::Sub(x.reduce()?, y.reduce()?)),
+            Self::Concat(x, y) => Ok(Self::Concat(x.reduce()?, y.reduce()?)),
             Self::Negate(x) => Ok(Self::Negate(x.reduce()?)),
             Self::Property(x, y) => Ok(Self::Property(x.reduce()?, y)),
             Self::NoOp(x) => Ok(Self::NoOp(x.reduce()?)),
@@ -1801,5 +1856,65 @@ mod tests {
             Err(Error::PropertyIndexNotFound(100, _)) => (),
             _ => panic!("Expected property index not found"),
         };
+    }
+
+    #[test]
+    fn test_string_concat_is_reduced() {
+        let op = ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Concat(
+            ir::Expression::String("hello".to_string()),
+            ir::Expression::String("world".to_string()),
+        )));
+
+        let reduced = op.reduce().unwrap();
+
+        match reduced {
+            ir::Expression::String(s) => assert_eq!(s, "helloworld"),
+            _ => panic!("Expected string 'helloworld'"),
+        }
+    }
+
+    #[test]
+    fn test_bytes_concat_is_reduced() {
+        let op = ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Concat(
+            ir::Expression::Bytes(vec![1, 2, 3]),
+            ir::Expression::Bytes(vec![4, 5, 6]),
+        )));
+
+        let reduced = op.reduce().unwrap();
+
+        match reduced {
+            ir::Expression::Bytes(b) => assert_eq!(b, vec![1, 2, 3, 4, 5, 6]),
+            _ => panic!("Expected bytes [1, 2, 3, 4, 5, 6]"),
+        }
+    }
+
+    #[test]
+    fn test_concat_type_mismatch_error() {
+        let op = ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Concat(
+            ir::Expression::String("hello".to_string()),
+            ir::Expression::Bytes(vec![1, 2, 3]),
+        )));
+
+        let reduced = op.reduce();
+
+        match reduced {
+            Err(Error::InvalidBinaryOp(op, _, _)) => assert_eq!(op, "concat"),
+            _ => panic!("Expected InvalidBinaryOp error"),
+        }
+    }
+
+    #[test]
+    fn test_concat_with_none() {
+        let op = ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Concat(
+            ir::Expression::String("hello".to_string()),
+            ir::Expression::None,
+        )));
+
+        let reduced = op.reduce().unwrap();
+
+        match reduced {
+            ir::Expression::String(s) => assert_eq!(s, "hello"),
+            _ => panic!("Expected string 'hello'"),
+        }
     }
 }
