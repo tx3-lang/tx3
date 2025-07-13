@@ -120,6 +120,10 @@ any_asset_constructor = {
     "AnyAsset" ~ "(" ~ data_expr ~ "," ~ data_expr ~ "," ~ data_expr ~ ")"
 }
 
+concat_constructor = {
+    "concat" ~ "(" ~ data_expr ~ "," ~ data_expr ~ ")"
+}
+
 data_expr = { data_prefix* ~ data_primary ~ data_postfix* ~ (data_infix ~ data_prefix* ~ data_primary ~ data_postfix* )* }
 
     data_infix = _{ data_add | data_sub }
@@ -143,6 +147,7 @@ data_expr = { data_prefix* ~ data_primary ~ data_postfix* ~ (data_infix ~ data_p
         list_constructor |
         any_asset_constructor |
         static_asset_constructor |
+        concat_constructor |
         identifier |
         "(" ~ data_expr ~ ")"
     }

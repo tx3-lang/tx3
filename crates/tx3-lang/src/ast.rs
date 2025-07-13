@@ -678,6 +678,19 @@ impl SubOp {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ConcatOp {
+    pub lhs: Box<DataExpr>,
+    pub rhs: Box<DataExpr>,
+    pub span: Span,
+}
+
+impl ConcatOp {
+    pub fn target_type(&self) -> Option<Type> {
+        self.lhs.target_type()
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum DataExpr {
     None,
     Unit,
@@ -692,6 +705,7 @@ pub enum DataExpr {
     Identifier(Identifier),
     AddOp(AddOp),
     SubOp(SubOp),
+    ConcatOp(ConcatOp),
     NegateOp(NegateOp),
     PropertyOp(PropertyOp),
     UtxoRef(UtxoRef),
@@ -718,6 +732,7 @@ impl DataExpr {
             DataExpr::ListConstructor(x) => x.target_type(),
             DataExpr::AddOp(x) => x.target_type(),
             DataExpr::SubOp(x) => x.target_type(),
+            DataExpr::ConcatOp(x) => x.target_type(),
             DataExpr::NegateOp(x) => x.target_type(),
             DataExpr::PropertyOp(x) => x.target_type(),
             DataExpr::StaticAssetConstructor(x) => x.target_type(),
