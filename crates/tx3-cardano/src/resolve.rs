@@ -2,7 +2,7 @@ use pallas::{
     crypto::hash::Hash,
     ledger::{primitives::conway as primitives, traverse::ComputeHash},
 };
-use tx3_lang::{applying::Apply, ir::InputQuery};
+use tx3_lang::{applying::Apply, ir::InputQuery, UtxoRef};
 
 use crate::{compile::compile_tx, Error, PParams};
 
@@ -16,6 +16,11 @@ pub struct TxEval {
     pub ex_units: u64,
 }
 
+#[derive(Debug, Default)]
+pub struct ResolveContext {
+    pub ignore: Vec<UtxoRef>,
+}
+
 #[derive(Debug, Clone)]
 pub struct Config {
     pub max_optimize_rounds: usize,
@@ -26,7 +31,11 @@ pub struct Config {
 pub trait Ledger {
     async fn get_pparams(&self) -> Result<PParams, Error>;
 
-    async fn resolve_input(&self, query: &InputQuery) -> Result<tx3_lang::UtxoSet, Error>;
+    async fn resolve_input(
+        &self,
+        query: &InputQuery,
+        resolve_context: &ResolveContext,
+    ) -> Result<tx3_lang::UtxoSet, Error>;
 }
 
 fn eval_size_fees(tx: &[u8], pparams: &PParams, extra_fees: Option<u64>) -> Result<u64, Error> {
@@ -40,6 +49,47 @@ fn eval_redeemer_fees(_tx: &primitives::Tx, _pparams: &PParams) -> Result<u64, E
     // pallas::ledger::validate::phase_two::evaluate_tx(tx.into(), pparams, utxos,
     // slot_config);
     todo!()
+}
+
+async fn resolve_input_queries<L: Ledger>(
+    tx: &tx3_lang::ProtoTx,
+    ledger: &L,
+) -> Result<tx3_lang::ProtoTx, Error> {
+    let mut attempt = tx.clone();
+    let queries = attempt
+        .find_queries()
+        .to_owned()
+        .into_iter()
+        .collect::<Vec<_>>();
+
+    for (name, query) in queries {
+        let ignore = if name == "collateral" {
+            vec![]
+        } else {
+            attempt
+                .inputs()
+                .map(|(_, utxos)| {
+                    utxos
+                        .iter()
+                        .map(|utxo| utxo.r#ref.clone())
+                        .collect::<Vec<_>>()
+                })
+                .flatten()
+                .collect::<Vec<_>>()
+        };
+        let utxos = ledger
+            .resolve_input(&query, &ResolveContext { ignore })
+            .await?;
+        if utxos.is_empty() {
+            return Err(Error::InputsNotResolved(
+                name.clone(),
+                Box::new(query.clone()),
+            ));
+        }
+
+        attempt.set_input(&name, utxos);
+    }
+    Ok(attempt)
 }
 
 async fn eval_pass<L: Ledger>(
@@ -56,15 +106,7 @@ async fn eval_pass<L: Ledger>(
 
     attempt = attempt.apply()?;
 
-    for (name, query) in attempt.find_queries() {
-        let utxos = ledger.resolve_input(&query).await?;
-
-        if utxos.is_empty() {
-            return Err(Error::InputsNotResolved(name, Box::new(query)));
-        }
-
-        attempt.set_input(&name, utxos);
-    }
+    let attempt = resolve_input_queries(&attempt, ledger).await?;
 
     let attempt = attempt.apply()?;
 
