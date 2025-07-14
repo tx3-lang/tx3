@@ -559,6 +559,26 @@ impl AnyAssetConstructor {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct TupleConstructor {
+    pub fst: Box<DataExpr>,
+    pub snd: Box<DataExpr>,
+    pub span: Span,
+}
+
+impl TupleConstructor {
+    pub fn target_type(&self) -> Option<Type> {
+        Some(Type::Tuple(
+            Box::new(self.fst.target_type()?),
+            Box::new(self.snd.target_type()?),
+        ))
+    }
+
+    pub fn is_resolved(&self) -> bool {
+        self.fst.target_type().is_some() && self.snd.target_type().is_some()
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct RecordConstructorField {
     pub name: Identifier,
     pub value: Box<DataExpr>,
@@ -700,6 +720,7 @@ pub enum DataExpr {
     HexString(HexStringLiteral),
     StructConstructor(StructConstructor),
     ListConstructor(ListConstructor),
+    TupleConstructor(TupleConstructor),
     StaticAssetConstructor(StaticAssetConstructor),
     AnyAssetConstructor(AnyAssetConstructor),
     Identifier(Identifier),
@@ -730,6 +751,7 @@ impl DataExpr {
             DataExpr::HexString(_) => Some(Type::Bytes),
             DataExpr::StructConstructor(x) => x.target_type(),
             DataExpr::ListConstructor(x) => x.target_type(),
+            DataExpr::TupleConstructor(x) => x.target_type(),
             DataExpr::AddOp(x) => x.target_type(),
             DataExpr::SubOp(x) => x.target_type(),
             DataExpr::ConcatOp(x) => x.target_type(),
@@ -771,6 +793,7 @@ pub enum Type {
     AnyAsset,
     List(Box<Type>),
     Custom(Identifier),
+    Tuple(Box<Type>, Box<Type>),
 }
 
 impl std::fmt::Display for Type {
@@ -787,6 +810,7 @@ impl std::fmt::Display for Type {
             Type::Utxo => write!(f, "Utxo"),
             Type::List(inner) => write!(f, "List<{}>", inner),
             Type::Custom(id) => write!(f, "{}", id.value),
+            Type::Tuple(fst, snd) => write!(f, "({} {})", fst, snd),
         }
     }
 }

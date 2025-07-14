@@ -172,6 +172,7 @@ pub enum Type {
     AnyAsset,
     List,
     Custom(String),
+    Tuple,
 }
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
