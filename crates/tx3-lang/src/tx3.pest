@@ -24,10 +24,12 @@ primitive_type = {
 
 custom_type = { identifier }
 list_type = { "List<" ~ type ~ ">" }
+map_type = { "Map<" ~ type ~ "," ~ type ~ ">"}
 
 type = {
     primitive_type |
     list_type |
+    map_type |
     custom_type
 }
 
@@ -145,6 +147,7 @@ data_expr = { data_prefix* ~ data_primary ~ data_postfix* ~ (data_infix ~ data_p
         string |
         struct_constructor |
         list_constructor |
+        map_constructor |
         any_asset_constructor |
         static_asset_constructor |
         concat_constructor |
@@ -183,6 +186,14 @@ struct_constructor = {
 
 list_constructor = {
     "[" ~ (data_expr ~ ",")* ~ data_expr? ~ "]"
+}
+
+map_field = {
+    "(" ~ data_expr ~ ":" ~ data_expr ~ ")"
+}
+
+map_constructor = {
+    "{" ~  (map_field ~ ",")+ ~ "}"
 }
 
 // input block

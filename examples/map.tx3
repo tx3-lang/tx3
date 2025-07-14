@@ -1,0 +1,29 @@
+type Datum {
+  A: Map<Int, Int>,
+}
+
+party Sender;
+
+party Receiver;
+
+tx transfer(
+    quantity: Int
+) {
+    input source {
+        from: Sender,
+        min_amount: Ada(quantity),
+    }
+
+    output {
+        to: Receiver,
+        amount: Ada(quantity),
+    }
+
+    output {
+        to: Sender,
+        amount: source - Ada(quantity) - fees,
+        datum: Datum {
+          A: {(1:quantity), (2:quantity),},
+        },
+    }
+}
