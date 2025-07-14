@@ -85,7 +85,7 @@
           "constructor": 0,
           "fields": [
             {
-              "Tuple": [
+              "List": [
                 {
                   "EvalParam": {
                     "ExpectValue": [
