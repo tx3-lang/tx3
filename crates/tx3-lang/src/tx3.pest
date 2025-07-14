@@ -189,7 +189,7 @@ list_constructor = {
 }
 
 map_field = {
-    "(" ~ data_expr ~ ":" ~ data_expr ~ ")"
+    data_expr ~ ":" ~ data_expr
 }
 
 map_constructor = {

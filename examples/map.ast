@@ -262,15 +262,15 @@
                                     "value": "quantity",
                                     "span": {
                                       "dummy": false,
-                                      "start": 379,
-                                      "end": 387
+                                      "start": 378,
+                                      "end": 386
                                     }
                                   }
                                 },
                                 "span": {
                                   "dummy": false,
                                   "start": 376,
-                                  "end": 388
+                                  "end": 386
                                 }
                               },
                               {
@@ -282,29 +282,29 @@
                                     "value": "quantity",
                                     "span": {
                                       "dummy": false,
-                                      "start": 393,
-                                      "end": 401
+                                      "start": 390,
+                                      "end": 398
                                     }
                                   }
                                 },
                                 "span": {
                                   "dummy": false,
-                                  "start": 390,
-                                  "end": 402
+                                  "start": 388,
+                                  "end": 398
                                 }
                               }
                             ],
                             "span": {
                               "dummy": false,
                               "start": 375,
-                              "end": 404
+                              "end": 400
                             }
                           }
                         },
                         "span": {
                           "dummy": false,
                           "start": 372,
-                          "end": 404
+                          "end": 400
                         }
                       }
                     ],
@@ -312,13 +312,13 @@
                     "span": {
                       "dummy": false,
                       "start": 360,
-                      "end": 415
+                      "end": 411
                     }
                   },
                   "span": {
                     "dummy": false,
                     "start": 354,
-                    "end": 415
+                    "end": 411
                   }
                 }
               }
@@ -327,7 +327,7 @@
           "span": {
             "dummy": false,
             "start": 263,
-            "end": 422
+            "end": 418
           }
         }
       ],
@@ -339,7 +339,7 @@
       "span": {
         "dummy": false,
         "start": 68,
-        "end": 424
+        "end": 420
       },
       "collateral": [],
       "metadata": null
@@ -439,6 +439,6 @@
   "span": {
     "dummy": false,
     "start": 0,
-    "end": 424
+    "end": 420
   }
 }

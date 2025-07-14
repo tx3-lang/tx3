@@ -23,7 +23,7 @@ tx transfer(
         to: Sender,
         amount: source - Ada(quantity) - fees,
         datum: Datum {
-          A: {(1:quantity), (2:quantity),},
+          A: {1:quantity, 2:quantity,},
         },
     }
 }
