@@ -270,7 +270,8 @@ fn compile_inputs(tx: &ir::Tx) -> Result<Vec<primitives::TransactionInput>, Erro
     let refs = tx
         .inputs
         .iter()
-        .flat_map(|x| x.refs.iter())
+        .flat_map(|x| coercion::expr_into_utxo_refs(&x.utxos))
+        .flatten()
         .map(|x| primitives::TransactionInput {
             transaction_id: x.txid.as_slice().into(),
             index: x.index as u64,
@@ -350,7 +351,7 @@ fn compile_certs(tx: &ir::Tx, network: Network) -> Result<Vec<primitives::Certif
 }
 
 fn compile_reference_inputs(tx: &ir::Tx) -> Result<Vec<primitives::TransactionInput>, Error> {
-    let explicit_ref_inputs = tx
+    let refs = tx
         .references
         .iter()
         .flat_map(coercion::expr_into_utxo_refs)
@@ -358,21 +359,7 @@ fn compile_reference_inputs(tx: &ir::Tx) -> Result<Vec<primitives::TransactionIn
         .map(|x| primitives::TransactionInput {
             transaction_id: x.txid.as_slice().into(),
             index: x.index as u64,
-        });
-
-    let refs = tx
-        .inputs
-        .iter()
-        .filter_map(|x| x.policy.as_ref())
-        .map(|x| &x.script)
-        .filter_map(|x| x.as_utxo_ref())
-        .flat_map(|x| coercion::expr_into_utxo_refs(&x))
-        .flatten()
-        .map(|x| primitives::TransactionInput {
-            transaction_id: x.txid.as_slice().into(),
-            index: x.index as u64,
         })
-        .chain(explicit_ref_inputs)
         .collect();
 
     Ok(refs)
@@ -382,7 +369,7 @@ fn compile_collateral(tx: &ir::Tx) -> Result<Vec<TransactionInput>, Error> {
     Ok(tx
         .collateral
         .iter()
-        .filter_map(|collateral| collateral.query.r#ref.as_option())
+        .filter_map(|collateral| collateral.utxos.as_option())
         .flat_map(coercion::expr_into_utxo_refs)
         .flatten()
         .map(|x| primitives::TransactionInput {
@@ -393,55 +380,29 @@ fn compile_collateral(tx: &ir::Tx) -> Result<Vec<TransactionInput>, Error> {
 }
 
 fn compile_required_signers(tx: &ir::Tx) -> Result<Option<primitives::RequiredSigners>, Error> {
-    let mut hashes = Vec::new();
     let Some(signers) = &tx.signers else {
-        return Ok(primitives::RequiredSigners::from_vec(hashes));
+        return Ok(None);
     };
 
-    for signer in &signers.signers {
-        match signer {
-            ir::Expression::String(s) => {
-                let signer_addr = coercion::string_into_address(s)?;
-                let Address::Shelley(addr) = signer_addr else {
-                    return Err(Error::CoerceError(
-                        format!("{:?}", signer),
-                        "Shelley address".to_string(),
-                    ));
-                };
-
-                let ShelleyPaymentPart::Key(key) = addr.payment() else {
-                    return Err(Error::CoerceError(
-                        format!("{:?}", signer),
-                        "Key payment credential".to_string(),
-                    ));
-                };
-
-                hashes.push(*key);
-            }
-            ir::Expression::Bytes(b) => {
-                let bytes = primitives::Bytes::from(b.clone());
-                hashes.push(primitives::AddrKeyhash::from(bytes.as_slice()));
-            }
-            _ => {
-                return Err(Error::CoerceError(
-                    format!("{:?}", signer),
-                    "Signer".to_string(),
-                ));
-            }
-        }
-    }
+    let hashes = signers
+        .signers
+        .iter()
+        .map(coercion::expr_into_address_keyhash)
+        .collect::<Result<Vec<_>, _>>()?;
 
     Ok(primitives::RequiredSigners::from_vec(hashes))
 }
 
 fn compile_validity(validity: Option<&ir::Validity>) -> Result<(Option<u64>, Option<u64>), Error> {
     let since = validity
-        .map(|v| coercion::expr_into_number(&v.since))
+        .and_then(|v| v.since.as_option())
+        .map(|v| coercion::expr_into_number(v))
         .transpose()?
         .map(|n| n as u64);
 
     let until = validity
-        .map(|v| coercion::expr_into_number(&v.until))
+        .and_then(|v| v.until.as_option())
+        .map(|v| coercion::expr_into_number(v))
         .transpose()?
         .map(|n| n as u64);
 
@@ -545,12 +506,13 @@ fn compile_spend_redeemers(
     let mut redeemers = Vec::new();
 
     for input in tx.inputs.iter() {
-        for ref_ in input.refs.iter() {
-            if let Some(redeemer) = &input.redeemer {
-                let redeemer =
-                    compile_single_spend_redeemer(ref_, redeemer, compiled_inputs.as_slice())?;
-                redeemers.push(redeemer);
-            }
+        let utxo = coercion::expr_into_utxo_refs(&input.utxos)?;
+        let utxo = utxo.iter().next().ok_or(Error::MissingInputUtxo)?;
+
+        if let Some(redeemer) = input.redeemer.as_option() {
+            let redeemer =
+                compile_single_spend_redeemer(utxo, redeemer, compiled_inputs.as_slice())?;
+            redeemers.push(redeemer);
         }
     }
 
@@ -782,17 +744,27 @@ fn compile_witness_set(
     Ok(witness_set)
 }
 
-fn infer_plutus_version(_transaction_body: &primitives::TransactionBody) -> PlutusVersion {
-    // TODO: infer plutus version from existing scripts
-    1
+fn infer_plutus_version(witness_set: &primitives::WitnessSet) -> PlutusVersion {
+    // TODO: how do we handle this for reference scripts?
+
+    if witness_set.plutus_v1_script.is_some() {
+        0
+    } else if witness_set.plutus_v2_script.is_some() {
+        1
+    } else if witness_set.plutus_v3_script.is_some() {
+        2
+    } else {
+        // TODO: should we error here?
+        // Defaulting to Plutus V2 for now
+        1
+    }
 }
 
 fn compute_script_data_hash(
-    body: &primitives::TransactionBody,
     witness_set: &primitives::WitnessSet,
     pparams: &PParams,
 ) -> Option<primitives::Hash<32>> {
-    let version = infer_plutus_version(body);
+    let version = infer_plutus_version(&witness_set);
 
     let cost_model = pparams.cost_models.get(&version).unwrap();
 
@@ -808,8 +780,7 @@ pub fn compile_tx(tx: &ir::Tx, pparams: &PParams) -> Result<primitives::Tx<'stat
     let transaction_witness_set = compile_witness_set(tx, &transaction_body, pparams.network)?;
     let auxiliary_data = compile_auxiliary_data(tx)?;
 
-    transaction_body.script_data_hash =
-        compute_script_data_hash(&transaction_body, &transaction_witness_set, pparams);
+    transaction_body.script_data_hash = compute_script_data_hash(&transaction_witness_set, pparams);
 
     transaction_body.auxiliary_data_hash = auxiliary_data
         .as_ref()

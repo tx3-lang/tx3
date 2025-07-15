@@ -120,6 +120,10 @@ any_asset_constructor = {
     "AnyAsset" ~ "(" ~ data_expr ~ "," ~ data_expr ~ "," ~ data_expr ~ ")"
 }
 
+concat_constructor = {
+    "concat" ~ "(" ~ data_expr ~ "," ~ data_expr ~ ")"
+}
+
 data_expr = { data_prefix* ~ data_primary ~ data_postfix* ~ (data_infix ~ data_prefix* ~ data_primary ~ data_postfix* )* }
 
     data_infix = _{ data_add | data_sub }
@@ -143,6 +147,7 @@ data_expr = { data_prefix* ~ data_primary ~ data_postfix* ~ (data_infix ~ data_p
         list_constructor |
         any_asset_constructor |
         static_asset_constructor |
+        concat_constructor |
         identifier |
         "(" ~ data_expr ~ ")"
     }
@@ -180,15 +185,9 @@ list_constructor = {
     "[" ~ (data_expr ~ ",")* ~ data_expr? ~ "]"
 }
 
-address_expr = {
-    identifier |
-    hex_string |
-    string
-}
-
 // input block
 
-input_block_from = { "from" ~ ":" ~ address_expr }
+input_block_from = { "from" ~ ":" ~ data_expr }
 input_block_datum_is = { "datum_is" ~ ":" ~ type }
 input_block_min_amount = { "min_amount" ~ ":" ~ data_expr }
 input_block_redeemer = { "redeemer" ~ ":" ~ data_expr }
@@ -226,7 +225,7 @@ reference_block = {
     "}"
 }
 
-output_block_to = { "to" ~ ":" ~ address_expr }
+output_block_to = { "to" ~ ":" ~ data_expr }
 output_block_amount = { "amount" ~ ":" ~ data_expr }
 output_block_datum = { "datum" ~ ":" ~ data_expr }
 output_block_reference_script = { "ref_script" ~ ":" ~ "{" ~ (cardano_plutus_witness_field ~ ",")+ ~ "}"}

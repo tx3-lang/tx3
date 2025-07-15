@@ -6,23 +6,28 @@
   "inputs": [
     {
       "name": "source",
-      "query": {
-        "address": {
-          "EvalParam": {
-            "ExpectValue": [
-              "minter",
-              "Address"
-            ]
-          }
-        },
-        "min_amount": {
-          "EvalParam": "ExpectFees"
-        },
-        "ref": "None"
+      "utxos": {
+        "EvalParam": {
+          "ExpectInput": [
+            "source",
+            {
+              "address": {
+                "EvalParam": {
+                  "ExpectValue": [
+                    "minter",
+                    "Address"
+                  ]
+                }
+              },
+              "min_amount": {
+                "EvalParam": "ExpectFees"
+              },
+              "ref": "None"
+            }
+          ]
+        }
       },
-      "refs": [],
-      "redeemer": null,
-      "policy": null
+      "redeemer": "None"
     }
   ],
   "outputs": [
@@ -219,7 +224,31 @@
       }
     }
   ],
-  "collateral": [],
+  "collateral": [
+    {
+      "utxos": {
+        "EvalParam": {
+          "ExpectInput": [
+            "collateral",
+            {
+              "address": {
+                "EvalParam": {
+                  "ExpectValue": [
+                    "minter",
+                    "Address"
+                  ]
+                }
+              },
+              "min_amount": {
+                "EvalParam": "ExpectFees"
+              },
+              "ref": "None"
+            }
+          ]
+        }
+      }
+    }
+  ],
   "signers": null,
   "metadata": []
 }

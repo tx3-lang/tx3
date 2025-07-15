@@ -63,6 +63,10 @@ impl Indexable for ir::Expression {
     }
 }
 
+pub trait Concatenable {
+    fn concat(self, other: ir::Expression) -> Result<ir::Expression, Error>;
+}
+
 pub trait Arithmetic {
     fn add(self, other: ir::Expression) -> Result<ir::Expression, Error>;
     fn sub(self, other: ir::Expression) -> Result<ir::Expression, Error>;
@@ -158,6 +162,53 @@ impl Arithmetic for ir::Expression {
             ir::Expression::Number(x) => Arithmetic::neg(x),
             ir::Expression::Assets(x) => Arithmetic::neg(x),
             x => Err(Error::InvalidUnaryOp("neg".to_string(), format!("{:?}", x))),
+        }
+    }
+}
+
+impl Concatenable for String {
+    fn concat(self, other: ir::Expression) -> Result<ir::Expression, Error> {
+        match other {
+            ir::Expression::String(y) => Ok(ir::Expression::String(self + &y)),
+            ir::Expression::None => Ok(ir::Expression::String(self)),
+            _ => Err(Error::InvalidBinaryOp(
+                "concat".to_string(),
+                format!("String({:?})", self),
+                format!("{:?}", other),
+            )),
+        }
+    }
+}
+
+impl Concatenable for Vec<u8> {
+    fn concat(self, other: ir::Expression) -> Result<ir::Expression, Error> {
+        match other {
+            ir::Expression::Bytes(y) => {
+                let mut result = self;
+                result.extend(y);
+                Ok(ir::Expression::Bytes(result))
+            }
+            ir::Expression::None => Ok(ir::Expression::Bytes(self)),
+            _ => Err(Error::InvalidBinaryOp(
+                "concat".to_string(),
+                format!("Bytes({:?})", self),
+                format!("{:?}", other),
+            )),
+        }
+    }
+}
+
+impl Concatenable for ir::Expression {
+    fn concat(self, other: ir::Expression) -> Result<ir::Expression, Error> {
+        match self {
+            ir::Expression::None => Ok(other),
+            ir::Expression::String(x) => Concatenable::concat(x, other),
+            ir::Expression::Bytes(x) => Concatenable::concat(x, other),
+            x => Err(Error::InvalidBinaryOp(
+                "concat".to_string(),
+                format!("{:?}", x),
+                format!("{:?}", other),
+            )),
         }
     }
 }
@@ -532,6 +583,7 @@ impl Composite for ir::BuiltInOp {
             Self::NoOp(x) => vec![x],
             Self::Add(x, y) => vec![x, y],
             Self::Sub(x, y) => vec![x, y],
+            Self::Concat(x, y) => vec![x, y],
             Self::Negate(x) => vec![x],
             Self::Property(x, _) => vec![x],
         }
@@ -545,6 +597,7 @@ impl Composite for ir::BuiltInOp {
             Self::NoOp(x) => Ok(Self::NoOp(f(x)?)),
             Self::Add(x, y) => Ok(Self::Add(f(x)?, f(y)?)),
             Self::Sub(x, y) => Ok(Self::Sub(f(x)?, f(y)?)),
+            Self::Concat(x, y) => Ok(Self::Concat(f(x)?, f(y)?)),
             Self::Negate(x) => Ok(Self::Negate(f(x)?)),
             Self::Property(x, prop) => Ok(Self::Property(f(x)?, prop)),
         }
@@ -554,6 +607,7 @@ impl Composite for ir::BuiltInOp {
         match self {
             Self::Add(x, y) => Ok(Self::NoOp(x.add(y)?)),
             Self::Sub(x, y) => Ok(Self::NoOp(x.sub(y)?)),
+            Self::Concat(x, y) => Ok(Self::NoOp(x.concat(y)?)),
             Self::Negate(x) => Ok(Self::NoOp(x.neg()?)),
             Self::Property(x, prop) => Ok(Self::NoOp(x.index_or_err(prop)?)),
             Self::NoOp(x) => Ok(Self::NoOp(x)),
@@ -564,6 +618,7 @@ impl Composite for ir::BuiltInOp {
         match self {
             Self::Add(x, y) => Ok(Self::Add(x.reduce()?, y.reduce()?)),
             Self::Sub(x, y) => Ok(Self::Sub(x.reduce()?, y.reduce()?)),
+            Self::Concat(x, y) => Ok(Self::Concat(x.reduce()?, y.reduce()?)),
             Self::Negate(x) => Ok(Self::Negate(x.reduce()?)),
             Self::Property(x, y) => Ok(Self::Property(x.reduce()?, y)),
             Self::NoOp(x) => Ok(Self::NoOp(x.reduce()?)),
@@ -694,12 +749,7 @@ impl ir::AssetExpr {
 
 impl Composite for ir::Input {
     fn components(&self) -> Vec<&ir::Expression> {
-        self.query
-            .components()
-            .into_iter()
-            .chain(self.redeemer.iter())
-            .chain(self.policy.iter().flat_map(|x| x.components()))
-            .collect()
+        vec![&self.utxos, &self.redeemer]
     }
 
     fn try_map_components<F>(self, f: F) -> Result<Self, Error>
@@ -708,10 +758,8 @@ impl Composite for ir::Input {
     {
         Ok(Self {
             name: self.name,
-            query: self.query.try_map_components(&f)?,
-            refs: self.refs,
-            redeemer: self.redeemer.map(&f).transpose()?,
-            policy: self.policy.map(|x| x.try_map_components(f)).transpose()?,
+            utxos: f(self.utxos)?,
+            redeemer: f(self.redeemer)?,
         })
     }
 }
@@ -775,6 +823,10 @@ impl Apply for ir::Param {
                     amount: ir::Expression::Number(fees as i128),
                 },
             ]))),
+            // queries can have nested params
+            ir::Param::ExpectInput(name, query) => {
+                Ok(ir::Param::ExpectInput(name, query.apply_fees(fees)?))
+            }
             x => Ok(x),
         }
     }
@@ -834,10 +886,21 @@ impl Apply for ir::Expression {
             Self::EvalParam(x) => Ok(Self::EvalParam(Box::new(x.apply_args(args)?))),
             Self::EvalBuiltIn(x) => Ok(Self::EvalBuiltIn(Box::new(x.apply_args(args)?))),
             Self::EvalCoerce(x) => Ok(Self::EvalCoerce(Box::new(x.apply_args(args)?))),
+            Self::EvalCompiler(x) => Ok(Self::EvalCompiler(Box::new(x.apply_args(args)?))),
             Self::AdHocDirective(x) => Ok(Self::AdHocDirective(Box::new(x.apply_args(args)?))),
 
-            // it's safe to skip the remaining expressions as they are constant
-            _ => Ok(self),
+            // Don't fall into the temptation of simplifying the following cases under a single
+            // wildcard with a default implementation, it makes it really hard to detect missing
+            // implementation when adding new `Expression` variants.
+            Self::None => Ok(self),
+            Self::Bytes(_) => Ok(self),
+            Self::Number(_) => Ok(self),
+            Self::Bool(_) => Ok(self),
+            Self::String(_) => Ok(self),
+            Self::Address(_) => Ok(self),
+            Self::Hash(_) => Ok(self),
+            Self::UtxoRefs(_) => Ok(self),
+            Self::UtxoSet(_) => Ok(self),
         }
     }
 
@@ -861,10 +924,21 @@ impl Apply for ir::Expression {
             Self::EvalParam(x) => Ok(Self::EvalParam(Box::new(x.apply_inputs(args)?))),
             Self::EvalBuiltIn(x) => Ok(Self::EvalBuiltIn(Box::new(x.apply_inputs(args)?))),
             Self::EvalCoerce(x) => Ok(Self::EvalCoerce(Box::new(x.apply_inputs(args)?))),
+            Self::EvalCompiler(x) => Ok(Self::EvalCompiler(Box::new(x.apply_inputs(args)?))),
             Self::AdHocDirective(x) => Ok(Self::AdHocDirective(Box::new(x.apply_inputs(args)?))),
 
-            // it's safe to skip the remaining expressions as they are constant
-            _ => Ok(self),
+            // Don't fall into the temptation of simplifying the following cases under a single
+            // wildcard with a default implementation, it makes it really hard to detect missing
+            // implementation when adding new `Expression` variants.
+            Self::None => Ok(self),
+            Self::Bytes(_) => Ok(self),
+            Self::Number(_) => Ok(self),
+            Self::Bool(_) => Ok(self),
+            Self::String(_) => Ok(self),
+            Self::Address(_) => Ok(self),
+            Self::Hash(_) => Ok(self),
+            Self::UtxoRefs(_) => Ok(self),
+            Self::UtxoSet(_) => Ok(self),
         }
     }
 
@@ -888,10 +962,21 @@ impl Apply for ir::Expression {
             Self::EvalParam(x) => Ok(Self::EvalParam(Box::new(x.apply_fees(fees)?))),
             Self::EvalBuiltIn(x) => Ok(Self::EvalBuiltIn(Box::new(x.apply_fees(fees)?))),
             Self::EvalCoerce(x) => Ok(Self::EvalCoerce(Box::new(x.apply_fees(fees)?))),
+            Self::EvalCompiler(x) => Ok(Self::EvalCompiler(Box::new(x.apply_fees(fees)?))),
             Self::AdHocDirective(x) => Ok(Self::AdHocDirective(Box::new(x.apply_fees(fees)?))),
 
-            // it's safe to skip the remaining expressions as they are constant
-            _ => Ok(self),
+            // Don't fall into the temptation of simplifying the following cases under a single
+            // wildcard with a default implementation, it makes it really hard to detect missing
+            // implementation when adding new `Expression` variants.
+            Self::None => Ok(self),
+            Self::Bytes(_) => Ok(self),
+            Self::Number(_) => Ok(self),
+            Self::Bool(_) => Ok(self),
+            Self::String(_) => Ok(self),
+            Self::Address(_) => Ok(self),
+            Self::Hash(_) => Ok(self),
+            Self::UtxoRefs(_) => Ok(self),
+            Self::UtxoSet(_) => Ok(self),
         }
     }
 
@@ -904,10 +989,21 @@ impl Apply for ir::Expression {
             Self::EvalParam(x) => x.is_constant(),
             Self::EvalBuiltIn(x) => x.is_constant(),
             Self::EvalCoerce(x) => x.is_constant(),
+            Self::EvalCompiler(x) => x.is_constant(),
             Self::AdHocDirective(x) => x.is_constant(),
 
-            // it's safe to skip the remaining expressions as they are constant
-            _ => true,
+            // Don't fall into the temptation of simplifying the following cases under a single
+            // wildcard with a default implementation, it makes it really hard to detect missing
+            // implementation when adding new `Expression` variants.
+            Self::None => true,
+            Self::Bytes(_) => true,
+            Self::Number(_) => true,
+            Self::Bool(_) => true,
+            Self::String(_) => true,
+            Self::Address(_) => true,
+            Self::Hash(_) => true,
+            Self::UtxoRefs(_) => true,
+            Self::UtxoSet(_) => true,
         }
     }
 
@@ -920,10 +1016,21 @@ impl Apply for ir::Expression {
             Self::EvalParam(x) => x.params(),
             Self::EvalBuiltIn(x) => x.params(),
             Self::EvalCoerce(x) => x.params(),
+            Self::EvalCompiler(x) => x.params(),
             Self::AdHocDirective(x) => x.params(),
 
-            // it's safe to skip the remaining expressions as they are constant
-            _ => BTreeMap::new(),
+            // Don't fall into the temptation of simplifying the following cases under a single
+            // wildcard with a default implementation, it makes it really hard to detect missing
+            // implementation when adding new `Expression` variants.
+            Self::None => BTreeMap::new(),
+            Self::Bytes(_) => BTreeMap::new(),
+            Self::Number(_) => BTreeMap::new(),
+            Self::Bool(_) => BTreeMap::new(),
+            Self::String(_) => BTreeMap::new(),
+            Self::Address(_) => BTreeMap::new(),
+            Self::Hash(_) => BTreeMap::new(),
+            Self::UtxoRefs(_) => BTreeMap::new(),
+            Self::UtxoSet(_) => BTreeMap::new(),
         }
     }
 
@@ -939,10 +1046,21 @@ impl Apply for ir::Expression {
             Self::EvalParam(x) => x.queries(),
             Self::EvalBuiltIn(x) => x.queries(),
             Self::EvalCoerce(x) => x.queries(),
+            Self::EvalCompiler(x) => x.queries(),
             Self::AdHocDirective(x) => x.queries(),
 
-            // it's safe to skip the remaining expressions as they are constant
-            _ => BTreeMap::new(),
+            // Don't fall into the temptation of simplifying the following cases under a single
+            // wildcard with a default implementation, it makes it really hard to detect missing
+            // implementation when adding new `Expression` variants.
+            Self::None => BTreeMap::new(),
+            Self::Bytes(_) => BTreeMap::new(),
+            Self::Number(_) => BTreeMap::new(),
+            Self::Bool(_) => BTreeMap::new(),
+            Self::String(_) => BTreeMap::new(),
+            Self::Address(_) => BTreeMap::new(),
+            Self::Hash(_) => BTreeMap::new(),
+            Self::UtxoRefs(_) => BTreeMap::new(),
+            Self::UtxoSet(_) => BTreeMap::new(),
         }
     }
 
@@ -961,6 +1079,7 @@ impl Apply for ir::Expression {
                     .map(|x| x.reduce())
                     .collect::<Result<_, _>>()?,
             )),
+            ir::Expression::EvalCompiler(x) => Ok(Self::EvalCompiler(Box::new(x.reduce()?))),
             ir::Expression::AdHocDirective(x) => Ok(Self::AdHocDirective(Box::new(x.reduce()?))),
 
             // the following ones can be turned into simpler expressions
@@ -976,7 +1095,19 @@ impl Apply for ir::Expression {
                 ir::Param::Set(x) => Ok(x),
                 x => Ok(ir::Expression::EvalParam(Box::new(x.reduce()?))),
             },
-            _ => Ok(self),
+
+            // Don't fall into the temptation of simplifying the following cases under a single
+            // wildcard with a default implementation, it makes it really hard to detect missing
+            // implementation when adding new `Expression` variants.
+            Self::None => Ok(self),
+            Self::Bytes(_) => Ok(self),
+            Self::Number(_) => Ok(self),
+            Self::Bool(_) => Ok(self),
+            Self::String(_) => Ok(self),
+            Self::Address(_) => Ok(self),
+            Self::Hash(_) => Ok(self),
+            Self::UtxoRefs(_) => Ok(self),
+            Self::UtxoSet(_) => Ok(self),
         }
     }
 }
@@ -1035,6 +1166,23 @@ impl Composite for ir::AdHocDirective {
     }
 }
 
+impl Composite for ir::CompilerOp {
+    fn components(&self) -> Vec<&ir::Expression> {
+        match self {
+            ir::CompilerOp::BuildScriptAddress(x) => vec![x],
+        }
+    }
+
+    fn try_map_components<F>(self, f: F) -> Result<Self, Error>
+    where
+        F: Fn(ir::Expression) -> Result<ir::Expression, Error> + Clone,
+    {
+        match self {
+            ir::CompilerOp::BuildScriptAddress(x) => Ok(ir::CompilerOp::BuildScriptAddress(f(x)?)),
+        }
+    }
+}
+
 impl Composite for ir::Signers {
     fn components(&self) -> Vec<&ir::Expression> {
         self.signers.iter().collect()
@@ -1052,7 +1200,7 @@ impl Composite for ir::Signers {
 
 impl Composite for ir::Collateral {
     fn components(&self) -> Vec<&ir::Expression> {
-        self.query.components()
+        vec![&self.utxos]
     }
 
     fn try_map_components<F>(self, f: F) -> Result<Self, Error>
@@ -1060,7 +1208,7 @@ impl Composite for ir::Collateral {
         F: Fn(ir::Expression) -> Result<ir::Expression, Error> + Clone,
     {
         Ok(Self {
-            query: self.query.try_map_components(f)?,
+            utxos: f(self.utxos)?,
         })
     }
 }
@@ -1240,14 +1388,14 @@ mod tests {
     use super::*;
 
     const SUBJECT_PROTOCOL: &str = r#"
-    party Sender;
+        party Sender;
 
-    tx swap(a: Int, b: Int) {
-        input source {
-            from: Sender,
-            min_amount: Ada(a) + Ada(b),
+        tx swap(a: Int, b: Int) {
+            input source {
+                from: Sender,
+                min_amount: Ada(a) + Ada(b) + fees,
+            }
         }
-    }
     "#;
 
     #[test]
@@ -1340,6 +1488,87 @@ mod tests {
 
         let params = find_params(&after);
         assert_eq!(params.len(), 0);
+    }
+
+    #[test]
+    fn test_apply_inputs() {
+        let mut ast = crate::parsing::parse_string(SUBJECT_PROTOCOL).unwrap();
+        crate::analyzing::analyze(&mut ast).ok().unwrap();
+
+        let before = crate::lowering::lower(&ast, "swap").unwrap();
+
+        let args = BTreeMap::from([
+            ("sender".to_string(), ArgValue::Address(b"abc".to_vec())),
+            ("a".to_string(), ArgValue::Int(100)),
+            ("b".to_string(), ArgValue::Int(200)),
+        ]);
+
+        let before = apply_args(before, &args).unwrap();
+
+        let before = before.reduce().unwrap();
+
+        let queries = find_queries(&before);
+        dbg!(&queries);
+
+        assert_eq!(queries.len(), 1);
+        assert!(queries.contains_key("source"));
+
+        let inputs = BTreeMap::from([(
+            "source".to_string(),
+            HashSet::from([Utxo {
+                r#ref: UtxoRef::new(b"abc", 0),
+                address: b"abc".to_vec(),
+                datum: None,
+                assets: vec![ir::AssetExpr {
+                    policy: ir::Expression::None,
+                    asset_name: ir::Expression::None,
+                    amount: ir::Expression::Number(300),
+                }],
+                script: None,
+            }]),
+        )]);
+
+        let after = apply_inputs(before, &inputs).unwrap();
+
+        let queries = find_queries(&after);
+        dbg!(&queries);
+
+        assert_eq!(queries.len(), 0);
+    }
+
+    #[test]
+    fn test_apply_fees() {
+        let mut ast = crate::parsing::parse_string(SUBJECT_PROTOCOL).unwrap();
+        crate::analyzing::analyze(&mut ast).ok().unwrap();
+
+        let before = crate::lowering::lower(&ast, "swap").unwrap();
+
+        let args = BTreeMap::from([
+            ("sender".to_string(), ArgValue::Address(b"abc".to_vec())),
+            ("a".to_string(), ArgValue::Int(100)),
+            ("b".to_string(), ArgValue::Int(200)),
+        ]);
+
+        let before = apply_args(before, &args).unwrap().reduce().unwrap();
+
+        let after = before.apply_fees(100).unwrap().reduce().unwrap();
+
+        let queries = find_queries(&after);
+
+        let query = queries.get("source").unwrap();
+
+        assert_eq!(
+            query,
+            &ir::InputQuery {
+                address: ir::Expression::Address(b"abc".to_vec()),
+                min_amount: ir::Expression::Assets(vec![ir::AssetExpr {
+                    policy: ir::Expression::None,
+                    asset_name: ir::Expression::None,
+                    amount: ir::Expression::Number(400),
+                }]),
+                r#ref: ir::Expression::None,
+            }
+        );
     }
 
     #[test]
@@ -1628,5 +1857,65 @@ mod tests {
             Err(Error::PropertyIndexNotFound(100, _)) => (),
             _ => panic!("Expected property index not found"),
         };
+    }
+
+    #[test]
+    fn test_string_concat_is_reduced() {
+        let op = ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Concat(
+            ir::Expression::String("hello".to_string()),
+            ir::Expression::String("world".to_string()),
+        )));
+
+        let reduced = op.reduce().unwrap();
+
+        match reduced {
+            ir::Expression::String(s) => assert_eq!(s, "helloworld"),
+            _ => panic!("Expected string 'helloworld'"),
+        }
+    }
+
+    #[test]
+    fn test_bytes_concat_is_reduced() {
+        let op = ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Concat(
+            ir::Expression::Bytes(vec![1, 2, 3]),
+            ir::Expression::Bytes(vec![4, 5, 6]),
+        )));
+
+        let reduced = op.reduce().unwrap();
+
+        match reduced {
+            ir::Expression::Bytes(b) => assert_eq!(b, vec![1, 2, 3, 4, 5, 6]),
+            _ => panic!("Expected bytes [1, 2, 3, 4, 5, 6]"),
+        }
+    }
+
+    #[test]
+    fn test_concat_type_mismatch_error() {
+        let op = ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Concat(
+            ir::Expression::String("hello".to_string()),
+            ir::Expression::Bytes(vec![1, 2, 3]),
+        )));
+
+        let reduced = op.reduce();
+
+        match reduced {
+            Err(Error::InvalidBinaryOp(op, _, _)) => assert_eq!(op, "concat"),
+            _ => panic!("Expected InvalidBinaryOp error"),
+        }
+    }
+
+    #[test]
+    fn test_concat_with_none() {
+        let op = ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Concat(
+            ir::Expression::String("hello".to_string()),
+            ir::Expression::None,
+        )));
+
+        let reduced = op.reduce().unwrap();
+
+        match reduced {
+            ir::Expression::String(s) => assert_eq!(s, "hello"),
+            _ => panic!("Expected string 'hello'"),
+        }
     }
 }

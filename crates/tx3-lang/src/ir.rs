@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{Utxo, UtxoRef};
 
-pub const IR_VERSION: &str = "v1alpha6";
+pub const IR_VERSION: &str = "v1alpha7";
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct StructExpr {
@@ -42,13 +42,35 @@ pub enum Coerce {
 
 pub type PropertyIndex = usize;
 
+/// Operations that are executed during the "apply" phase.
+///
+/// These are operations that are executed during the "apply" phase, as opposed
+/// to the compiler operations that are executed during the "compile" phase.
+///
+/// These ops can be executed (aka "reduced") very early in the process. As long
+/// as they underlying expressions are "constant" (aka: don't rely on external
+/// data), the will be simplified directly during the "apply" phase.
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum BuiltInOp {
     NoOp(Expression),
     Add(Expression, Expression),
     Sub(Expression, Expression),
+    Concat(Expression, Expression),
     Negate(Expression),
     Property(Expression, PropertyIndex),
+}
+
+/// Operations that are performed by the compiler.
+///
+/// These are operations that are performed by the compiler, as opposed to the
+/// built-in operations that are executed (aka "reduced") during the "apply"
+/// phase.
+///
+/// These ops can't be executed earlier because they are either: chain-specific
+/// or rely on data that is only available to the compiler.
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub enum CompilerOp {
+    BuildScriptAddress(Expression),
 }
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -178,6 +200,7 @@ pub enum Expression {
 
     EvalParam(Box<Param>),
     EvalBuiltIn(Box<BuiltInOp>),
+    EvalCompiler(Box<CompilerOp>),
     EvalCoerce(Box<Coerce>),
 
     // pass-through
@@ -209,6 +232,12 @@ impl From<BuiltInOp> for Expression {
     }
 }
 
+impl From<CompilerOp> for Expression {
+    fn from(op: CompilerOp) -> Self {
+        Self::EvalCompiler(Box::new(op))
+    }
+}
+
 impl From<Coerce> for Expression {
     fn from(coerce: Coerce) -> Self {
         Self::EvalCoerce(Box::new(coerce))
@@ -231,10 +260,8 @@ pub struct InputQuery {
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Input {
     pub name: String,
-    pub query: InputQuery,
-    pub refs: HashSet<UtxoRef>,
-    pub redeemer: Option<Expression>,
-    pub policy: Option<PolicyExpr>,
+    pub utxos: Expression,
+    pub redeemer: Expression,
 }
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]
@@ -259,7 +286,7 @@ pub struct Mint {
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]
 pub struct Collateral {
-    pub query: InputQuery,
+    pub utxos: Expression,
 }
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]

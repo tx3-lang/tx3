@@ -381,7 +381,7 @@ impl AstNode for CollateralBlockField {
         match pair.as_rule() {
             Rule::input_block_from => {
                 let pair = pair.into_inner().next().unwrap();
-                let x = CollateralBlockField::From(AddressExpr::parse(pair)?);
+                let x = CollateralBlockField::From(DataExpr::parse(pair)?);
                 Ok(x)
             }
             Rule::input_block_min_amount => {
@@ -477,7 +477,7 @@ impl AstNode for InputBlockField {
         match pair.as_rule() {
             Rule::input_block_from => {
                 let pair = pair.into_inner().next().unwrap();
-                let x = InputBlockField::From(AddressExpr::parse(pair)?);
+                let x = InputBlockField::From(DataExpr::parse(pair)?);
                 Ok(x)
             }
             Rule::input_block_datum_is => {
@@ -548,7 +548,7 @@ impl AstNode for OutputBlockField {
         match pair.as_rule() {
             Rule::output_block_to => {
                 let pair = pair.into_inner().next().unwrap();
-                let x = OutputBlockField::To(Box::new(AddressExpr::parse(pair)?));
+                let x = OutputBlockField::To(Box::new(DataExpr::parse(pair)?));
                 Ok(x)
             }
             Rule::output_block_amount => {
@@ -843,31 +843,6 @@ impl AstNode for PolicyDef {
     }
 }
 
-impl AstNode for AddressExpr {
-    const RULE: Rule = Rule::address_expr;
-
-    fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
-        let mut inner = pair.into_inner();
-
-        let value = inner.next().unwrap();
-
-        match value.as_rule() {
-            Rule::string => Ok(AddressExpr::String(StringLiteral::parse(value)?)),
-            Rule::hex_string => Ok(AddressExpr::HexString(HexStringLiteral::parse(value)?)),
-            Rule::identifier => Ok(AddressExpr::Identifier(Identifier::parse(value)?)),
-            x => unreachable!("Unexpected rule in address_expr: {:?}", x),
-        }
-    }
-
-    fn span(&self) -> &Span {
-        match self {
-            Self::String(x) => x.span(),
-            Self::HexString(x) => x.span(),
-            Self::Identifier(x) => x.span(),
-        }
-    }
-}
-
 impl AstNode for StaticAssetConstructor {
     const RULE: Rule = Rule::static_asset_constructor;
 
@@ -905,6 +880,28 @@ impl AstNode for AnyAssetConstructor {
             policy: Box::new(policy),
             asset_name: Box::new(asset_name),
             amount: Box::new(amount),
+            span,
+        })
+    }
+
+    fn span(&self) -> &Span {
+        &self.span
+    }
+}
+
+impl AstNode for ConcatOp {
+    const RULE: Rule = Rule::concat_constructor;
+
+    fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
+        let span = pair.as_span().into();
+        let mut inner = pair.into_inner();
+
+        let lhs = DataExpr::parse(inner.next().unwrap())?;
+        let rhs = DataExpr::parse(inner.next().unwrap())?;
+
+        Ok(ConcatOp {
+            lhs: Box::new(lhs),
+            rhs: Box::new(rhs),
             span,
         })
     }
@@ -1109,6 +1106,10 @@ impl DataExpr {
         )?))
     }
 
+    fn concat_constructor_parse(pair: Pair<Rule>) -> Result<Self, Error> {
+        Ok(DataExpr::ConcatOp(ConcatOp::parse(pair)?))
+    }
+
     fn negate_op_parse(pair: Pair<Rule>, right: DataExpr) -> Result<Self, Error> {
         Ok(DataExpr::NegateOp(NegateOp {
             operand: Box::new(right),
@@ -1173,8 +1174,9 @@ impl AstNode for DataExpr {
                 Rule::unit => Ok(DataExpr::Unit),
                 Rule::identifier => DataExpr::identifier_parse(x),
                 Rule::utxo_ref => DataExpr::utxo_ref_parse(x),
-                Rule::static_asset_constructor => DataExpr::static_asset_constructor_parse(x),
-                Rule::any_asset_constructor => DataExpr::any_asset_constructor_parse(x),
+                            Rule::static_asset_constructor => DataExpr::static_asset_constructor_parse(x),
+            Rule::any_asset_constructor => DataExpr::any_asset_constructor_parse(x),
+            Rule::concat_constructor => DataExpr::concat_constructor_parse(x),
                 Rule::data_expr => DataExpr::parse(x),
                 x => unreachable!("unexpected rule as data primary: {:?}", x),
             })
@@ -1209,6 +1211,7 @@ impl AstNode for DataExpr {
             DataExpr::Identifier(x) => x.span(),
             DataExpr::AddOp(x) => &x.span,
             DataExpr::SubOp(x) => &x.span,
+            DataExpr::ConcatOp(x) => &x.span,
             DataExpr::NegateOp(x) => &x.span,
             DataExpr::PropertyOp(x) => &x.span,
             DataExpr::UtxoRef(x) => x.span(),
@@ -1439,6 +1442,7 @@ pub fn parse_well_known_example(example: &str) -> Program {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ast;
     use assert_json_diff::assert_json_eq;
     use paste::paste;
     use pest::Parser;
@@ -1447,6 +1451,23 @@ mod tests {
     fn smoke_test_parse_string() {
         let _ = parse_string("tx swap() {}").unwrap();
     }
+
+    input_to_ast_check!(
+        ast::ConcatOp,
+        "basic",
+        r#"concat("hello", "world")"#,
+        ast::ConcatOp {
+            lhs: Box::new(ast::DataExpr::String(ast::StringLiteral {
+                value: "hello".to_string(),
+                span: ast::Span::DUMMY,
+            })),
+            rhs: Box::new(ast::DataExpr::String(ast::StringLiteral {
+                value: "world".to_string(),
+                span: ast::Span::DUMMY,
+            })),
+            span: ast::Span::DUMMY,
+        }
+    );
 
     macro_rules! input_to_ast_check {
         ($ast:ty, $name:expr, $input:expr, $expected:expr) => {
@@ -1939,29 +1960,6 @@ mod tests {
     );
 
     input_to_ast_check!(
-        AddressExpr,
-        "address_string",
-        "\"addr1qx234567890abcdefghijklmnopqrstuvwxyz\"",
-        AddressExpr::String(StringLiteral::new(
-            "addr1qx234567890abcdefghijklmnopqrstuvwxyz".to_string()
-        ))
-    );
-
-    input_to_ast_check!(
-        AddressExpr,
-        "address_hex_string",
-        "0x1234567890abcdef",
-        AddressExpr::HexString(HexStringLiteral::new("1234567890abcdef".to_string()))
-    );
-
-    input_to_ast_check!(
-        AddressExpr,
-        "address_identifier",
-        "my_address",
-        AddressExpr::Identifier(Identifier::new("my_address"))
-    );
-
-    input_to_ast_check!(
         StructConstructor,
         "struct_constructor_record",
         "MyRecord {
@@ -2160,7 +2158,7 @@ mod tests {
         OutputBlock {
             name: None,
             fields: vec![
-                OutputBlockField::To(Box::new(AddressExpr::Identifier(Identifier::new(
+                OutputBlockField::To(Box::new(DataExpr::Identifier(Identifier::new(
                     "my_party".to_string(),
                 )))),
                 OutputBlockField::Amount(Box::new(DataExpr::StaticAssetConstructor(
