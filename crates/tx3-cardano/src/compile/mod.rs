@@ -12,7 +12,7 @@ use pallas::{
     },
 };
 
-use tx3_lang::ir;
+use tx3_lang::ir::{self, Expression};
 
 use crate::coercion::{expr_into_bytes, expr_into_metadatum, expr_into_number};
 
@@ -171,24 +171,68 @@ fn compile_output_block(
 
     let datum_option = ir.datum.as_option().map(compile_data_expr).transpose()?;
 
-    let ref_script = ir
-        .ref_script
-        .as_option()
+    // let ref_script = ir
+    //     .ref_script
+    //     .as_option()
+    //     .map(compile_data_expr)
+    //     .transpose()?;
+    let adhoc = match &ir.ref_script {
+        ir::Expression::AdHocDirective(adhoc) => adhoc,
+        _ => {
+            return Err(Error::CoerceError(
+                format!("{:?}", ir.ref_script),
+                "Reference script".to_string(),
+            ));
+        }
+    };
+
+    let script = adhoc
+        .data
+        .get("script")
         .map(compile_data_expr)
         .transpose()?;
 
-    let output = primitives::TransactionOutput::PostAlonzo(
+    let version = adhoc
+        .data
+        .get("version")
+        .map(coercion::expr_into_number)
+        .transpose()?;
+    let version = version.map(|v| v as PlutusVersion).unwrap_or(2);
+    if version > 2 {
+        panic!("Plutus version must be 0, 1, or 2")
+    }
+
+    let output: pallas::ledger::primitives::babbage::GenTransactionOutput<
+        '_,
+        pallas::ledger::primitives::babbage::GenPostAlonzoTransactionOutput<
+            '_,
+            primitives::Value,
+            primitives::ScriptRef<'_>,
+        >,
+    > = primitives::TransactionOutput::PostAlonzo(
         primitives::PostAlonzoTransactionOutput {
             address: address.to_vec().into(),
             value,
             datum_option: datum_option.map(|x| {
                 primitives::DatumOption::Data(pallas::codec::utils::CborWrap(x.into())).into()
             }),
-            script_ref: ref_script.map(|data| {
-                // Convert PlutusData to ScriptRef - assuming PlutusV2Script for now
+            script_ref: script.map(|data| {
                 let script_bytes = pallas::codec::minicbor::to_vec(&data).unwrap();
-                let script = primitives::PlutusScript::<2>(script_bytes.into());
-                let script_ref = primitives::ScriptRef::PlutusV2Script(script);
+                let script_ref = match version {
+                    1 => {
+                        let script = primitives::PlutusScript::<1>(script_bytes.into());
+                        primitives::ScriptRef::PlutusV1Script(script)
+                    }
+                    2 => {
+                        let script = primitives::PlutusScript::<2>(script_bytes.into());
+                        primitives::ScriptRef::PlutusV2Script(script)
+                    }
+                    3 => {
+                        let script = primitives::PlutusScript::<3>(script_bytes.into());
+                        primitives::ScriptRef::PlutusV3Script(script)
+                    }
+                    _ => unreachable!(),
+                };
                 pallas::codec::utils::CborWrap(script_ref)
             }),
         }

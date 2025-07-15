@@ -133,7 +133,44 @@
             },
             {
               "ReferenceScript": {
-                "Number": 3
+                "fields": [
+                  {
+                    "Version": [
+                      {
+                        "Number": 3
+                      },
+                      {
+                        "dummy": false,
+                        "start": 252,
+                        "end": 262
+                      }
+                    ]
+                  },
+                  {
+                    "Script": [
+                      {
+                        "HexString": {
+                          "value": "5101010023259800a518a4d136564004ae69",
+                          "span": {
+                            "dummy": false,
+                            "start": 282,
+                            "end": 320
+                          }
+                        }
+                      },
+                      {
+                        "dummy": false,
+                        "start": 274,
+                        "end": 320
+                      }
+                    ]
+                  }
+                ],
+                "span": {
+                  "dummy": false,
+                  "start": 228,
+                  "end": 331
+                }
               }
             }
           ],

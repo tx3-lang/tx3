@@ -56,7 +56,7 @@ fn expect_case_def(ident: &ast::Identifier) -> Result<&ast::VariantCase, Error> 
 }
 
 #[allow(dead_code)]
-fn expect_field_def(ident: &ast::Identifier) -> Result<&ast::RecordField, Error> {
+fn expect_field_def(ident: &ast::Identifier) -> R5esult<&ast::RecordField, Error> {
     let symbol = ident
         .symbol
         .as_ref()
@@ -572,7 +572,8 @@ impl IntoLower for ast::OutputBlockField {
             }
             ast::OutputBlockField::ReferenceScript(x) => {
                 let ctx = ctx.enter_script_expr();
-                x.into_lower(&ctx)
+                let out = x.into_lower(&ctx)?;
+                Ok(ir::Expression::AdHocDirective(Box::new(out)))
             }
         }
     }
