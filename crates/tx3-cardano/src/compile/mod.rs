@@ -78,6 +78,7 @@ fn compile_data_expr(ir: &ir::Expression) -> Result<primitives::PlutusData, Erro
         ir::Expression::Bool(x) => Ok(x.as_data()),
         ir::Expression::String(x) => Ok(x.as_str().as_data()),
         ir::Expression::Struct(x) => compile_struct(x),
+        ir::Expression::Map(x) => x.try_as_data(),
         ir::Expression::Address(x) => Ok(x.as_data()),
         _ => Err(Error::CoerceError(
             format!("{:?}", ir),
