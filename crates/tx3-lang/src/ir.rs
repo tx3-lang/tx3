@@ -55,6 +55,7 @@ pub enum BuiltInOp {
     NoOp(Expression),
     Add(Expression, Expression),
     Sub(Expression, Expression),
+    Concat(Expression, Expression),
     Negate(Expression),
     Property(Expression, PropertyIndex),
 }

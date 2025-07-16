@@ -369,6 +369,19 @@ impl IntoLower for ast::SubOp {
     }
 }
 
+impl IntoLower for ast::ConcatOp {
+    type Output = ir::Expression;
+
+    fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
+        let left = self.lhs.into_lower(ctx)?;
+        let right = self.rhs.into_lower(ctx)?;
+
+        Ok(ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Concat(
+            left, right,
+        ))))
+    }
+}
+
 impl IntoLower for ast::NegateOp {
     type Output = ir::Expression;
 
@@ -437,6 +450,7 @@ impl IntoLower for ast::DataExpr {
             ast::DataExpr::Identifier(x) => x.into_lower(ctx)?,
             ast::DataExpr::AddOp(x) => x.into_lower(ctx)?,
             ast::DataExpr::SubOp(x) => x.into_lower(ctx)?,
+            ast::DataExpr::ConcatOp(x) => x.into_lower(ctx)?,
             ast::DataExpr::NegateOp(x) => x.into_lower(ctx)?,
             ast::DataExpr::PropertyOp(x) => x.into_lower(ctx)?,
             ast::DataExpr::UtxoRef(x) => x.into_lower(ctx)?,
