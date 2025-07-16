@@ -287,10 +287,9 @@ impl Scope {
             .insert(name.to_string(), Symbol::Input(Box::new(input)));
     }
 
-    pub fn track_output(&mut self, name: &str, output: OutputBlock) {
-        if let Some(_) = output.name {
-            self.symbols
-                .insert(name.to_string(), Symbol::Output(Box::new(output.clone())));
+    pub fn track_output(&mut self, index: usize, output: OutputBlock) {
+        if let Some(n) = output.name {
+            self.symbols.insert(n.value, Symbol::Output(index));
         }
     }
 
@@ -987,11 +986,11 @@ impl Analyzable for TxDef {
                 current.track_local_expr(&assign.name.value, assign.value.clone());
             }
 
-            for output in self.outputs.iter() {
+            for (index, output) in self.outputs.iter().enumerate() {
                 output
                     .name
                     .clone()
-                    .map(|x| current.track_output(&x.value, output.clone()));
+                    .map(|x| current.track_output(index, output.clone()));
             }
 
             Rc::new(current)
@@ -1006,11 +1005,11 @@ impl Analyzable for TxDef {
                 current.track_input(&input.name, input.clone());
             }
 
-            for output in self.outputs.iter() {
+            for (index, output) in self.outputs.iter().enumerate() {
                 output
                     .name
                     .clone()
-                    .map(|x| current.track_output(&x.value, output.clone()));
+                    .map(|x| current.track_output(index, output.clone()));
             }
 
             Rc::new(current)

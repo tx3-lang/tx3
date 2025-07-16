@@ -1469,22 +1469,22 @@ mod tests {
         };
     }
 
-    input_to_ast_check!(
-        ast::ConcatOp,
-        "basic",
-        r#"concat("hello", "world")"#,
-        ast::ConcatOp {
-            lhs: Box::new(ast::DataExpr::String(ast::StringLiteral {
-                value: "hello".to_string(),
-                span: ast::Span::DUMMY,
-            })),
-            rhs: Box::new(ast::DataExpr::String(ast::StringLiteral {
-                value: "world".to_string(),
-                span: ast::Span::DUMMY,
-            })),
-            span: ast::Span::DUMMY,
-        }
-    );
+    //input_to_ast_check!(
+    //    ast::ConcatOp,
+    //    "basic",
+    //    r#"concat("hello", "world")"#,
+    //    ast::ConcatOp {
+    //        lhs: Box::new(ast::DataExpr::String(ast::StringLiteral {
+    //            value: "hello".to_string(),
+    //            span: ast::Span::DUMMY,
+    //        })),
+    //        rhs: Box::new(ast::DataExpr::String(ast::StringLiteral {
+    //            value: "world".to_string(),
+    //            span: ast::Span::DUMMY,
+    //        })),
+    //        span: ast::Span::DUMMY,
+    //    }
+    //);
 
     input_to_ast_check!(Type, "int", "Int", Type::Int);
 

@@ -267,6 +267,7 @@ pub trait Apply: Sized + std::fmt::Debug {
     fn apply_args(self, args: &BTreeMap<String, ArgValue>) -> Result<Self, Error>;
     fn apply_inputs(self, args: &BTreeMap<String, HashSet<Utxo>>) -> Result<Self, Error>;
     fn apply_fees(self, fees: u64) -> Result<Self, Error>;
+    fn apply_outputs(self, args: &Vec<Vec<u8>>) -> Result<Self, Error>;
 
     fn is_constant(&self) -> bool;
 
@@ -298,6 +299,10 @@ where
 {
     fn apply_args(self, args: &BTreeMap<String, ArgValue>) -> Result<Self, Error> {
         self.try_map_components(|x| x.apply_args(args))
+    }
+
+    fn apply_outputs(self, args: &Vec<Vec<u8>>) -> Result<Self, Error> {
+        self.try_map_components(|x| x.apply_outputs(args))
     }
 
     fn apply_inputs(self, args: &BTreeMap<String, HashSet<Utxo>>) -> Result<Self, Error> {
@@ -337,6 +342,10 @@ where
 {
     fn apply_args(self, args: &BTreeMap<String, ArgValue>) -> Result<Self, Error> {
         self.map(|x| x.apply_args(args)).transpose()
+    }
+
+    fn apply_outputs(self, args: &Vec<Vec<u8>>) -> Result<Self, Error> {
+        self.map(|x| x.apply_outputs(args)).transpose()
     }
 
     fn apply_inputs(self, args: &BTreeMap<String, HashSet<Utxo>>) -> Result<Self, Error> {
@@ -381,6 +390,10 @@ where
         self.into_iter().map(|x| x.apply_args(args)).collect()
     }
 
+    fn apply_outputs(self, args: &Vec<Vec<u8>>) -> Result<Self, Error> {
+        self.into_iter().map(|x| x.apply_outputs(args)).collect()
+    }
+
     fn apply_inputs(self, args: &BTreeMap<String, HashSet<Utxo>>) -> Result<Self, Error> {
         self.into_iter().map(|x| x.apply_inputs(args)).collect()
     }
@@ -416,6 +429,11 @@ where
             .collect()
     }
 
+    fn apply_outputs(self, args: &Vec<Vec<u8>>) -> Result<Self, Error> {
+        self.into_iter()
+            .map(|(k, v)| v.apply_outputs(args).map(|v| (k, v)))
+            .collect()
+    }
     fn apply_inputs(self, args: &BTreeMap<String, HashSet<Utxo>>) -> Result<Self, Error> {
         self.into_iter()
             .map(|(k, v)| v.apply_inputs(args).map(|v| (k, v)))
@@ -800,6 +818,10 @@ impl Apply for ir::Param {
         }
     }
 
+    fn apply_outputs(self, _args: &Vec<Vec<u8>>) -> Result<Self, Error> {
+        Ok(self)
+    }
+
     fn apply_inputs(self, args: &BTreeMap<String, HashSet<Utxo>>) -> Result<Self, Error> {
         match self {
             ir::Param::ExpectInput(name, query) => {
@@ -865,6 +887,82 @@ impl Apply for ir::Param {
     }
 }
 
+impl Apply for ir::CompilerOp {
+    fn apply_args(self, args: &BTreeMap<String, ArgValue>) -> Result<Self, Error> {
+        match self {
+            Self::BuildScriptAddress(x) => Ok(Self::BuildScriptAddress(x.apply_args(args)?)),
+            Self::ComputeMinUtxo(x) => Ok(Self::ComputeMinUtxo(x.apply_args(args)?)),
+            Self::NoOp(x) => Ok(Self::ComputeMinUtxo(x.apply_args(args)?)),
+        }
+    }
+    fn apply_outputs(self, args: &Vec<Vec<u8>>) -> Result<Self, Error> {
+        match self {
+            Self::BuildScriptAddress(x) => Ok(Self::BuildScriptAddress(x.apply_outputs(args)?)),
+            Self::ComputeMinUtxo(ir::Expression::Number(index)) => {
+                if let Some(_bytes) = args.get(index as usize) {
+                    // TODO: compute size of utxo
+                    Ok(Self::NoOp(ir::Expression::Assets(vec![ir::AssetExpr {
+                        policy: ir::Expression::None,
+                        asset_name: ir::Expression::None,
+                        amount: ir::Expression::Number(999_999),
+                    }])))
+                } else {
+                    // TODO: find out min utxo size and cost in lovelace
+                    Ok(Self::NoOp(ir::Expression::Assets(vec![ir::AssetExpr {
+                        policy: ir::Expression::None,
+                        asset_name: ir::Expression::None,
+                        amount: ir::Expression::Number(187_999),
+                    }])))
+                }
+            }
+            Self::NoOp(x) => Ok(Self::NoOp(x.apply_outputs(args)?)),
+            x => Ok(x),
+        }
+    }
+    fn apply_inputs(self, args: &BTreeMap<String, HashSet<Utxo>>) -> Result<Self, Error> {
+        match self {
+            Self::BuildScriptAddress(x) => Ok(Self::BuildScriptAddress(x.apply_inputs(args)?)),
+            Self::ComputeMinUtxo(x) => Ok(Self::ComputeMinUtxo(x.apply_inputs(args)?)),
+            Self::NoOp(x) => Ok(Self::ComputeMinUtxo(x.apply_inputs(args)?)),
+        }
+    }
+    fn apply_fees(self, fees: u64) -> Result<Self, Error> {
+        match self {
+            Self::BuildScriptAddress(x) => Ok(Self::BuildScriptAddress(x.apply_fees(fees)?)),
+            Self::ComputeMinUtxo(x) => Ok(Self::ComputeMinUtxo(x.apply_fees(fees)?)),
+            Self::NoOp(x) => Ok(Self::ComputeMinUtxo(x.apply_fees(fees)?)),
+        }
+    }
+    fn is_constant(&self) -> bool {
+        match self {
+            Self::NoOp(x) => x.is_constant(),
+            Self::BuildScriptAddress(x) => x.is_constant(),
+            Self::ComputeMinUtxo(x) => x.is_constant(),
+        }
+    }
+    fn params(&self) -> BTreeMap<String, ir::Type> {
+        match self {
+            Self::NoOp(x) => x.params(),
+            Self::BuildScriptAddress(x) => x.params(),
+            Self::ComputeMinUtxo(x) => x.params(),
+        }
+    }
+    fn queries(&self) -> BTreeMap<String, ir::InputQuery> {
+        match self {
+            Self::NoOp(x) => x.queries(),
+            Self::BuildScriptAddress(x) => x.queries(),
+            Self::ComputeMinUtxo(x) => x.queries(),
+        }
+    }
+    fn reduce(self) -> Result<Self, Error> {
+        match self {
+            Self::NoOp(x) => Ok(Self::NoOp(x.reduce()?)),
+            Self::BuildScriptAddress(x) => Ok(Self::BuildScriptAddress(x.reduce()?)),
+            Self::ComputeMinUtxo(x) => Ok(Self::ComputeMinUtxo(x.reduce()?)),
+        }
+    }
+}
+
 impl Apply for ir::Expression {
     fn apply_args(self, args: &BTreeMap<String, ArgValue>) -> Result<Self, Error> {
         match self {
@@ -888,6 +986,44 @@ impl Apply for ir::Expression {
             Self::EvalCoerce(x) => Ok(Self::EvalCoerce(Box::new(x.apply_args(args)?))),
             Self::EvalCompiler(x) => Ok(Self::EvalCompiler(Box::new(x.apply_args(args)?))),
             Self::AdHocDirective(x) => Ok(Self::AdHocDirective(Box::new(x.apply_args(args)?))),
+
+            // Don't fall into the temptation of simplifying the following cases under a single
+            // wildcard with a default implementation, it makes it really hard to detect missing
+            // implementation when adding new `Expression` variants.
+            Self::None => Ok(self),
+            Self::Bytes(_) => Ok(self),
+            Self::Number(_) => Ok(self),
+            Self::Bool(_) => Ok(self),
+            Self::String(_) => Ok(self),
+            Self::Address(_) => Ok(self),
+            Self::Hash(_) => Ok(self),
+            Self::UtxoRefs(_) => Ok(self),
+            Self::UtxoSet(_) => Ok(self),
+        }
+    }
+
+    fn apply_outputs(self, args: &Vec<Vec<u8>>) -> Result<Self, Error> {
+        match self {
+            Self::List(x) => Ok(Self::List(
+                x.into_iter()
+                    .map(|x| x.apply_outputs(args))
+                    .collect::<Result<_, _>>()?,
+            )),
+            Self::Tuple(x) => Ok(Self::Tuple(Box::new((
+                x.0.apply_outputs(args)?,
+                x.1.apply_outputs(args)?,
+            )))),
+            Self::Struct(x) => Ok(Self::Struct(x.apply_outputs(args)?)),
+            Self::Assets(x) => Ok(Self::Assets(
+                x.into_iter()
+                    .map(|x| x.apply_outputs(args))
+                    .collect::<Result<_, _>>()?,
+            )),
+            Self::EvalParam(x) => Ok(Self::EvalParam(Box::new(x.apply_outputs(args)?))),
+            Self::EvalBuiltIn(x) => Ok(Self::EvalBuiltIn(Box::new(x.apply_outputs(args)?))),
+            Self::EvalCoerce(x) => Ok(Self::EvalCoerce(Box::new(x.apply_outputs(args)?))),
+            Self::EvalCompiler(x) => Ok(Self::EvalCompiler(Box::new(x.apply_outputs(args)?))),
+            Self::AdHocDirective(x) => Ok(Self::AdHocDirective(Box::new(x.apply_outputs(args)?))),
 
             // Don't fall into the temptation of simplifying the following cases under a single
             // wildcard with a default implementation, it makes it really hard to detect missing
@@ -1079,7 +1215,13 @@ impl Apply for ir::Expression {
                     .map(|x| x.reduce())
                     .collect::<Result<_, _>>()?,
             )),
-            ir::Expression::EvalCompiler(x) => Ok(Self::EvalCompiler(Box::new(x.reduce()?))),
+            ir::Expression::EvalCompiler(x) => match *x {
+                ir::CompilerOp::NoOp(x) => Ok(x.reduce()?),
+                ir::CompilerOp::ComputeMinUtxo(x) => Ok(x.reduce()?),
+                ir::CompilerOp::BuildScriptAddress(x) => Ok(Self::EvalCompiler(Box::new(
+                    ir::CompilerOp::BuildScriptAddress(x.reduce()?),
+                ))),
+            },
             ir::Expression::AdHocDirective(x) => Ok(Self::AdHocDirective(Box::new(x.reduce()?))),
 
             // the following ones can be turned into simpler expressions
@@ -1165,24 +1307,25 @@ impl Composite for ir::AdHocDirective {
     }
 }
 
-impl Composite for ir::CompilerOp {
-    fn components(&self) -> Vec<&ir::Expression> {
-        match self {
-            ir::CompilerOp::BuildScriptAddress(x) => vec![x],
-            ir::CompilerOp::ComputeMinUtxo(x) => vec![x],
-        }
-    }
-
-    fn try_map_components<F>(self, f: F) -> Result<Self, Error>
-    where
-        F: Fn(ir::Expression) -> Result<ir::Expression, Error> + Clone,
-    {
-        match self {
-            ir::CompilerOp::BuildScriptAddress(x) => Ok(ir::CompilerOp::BuildScriptAddress(f(x)?)),
-            ir::CompilerOp::ComputeMinUtxo(x) => Ok(ir::CompilerOp::ComputeMinUtxo(f(x)?)),
-        }
-    }
-}
+//impl Composite for ir::CompilerOp {
+//    fn components(&self) -> Vec<&ir::Expression> {
+//        match self {
+//            ir::CompilerOp::BuildScriptAddress(x) => vec![x],
+//            ir::CompilerOp::ComputeMinUtxo(x) => vec![x],
+//        }
+//    }
+//
+//    fn try_map_components<F>(self, f: F) -> Result<Self, Error>
+//    where
+//        F: Fn(ir::Expression) -> Result<ir::Expression, Error> + Clone,
+//    {
+//        match self {
+//            ir::CompilerOp::BuildScriptAddress(x) =>
+// Ok(ir::CompilerOp::BuildScriptAddress(f(x)?)),
+// ir::CompilerOp::ComputeMinUtxo(x) =>
+// Ok(ir::CompilerOp::ComputeMinUtxo(f(x)?)),        }
+//    }
+//}
 
 impl Composite for ir::Signers {
     fn components(&self) -> Vec<&ir::Expression> {
@@ -1261,6 +1404,22 @@ impl Apply for ir::Tx {
             metadata: self.metadata.apply_args(args)?,
         };
 
+        Ok(tx)
+    }
+
+    fn apply_outputs(self, args: &Vec<Vec<u8>>) -> Result<Self, Error> {
+        let tx = ir::Tx {
+            references: self.references.apply_outputs(args)?,
+            inputs: self.inputs.apply_outputs(args)?,
+            outputs: self.outputs.apply_outputs(args)?,
+            validity: self.validity.apply_outputs(args)?,
+            mints: self.mints.apply_outputs(args)?,
+            fees: self.fees.apply_outputs(args)?,
+            adhoc: self.adhoc.apply_outputs(args)?,
+            collateral: self.collateral.apply_outputs(args)?,
+            signers: self.signers.apply_outputs(args)?,
+            metadata: self.metadata.apply_outputs(args)?,
+        };
         Ok(tx)
     }
 
@@ -1363,6 +1522,10 @@ pub fn apply_inputs(
     args: &BTreeMap<String, HashSet<Utxo>>,
 ) -> Result<ir::Tx, Error> {
     template.apply_inputs(args)
+}
+
+pub fn apply_outputs(template: ir::Tx, args: &Vec<Vec<u8>>) -> Result<ir::Tx, Error> {
+    template.apply_outputs(args)
 }
 
 pub fn apply_fees(template: ir::Tx, fees: u64) -> Result<ir::Tx, Error> {

@@ -186,14 +186,8 @@ impl IntoLower for ast::Identifier {
             ast::Symbol::EnvVar(n, ty) => {
                 Ok(ir::Param::ExpectValue(n.to_lowercase().clone(), ty.into_lower(ctx)?).into())
             }
-            ast::Symbol::Output(def) => {
-                let name = def.name.clone().unwrap().value;
-                Ok(
-                    // there is no real expression for referencing an output name here. Will use
-                    // string as a placeholder
-                    // TODO:: use a more appropriate expression
-                    ir::CompilerOp::ComputeMinUtxo(ir::Expression::String(name)).into(),
-                )
+            ast::Symbol::Output(index) => {
+                Ok(ir::CompilerOp::ComputeMinUtxo(ir::Expression::Number(*index as i128)).into())
             }
             ast::Symbol::PolicyDef(x) => {
                 let policy = x.into_lower(ctx)?;
@@ -376,9 +370,9 @@ impl IntoLower for ast::ConcatOp {
         let left = self.lhs.into_lower(ctx)?;
         let right = self.rhs.into_lower(ctx)?;
 
-        Ok(ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Concat(
-            left, right,
-        ))))
+        Ok(ir::Expression::EvalBuiltIn(Box::new(
+            ir::BuiltInOp::Concat(left, right),
+        )))
     }
 }
 

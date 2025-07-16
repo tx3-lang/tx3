@@ -156,6 +156,7 @@ impl Protocol {
         }
 
         // TODO: merge lower and apply errors?
+        // @scarmuega pls help
         let tx = tx.apply().unwrap();
 
         Ok(tx)
@@ -172,7 +173,9 @@ impl Protocol {
 
 use std::collections::HashSet;
 
-pub use applying::{apply_args, apply_fees, apply_inputs, find_params, find_queries, reduce};
+pub use applying::{
+    apply_args, apply_fees, apply_inputs, apply_outputs, find_params, find_queries, reduce,
+};
 use bincode::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
@@ -181,6 +184,7 @@ pub struct ProtoTx {
     ir: ir::Tx,
     args: std::collections::BTreeMap<String, ArgValue>,
     inputs: std::collections::BTreeMap<String, UtxoSet>,
+    outputs: Vec<Vec<u8>>,
     fees: Option<u64>,
 }
 
@@ -190,6 +194,7 @@ impl From<ir::Tx> for ProtoTx {
             ir,
             args: std::collections::BTreeMap::new(),
             inputs: std::collections::BTreeMap::new(),
+            outputs: vec![],
             fees: None,
         }
     }
@@ -217,6 +222,10 @@ impl ProtoTx {
         self.inputs.insert(name.to_lowercase().to_string(), value);
     }
 
+    pub fn set_output(&mut self, utxo: Vec<u8>) {
+        self.outputs.push(utxo)
+    }
+
     pub fn set_fees(&mut self, value: u64) {
         self.fees = Some(value);
     }
@@ -231,6 +240,7 @@ impl ProtoTx {
         };
 
         let tx = apply_inputs(tx, &self.inputs)?;
+        let tx = apply_outputs(tx, &self.outputs)?;
 
         let tx = reduce(tx)?;
 

@@ -22,7 +22,8 @@ pub enum Symbol {
     EnvVar(String, Box<Type>),
     ParamVar(String, Box<Type>),
     LocalExpr(Box<DataExpr>),
-    Output(Box<OutputBlock>),
+    // index of output
+    Output(usize),
     Input(Box<InputBlock>),
     PartyDef(Box<PartyDef>),
     PolicyDef(Box<PolicyDef>),

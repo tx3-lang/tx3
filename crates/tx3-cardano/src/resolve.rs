@@ -106,7 +106,9 @@ pub async fn resolve_tx<T: Ledger>(
     let mut rounds = 0;
 
     // one initial pass to reduce any available params;
-    let tx = tx.apply()?;
+    let tx = tx.apply();
+    dbg!(&tx);
+    let tx = tx?;
 
     while let Some(better) = eval_pass(&tx, &pparams, &ledger, last_eval.as_ref(), &config).await? {
         last_eval = Some(better);

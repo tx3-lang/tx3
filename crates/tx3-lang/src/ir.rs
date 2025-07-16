@@ -70,7 +70,10 @@ pub enum BuiltInOp {
 /// or rely on data that is only available to the compiler.
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum CompilerOp {
+    /// Just return expression
+    NoOp(Expression),
     BuildScriptAddress(Expression),
+    /// Index of output to compile the min utxo for
     ComputeMinUtxo(Expression),
 }
 
