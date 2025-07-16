@@ -132,12 +132,6 @@ fn compile_value(ir: &ir::AssetExpr) -> Result<primitives::Value, Error> {
     }
 }
 
-fn expr_into_script_ref(expr: &ir::Expression) -> Result<primitives::ScriptRef, Error> {
-    let script_bytes = expr_into_bytes(expr)?.to_vec();
-    let script = primitives::PlutusScript::<2>(script_bytes.into());
-    let script_ref = primitives::ScriptRef::PlutusV2Script(script);
-    Ok(script_ref)
-}
 // calculate min utxo lovelace according to spec
 // https://cips.cardano.org/cip/CIP-55
 
