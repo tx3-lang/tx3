@@ -27,8 +27,7 @@
           ]
         }
       },
-      "redeemer": "None",
-      "policy": null
+      "redeemer": "None"
     },
     {
       "name": "locked",
@@ -91,8 +90,7 @@
           "constructor": 0,
           "fields": []
         }
-      },
-      "policy": null
+      }
     }
   ],
   "outputs": [
@@ -203,7 +201,8 @@
             }
           ]
         }
-      }
+      },
+      "ref_script": "None"
     }
   ],
   "validity": null,
