@@ -71,7 +71,7 @@ pub enum BuiltInOp {
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum CompilerOp {
     BuildScriptAddress(Expression),
-    /// Index of output to compile the min utxo or the bytes of the output
+    /// (Index of output to compile the min utxo, outputs bytes)
     ComputeMinUtxo(Expression, Expression),
 }
 

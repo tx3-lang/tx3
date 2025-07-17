@@ -35,6 +35,9 @@ pub enum Error {
     CannotCoerceIntoDatum(ir::Expression),
 }
 
+const MIN_UTXO: i128 = 849070;
+const COST_PER_UTXO_BYTE: i128 = 4310;
+
 pub trait Indexable: std::fmt::Debug {
     fn index(&self, index: usize) -> Option<ir::Expression>;
 
@@ -1226,17 +1229,19 @@ impl Apply for ir::Expression {
                 ir::CompilerOp::ComputeMinUtxo(index, outputs) => match (index, outputs) {
                     (ir::Expression::Number(index), ir::Expression::List(outputs)) => {
                         let output = outputs.get(*index as usize);
-                        if let Some(_) = output {
+                        if let Some(ir::Expression::Bytes(utxo)) = output {
                             Ok(ir::Expression::Assets(vec![ir::AssetExpr {
                                 policy: ir::Expression::None,
                                 asset_name: ir::Expression::None,
-                                amount: ir::Expression::Number(999_999),
+                                amount: ir::Expression::Number(
+                                    (*utxo).len() as i128 * COST_PER_UTXO_BYTE,
+                                ),
                             }]))
                         } else {
                             Ok(ir::Expression::Assets(vec![ir::AssetExpr {
                                 policy: ir::Expression::None,
                                 asset_name: ir::Expression::None,
-                                amount: ir::Expression::Number(444_444),
+                                amount: ir::Expression::Number(MIN_UTXO),
                             }]))
                         }
                     }
