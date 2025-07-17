@@ -184,7 +184,7 @@ pub struct ProtoTx {
     ir: ir::Tx,
     args: std::collections::BTreeMap<String, ArgValue>,
     inputs: std::collections::BTreeMap<String, UtxoSet>,
-    outputs: Vec<Vec<u8>>,
+    outputs: Option<Vec<Vec<u8>>>,
     fees: Option<u64>,
 }
 
@@ -194,7 +194,7 @@ impl From<ir::Tx> for ProtoTx {
             ir,
             args: std::collections::BTreeMap::new(),
             inputs: std::collections::BTreeMap::new(),
-            outputs: vec![],
+            outputs: None,
             fees: None,
         }
     }
@@ -223,7 +223,7 @@ impl ProtoTx {
     }
 
     pub fn set_output(&mut self, utxo: Vec<u8>) {
-        self.outputs.push(utxo)
+        self.outputs.get_or_insert_with(Vec::new).push(utxo)
     }
 
     pub fn set_fees(&mut self, value: u64) {
@@ -239,8 +239,10 @@ impl ProtoTx {
             tx
         };
 
-        let tx = apply_inputs(tx, &self.inputs)?;
-        let tx = apply_outputs(tx, &self.outputs)?;
+        let mut tx = apply_inputs(tx, &self.inputs)?;
+        if let Some(outputs) = self.outputs {
+            tx = apply_outputs(tx, &outputs)?;
+        }
 
         let tx = reduce(tx)?;
 
