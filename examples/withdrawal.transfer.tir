@@ -156,7 +156,30 @@
   ],
   "validity": null,
   "mints": [],
-  "adhoc": [],
+  "adhoc": [
+    {
+      "name": "withdrawal",
+      "data": {
+        "redeemer": {
+          "Struct": {
+            "constructor": 0,
+            "fields": []
+          }
+        },
+        "credential": {
+          "EvalParam": {
+            "ExpectValue": [
+              "sender",
+              "Address"
+            ]
+          }
+        },
+        "amount": {
+          "Number": 0
+        }
+      }
+    }
+  ],
   "collateral": [],
   "signers": null,
   "metadata": []

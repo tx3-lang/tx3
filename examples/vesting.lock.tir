@@ -40,8 +40,7 @@
           ]
         }
       },
-      "redeemer": "None",
-      "policy": null
+      "redeemer": "None"
     }
   ],
   "outputs": [
@@ -128,7 +127,8 @@
             }
           }
         ]
-      }
+      },
+      "ref_script": "None"
     },
     {
       "address": {
@@ -208,7 +208,8 @@
             }
           ]
         }
-      }
+      },
+      "ref_script": "None"
     }
   ],
   "validity": null,

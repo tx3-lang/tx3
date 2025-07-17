@@ -12,9 +12,9 @@ use pallas::{
     },
 };
 
-use tx3_lang::ir;
+use tx3_lang::ir::{self, Expression};
 
-use crate::coercion::{expr_into_metadatum, expr_into_number};
+use crate::coercion::{expr_into_bytes, expr_into_metadatum, expr_into_number};
 
 use super::*;
 
@@ -148,6 +148,43 @@ fn eval_minutxo_constructor(&self, ctr: &ir::AssetConstructor) -> Result<primiti
 }
     */
 
+fn compile_adhoc_script(
+    adhoc: &ir::AdHocDirective,
+) -> Result<primitives::ScriptRef<'static>, Error> {
+    let script = adhoc.data.get("script").map(expr_into_bytes).transpose()?;
+
+    let version = adhoc
+        .data
+        .get("version")
+        .map(coercion::expr_into_number)
+        .transpose()?
+        .map(|v| v as PlutusVersion)
+        .unwrap_or(3);
+    let script_bytes = script.unwrap().to_vec();
+    let script_ref = match version {
+        0 => todo!("Native script"),
+        1 => {
+            let script = primitives::PlutusScript::<1>(script_bytes.into());
+            primitives::ScriptRef::PlutusV1Script(script)
+        }
+        2 => {
+            let script = primitives::PlutusScript::<2>(script_bytes.into());
+            primitives::ScriptRef::PlutusV2Script(script)
+        }
+        3 => {
+            let script = primitives::PlutusScript::<3>(script_bytes.into());
+            primitives::ScriptRef::PlutusV3Script(script)
+        }
+        _ => {
+            return Err(Error::CoerceError(
+                format!("{:?}", adhoc.data.get("version")),
+                "Reference script version".to_string(),
+            ));
+        }
+    };
+    Ok(script_ref)
+}
+
 fn compile_output_block(
     ir: &ir::Output,
     network: Network,
@@ -164,15 +201,37 @@ fn compile_output_block(
     let value = asset_math::aggregate_values(values);
 
     let datum_option = ir.datum.as_option().map(compile_data_expr).transpose()?;
+    let adhoc = match &ir.ref_script {
+        ir::Expression::AdHocDirective(adhoc) => Some(adhoc),
+        ir::Expression::None => None,
+        _ => {
+            return Err(Error::CoerceError(
+                format!("{:?}", ir.ref_script),
+                "Reference script".to_string(),
+            ));
+        }
+    };
 
-    let output = primitives::TransactionOutput::PostAlonzo(
+    let output: pallas::ledger::primitives::babbage::GenTransactionOutput<
+        '_,
+        pallas::ledger::primitives::babbage::GenPostAlonzoTransactionOutput<
+            '_,
+            primitives::Value,
+            primitives::ScriptRef<'_>,
+        >,
+    > = primitives::TransactionOutput::PostAlonzo(
         primitives::PostAlonzoTransactionOutput {
             address: address.to_vec().into(),
             value,
             datum_option: datum_option.map(|x| {
                 primitives::DatumOption::Data(pallas::codec::utils::CborWrap(x.into())).into()
             }),
-            script_ref: None, // TODO: add script ref
+            script_ref: if let Some(adhoc) = adhoc {
+                let script = compile_adhoc_script(adhoc)?;
+                Some(pallas::codec::utils::CborWrap(script.into()))
+            } else {
+                None
+            },
         }
         .into(),
     );
@@ -229,6 +288,7 @@ fn compile_outputs(
         .map(|x| compile_output_block(x, network))
         .collect::<Result<Vec<_>, _>>()?;
 
+    println!("resolved: {:?}", resolved);
     Ok(resolved)
 }
 

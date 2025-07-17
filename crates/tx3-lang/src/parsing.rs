@@ -12,8 +12,10 @@ use pest::{
 };
 use pest_derive::Parser;
 
-use crate::ast::*;
-
+use crate::{
+    ast::*,
+    cardano::{PlutusWitnessBlock, PlutusWitnessField},
+};
 #[derive(Parser)]
 #[grammar = "tx3.pest"]
 pub(crate) struct Tx3Grammar;
@@ -559,6 +561,11 @@ impl AstNode for OutputBlockField {
                 let x = OutputBlockField::Datum(DataExpr::parse(pair)?.into());
                 Ok(x)
             }
+            Rule::output_block_reference_script => {
+                let x =
+                    OutputBlockField::ReferenceScript(Box::new(PlutusWitnessBlock::parse(pair)?));
+                Ok(x)
+            }
             x => unreachable!("Unexpected rule in output_block_field: {:?}", x),
         }
     }
@@ -568,6 +575,7 @@ impl AstNode for OutputBlockField {
             Self::To(x) => x.span(),
             Self::Amount(x) => x.span(),
             Self::Datum(x) => x.span(),
+            Self::ReferenceScript(x) => x.span(),
         }
     }
 }
@@ -1166,9 +1174,9 @@ impl AstNode for DataExpr {
                 Rule::unit => Ok(DataExpr::Unit),
                 Rule::identifier => DataExpr::identifier_parse(x),
                 Rule::utxo_ref => DataExpr::utxo_ref_parse(x),
-                            Rule::static_asset_constructor => DataExpr::static_asset_constructor_parse(x),
-            Rule::any_asset_constructor => DataExpr::any_asset_constructor_parse(x),
-            Rule::concat_constructor => DataExpr::concat_constructor_parse(x),
+                Rule::static_asset_constructor => DataExpr::static_asset_constructor_parse(x),
+                Rule::any_asset_constructor => DataExpr::any_asset_constructor_parse(x),
+                Rule::concat_constructor => DataExpr::concat_constructor_parse(x),
                 Rule::data_expr => DataExpr::parse(x),
                 x => unreachable!("unexpected rule as data primary: {:?}", x),
             })
@@ -1444,23 +1452,6 @@ mod tests {
         let _ = parse_string("tx swap() {}").unwrap();
     }
 
-    input_to_ast_check!(
-        ast::ConcatOp,
-        "basic",
-        r#"concat("hello", "world")"#,
-        ast::ConcatOp {
-            lhs: Box::new(ast::DataExpr::String(ast::StringLiteral {
-                value: "hello".to_string(),
-                span: ast::Span::DUMMY,
-            })),
-            rhs: Box::new(ast::DataExpr::String(ast::StringLiteral {
-                value: "world".to_string(),
-                span: ast::Span::DUMMY,
-            })),
-            span: ast::Span::DUMMY,
-        }
-    );
-
     macro_rules! input_to_ast_check {
         ($ast:ty, $name:expr, $input:expr, $expected:expr) => {
             paste::paste! {
@@ -1475,6 +1466,23 @@ mod tests {
             }
         };
     }
+
+    input_to_ast_check!(
+        ConcatOp,
+        "basic",
+        r#"concat("hello", "world")"#,
+        ast::ConcatOp {
+            lhs: Box::new(ast::DataExpr::String(ast::StringLiteral {
+                value: "hello".to_string(),
+                span: ast::Span::DUMMY,
+            })),
+            rhs: Box::new(ast::DataExpr::String(ast::StringLiteral {
+                value: "world".to_string(),
+                span: ast::Span::DUMMY,
+            })),
+            span: ast::Span::DUMMY,
+        }
+    );
 
     input_to_ast_check!(Type, "int", "Int", Type::Int);
 
@@ -2373,4 +2381,6 @@ mod tests {
     test_parsing!(local_vars);
 
     test_parsing!(cardano_witness);
+
+    test_parsing!(reference_script);
 }
