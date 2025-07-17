@@ -226,6 +226,10 @@ impl ProtoTx {
         self.outputs.get_or_insert_with(Vec::new).push(utxo)
     }
 
+    pub fn init_outputs(&mut self) {
+        self.outputs = Some(vec![]);
+    }
+
     pub fn set_fees(&mut self, value: u64) {
         self.fees = Some(value);
     }
@@ -240,6 +244,7 @@ impl ProtoTx {
         };
 
         let mut tx = apply_inputs(tx, &self.inputs)?;
+
         if let Some(outputs) = self.outputs {
             tx = apply_outputs(tx, &outputs)?;
         }

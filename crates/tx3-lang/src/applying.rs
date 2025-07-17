@@ -1,6 +1,6 @@
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
-    ops::Neg,
+    ops::{Deref, Neg},
 };
 
 use crate::{ir, ArgValue, Utxo};
@@ -9,6 +9,9 @@ use crate::{ir, ArgValue, Utxo};
 pub enum Error {
     #[error("invalid built-in operation {0:?}")]
     InvalidBuiltInOp(Box<ir::BuiltInOp>),
+
+    #[error("invalid compiler operation {0:?}")]
+    InvalidCompilerOp(Box<ir::CompilerOp>),
 
     #[error("invalid argument {0:?} for {1}")]
     InvalidArgument(ArgValue, String),
@@ -818,8 +821,12 @@ impl Apply for ir::Param {
         }
     }
 
-    fn apply_outputs(self, _args: &Vec<Vec<u8>>) -> Result<Self, Error> {
-        Ok(self)
+    fn apply_outputs(self, args: &Vec<Vec<u8>>) -> Result<Self, Error> {
+        match self {
+            Self::Set(x) => Ok(Self::Set(x.apply_outputs(args)?)),
+            Self::ExpectInput(x, y) => Ok(Self::ExpectInput(x, y.apply_outputs(args)?)),
+            x => Ok(x),
+        }
     }
 
     fn apply_inputs(self, args: &BTreeMap<String, HashSet<Utxo>>) -> Result<Self, Error> {
@@ -891,74 +898,71 @@ impl Apply for ir::CompilerOp {
     fn apply_args(self, args: &BTreeMap<String, ArgValue>) -> Result<Self, Error> {
         match self {
             Self::BuildScriptAddress(x) => Ok(Self::BuildScriptAddress(x.apply_args(args)?)),
-            Self::ComputeMinUtxo(x) => Ok(Self::ComputeMinUtxo(x.apply_args(args)?)),
-            Self::NoOp(x) => Ok(Self::ComputeMinUtxo(x.apply_args(args)?)),
+            Self::ComputeMinUtxo(x, y) => Ok(Self::ComputeMinUtxo(
+                x.apply_args(args)?,
+                y.apply_args(args)?,
+            )),
         }
     }
-    fn apply_outputs(self, args: &Vec<Vec<u8>>) -> Result<Self, Error> {
+    fn apply_outputs(self, outputs: &Vec<Vec<u8>>) -> Result<Self, Error> {
         match self {
-            Self::BuildScriptAddress(x) => Ok(Self::BuildScriptAddress(x.apply_outputs(args)?)),
-            Self::ComputeMinUtxo(ir::Expression::Number(index)) => {
-                if let Some(_bytes) = args.get(index as usize) {
-                    // TODO: compute size of utxo
-                    Ok(Self::NoOp(ir::Expression::Assets(vec![ir::AssetExpr {
-                        policy: ir::Expression::None,
-                        asset_name: ir::Expression::None,
-                        amount: ir::Expression::Number(999_999),
-                    }])))
-                } else {
-                    // TODO: find out min utxo size and cost in lovelace
-                    Ok(Self::NoOp(ir::Expression::Assets(vec![ir::AssetExpr {
-                        policy: ir::Expression::None,
-                        asset_name: ir::Expression::None,
-                        amount: ir::Expression::Number(187_999),
-                    }])))
-                }
-            }
-            Self::NoOp(x) => Ok(Self::NoOp(x.apply_outputs(args)?)),
-            x => Ok(x),
+            Self::BuildScriptAddress(x) => Ok(Self::BuildScriptAddress(x.apply_outputs(outputs)?)),
+            Self::ComputeMinUtxo(ir::Expression::Number(index), _) => Ok(Self::ComputeMinUtxo(
+                ir::Expression::Number(index),
+                ir::Expression::List(
+                    outputs
+                        .iter()
+                        .map(|out| ir::Expression::Bytes(out.clone()))
+                        .collect::<Vec<_>>(),
+                ),
+            )),
+            x => Err(Error::InvalidCompilerOp(Box::new(x))),
         }
     }
     fn apply_inputs(self, args: &BTreeMap<String, HashSet<Utxo>>) -> Result<Self, Error> {
         match self {
             Self::BuildScriptAddress(x) => Ok(Self::BuildScriptAddress(x.apply_inputs(args)?)),
-            Self::ComputeMinUtxo(x) => Ok(Self::ComputeMinUtxo(x.apply_inputs(args)?)),
-            Self::NoOp(x) => Ok(Self::ComputeMinUtxo(x.apply_inputs(args)?)),
+            Self::ComputeMinUtxo(x, y) => Ok(Self::ComputeMinUtxo(
+                x.apply_inputs(args)?,
+                y.apply_inputs(args)?,
+            )),
         }
     }
     fn apply_fees(self, fees: u64) -> Result<Self, Error> {
         match self {
             Self::BuildScriptAddress(x) => Ok(Self::BuildScriptAddress(x.apply_fees(fees)?)),
-            Self::ComputeMinUtxo(x) => Ok(Self::ComputeMinUtxo(x.apply_fees(fees)?)),
-            Self::NoOp(x) => Ok(Self::ComputeMinUtxo(x.apply_fees(fees)?)),
+            Self::ComputeMinUtxo(x, y) => Ok(Self::ComputeMinUtxo(
+                x.apply_fees(fees)?,
+                y.apply_fees(fees)?,
+            )),
         }
     }
     fn is_constant(&self) -> bool {
         match self {
-            Self::NoOp(x) => x.is_constant(),
             Self::BuildScriptAddress(x) => x.is_constant(),
-            Self::ComputeMinUtxo(x) => x.is_constant(),
+            Self::ComputeMinUtxo(x, y) => x.is_constant() && y.is_constant(),
         }
     }
     fn params(&self) -> BTreeMap<String, ir::Type> {
         match self {
-            Self::NoOp(x) => x.params(),
             Self::BuildScriptAddress(x) => x.params(),
-            Self::ComputeMinUtxo(x) => x.params(),
+            Self::ComputeMinUtxo(x, y) => {
+                vec![x.params(), y.params()].into_iter().flatten().collect()
+            }
         }
     }
     fn queries(&self) -> BTreeMap<String, ir::InputQuery> {
         match self {
-            Self::NoOp(x) => x.queries(),
             Self::BuildScriptAddress(x) => x.queries(),
-            Self::ComputeMinUtxo(x) => x.queries(),
+            Self::ComputeMinUtxo(x, y) => {
+                [x.queries(), y.queries()].into_iter().flatten().collect()
+            }
         }
     }
     fn reduce(self) -> Result<Self, Error> {
         match self {
-            Self::NoOp(x) => Ok(Self::NoOp(x.reduce()?)),
             Self::BuildScriptAddress(x) => Ok(Self::BuildScriptAddress(x.reduce()?)),
-            Self::ComputeMinUtxo(x) => Ok(Self::ComputeMinUtxo(x.reduce()?)),
+            Self::ComputeMinUtxo(x, y) => Ok(Self::ComputeMinUtxo(x.reduce()?, y.reduce()?)),
         }
     }
 }
@@ -1215,12 +1219,32 @@ impl Apply for ir::Expression {
                     .map(|x| x.reduce())
                     .collect::<Result<_, _>>()?,
             )),
-            ir::Expression::EvalCompiler(x) => match *x {
-                ir::CompilerOp::NoOp(x) => Ok(x.reduce()?),
-                ir::CompilerOp::ComputeMinUtxo(x) => Ok(x.reduce()?),
+            ir::Expression::EvalCompiler(x) => match x.deref() {
                 ir::CompilerOp::BuildScriptAddress(x) => Ok(Self::EvalCompiler(Box::new(
-                    ir::CompilerOp::BuildScriptAddress(x.reduce()?),
+                    ir::CompilerOp::BuildScriptAddress(x.clone().reduce()?),
                 ))),
+                ir::CompilerOp::ComputeMinUtxo(index, outputs) => match (index, outputs) {
+                    (ir::Expression::Number(index), ir::Expression::List(outputs)) => {
+                        let output = outputs.get(*index as usize);
+                        if let Some(_) = output {
+                            Ok(ir::Expression::Assets(vec![ir::AssetExpr {
+                                policy: ir::Expression::None,
+                                asset_name: ir::Expression::None,
+                                amount: ir::Expression::Number(999_999),
+                            }]))
+                        } else {
+                            Ok(ir::Expression::Assets(vec![ir::AssetExpr {
+                                policy: ir::Expression::None,
+                                asset_name: ir::Expression::None,
+                                amount: ir::Expression::Number(444_444),
+                            }]))
+                        }
+                    }
+                    (ir::Expression::Number(_), ir::Expression::None) => {
+                        Ok(ir::Expression::EvalCompiler(x))
+                    }
+                    _ => Err(Error::InvalidCompilerOp(x)),
+                },
             },
             ir::Expression::AdHocDirective(x) => Ok(Self::AdHocDirective(Box::new(x.reduce()?))),
 

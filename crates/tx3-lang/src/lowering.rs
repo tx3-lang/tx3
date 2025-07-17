@@ -186,9 +186,11 @@ impl IntoLower for ast::Identifier {
             ast::Symbol::EnvVar(n, ty) => {
                 Ok(ir::Param::ExpectValue(n.to_lowercase().clone(), ty.into_lower(ctx)?).into())
             }
-            ast::Symbol::Output(index) => {
-                Ok(ir::CompilerOp::ComputeMinUtxo(ir::Expression::Number(*index as i128)).into())
-            }
+            ast::Symbol::Output(index) => Ok(ir::CompilerOp::ComputeMinUtxo(
+                ir::Expression::Number(*index as i128),
+                ir::Expression::None,
+            )
+            .into()),
             ast::Symbol::PolicyDef(x) => {
                 let policy = x.into_lower(ctx)?;
 
