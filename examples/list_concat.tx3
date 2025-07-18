@@ -1,0 +1,21 @@
+type MyRecord {
+    list: Int,
+}
+
+party MyParty;
+
+tx concat_list() {
+    input source {
+        from: MyParty,
+        min_amount: fees,
+        datum_is: MyRecord,
+    }
+
+    output {
+        to: MyParty,
+        amount: source - fees,
+        datum: MyRecord {
+            list: source.list + [1],
+        },
+    }
+}

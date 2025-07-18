@@ -2373,4 +2373,6 @@ mod tests {
     test_parsing!(local_vars);
 
     test_parsing!(cardano_witness);
+
+    test_parsing!(list_concat);
 }
