@@ -400,11 +400,120 @@ impl IntoLower for PlutusWitnessBlock {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum NativeWitnessField {
+    Script(DataExpr, Span),
+}
+
+impl IntoLower for NativeWitnessField {
+    type Output = (String, ir::Expression);
+
+    fn into_lower(
+        &self,
+        ctx: &crate::lowering::Context,
+    ) -> Result<Self::Output, crate::lowering::Error> {
+        match self {
+            NativeWitnessField::Script(x, _) => Ok(("script".to_string(), x.into_lower(ctx)?)),
+        }
+    }
+}
+
+impl AstNode for NativeWitnessField {
+    const RULE: Rule = Rule::cardano_native_witness_field;
+
+    fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
+        let span = pair.as_span().into();
+
+        match pair.as_rule() {
+            Rule::cardano_native_witness_script => {
+                Ok(NativeWitnessField::Script(DataExpr::parse(pair)?, span))
+            }
+            x => unreachable!("Unexpected rule in cardano_native_witness_field: {:?}", x),
+        }
+    }
+
+    fn span(&self) -> &Span {
+        match self {
+            NativeWitnessField::Script(_, span) => span,
+        }
+    }
+}
+
+impl Analyzable for NativeWitnessField {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+        match self {
+            NativeWitnessField::Script(x, _) => x.analyze(parent),
+        }
+    }
+
+    fn is_resolved(&self) -> bool {
+        match self {
+            NativeWitnessField::Script(x, _) => x.is_resolved(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct NativeWitnessBlock {
+    pub fields: Vec<NativeWitnessField>,
+    pub span: Span,
+}
+
+impl AstNode for NativeWitnessBlock {
+    const RULE: Rule = Rule::cardano_native_witness_block;
+
+    fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
+        let span = pair.as_span().into();
+        let inner = pair.into_inner();
+
+        let fields = inner
+            .map(|x| NativeWitnessField::parse(x))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(NativeWitnessBlock { fields, span })
+    }
+
+    fn span(&self) -> &Span {
+        &self.span
+    }
+}
+
+impl Analyzable for NativeWitnessBlock {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+        self.fields.analyze(parent)
+    }
+
+    fn is_resolved(&self) -> bool {
+        self.fields.is_resolved()
+    }
+}
+
+impl IntoLower for NativeWitnessBlock {
+    type Output = ir::AdHocDirective;
+
+    fn into_lower(
+        &self,
+        ctx: &crate::lowering::Context,
+    ) -> Result<Self::Output, crate::lowering::Error> {
+        let data = self
+            .fields
+            .iter()
+            .map(|x| x.into_lower(ctx))
+            .collect::<Result<_, _>>()?;
+
+        Ok(ir::AdHocDirective {
+            name: "native_witness".to_string(),
+            data,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum CardanoBlock {
     VoteDelegationCertificate(VoteDelegationCertificate),
     StakeDelegationCertificate(StakeDelegationCertificate),
     Withdrawal(WithdrawalBlock),
     PlutusWitness(PlutusWitnessBlock),
+    NativeWitness(NativeWitnessBlock),
 }
 
 impl AstNode for CardanoBlock {
@@ -427,6 +536,9 @@ impl AstNode for CardanoBlock {
             Rule::cardano_plutus_witness_block => Ok(CardanoBlock::PlutusWitness(
                 PlutusWitnessBlock::parse(item)?,
             )),
+            Rule::cardano_native_witness_block => Ok(CardanoBlock::NativeWitness(
+                NativeWitnessBlock::parse(item)?,
+            )),
             x => unreachable!("Unexpected rule in cardano_block: {:?}", x),
         }
     }
@@ -437,6 +549,7 @@ impl AstNode for CardanoBlock {
             CardanoBlock::StakeDelegationCertificate(x) => x.span(),
             CardanoBlock::Withdrawal(x) => x.span(),
             CardanoBlock::PlutusWitness(x) => x.span(),
+            CardanoBlock::NativeWitness(x) => x.span(),
         }
     }
 }
@@ -448,6 +561,7 @@ impl Analyzable for CardanoBlock {
             CardanoBlock::StakeDelegationCertificate(x) => x.analyze(parent),
             CardanoBlock::Withdrawal(x) => x.analyze(parent),
             CardanoBlock::PlutusWitness(x) => x.analyze(parent),
+            CardanoBlock::NativeWitness(x) => x.analyze(parent),
         }
     }
 
@@ -457,6 +571,7 @@ impl Analyzable for CardanoBlock {
             CardanoBlock::StakeDelegationCertificate(x) => x.is_resolved(),
             CardanoBlock::Withdrawal(x) => x.is_resolved(),
             CardanoBlock::PlutusWitness(x) => x.is_resolved(),
+            CardanoBlock::NativeWitness(x) => x.is_resolved(),
         }
     }
 }
@@ -473,6 +588,7 @@ impl IntoLower for CardanoBlock {
             CardanoBlock::StakeDelegationCertificate(x) => x.into_lower(ctx),
             CardanoBlock::Withdrawal(x) => x.into_lower(ctx),
             CardanoBlock::PlutusWitness(x) => x.into_lower(ctx),
+            CardanoBlock::NativeWitness(x) => x.into_lower(ctx),
         }
     }
 }
@@ -513,6 +629,21 @@ mod tests {
                     Span::DUMMY
                 )
             ],
+            span: Span::DUMMY,
+        }
+    );
+
+    input_to_ast_check!(
+        NativeWitnessBlock,
+        "basic",
+        "native_witness {
+            script: 0xABCDEF,
+        }",
+        NativeWitnessBlock {
+            fields: vec![NativeWitnessField::Script(
+                DataExpr::HexString(HexStringLiteral::new("ABCDEF".to_string())),
+                Span::DUMMY
+            )],
             span: Span::DUMMY,
         }
     );

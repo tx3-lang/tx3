@@ -93,6 +93,9 @@ pub enum Error {
 
     #[error("can't compile non-constant TIR")]
     CantCompileNonConstantTir,
+
+    #[error("error decoding native script cbor: {0}")]
+    DecodeNativeScriptCbor(pallas::codec::minicbor::decode::Error),
 }
 
 pub type Network = pallas::ledger::primitives::NetworkId;
