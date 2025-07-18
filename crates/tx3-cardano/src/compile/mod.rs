@@ -212,14 +212,7 @@ fn compile_output_block(
         }
     };
 
-    let output: pallas::ledger::primitives::babbage::GenTransactionOutput<
-        '_,
-        pallas::ledger::primitives::babbage::GenPostAlonzoTransactionOutput<
-            '_,
-            primitives::Value,
-            primitives::ScriptRef<'_>,
-        >,
-    > = primitives::TransactionOutput::PostAlonzo(
+    let output = primitives::TransactionOutput::PostAlonzo(
         primitives::PostAlonzoTransactionOutput {
             address: address.to_vec().into(),
             value,
