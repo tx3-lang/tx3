@@ -147,7 +147,7 @@
                           }
                         },
                         "value": {
-                          "AddOp": {
+                          "ConcatOp": {
                             "lhs": {
                               "PropertyOp": {
                                 "operand": {
@@ -176,7 +176,18 @@
                               }
                             },
                             "rhs": {
-                              "Number": 1
+                              "value": {
+                                "ListConstructor": {
+                                  "elements": {
+                                    "Number": 1
+                                  },
+                                  "span": {
+                                    "dummy": false,
+                                    "start": 331,
+                                    "end": 332
+                                  }
+                                }
+                              }
                             },
                             "span": {
                               "dummy": false,

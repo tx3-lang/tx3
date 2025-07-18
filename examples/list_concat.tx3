@@ -15,7 +15,7 @@ tx concat_list() {
         to: MyParty,
         amount: source - fees,
         datum: MyRecord {
-            list: source.list + [1],
+            list: concat(source.list, [1]),
         },
     }
 }
