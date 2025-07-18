@@ -1,6 +1,9 @@
 use pallas::{
     crypto::hash::Hash,
-    ledger::{primitives::conway as primitives, traverse::ComputeHash},
+    ledger::{
+        primitives::{conway as primitives, Fragment},
+        traverse::ComputeHash,
+    },
 };
 use tx3_lang::{applying::Apply, ir::InputQuery};
 
@@ -53,9 +56,7 @@ async fn eval_pass<L: Ledger>(
 
     let fees = last_eval.as_ref().map(|e| e.fee).unwrap_or(0);
     attempt.set_fees(fees);
-    dbg!("attempt before {:?}", &attempt);
     attempt = attempt.apply()?;
-    dbg!("attempt after {:?}", &attempt);
     for (name, query) in attempt.find_queries() {
         let utxos = ledger.resolve_input(&query).await?;
 
@@ -79,7 +80,7 @@ async fn eval_pass<L: Ledger>(
     // reset outputs for next iteration
     tx.init_outputs();
     compiled_tx.transaction_body.outputs.iter().for_each(|o| {
-        let bytes = pallas::codec::minicbor::to_vec(o).unwrap();
+        let bytes = o.encode_fragment().unwrap();
         tx.set_output(bytes)
     });
 
@@ -115,7 +116,7 @@ pub async fn resolve_tx<T: Ledger>(
     // one initial pass to reduce any available params
     // apply_outputs() will be executed now only if outputs are initialized
     tx.init_outputs();
-    let mut tx = tx.apply()?;
+    //let mut tx = tx.apply()?;
 
     while let Some(better) =
         eval_pass(&mut tx, &pparams, &ledger, last_eval.as_ref(), &config).await?

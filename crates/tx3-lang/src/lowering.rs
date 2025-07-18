@@ -450,7 +450,11 @@ impl IntoLower for ast::DataExpr {
             ast::DataExpr::NegateOp(x) => x.into_lower(ctx)?,
             ast::DataExpr::PropertyOp(x) => x.into_lower(ctx)?,
             ast::DataExpr::UtxoRef(x) => x.into_lower(ctx)?,
-            ast::DataExpr::MinUtxo(x) => x.into_lower(ctx)?,
+            ast::DataExpr::MinUtxo(x) => ir::Expression::Assets(vec![ir::AssetExpr {
+                policy: ir::Expression::None,
+                asset_name: ir::Expression::None,
+                amount: x.into_lower(ctx)?,
+            }]),
         };
 
         Ok(out)

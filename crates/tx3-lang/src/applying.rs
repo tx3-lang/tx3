@@ -37,6 +37,7 @@ pub enum Error {
 
 const MIN_UTXO: i128 = 849070;
 const COST_PER_UTXO_BYTE: i128 = 4310;
+const CONSTANT_UTXO_OVERHEAD: i128 = 160;
 
 pub trait Indexable: std::fmt::Debug {
     fn index(&self, index: usize) -> Option<ir::Expression>;
@@ -943,7 +944,7 @@ impl Apply for ir::CompilerOp {
     fn is_constant(&self) -> bool {
         match self {
             Self::BuildScriptAddress(x) => x.is_constant(),
-            Self::ComputeMinUtxo(x, y) => x.is_constant() && y.is_constant(),
+            Self::ComputeMinUtxo(x, y) => false,
         }
     }
     fn params(&self) -> BTreeMap<String, ir::Type> {
@@ -1228,21 +1229,12 @@ impl Apply for ir::Expression {
                 ))),
                 ir::CompilerOp::ComputeMinUtxo(index, outputs) => match (index, outputs) {
                     (ir::Expression::Number(index), ir::Expression::List(outputs)) => {
-                        let output = outputs.get(*index as usize);
-                        if let Some(ir::Expression::Bytes(utxo)) = output {
-                            Ok(ir::Expression::Assets(vec![ir::AssetExpr {
-                                policy: ir::Expression::None,
-                                asset_name: ir::Expression::None,
-                                amount: ir::Expression::Number(
-                                    (*utxo).len() as i128 * COST_PER_UTXO_BYTE,
-                                ),
-                            }]))
+                        if let Some(ir::Expression::Bytes(utxo)) = outputs.get(*index as usize) {
+                            Ok(ir::Expression::Number(
+                                (utxo.len() as i128 + CONSTANT_UTXO_OVERHEAD) * COST_PER_UTXO_BYTE,
+                            ))
                         } else {
-                            Ok(ir::Expression::Assets(vec![ir::AssetExpr {
-                                policy: ir::Expression::None,
-                                asset_name: ir::Expression::None,
-                                amount: ir::Expression::Number(MIN_UTXO),
-                            }]))
+                            Ok(ir::Expression::Number(MIN_UTXO))
                         }
                     }
                     (ir::Expression::Number(_), ir::Expression::None) => {
