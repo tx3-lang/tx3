@@ -1,0 +1,234 @@
+{
+  "fees": {
+    "EvalParam": "ExpectFees"
+  },
+  "references": [],
+  "inputs": [
+    {
+      "name": "source",
+      "utxos": {
+        "EvalParam": {
+          "ExpectInput": [
+            "source",
+            {
+              "address": {
+                "EvalParam": {
+                  "ExpectValue": [
+                    "minter",
+                    "Address"
+                  ]
+                }
+              },
+              "min_amount": {
+                "EvalParam": "ExpectFees"
+              },
+              "ref": "None"
+            }
+          ]
+        }
+      },
+      "redeemer": "None"
+    }
+  ],
+  "outputs": [
+    {
+      "address": {
+        "EvalParam": {
+          "ExpectValue": [
+            "minter",
+            "Address"
+          ]
+        }
+      },
+      "datum": "None",
+      "amount": {
+        "EvalBuiltIn": {
+          "Sub": [
+            {
+              "EvalBuiltIn": {
+                "Add": [
+                  {
+                    "EvalCoerce": {
+                      "IntoAssets": {
+                        "EvalParam": {
+                          "ExpectInput": [
+                            "source",
+                            {
+                              "address": {
+                                "EvalParam": {
+                                  "ExpectValue": [
+                                    "minter",
+                                    "Address"
+                                  ]
+                                }
+                              },
+                              "min_amount": {
+                                "EvalParam": "ExpectFees"
+                              },
+                              "ref": "None"
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "Assets": [
+                      {
+                        "policy": {
+                          "Bytes": [
+                            189,
+                            58,
+                            233,
+                            145,
+                            181,
+                            170,
+                            252,
+                            202,
+                            254,
+                            92,
+                            167,
+                            7,
+                            88,
+                            189,
+                            54,
+                            169,
+                            178,
+                            248,
+                            114,
+                            245,
+                            127,
+                            109,
+                            58,
+                            31,
+                            250,
+                            14,
+                            183,
+                            119
+                          ]
+                        },
+                        "asset_name": {
+                          "String": "ABC"
+                        },
+                        "amount": {
+                          "EvalParam": {
+                            "ExpectValue": [
+                              "quantity",
+                              "Int"
+                            ]
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "EvalParam": "ExpectFees"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "validity": null,
+  "mints": [
+    {
+      "amount": {
+        "Assets": [
+          {
+            "policy": {
+              "Bytes": [
+                189,
+                58,
+                233,
+                145,
+                181,
+                170,
+                252,
+                202,
+                254,
+                92,
+                167,
+                7,
+                88,
+                189,
+                54,
+                169,
+                178,
+                248,
+                114,
+                245,
+                127,
+                109,
+                58,
+                31,
+                250,
+                14,
+                183,
+                119
+              ]
+            },
+            "asset_name": {
+              "String": "ABC"
+            },
+            "amount": {
+              "EvalParam": {
+                "ExpectValue": [
+                  "quantity",
+                  "Int"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "redeemer": "None"
+    }
+  ],
+  "adhoc": [
+    {
+      "name": "native_witness",
+      "data": {
+        "script": {
+          "Bytes": [
+            130,
+            1,
+            129,
+            130,
+            4,
+            0
+          ]
+        }
+      }
+    }
+  ],
+  "collateral": [
+    {
+      "utxos": {
+        "EvalParam": {
+          "ExpectInput": [
+            "collateral",
+            {
+              "address": {
+                "EvalParam": {
+                  "ExpectValue": [
+                    "minter",
+                    "Address"
+                  ]
+                }
+              },
+              "min_amount": {
+                "EvalParam": "ExpectFees"
+              },
+              "ref": "None"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "signers": null,
+  "metadata": []
+}

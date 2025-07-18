@@ -1,6 +1,6 @@
 party Minter;
 
-tx mint_from_script(
+tx mint_from_plutus(
     quantity: Int
 ) {
     locals {
@@ -30,5 +30,36 @@ tx mint_from_script(
     cardano::plutus_witness {
         version: 3,
         script: 0x5101010023259800a518a4d136564004ae69,
+    }
+}
+
+tx mint_from_native_script(
+    quantity: Int
+) {
+    locals {
+       new_token: AnyAsset(0xbd3ae991b5aafccafe5ca70758bd36a9b2f872f57f6d3a1ffa0eb777, "ABC", quantity),
+    }
+
+    input source {
+        from: Minter,
+        min_amount: fees,
+    }
+
+    collateral {
+        from: Minter,
+        min_amount: fees,
+    }
+
+    mint {
+        amount: new_token,
+    }
+    
+    output {
+        to: Minter,
+        amount: source + new_token - fees,
+    }
+
+    cardano::native_witness {
+        script: 0x820181820400,
     }
 }
