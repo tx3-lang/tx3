@@ -1336,26 +1336,6 @@ impl Composite for ir::AdHocDirective {
     }
 }
 
-//impl Composite for ir::CompilerOp {
-//    fn components(&self) -> Vec<&ir::Expression> {
-//        match self {
-//            ir::CompilerOp::BuildScriptAddress(x) => vec![x],
-//            ir::CompilerOp::ComputeMinUtxo(x) => vec![x],
-//        }
-//    }
-//
-//    fn try_map_components<F>(self, f: F) -> Result<Self, Error>
-//    where
-//        F: Fn(ir::Expression) -> Result<ir::Expression, Error> + Clone,
-//    {
-//        match self {
-//            ir::CompilerOp::BuildScriptAddress(x) =>
-// Ok(ir::CompilerOp::BuildScriptAddress(f(x)?)),
-// ir::CompilerOp::ComputeMinUtxo(x) =>
-// Ok(ir::CompilerOp::ComputeMinUtxo(f(x)?)),        }
-//    }
-//}
-
 impl Composite for ir::Signers {
     fn components(&self) -> Vec<&ir::Expression> {
         self.signers.iter().collect()
