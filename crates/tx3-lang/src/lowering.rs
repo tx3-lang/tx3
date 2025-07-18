@@ -186,6 +186,11 @@ impl IntoLower for ast::Identifier {
             ast::Symbol::EnvVar(n, ty) => {
                 Ok(ir::Param::ExpectValue(n.to_lowercase().clone(), ty.into_lower(ctx)?).into())
             }
+            ast::Symbol::Output(index) => Ok(ir::CompilerOp::ComputeMinUtxo(
+                ir::Expression::Number(*index as i128),
+                ir::Expression::None,
+            )
+            .into()),
             ast::Symbol::PolicyDef(x) => {
                 let policy = x.into_lower(ctx)?;
 
@@ -367,9 +372,9 @@ impl IntoLower for ast::ConcatOp {
         let left = self.lhs.into_lower(ctx)?;
         let right = self.rhs.into_lower(ctx)?;
 
-        Ok(ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Concat(
-            left, right,
-        ))))
+        Ok(ir::Expression::EvalBuiltIn(Box::new(
+            ir::BuiltInOp::Concat(left, right),
+        )))
     }
 }
 
@@ -445,6 +450,11 @@ impl IntoLower for ast::DataExpr {
             ast::DataExpr::NegateOp(x) => x.into_lower(ctx)?,
             ast::DataExpr::PropertyOp(x) => x.into_lower(ctx)?,
             ast::DataExpr::UtxoRef(x) => x.into_lower(ctx)?,
+            ast::DataExpr::MinUtxo(x) => ir::Expression::Assets(vec![ir::AssetExpr {
+                policy: ir::Expression::None,
+                asset_name: ir::Expression::None,
+                amount: x.into_lower(ctx)?,
+            }]),
         };
 
         Ok(out)

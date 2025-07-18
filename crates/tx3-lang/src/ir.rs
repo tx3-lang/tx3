@@ -71,6 +71,8 @@ pub enum BuiltInOp {
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum CompilerOp {
     BuildScriptAddress(Expression),
+    /// (Index of output to compile the min utxo, outputs bytes)
+    ComputeMinUtxo(Expression, Expression),
 }
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -197,7 +199,6 @@ pub enum Expression {
     UtxoRefs(Vec<UtxoRef>),
     UtxoSet(HashSet<Utxo>),
     Assets(Vec<AssetExpr>),
-
     EvalParam(Box<Param>),
     EvalBuiltIn(Box<BuiltInOp>),
     EvalCompiler(Box<CompilerOp>),

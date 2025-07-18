@@ -22,6 +22,8 @@ pub enum Symbol {
     EnvVar(String, Box<Type>),
     ParamVar(String, Box<Type>),
     LocalExpr(Box<DataExpr>),
+    // index of output
+    Output(usize),
     Input(Box<InputBlock>),
     PartyDef(Box<PartyDef>),
     PolicyDef(Box<PolicyDef>),
@@ -389,7 +391,7 @@ impl OutputBlockField {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct OutputBlock {
-    pub name: Option<String>,
+    pub name: Option<Identifier>,
     pub fields: Vec<OutputBlockField>,
     pub span: Span,
 }
@@ -709,6 +711,7 @@ pub enum DataExpr {
     NegateOp(NegateOp),
     PropertyOp(PropertyOp),
     UtxoRef(UtxoRef),
+    MinUtxo(Identifier),
 }
 
 impl DataExpr {
@@ -738,6 +741,8 @@ impl DataExpr {
             DataExpr::StaticAssetConstructor(x) => x.target_type(),
             DataExpr::AnyAssetConstructor(x) => x.target_type(),
             DataExpr::UtxoRef(_) => Some(Type::UtxoRef),
+            // TODO: check if this is correct. Not sure
+            DataExpr::MinUtxo(_) => Some(Type::AnyAsset),
         }
     }
 }

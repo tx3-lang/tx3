@@ -1,6 +1,9 @@
 use pallas::{
     crypto::hash::Hash,
-    ledger::{primitives::conway as primitives, traverse::ComputeHash},
+    ledger::{
+        primitives::{conway as primitives, Fragment},
+        traverse::ComputeHash,
+    },
 };
 use tx3_lang::{applying::Apply, ir::InputQuery};
 
@@ -43,7 +46,7 @@ fn eval_redeemer_fees(_tx: &primitives::Tx, _pparams: &PParams) -> Result<u64, E
 }
 
 async fn eval_pass<L: Ledger>(
-    tx: &tx3_lang::ProtoTx,
+    tx: &mut tx3_lang::ProtoTx,
     pparams: &PParams,
     ledger: &L,
     last_eval: Option<&TxEval>,
@@ -53,9 +56,7 @@ async fn eval_pass<L: Ledger>(
 
     let fees = last_eval.as_ref().map(|e| e.fee).unwrap_or(0);
     attempt.set_fees(fees);
-
     attempt = attempt.apply()?;
-
     for (name, query) in attempt.find_queries() {
         let utxos = ledger.resolve_input(&query).await?;
 
@@ -72,11 +73,18 @@ async fn eval_pass<L: Ledger>(
         return Err(Error::CantCompileNonConstantTir);
     }
 
-    let tx = compile_tx(attempt.as_ref(), pparams)?;
+    let compiled_tx = compile_tx(attempt.as_ref(), pparams)?;
 
-    let hash = tx.transaction_body.compute_hash();
+    let hash = compiled_tx.transaction_body.compute_hash();
 
-    let payload = pallas::codec::minicbor::to_vec(&tx).unwrap();
+    // reset outputs for next iteration
+    tx.init_outputs();
+    compiled_tx.transaction_body.outputs.iter().for_each(|o| {
+        let bytes = o.encode_fragment().unwrap();
+        tx.set_output(bytes)
+    });
+
+    let payload = pallas::codec::minicbor::to_vec(&compiled_tx).unwrap();
 
     let size_fees = eval_size_fees(&payload, pparams, config.extra_fees)?;
 
@@ -97,7 +105,7 @@ async fn eval_pass<L: Ledger>(
 }
 
 pub async fn resolve_tx<T: Ledger>(
-    tx: tx3_lang::ProtoTx,
+    mut tx: tx3_lang::ProtoTx,
     ledger: T,
     config: Config,
 ) -> Result<TxEval, Error> {
@@ -105,10 +113,14 @@ pub async fn resolve_tx<T: Ledger>(
     let mut last_eval = None;
     let mut rounds = 0;
 
-    // one initial pass to reduce any available params;
-    let tx = tx.apply()?;
+    // one initial pass to reduce any available params
+    // apply_outputs() will be executed now only if outputs are initialized
+    tx.init_outputs();
+    //let mut tx = tx.apply()?;
 
-    while let Some(better) = eval_pass(&tx, &pparams, &ledger, last_eval.as_ref(), &config).await? {
+    while let Some(better) =
+        eval_pass(&mut tx, &pparams, &ledger, last_eval.as_ref(), &config).await?
+    {
         last_eval = Some(better);
 
         if rounds > config.max_optimize_rounds {
@@ -123,7 +135,6 @@ pub async fn resolve_tx<T: Ledger>(
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
 
     use tx3_lang::{ArgValue, Protocol, UtxoRef};
 
