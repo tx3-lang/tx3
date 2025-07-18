@@ -337,12 +337,25 @@ cardano_plutus_witness_block = {
     "plutus_witness" ~ "{" ~ (cardano_plutus_witness_field ~ ",")+ ~ "}"
 }
 
+cardano_native_witness_script = {
+    "script" ~ ":" ~ data_expr
+}
+
+cardano_native_witness_field = _{
+    cardano_native_witness_script
+}
+
+cardano_native_witness_block = {
+    "native_witness" ~ "{" ~ (cardano_native_witness_field ~ ",")+ ~ "}"
+}
+
 cardano_block = {
     "cardano" ~ "::" ~ (
         cardano_stake_delegation_certificate |
         cardano_vote_delegation_certificate |
         cardano_withdrawal_block |
-        cardano_plutus_witness_block
+        cardano_plutus_witness_block |
+        cardano_native_witness_block
     )
 }
 

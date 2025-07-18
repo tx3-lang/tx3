@@ -482,8 +482,11 @@ pub fn mint_redeemer_index(
 fn compile_single_mint_redeemer(
     mint: &ir::Mint,
     compiled_body: &primitives::TransactionBody,
-) -> Result<primitives::Redeemer, Error> {
-    let red = mint.redeemer.as_option().ok_or(Error::MissingRedeemer)?;
+) -> Result<Option<primitives::Redeemer>, Error> {
+    let Some(red) = mint.redeemer.as_option() else {
+        return Ok(None);
+    };
+
     let assets: Vec<ir::AssetExpr> = coercion::expr_into_assets(&mint.amount)?;
     // TODO: This only works with the first redeemer.
     // Are we allowed to include more than one?
@@ -498,7 +501,7 @@ fn compile_single_mint_redeemer(
         data: red.try_as_data()?,
     };
 
-    Ok(out)
+    Ok(Some(out))
 }
 
 fn compile_mint_redeemers(
@@ -509,6 +512,7 @@ fn compile_mint_redeemers(
         .mints
         .iter()
         .map(|mint| compile_single_mint_redeemer(mint, compiled_body))
+        .filter_map(|x| x.transpose())
         .collect::<Result<Vec<_>, _>>()?;
 
     Ok(redeemers)
@@ -654,6 +658,29 @@ fn compile_adhoc_plutus_witness<const V: usize>(tx: &ir::Tx) -> Vec<PlutusScript
     out
 }
 
+pub type NativeWitness = KeepRaw<'static, primitives::NativeScript>;
+
+fn compile_adhoc_native_witness(tx: &ir::Tx) -> Result<Vec<NativeWitness>, Error> {
+    dbg!(&tx.adhoc);
+    tx.adhoc
+        .iter()
+        .filter(|x| x.name.as_str() == "native_witness")
+        .filter_map(|adhoc| {
+            adhoc
+                .data
+                .get("script")
+                .map(coercion::expr_into_bytes)
+                .transpose()
+                .unwrap_or(None)
+        })
+        .map(|script_bytes| {
+            pallas::codec::minicbor::decode::<primitives::NativeScript>(&script_bytes)
+                .map(|x| KeepRaw::from(x))
+                .map_err(Error::DecodeNativeScriptCbor)
+        })
+        .collect::<Result<Vec<_>, _>>()
+}
+
 fn compile_witness_set(
     tx: &ir::Tx,
     compiled_body: &primitives::TransactionBody,
@@ -672,7 +699,7 @@ fn compile_witness_set(
     let witness_set = primitives::WitnessSet {
         redeemer: compile_redeemers(tx, compiled_body, network)?.map(|x| x.into()),
         vkeywitness: None,
-        native_script: None,
+        native_script: NonEmptySet::from_vec(compile_adhoc_native_witness(tx)?),
         bootstrap_witness: None,
         plutus_data: None,
         plutus_v1_script: NonEmptySet::from_vec(compile_adhoc_plutus_witness::<1>(tx)),

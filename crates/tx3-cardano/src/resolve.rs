@@ -384,11 +384,11 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn adhoc_witness_test() {
+    async fn adhoc_plutus_witness_test() {
         let protocol = load_protocol("cardano_witness");
 
         let mut tx = protocol
-            .new_tx("mint_from_script")
+            .new_tx("mint_from_plutus")
             .unwrap()
             .apply()
             .unwrap();
@@ -410,6 +410,34 @@ mod tests {
             tx.hash.to_string(),
             "7d0e74a752ea73b4535359b4597fb90a8c8e404c7427c671bc9a61e0739313bd"
         );
+    }
+
+    #[tokio::test]
+    async fn adhoc_native_witness_test() {
+        let protocol = load_protocol("cardano_witness");
+
+        let mut tx = protocol
+            .new_tx("mint_from_native_script")
+            .unwrap()
+            .apply()
+            .unwrap();
+
+        tx.set_arg("minter", "addr1qx2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzer3n0d3vllmyqwsx5wktcd8cc3sq835lu7drv2xwl2wywfgse35a3x".into());
+        tx.set_arg("quantity", ArgValue::Int(100_000_000));
+
+        dbg!(&tx.find_params());
+
+        let tx = tx.apply().unwrap();
+
+        let tx = resolve_tx(tx, MockLedger::default(), Config::default())
+            .await
+            .unwrap();
+
+        println!("{}", hex::encode(&tx.payload));
+
+        // For now, just check that the transaction was created successfully
+        // The exact hash will depend on the native script implementation
+        assert!(!tx.payload.is_empty());
     }
 
     #[tokio::test]
