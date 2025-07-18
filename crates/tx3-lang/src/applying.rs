@@ -944,7 +944,7 @@ impl Apply for ir::CompilerOp {
     fn is_constant(&self) -> bool {
         match self {
             Self::BuildScriptAddress(x) => x.is_constant(),
-            Self::ComputeMinUtxo(x, y) => false,
+            Self::ComputeMinUtxo(_, _) => false,
         }
     }
     fn params(&self) -> BTreeMap<String, ir::Type> {
@@ -963,6 +963,7 @@ impl Apply for ir::CompilerOp {
             }
         }
     }
+
     fn reduce(self) -> Result<Self, Error> {
         match self {
             Self::BuildScriptAddress(x) => Ok(Self::BuildScriptAddress(x.reduce()?)),

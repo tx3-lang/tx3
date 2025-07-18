@@ -1444,7 +1444,6 @@ pub fn parse_well_known_example(example: &str) -> Program {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ast;
     use assert_json_diff::assert_json_eq;
     use paste::paste;
     use pest::Parser;

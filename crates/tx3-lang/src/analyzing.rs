@@ -990,7 +990,7 @@ impl Analyzable for TxDef {
                 output
                     .name
                     .clone()
-                    .map(|x| current.track_output(index, output.clone()));
+                    .map(|_| current.track_output(index, output.clone()));
             }
 
             Rc::new(current)
@@ -1009,7 +1009,7 @@ impl Analyzable for TxDef {
                 output
                     .name
                     .clone()
-                    .map(|x| current.track_output(index, output.clone()));
+                    .map(|_| current.track_output(index, output.clone()));
             }
 
             Rc::new(current)
