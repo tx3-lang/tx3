@@ -3,7 +3,6 @@ use std::collections::{BTreeMap, HashSet};
 use pallas::{
     codec::utils::{KeepRaw, MaybeIndefArray, NonEmptySet},
     ledger::{
-        addresses::{Address, ShelleyPaymentPart},
         primitives::{
             conway::{self as primitives, Redeemers},
             PlutusScript, TransactionInput,
