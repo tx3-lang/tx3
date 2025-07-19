@@ -145,9 +145,9 @@ data_expr = { data_prefix* ~ data_primary ~ data_postfix* ~ (data_infix ~ data_p
         string |
         struct_constructor |
         list_constructor |
+        concat_constructor |
         any_asset_constructor |
         static_asset_constructor |
-        concat_constructor |
         identifier |
         "(" ~ data_expr ~ ")"
     }
