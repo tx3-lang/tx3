@@ -117,7 +117,7 @@ impl crate::resolve::Ledger for Ledger {
             .await
             .read_params(req)
             .await
-            .map_err(|err| crate::Error::LedgerInternalError(format!("{:?}", err)))?;
+            .map_err(|err| crate::Error::LedgerInternalError(format!("{err:?}")))?;
 
         let params = res.into_inner().values.and_then(|v| v.params).ok_or(
             crate::Error::LedgerInternalError("unexpected response from read_params".to_string()),

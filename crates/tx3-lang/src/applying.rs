@@ -37,7 +37,7 @@ pub trait Indexable: std::fmt::Debug {
 
     fn index_or_err(&self, index: usize) -> Result<ir::Expression, Error> {
         self.index(index)
-            .ok_or(Error::PropertyIndexNotFound(index, format!("{:?}", self)))
+            .ok_or(Error::PropertyIndexNotFound(index, format!("{self:?}")))
     }
 }
 
@@ -84,8 +84,8 @@ where
             other => {
                 return Err(Error::InvalidBinaryOp(
                     "add".to_string(),
-                    format!("{:?}", self),
-                    format!("{:?}", other),
+                    format!("{self:?}"),
+                    format!("{other:?}"),
                 ))
             }
         };
@@ -113,8 +113,8 @@ impl Arithmetic for i128 {
             ir::Expression::None => Ok(ir::Expression::Number(self)),
             _ => Err(Error::InvalidBinaryOp(
                 "add".to_string(),
-                format!("{:?}", self),
-                format!("{:?}", other),
+                format!("{self:?}"),
+                format!("{other:?}"),
             )),
         }
     }
@@ -137,8 +137,8 @@ impl Arithmetic for ir::Expression {
             ir::Expression::Assets(x) => Arithmetic::add(x, other),
             x => Err(Error::InvalidBinaryOp(
                 "add".to_string(),
-                format!("{:?}", x),
-                format!("{:?}", other),
+                format!("{x:?}"),
+                format!("{other:?}"),
             )),
         }
     }
@@ -150,8 +150,8 @@ impl Arithmetic for ir::Expression {
             ir::Expression::Assets(x) => Arithmetic::sub(x, other),
             x => Err(Error::InvalidBinaryOp(
                 "sub".to_string(),
-                format!("{:?}", x),
-                format!("{:?}", other),
+                format!("{x:?}"),
+                format!("{other:?}"),
             )),
         }
     }
@@ -161,7 +161,7 @@ impl Arithmetic for ir::Expression {
             ir::Expression::None => Ok(ir::Expression::None),
             ir::Expression::Number(x) => Arithmetic::neg(x),
             ir::Expression::Assets(x) => Arithmetic::neg(x),
-            x => Err(Error::InvalidUnaryOp("neg".to_string(), format!("{:?}", x))),
+            x => Err(Error::InvalidUnaryOp("neg".to_string(), format!("{x:?}"))),
         }
     }
 }
@@ -173,8 +173,8 @@ impl Concatenable for String {
             ir::Expression::None => Ok(ir::Expression::String(self)),
             _ => Err(Error::InvalidBinaryOp(
                 "concat".to_string(),
-                format!("String({:?})", self),
-                format!("{:?}", other),
+                format!("String({self:?})"),
+                format!("{other:?}"),
             )),
         }
     }
@@ -191,8 +191,8 @@ impl Concatenable for Vec<u8> {
             ir::Expression::None => Ok(ir::Expression::Bytes(self)),
             _ => Err(Error::InvalidBinaryOp(
                 "concat".to_string(),
-                format!("Bytes({:?})", self),
-                format!("{:?}", other),
+                format!("Bytes({self:?})"),
+                format!("{other:?}"),
             )),
         }
     }
@@ -206,8 +206,8 @@ impl Concatenable for ir::Expression {
             ir::Expression::Bytes(x) => Concatenable::concat(x, other),
             x => Err(Error::InvalidBinaryOp(
                 "concat".to_string(),
-                format!("{:?}", x),
-                format!("{:?}", other),
+                format!("{x:?}"),
+                format!("{other:?}"),
             )),
         }
     }

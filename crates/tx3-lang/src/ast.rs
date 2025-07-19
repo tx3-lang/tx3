@@ -785,7 +785,7 @@ impl std::fmt::Display for Type {
             Type::UtxoRef => write!(f, "UtxoRef"),
             Type::AnyAsset => write!(f, "AnyAsset"),
             Type::Utxo => write!(f, "Utxo"),
-            Type::List(inner) => write!(f, "List<{}>", inner),
+            Type::List(inner) => write!(f, "List<{inner}>"),
             Type::Custom(id) => write!(f, "{}", id.value),
         }
     }

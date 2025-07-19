@@ -79,7 +79,7 @@ fn compile_data_expr(ir: &ir::Expression) -> Result<primitives::PlutusData, Erro
         ir::Expression::Struct(x) => compile_struct(x),
         ir::Expression::Address(x) => Ok(x.as_data()),
         _ => Err(Error::CoerceError(
-            format!("{:?}", ir),
+            format!("{ir:?}"),
             "DataExpr".to_string(),
         )),
     }
@@ -333,13 +333,13 @@ fn compile_required_signers(tx: &ir::Tx) -> Result<Option<primitives::RequiredSi
 fn compile_validity(validity: Option<&ir::Validity>) -> Result<(Option<u64>, Option<u64>), Error> {
     let since = validity
         .and_then(|v| v.since.as_option())
-        .map(|v| coercion::expr_into_number(v))
+        .map(coercion::expr_into_number)
         .transpose()?
         .map(|n| n as u64);
 
     let until = validity
         .and_then(|v| v.until.as_option())
-        .map(|v| coercion::expr_into_number(v))
+        .map(coercion::expr_into_number)
         .transpose()?
         .map(|n| n as u64);
 
@@ -444,7 +444,7 @@ fn compile_spend_redeemers(
 
     for input in tx.inputs.iter() {
         let utxo = coercion::expr_into_utxo_refs(&input.utxos)?;
-        let utxo = utxo.iter().next().ok_or(Error::MissingInputUtxo)?;
+        let utxo = utxo.first().ok_or(Error::MissingInputUtxo)?;
 
         if let Some(redeemer) = input.redeemer.as_option() {
             let redeemer =
@@ -650,7 +650,7 @@ fn compile_adhoc_plutus_witness<const V: usize>(tx: &ir::Tx) -> Vec<PlutusScript
                 .transpose()
                 .unwrap_or(None)
         })
-        .map(|x| PlutusScript::<V>(x))
+        .map(PlutusScript::<V>)
         .collect();
 
     out
@@ -673,7 +673,7 @@ fn compile_adhoc_native_witness(tx: &ir::Tx) -> Result<Vec<NativeWitness>, Error
         })
         .map(|script_bytes| {
             pallas::codec::minicbor::decode::<primitives::NativeScript>(&script_bytes)
-                .map(|x| KeepRaw::from(x))
+                .map(KeepRaw::from)
                 .map_err(Error::DecodeNativeScriptCbor)
         })
         .collect::<Result<Vec<_>, _>>()
@@ -728,7 +728,7 @@ fn compute_script_data_hash(
     witness_set: &primitives::WitnessSet,
     pparams: &PParams,
 ) -> Option<primitives::Hash<32>> {
-    let version = infer_plutus_version(&witness_set);
+    let version = infer_plutus_version(witness_set);
 
     let cost_model = pparams.cost_models.get(&version).unwrap();
 

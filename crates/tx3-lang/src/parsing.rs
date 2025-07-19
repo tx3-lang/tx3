@@ -35,7 +35,7 @@ impl From<pest::error::Error<Rule>> for Error {
     fn from(error: pest::error::Error<Rule>) -> Self {
         match &error.variant {
             pest::error::ErrorVariant::ParsingError { positives, .. } => Error {
-                message: format!("expected {:?}", positives),
+                message: format!("expected {positives:?}"),
                 src: error.line().to_string(),
                 span: error.location.into(),
             },
