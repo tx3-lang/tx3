@@ -80,6 +80,13 @@ pub struct AssetExpr {
     pub amount: Expression,
 }
 
+impl AssetExpr {
+    pub fn class_matches(&self, other: &Self) -> bool {
+        self.policy.as_bytes() == other.policy.as_bytes()
+            && self.asset_name.as_bytes() == other.asset_name.as_bytes()
+    }
+}
+
 /// An ad-hoc compile directive.
 ///
 /// It's a generic, pass-through structure that the final chain-specific
@@ -222,6 +229,37 @@ impl Expression {
         match self {
             Self::None => None,
             _ => Some(self),
+        }
+    }
+
+    pub fn as_bytes(&self) -> Option<&[u8]> {
+        match self {
+            Self::Bytes(bytes) => Some(bytes),
+            Self::String(s) => Some(s.as_bytes()),
+            Self::Address(x) => Some(x),
+            Self::Hash(x) => Some(x),
+            _ => None,
+        }
+    }
+
+    pub fn as_number(&self) -> Option<i128> {
+        match self {
+            Self::Number(x) => Some(*x),
+            _ => None,
+        }
+    }
+
+    pub fn as_assets(&self) -> Option<&[AssetExpr]> {
+        match self {
+            Self::Assets(assets) => Some(assets),
+            _ => None,
+        }
+    }
+
+    pub fn as_utxo_refs(&self) -> Option<&[UtxoRef]> {
+        match self {
+            Self::UtxoRefs(refs) => Some(refs),
+            _ => None,
         }
     }
 }

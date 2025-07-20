@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/tx3-cardano", "crates/tx3-lang"]
+members = ["crates/tx3-cardano", "crates/tx3-lang", "crates/tx3-resolver"]
 
 [workspace.package]
 publish = true
@@ -13,3 +13,7 @@ keywords = ["blockchain", "cardano", "utxo", "dsl"]
 documentation = "https://docs.rs/tx3-lang"
 homepage = "https://github.com/tx3-lang/tx3"
 readme = "README.md"
+
+[workspace.dependencies]
+thiserror = "2.0.11"
+trait-variant = "0.1.2"

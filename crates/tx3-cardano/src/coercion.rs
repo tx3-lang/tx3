@@ -1,9 +1,10 @@
 use std::str::FromStr as _;
 
 use pallas::{codec::utils::Int, ledger::primitives::conway as primitives};
+use tx3_lang::backends::Error;
 use tx3_lang::ir;
 
-use crate::{Error, Network};
+use crate::Network;
 
 pub fn string_into_address(value: &str) -> Result<pallas::ledger::addresses::Address, Error> {
     pallas::ledger::addresses::Address::from_str(value)
@@ -87,10 +88,7 @@ pub fn expr_into_utxo_refs(expr: &ir::Expression) -> Result<Vec<tx3_lang::UtxoRe
 pub fn expr_into_assets(ir: &ir::Expression) -> Result<Vec<ir::AssetExpr>, Error> {
     match ir {
         ir::Expression::Assets(x) => Ok(x.clone()),
-        _ => Err(Error::CoerceError(
-            format!("{ir:?}"),
-            "Assets".to_string(),
-        )),
+        _ => Err(Error::CoerceError(format!("{ir:?}"), "Assets".to_string())),
     }
 }
 
@@ -134,7 +132,11 @@ pub fn expr_into_reward_account(
     let hash_bytes = match address {
         pallas::ledger::addresses::Address::Shelley(x) => x.delegation().to_vec(),
         pallas::ledger::addresses::Address::Stake(x) => x.to_vec(),
-        _ => return Err(Error::NoStakeAccount),
+        _ => {
+            return Err(Error::FormatError(
+                "can't convert address to reward account".to_string(),
+            ))
+        }
     };
 
     Ok(primitives::RewardAccount::from(hash_bytes))

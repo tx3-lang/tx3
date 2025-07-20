@@ -27,6 +27,7 @@
 pub mod analyzing;
 pub mod applying;
 pub mod ast;
+pub mod backends;
 pub mod ir;
 pub mod loading;
 pub mod lowering;
@@ -192,6 +193,12 @@ impl From<ir::Tx> for ProtoTx {
             inputs: std::collections::BTreeMap::new(),
             fees: None,
         }
+    }
+}
+
+impl From<ProtoTx> for ir::Tx {
+    fn from(tx: ProtoTx) -> Self {
+        tx.ir
     }
 }
 
