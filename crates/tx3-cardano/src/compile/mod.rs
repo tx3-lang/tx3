@@ -11,11 +11,12 @@ use pallas::{
     },
 };
 
-use tx3_lang::ir;
+use tx3_lang::{backends::Error, ir};
 
-use crate::coercion::{expr_into_metadatum, expr_into_number};
-
-use super::*;
+use crate::{
+    coercion::{self, expr_into_metadatum, expr_into_number},
+    Network, PParams, PlutusVersion, EXECUTION_UNITS,
+};
 
 pub(crate) mod asset_math;
 pub(crate) mod plutus_data;
@@ -235,10 +236,19 @@ pub fn compile_withdrawal_directive(
     adhoc: &ir::AdHocDirective,
     network: Network,
 ) -> Result<(primitives::Bytes, u64), Error> {
-    let credential = adhoc.data.get("credential").ok_or(Error::MissingAddress)?;
+    let credential = adhoc
+        .data
+        .get("credential")
+        .ok_or(Error::MissingExpression(
+            "withdrawal credential".to_string(),
+        ))?;
+
     let credential = coercion::expr_into_reward_account(credential, network)?;
 
-    let amount = adhoc.data.get("amount").ok_or(Error::MissingAmount)?;
+    let amount = adhoc
+        .data
+        .get("amount")
+        .ok_or(Error::MissingExpression("withdrawal amount".to_string()))?;
     let amount = coercion::expr_into_number(amount)?;
     let amount = primitives::Coin::try_from(amount as u64).unwrap();
 
@@ -444,7 +454,9 @@ fn compile_spend_redeemers(
 
     for input in tx.inputs.iter() {
         let utxo = coercion::expr_into_utxo_refs(&input.utxos)?;
-        let utxo = utxo.first().ok_or(Error::MissingInputUtxo)?;
+        let utxo = utxo
+            .first()
+            .ok_or(Error::MissingExpression("missing utxo".to_string()))?;
 
         if let Some(redeemer) = input.redeemer.as_option() {
             let redeemer =
@@ -474,7 +486,9 @@ pub fn mint_redeemer_index(
         return Ok(index as u32);
     }
 
-    Err(Error::MissingMintingPolicy)
+    Err(Error::ConsistencyError(
+        "missing minting policy".to_string(),
+    ))
 }
 
 fn compile_single_mint_redeemer(
@@ -488,7 +502,9 @@ fn compile_single_mint_redeemer(
     let assets: Vec<ir::AssetExpr> = coercion::expr_into_assets(&mint.amount)?;
     // TODO: This only works with the first redeemer.
     // Are we allowed to include more than one?
-    let asset = assets.first().ok_or(Error::MissingAsset)?;
+    let asset = assets
+        .first()
+        .ok_or(Error::MissingExpression("missing asset".to_string()))?;
     let policy = coercion::expr_into_bytes(&asset.policy)?;
     let policy = primitives::Hash::from(policy.as_slice());
 
@@ -531,14 +547,19 @@ fn withdrawal_redeemer_index(
     keys.sort();
     keys.dedup();
 
-    let credential = adhoc.data.get("credential").ok_or(Error::MissingAddress)?;
+    let credential = adhoc
+        .data
+        .get("credential")
+        .ok_or(Error::MissingExpression(
+            "withdrawal credential".to_string(),
+        ))?;
     let credential = coercion::expr_into_reward_account(credential, network)?;
 
     if let Some(index) = keys.iter().position(|p| *p == credential.as_slice()) {
         return Ok(index as u32);
     }
 
-    Err(Error::MissingWithdrawal)
+    Err(Error::ConsistencyError("missing withdrawal".to_string()))
 }
 
 fn compile_single_withdrawal_redeemer(
@@ -546,7 +567,10 @@ fn compile_single_withdrawal_redeemer(
     compiled_body: &primitives::TransactionBody,
     network: Network,
 ) -> Result<Option<primitives::Redeemer>, Error> {
-    let redeemer = adhoc.data.get("redeemer").ok_or(Error::MissingRedeemer)?;
+    let redeemer = adhoc
+        .data
+        .get("redeemer")
+        .ok_or(Error::MissingExpression("missing redeemer".to_string()))?;
 
     match redeemer {
         ir::Expression::None => Ok(None),
@@ -659,7 +683,6 @@ fn compile_adhoc_plutus_witness<const V: usize>(tx: &ir::Tx) -> Vec<PlutusScript
 pub type NativeWitness = KeepRaw<'static, primitives::NativeScript>;
 
 fn compile_adhoc_native_witness(tx: &ir::Tx) -> Result<Vec<NativeWitness>, Error> {
-    dbg!(&tx.adhoc);
     tx.adhoc
         .iter()
         .filter(|x| x.name.as_str() == "native_witness")
@@ -674,7 +697,7 @@ fn compile_adhoc_native_witness(tx: &ir::Tx) -> Result<Vec<NativeWitness>, Error
         .map(|script_bytes| {
             pallas::codec::minicbor::decode::<primitives::NativeScript>(&script_bytes)
                 .map(KeepRaw::from)
-                .map_err(Error::DecodeNativeScriptCbor)
+                .map_err(|_| Error::FormatError("error decoding native script cbor".to_string()))
         })
         .collect::<Result<Vec<_>, _>>()
 }
@@ -739,7 +762,7 @@ fn compute_script_data_hash(
     data.map(|x| x.hash())
 }
 
-pub fn compile_tx(tx: &ir::Tx, pparams: &PParams) -> Result<primitives::Tx<'static>, Error> {
+pub fn entry_point(tx: &ir::Tx, pparams: &PParams) -> Result<primitives::Tx<'static>, Error> {
     let mut transaction_body = compile_tx_body(tx, pparams.network)?;
     let transaction_witness_set = compile_witness_set(tx, &transaction_body, pparams.network)?;
     let auxiliary_data = compile_auxiliary_data(tx)?;

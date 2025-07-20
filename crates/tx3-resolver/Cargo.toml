@@ -1,6 +1,5 @@
 [package]
-name = "tx3-lang"
-description = "A DSL for defining protocols that run on UTxO blockchains"
+name = "tx3-resolver"
 publish.workspace = true
 authors.workspace = true
 edition.workspace = true
@@ -13,20 +12,11 @@ homepage.workspace = true
 readme.workspace = true
 
 [dependencies]
+tx3-lang = { version = "0.9.0", path = "../tx3-lang" }
+
 thiserror = { workspace = true }
 trait-variant = { workspace = true }
 
-miette = { version = "7.4.0", features = ["fancy"] }
-pest = { version = "2.7.15", features = ["miette-error", "pretty-print"] }
-pest_derive = "2.7.15"
-serde = { version = "1.0.217", features = ["derive"] }
-hex = "0.4.3"
-bincode = "2.0.1"
-chainfuzz = { path = "../../../../txpipe/chainfuzz", optional = true }
-
 [dev-dependencies]
-assert-json-diff = "2.0.2"
-paste = "1.0.15"
-serde_json = "1.0.137"
 pollster = { version = "0.4.0", features = ["macro"] }
 chainfuzz = { path = "../../../../txpipe/chainfuzz" }
