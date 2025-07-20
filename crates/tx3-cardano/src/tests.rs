@@ -63,7 +63,7 @@ fn address_to_bytes(address: &str) -> ArgValue {
     )
 }
 
-fn wildcard_utxo() -> Utxo {
+fn wildcard_utxos(datum: Option<tx3_lang::ir::Expression>) -> HashSet<Utxo> {
     let tx_hash = hex::decode("267aae354f0d14d82877fa5720f7ddc9b0e3eea3cd2a0757af77db4d975ba81c")
         .unwrap()
         .try_into()
@@ -71,27 +71,29 @@ fn wildcard_utxo() -> Utxo {
 
     let address = pallas::ledger::addresses::Address::from_bech32("addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2").unwrap().to_vec();
 
-    Utxo {
+    let utxo = Utxo {
         r#ref: UtxoRef {
             txid: tx_hash,
             index: 0,
         },
         address,
-        datum: None,
+        datum: Some(datum.unwrap_or(tx3_lang::ir::Expression::None)),
         assets: vec![tx3_lang::ir::AssetExpr {
             policy: tx3_lang::ir::Expression::None,
             asset_name: tx3_lang::ir::Expression::None,
             amount: tx3_lang::ir::Expression::Number(500_000_000_i128),
         }],
         script: None,
-    }
+    };
+
+    HashSet::from([utxo])
 }
 
-fn fill_inputs_with_wildcard(tx: tx3_lang::ir::Tx) -> tx3_lang::ir::Tx {
+fn fill_inputs(tx: tx3_lang::ir::Tx, utxos: HashSet<Utxo>) -> tx3_lang::ir::Tx {
     let mut tx = tx;
 
     for (name, _) in applying::find_queries(&tx) {
-        let utxos = HashSet::from([wildcard_utxo()]);
+        let utxos = utxos.clone();
         let args = BTreeMap::from([(name.to_string(), utxos)]);
         tx = tx3_lang::applying::apply_inputs(tx, &args).unwrap();
     }
@@ -101,30 +103,38 @@ fn fill_inputs_with_wildcard(tx: tx3_lang::ir::Tx) -> tx3_lang::ir::Tx {
     tx
 }
 
-fn compile_tx(mut tx: tx3_lang::ir::Tx, config: Option<Config>) -> TxEval {
-    let compiler = test_compiler(config);
-
-    let fees = {
-        let mut preliminary = tx.clone();
-        preliminary = applying::apply_fees(preliminary, 0).unwrap();
-        preliminary = fill_inputs_with_wildcard(preliminary);
-        let preliminary = compiler.compile(&preliminary).unwrap();
-
-        preliminary.fee
-    };
-
-    dbg!(&fees);
-
+fn compile_tx_round(
+    mut tx: tx3_lang::ir::Tx,
+    fees: u64,
+    compiler: &Compiler,
+    utxos: HashSet<Utxo>,
+) -> TxEval {
     tx = applying::apply_fees(tx, fees).unwrap();
     tx = applying::reduce(tx).unwrap();
 
-    tx = fill_inputs_with_wildcard(tx);
+    tx = fill_inputs(tx, utxos);
 
     compiler.compile(&tx).unwrap()
 }
 
+fn test_compile(tx: tx3_lang::ir::Tx, compiler: &Compiler, utxos: HashSet<Utxo>) -> TxEval {
+    let mut fees = 0;
+    let mut rounds = 0;
+    let mut tx_eval = None;
+
+    while rounds < 3 {
+        tx_eval = Some(compile_tx_round(tx.clone(), fees, compiler, utxos.clone()));
+        fees = tx_eval.as_ref().unwrap().fee;
+        rounds += 1;
+    }
+
+    tx_eval.unwrap()
+}
+
 #[tokio::test]
 async fn smoke_test_transfer() {
+    let compiler = test_compiler(None);
+    let utxos = wildcard_utxos(None);
     let protocol = load_protocol("transfer");
 
     let tx = protocol.new_tx("transfer")
@@ -135,7 +145,7 @@ async fn smoke_test_transfer() {
             .apply()
             .unwrap();
 
-    let tx = compile_tx(tx.into(), None);
+    let tx = test_compile(tx.into(), &compiler, utxos);
 
     println!("{}", hex::encode(tx.payload));
     println!("{}", tx.fee);
@@ -143,6 +153,8 @@ async fn smoke_test_transfer() {
 
 #[tokio::test]
 async fn smoke_test_vesting() {
+    let compiler = test_compiler(None);
+    let utxos = wildcard_utxos(None);
     let protocol = load_protocol("vesting");
 
     let tx = protocol.new_tx("lock")
@@ -154,7 +166,7 @@ async fn smoke_test_vesting() {
             .apply()
             .unwrap();
 
-    let tx = compile_tx(tx.into(), None);
+    let tx = test_compile(tx.into(), &compiler, utxos);
 
     println!("{}", hex::encode(tx.payload));
 
@@ -166,6 +178,8 @@ async fn smoke_test_vesting() {
 
 #[tokio::test]
 async fn smoke_test_vesting_unlock() {
+    let compiler = test_compiler(None);
+    let utxos = wildcard_utxos(None);
     let protocol = load_protocol("vesting");
 
     let tx = protocol.new_tx("unlock")
@@ -182,7 +196,7 @@ async fn smoke_test_vesting_unlock() {
             .apply()
             .unwrap();
 
-    let tx = compile_tx(tx.into(), None);
+    let tx = test_compile(tx.into(), &compiler, utxos);
 
     assert_eq!(
         hex::encode(tx.hash),
@@ -192,6 +206,8 @@ async fn smoke_test_vesting_unlock() {
 
 #[tokio::test]
 async fn faucet_test() {
+    let compiler = test_compiler(None);
+    let utxos = wildcard_utxos(None);
     let protocol = load_protocol("faucet");
 
     let mut tx = protocol
@@ -206,7 +222,7 @@ async fn faucet_test() {
 
     let tx = tx.apply().unwrap();
 
-    let tx = compile_tx(tx.into(), None);
+    let tx = test_compile(tx.into(), &compiler, utxos);
 
     assert_eq!(
         hex::encode(tx.hash),
@@ -214,49 +230,46 @@ async fn faucet_test() {
     );
 }
 
-// #[tokio::test]
-// async fn input_datum_test() {
-//     let protocol = load_protocol("input_datum");
+#[tokio::test]
+async fn input_datum_test() {
+    let compiler = test_compiler(None);
 
-//     let mut tx = protocol
-//         .new_tx("increase_counter")
-//         .unwrap()
-//         .apply()
-//         .unwrap();
+    let utxos = wildcard_utxos(Some(tx3_lang::ir::Expression::Struct(
+        tx3_lang::ir::StructExpr {
+            constructor: 0,
+            fields: vec![
+                tx3_lang::ir::Expression::Number(1),
+                tx3_lang::ir::Expression::Bytes(b"abc".to_vec()),
+            ],
+        },
+    )));
 
-//     tx.set_arg("myparty",
-// "addr1qx2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzer3n0d3vllmyqwsx5wktcd8cc3sq835lu7drv2xwl2wywfgse35a3x"
-// .into());
+    let protocol = load_protocol("input_datum");
 
-//     let tx = tx.apply().unwrap();
+    let mut tx = protocol
+        .new_tx("increase_counter")
+        .unwrap()
+        .apply()
+        .unwrap();
 
-//     let tx = resolve_tx(
-//         tx,
-//         MockLedger {
-//             default_datum:
-// Some(tx3_lang::ir::Expression::Struct(tx3_lang::ir::StructExpr {
-//                 constructor: 0,
-//                 fields: vec![
-//                     tx3_lang::ir::Expression::Number(1),
-//                     tx3_lang::ir::Expression::Bytes(b"abc".to_vec()),
-//                 ],
-//             })),
-//         },
-//         Config::default(),
-//     )
-//     .await
-//     .unwrap();
+    tx.set_arg("myparty", address_to_bytes("addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"));
 
-//     dbg!(&tx);
+    let tx = tx.apply().unwrap();
 
-//     assert_eq!(
-//         tx.hash.to_string(),
-//         "650a2e8f4850737f4cdcacaa6069db9eae3af64adb04811a715441c24292a76f"
-//     );
-// }
+    let tx = test_compile(tx.into(), &compiler, utxos);
+
+    println!("{}", hex::encode(tx.payload));
+
+    assert_eq!(
+        hex::encode(tx.hash),
+        "4ee1d6ec3b16a883951df96f4c4242931a154439f07a762d078c8683717c6d4c"
+    );
+}
 
 #[tokio::test]
 async fn env_vars_test() {
+    let compiler = test_compiler(None);
+    let utxos = wildcard_utxos(None);
     let protocol = load_protocol("env_vars");
 
     let mut tx = protocol.new_tx("mint_from_env").unwrap().apply().unwrap();
@@ -279,7 +292,7 @@ async fn env_vars_test() {
 
     let tx = tx.apply().unwrap();
 
-    let tx = compile_tx(tx.into(), None);
+    let tx = test_compile(tx.into(), &compiler, utxos);
 
     assert_eq!(
         hex::encode(tx.hash),
@@ -289,6 +302,8 @@ async fn env_vars_test() {
 
 #[tokio::test]
 async fn local_vars_test() {
+    let compiler = test_compiler(None);
+    let utxos = wildcard_utxos(None);
     let protocol = load_protocol("local_vars");
 
     let mut tx = protocol.new_tx("mint_from_local").unwrap().apply().unwrap();
@@ -304,7 +319,7 @@ async fn local_vars_test() {
 
     let tx = tx.apply().unwrap();
 
-    let tx = compile_tx(tx.into(), None);
+    let tx = test_compile(tx.into(), &compiler, utxos);
 
     assert_eq!(
         hex::encode(tx.hash),
@@ -314,6 +329,8 @@ async fn local_vars_test() {
 
 #[tokio::test]
 async fn adhoc_plutus_witness_test() {
+    let compiler = test_compiler(None);
+    let utxos = wildcard_utxos(None);
     let protocol = load_protocol("cardano_witness");
 
     let mut tx = protocol
@@ -327,7 +344,7 @@ async fn adhoc_plutus_witness_test() {
 
     let tx = tx.apply().unwrap();
 
-    let tx = compile_tx(tx.into(), None);
+    let tx = test_compile(tx.into(), &compiler, utxos);
 
     assert_eq!(
         hex::encode(tx.hash),
@@ -337,6 +354,8 @@ async fn adhoc_plutus_witness_test() {
 
 #[tokio::test]
 async fn adhoc_native_witness_test() {
+    let compiler = test_compiler(None);
+    let utxos = wildcard_utxos(None);
     let protocol = load_protocol("cardano_witness");
 
     let mut tx = protocol
@@ -350,7 +369,7 @@ async fn adhoc_native_witness_test() {
 
     let tx = tx.apply().unwrap();
 
-    let tx = compile_tx(tx.into(), None);
+    let tx = test_compile(tx.into(), &compiler, utxos);
 
     println!("{}", hex::encode(&tx.payload));
 
@@ -361,6 +380,14 @@ async fn adhoc_native_witness_test() {
 
 #[tokio::test]
 async fn extra_fees_test() {
+    let extra_fees = 1_200_000;
+
+    let compiler = test_compiler(Some(Config {
+        extra_fees: Some(extra_fees),
+    }));
+
+    let utxos = wildcard_utxos(None);
+
     let protocol = load_protocol("transfer");
 
     let tx = protocol.new_tx("transfer")
@@ -371,19 +398,19 @@ async fn extra_fees_test() {
             .apply()
             .unwrap();
 
-    let extra_fees = 1_200_000;
-
-    let config = Config {
-        extra_fees: Some(extra_fees),
-    };
-
-    let tx = compile_tx(tx.into(), Some(config));
+    let tx = test_compile(tx.into(), &compiler, utxos);
 
     assert!(tx.fee >= extra_fees);
 }
 
 #[tokio::test]
 async fn extra_fees_zero_test() {
+    let compiler = test_compiler(Some(Config {
+        extra_fees: Some(0),
+    }));
+
+    let utxos = wildcard_utxos(None);
+
     let protocol = load_protocol("transfer");
 
     let tx = protocol.new_tx("transfer")
@@ -394,11 +421,7 @@ async fn extra_fees_zero_test() {
             .apply()
             .unwrap();
 
-    let config = Config {
-        extra_fees: Some(0),
-    };
-
-    let tx = compile_tx(tx.into(), Some(config));
+    let tx = test_compile(tx.into(), &compiler, utxos);
 
     assert!(!tx.payload.is_empty());
     assert!(tx.fee < DEFAULT_EXTRA_FEES);
