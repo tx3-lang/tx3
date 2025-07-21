@@ -146,8 +146,8 @@ data_expr = { data_prefix* ~ data_primary ~ data_postfix* ~ (data_infix ~ data_p
         struct_constructor |
         list_constructor |
         any_asset_constructor |
-        static_asset_constructor |
         concat_constructor |
+        static_asset_constructor |
         identifier |
         "(" ~ data_expr ~ ")"
     }
@@ -184,12 +184,6 @@ struct_constructor = {
 list_constructor = {
     "[" ~ (data_expr ~ ",")* ~ data_expr? ~ "]"
 }
-
-// list_append = {
-//
-// }
-
-// input block
 
 input_block_from = { "from" ~ ":" ~ data_expr }
 input_block_datum_is = { "datum_is" ~ ":" ~ type }

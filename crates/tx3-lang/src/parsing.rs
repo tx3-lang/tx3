@@ -2326,7 +2326,7 @@ mod tests {
 
     fn test_parsing_example(example: &str) {
         let program = parse_well_known_example(example);
-
+        println!("{:?}", program);
         make_snapshot_if_missing(example, &program);
 
         let manifest_dir = env!("CARGO_MANIFEST_DIR");
@@ -2374,5 +2374,9 @@ mod tests {
 
     test_parsing!(cardano_witness);
 
-    test_parsing!(list_concat);
+
+    #[test]
+    fn test_parse_list_concat(){
+        test_parsing_example("list_concat");
+    }
 }

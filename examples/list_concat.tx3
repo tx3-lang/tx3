@@ -1,5 +1,5 @@
 type MyRecord {
-    list: Int,
+    list: List<Int>,
 }
 
 party MyParty;
@@ -7,7 +7,6 @@ party MyParty;
 tx concat_list() {
     input source {
         from: MyParty,
-        min_amount: fees,
         datum_is: MyRecord,
     }
 
