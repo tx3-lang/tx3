@@ -352,6 +352,29 @@ async fn adhoc_plutus_witness_test() {
 }
 
 #[pollster::test]
+async fn burn_test() {
+    let mut compiler = test_compiler(None);
+    let utxos = wildcard_utxos(None);
+    let protocol = load_protocol("burn");
+
+    let mut tx = protocol.new_tx("burn_stuff").unwrap().apply().unwrap();
+
+    tx.set_arg("burner", address_to_bytes("addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"));
+    tx.set_arg("quantity", ArgValue::Int(100_000_000));
+
+    let tx = tx.apply().unwrap();
+
+    let tx = test_compile(tx.into(), &mut compiler, utxos);
+
+    println!("{}", hex::encode(tx.payload));
+
+    assert_eq!(
+        hex::encode(tx.hash),
+        "71e84fad764e06316f4e7137ab86cb2665bbca803ac8a1d380d006d8ba355c47"
+    );
+}
+
+#[pollster::test]
 async fn adhoc_native_witness_test() {
     let mut compiler = test_compiler(None);
     let utxos = wildcard_utxos(None);

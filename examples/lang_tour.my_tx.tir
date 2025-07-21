@@ -469,6 +469,7 @@
       }
     }
   ],
+  "burns": [],
   "adhoc": [],
   "collateral": [],
   "signers": {

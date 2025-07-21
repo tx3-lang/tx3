@@ -1,0 +1,312 @@
+{
+  "fees": {
+    "EvalParam": "ExpectFees"
+  },
+  "references": [],
+  "inputs": [
+    {
+      "name": "source",
+      "utxos": {
+        "EvalParam": {
+          "ExpectInput": [
+            "source",
+            {
+              "address": {
+                "EvalParam": {
+                  "ExpectValue": [
+                    "burner",
+                    "Address"
+                  ]
+                }
+              },
+              "min_amount": {
+                "EvalBuiltIn": {
+                  "Add": [
+                    {
+                      "Assets": [
+                        {
+                          "policy": {
+                            "Bytes": [
+                              107,
+                              156,
+                              69,
+                              106,
+                              166,
+                              80,
+                              203,
+                              128,
+                              138,
+                              154,
+                              181,
+                              67,
+                              38,
+                              224,
+                              57,
+                              213,
+                              35,
+                              94,
+                              214,
+                              159,
+                              6,
+                              156,
+                              150,
+                              100,
+                              168,
+                              254,
+                              91,
+                              105
+                            ]
+                          },
+                          "asset_name": {
+                            "String": "ABC"
+                          },
+                          "amount": {
+                            "EvalParam": {
+                              "ExpectValue": [
+                                "quantity",
+                                "Int"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "EvalParam": "ExpectFees"
+                    }
+                  ]
+                }
+              },
+              "ref": "None",
+              "many": false
+            }
+          ]
+        }
+      },
+      "redeemer": "None"
+    }
+  ],
+  "outputs": [
+    {
+      "address": {
+        "EvalParam": {
+          "ExpectValue": [
+            "burner",
+            "Address"
+          ]
+        }
+      },
+      "datum": "None",
+      "amount": {
+        "EvalBuiltIn": {
+          "Sub": [
+            {
+              "EvalBuiltIn": {
+                "Sub": [
+                  {
+                    "EvalCoerce": {
+                      "IntoAssets": {
+                        "EvalParam": {
+                          "ExpectInput": [
+                            "source",
+                            {
+                              "address": {
+                                "EvalParam": {
+                                  "ExpectValue": [
+                                    "burner",
+                                    "Address"
+                                  ]
+                                }
+                              },
+                              "min_amount": {
+                                "EvalBuiltIn": {
+                                  "Add": [
+                                    {
+                                      "Assets": [
+                                        {
+                                          "policy": {
+                                            "Bytes": [
+                                              107,
+                                              156,
+                                              69,
+                                              106,
+                                              166,
+                                              80,
+                                              203,
+                                              128,
+                                              138,
+                                              154,
+                                              181,
+                                              67,
+                                              38,
+                                              224,
+                                              57,
+                                              213,
+                                              35,
+                                              94,
+                                              214,
+                                              159,
+                                              6,
+                                              156,
+                                              150,
+                                              100,
+                                              168,
+                                              254,
+                                              91,
+                                              105
+                                            ]
+                                          },
+                                          "asset_name": {
+                                            "String": "ABC"
+                                          },
+                                          "amount": {
+                                            "EvalParam": {
+                                              "ExpectValue": [
+                                                "quantity",
+                                                "Int"
+                                              ]
+                                            }
+                                          }
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "EvalParam": "ExpectFees"
+                                    }
+                                  ]
+                                }
+                              },
+                              "ref": "None",
+                              "many": false
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "Assets": [
+                      {
+                        "policy": {
+                          "Bytes": [
+                            107,
+                            156,
+                            69,
+                            106,
+                            166,
+                            80,
+                            203,
+                            128,
+                            138,
+                            154,
+                            181,
+                            67,
+                            38,
+                            224,
+                            57,
+                            213,
+                            35,
+                            94,
+                            214,
+                            159,
+                            6,
+                            156,
+                            150,
+                            100,
+                            168,
+                            254,
+                            91,
+                            105
+                          ]
+                        },
+                        "asset_name": {
+                          "String": "ABC"
+                        },
+                        "amount": {
+                          "EvalParam": {
+                            "ExpectValue": [
+                              "quantity",
+                              "Int"
+                            ]
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "EvalParam": "ExpectFees"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "validity": null,
+  "mints": [],
+  "burns": [
+    {
+      "amount": {
+        "Assets": [
+          {
+            "policy": {
+              "Bytes": [
+                107,
+                156,
+                69,
+                106,
+                166,
+                80,
+                203,
+                128,
+                138,
+                154,
+                181,
+                67,
+                38,
+                224,
+                57,
+                213,
+                35,
+                94,
+                214,
+                159,
+                6,
+                156,
+                150,
+                100,
+                168,
+                254,
+                91,
+                105
+              ]
+            },
+            "asset_name": {
+              "String": "ABC"
+            },
+            "amount": {
+              "EvalParam": {
+                "ExpectValue": [
+                  "quantity",
+                  "Int"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "redeemer": {
+        "Struct": {
+          "constructor": 0,
+          "fields": []
+        }
+      }
+    }
+  ],
+  "adhoc": [],
+  "collateral": [],
+  "signers": null,
+  "metadata": []
+}

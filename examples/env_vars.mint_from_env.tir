@@ -104,6 +104,7 @@
       }
     }
   ],
+  "burns": [],
   "adhoc": [],
   "collateral": [],
   "signers": null,

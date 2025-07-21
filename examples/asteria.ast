@@ -635,45 +635,47 @@
         }
       ],
       "validity": null,
-      "burn": {
-        "fields": [
-          {
-            "Amount": {
-              "StaticAssetConstructor": {
-                "type": {
-                  "value": "Fuel",
+      "mints": [],
+      "burns": [
+        {
+          "fields": [
+            {
+              "Amount": {
+                "StaticAssetConstructor": {
+                  "type": {
+                    "value": "Fuel",
+                    "span": {
+                      "dummy": false,
+                      "start": 1122,
+                      "end": 1126
+                    }
+                  },
+                  "amount": {
+                    "Identifier": {
+                      "value": "required_fuel",
+                      "span": {
+                        "dummy": false,
+                        "start": 1127,
+                        "end": 1140
+                      }
+                    }
+                  },
                   "span": {
                     "dummy": false,
                     "start": 1122,
-                    "end": 1126
+                    "end": 1141
                   }
-                },
-                "amount": {
-                  "Identifier": {
-                    "value": "required_fuel",
-                    "span": {
-                      "dummy": false,
-                      "start": 1127,
-                      "end": 1140
-                    }
-                  }
-                },
-                "span": {
-                  "dummy": false,
-                  "start": 1122,
-                  "end": 1141
                 }
               }
             }
+          ],
+          "span": {
+            "dummy": false,
+            "start": 1099,
+            "end": 1148
           }
-        ],
-        "span": {
-          "dummy": false,
-          "start": 1099,
-          "end": 1148
         }
-      },
-      "mints": [],
+      ],
       "signers": null,
       "adhoc": [],
       "span": {
