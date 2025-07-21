@@ -35,13 +35,13 @@
                   }
                 ]
               },
-              "ref": "None"
+              "ref": "None",
+              "many": false
             }
           ]
         }
       },
-      "redeemer": "None",
-      "policy": null
+      "redeemer": "None"
     }
   ],
   "outputs": [
@@ -177,7 +177,8 @@
                                   }
                                 ]
                               },
-                              "ref": "None"
+                              "ref": "None",
+                              "many": false
                             }
                           ]
                         }

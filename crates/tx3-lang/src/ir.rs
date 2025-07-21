@@ -140,6 +140,7 @@ impl ScriptSource {
                         InputQuery {
                             address: Expression::None,
                             min_amount: Expression::None,
+                            many: false,
                             r#ref,
                         },
                     )
@@ -293,6 +294,7 @@ pub struct InputQuery {
     pub address: Expression,
     pub min_amount: Expression,
     pub r#ref: Expression,
+    pub many: bool,
 }
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -414,6 +416,7 @@ impl Node for InputQuery {
             address: self.address.apply(visitor)?,
             min_amount: self.min_amount.apply(visitor)?,
             r#ref: self.r#ref.apply(visitor)?,
+            ..self
         };
 
         Ok(visited)

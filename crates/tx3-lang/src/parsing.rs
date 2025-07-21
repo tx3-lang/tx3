@@ -520,7 +520,13 @@ impl AstNode for InputBlock {
         let span = pair.as_span().into();
         let mut inner = pair.into_inner();
 
-        let name = inner.next().unwrap().as_str().to_string();
+        let next = inner.next().unwrap();
+
+        let (many, name) = match next.as_rule() {
+            Rule::input_many => (true, inner.next().unwrap().as_str().to_string()),
+            Rule::identifier => (false, next.as_str().to_string()),
+            _ => unreachable!("Unexpected rule in input_block: {:?}", next.as_rule()),
+        };
 
         let fields = inner
             .map(|x| InputBlockField::parse(x))
@@ -528,7 +534,7 @@ impl AstNode for InputBlock {
 
         Ok(InputBlock {
             name,
-            is_many: false,
+            many,
             fields,
             span,
         })
@@ -2136,6 +2142,30 @@ mod tests {
                     span: Span::DUMMY,
                 },
             ],
+            span: Span::DUMMY,
+        }
+    );
+
+    input_to_ast_check!(
+        InputBlock,
+        "single",
+        r#"input source {}"#,
+        InputBlock {
+            many: false,
+            name: "source".to_string(),
+            fields: vec![],
+            span: Span::DUMMY,
+        }
+    );
+
+    input_to_ast_check!(
+        InputBlock,
+        "multiple",
+        r#"input* source {}"#,
+        InputBlock {
+            many: true,
+            name: "source".to_string(),
+            fields: vec![],
             span: Span::DUMMY,
         }
     );

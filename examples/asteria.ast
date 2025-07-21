@@ -68,7 +68,7 @@
       "inputs": [
         {
           "name": "ship",
-          "is_many": false,
+          "many": false,
           "fields": [
             {
               "From": {
@@ -255,7 +255,7 @@
         },
         {
           "name": "pilot",
-          "is_many": false,
+          "many": false,
           "fields": [
             {
               "From": {
@@ -307,7 +307,7 @@
         },
         {
           "name": "fees",
-          "is_many": false,
+          "many": false,
           "fields": [
             {
               "From": {

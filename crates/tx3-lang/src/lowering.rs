@@ -367,9 +367,9 @@ impl IntoLower for ast::ConcatOp {
         let left = self.lhs.into_lower(ctx)?;
         let right = self.rhs.into_lower(ctx)?;
 
-        Ok(ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Concat(
-            left, right,
-        ))))
+        Ok(ir::Expression::EvalBuiltIn(Box::new(
+            ir::BuiltInOp::Concat(left, right),
+        )))
     }
 }
 
@@ -534,6 +534,7 @@ impl IntoLower for ast::InputBlock {
             address: address.unwrap_or(ir::Expression::None),
             min_amount: min_amount.unwrap_or(ir::Expression::None),
             r#ref: r#ref.unwrap_or(ir::Expression::None),
+            many: self.many,
         };
 
         let param = ir::Param::ExpectInput(self.name.to_lowercase().clone(), query);
@@ -699,6 +700,7 @@ impl IntoLower for ast::CollateralBlock {
             address: from.unwrap_or(ir::Expression::None),
             min_amount: min_amount.unwrap_or(ir::Expression::None),
             r#ref: r#ref.unwrap_or(ir::Expression::None),
+            many: false,
         };
 
         let param = ir::Param::ExpectInput("collateral".to_string(), query);

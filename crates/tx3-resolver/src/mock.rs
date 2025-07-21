@@ -8,32 +8,24 @@ pub use chainfuzz::utxos::{utxo_with_random_amount, utxo_with_random_asset, Utxo
 pub use chainfuzz::{TxoRef as FuzzTxoRef, Utxo as FuzzUtxo};
 
 use tx3_lang::backend::{Error, UtxoPattern, UtxoStore};
-use tx3_lang::{ir, Utxo, UtxoRef, UtxoSet};
+use tx3_lang::{ir, CanonicalAssets, Utxo, UtxoRef, UtxoSet};
 
 fn from_fuzz_utxo(txo: &chainfuzz::TxoRef, utxo: &chainfuzz::Utxo) -> Utxo {
     let address = utxo.address.to_vec();
 
-    let mut assets: Vec<_> = utxo
+    let assets: CanonicalAssets = utxo
         .assets
         .iter()
         .map(|x| {
-            let policy = x.class.policy.to_vec();
-            let name = x.class.name.to_vec();
+            let policy = x.class.policy;
+            let name = x.class.name.as_slice();
             let amount = x.amount;
 
-            ir::AssetExpr {
-                policy: ir::Expression::Bytes(policy),
-                asset_name: ir::Expression::Bytes(name),
-                amount: ir::Expression::Number(amount as i128),
-            }
+            CanonicalAssets::from_single_asset(&policy, name, amount as i128)
         })
-        .collect();
+        .fold(CanonicalAssets::empty(), |acc, x| acc + x);
 
-    assets.push(ir::AssetExpr {
-        policy: ir::Expression::None,
-        asset_name: ir::Expression::None,
-        amount: ir::Expression::Number(utxo.naked_value as i128),
-    });
+    let assets = assets + CanonicalAssets::from_naked_amount(utxo.naked_value as i128);
 
     Utxo {
         address,

@@ -46,7 +46,7 @@
       "inputs": [
         {
           "name": "pool",
-          "is_many": false,
+          "many": false,
           "fields": [
             {
               "From": {
@@ -168,7 +168,7 @@
         },
         {
           "name": "payment",
-          "is_many": false,
+          "many": false,
           "fields": [
             {
               "From": {
