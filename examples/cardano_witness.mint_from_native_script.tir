@@ -189,6 +189,7 @@
       "redeemer": "None"
     }
   ],
+  "burns": [],
   "adhoc": [
     {
       "name": "native_witness",

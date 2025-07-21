@@ -616,7 +616,6 @@
           "end": 1451
         }
       },
-      "burn": null,
       "mints": [
         {
           "fields": [
@@ -699,6 +698,7 @@
           }
         }
       ],
+      "burns": [],
       "signers": {
         "signers": [
           {

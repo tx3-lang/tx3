@@ -1206,6 +1206,7 @@ impl Apply for ir::Tx {
             outputs: self.outputs.apply_args(args)?,
             validity: self.validity.apply_args(args)?,
             mints: self.mints.apply_args(args)?,
+            burns: self.burns.apply_args(args)?,
             fees: self.fees.apply_args(args)?,
             adhoc: self.adhoc.apply_args(args)?,
             collateral: self.collateral.apply_args(args)?,
@@ -1223,6 +1224,7 @@ impl Apply for ir::Tx {
             outputs: self.outputs.apply_inputs(args)?,
             validity: self.validity.apply_inputs(args)?,
             mints: self.mints.apply_inputs(args)?,
+            burns: self.burns.apply_inputs(args)?,
             fees: self.fees.apply_inputs(args)?,
             adhoc: self.adhoc.apply_inputs(args)?,
             collateral: self.collateral.apply_inputs(args)?,
@@ -1238,6 +1240,7 @@ impl Apply for ir::Tx {
             outputs: self.outputs.apply_fees(fees)?,
             validity: self.validity.apply_fees(fees)?,
             mints: self.mints.apply_fees(fees)?,
+            burns: self.burns.apply_fees(fees)?,
             fees: self.fees.apply_fees(fees)?,
             adhoc: self.adhoc.apply_fees(fees)?,
             collateral: self.collateral.apply_fees(fees)?,
@@ -1250,6 +1253,7 @@ impl Apply for ir::Tx {
         self.inputs.iter().all(|x| x.is_constant())
             && self.outputs.iter().all(|x| x.is_constant())
             && self.mints.iter().all(|x| x.is_constant())
+            && self.burns.iter().all(|x| x.is_constant())
             && self.fees.is_constant()
             && self.metadata.is_constant()
             && self.validity.is_constant()
@@ -1265,6 +1269,7 @@ impl Apply for ir::Tx {
         params.extend(self.inputs.params());
         params.extend(self.outputs.params());
         params.extend(self.mints.params());
+        params.extend(self.burns.params());
         params.extend(self.fees.params());
         params.extend(self.adhoc.params());
         params.extend(self.signers.params());
@@ -1280,6 +1285,7 @@ impl Apply for ir::Tx {
         queries.extend(self.inputs.queries());
         queries.extend(self.outputs.queries());
         queries.extend(self.mints.queries());
+        queries.extend(self.burns.queries());
         queries.extend(self.fees.queries());
         queries.extend(self.adhoc.queries());
         queries.extend(self.signers.queries());
@@ -1297,6 +1303,7 @@ impl Apply for ir::Tx {
             outputs: self.outputs.reduce()?,
             validity: self.validity.reduce()?,
             mints: self.mints.reduce()?,
+            burns: self.burns.reduce()?,
             fees: self.fees.reduce()?,
             adhoc: self.adhoc.reduce()?,
             collateral: self.collateral.reduce()?,

@@ -629,6 +629,7 @@ impl IntoLower for ast::MintBlock {
         Ok(ir::Mint { amount, redeemer })
     }
 }
+
 impl IntoLower for ast::MetadataBlockField {
     type Output = ir::Metadata;
     fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
@@ -754,6 +755,11 @@ impl IntoLower for ast::TxDef {
                 .transpose()?,
             mints: self
                 .mints
+                .iter()
+                .map(|x| x.into_lower(ctx))
+                .collect::<Result<Vec<_>, _>>()?,
+            burns: self
+                .burns
                 .iter()
                 .map(|x| x.into_lower(ctx))
                 .collect::<Result<Vec<_>, _>>()?,
@@ -888,4 +894,6 @@ mod tests {
     test_lowering!(local_vars);
 
     test_lowering!(cardano_witness);
+
+    test_lowering!(burn);
 }
