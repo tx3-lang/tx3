@@ -187,6 +187,7 @@ list_constructor = {
 
 // input block
 
+input_many = { "*" }
 input_block_from = { "from" ~ ":" ~ data_expr }
 input_block_datum_is = { "datum_is" ~ ":" ~ type }
 input_block_min_amount = { "min_amount" ~ ":" ~ data_expr }
@@ -202,7 +203,7 @@ input_block_field = _{
 }
 
 input_block = {
-    "input" ~ identifier ~ ("*")? ~ "{" ~
+    "input" ~ input_many? ~ identifier ~ "{" ~
     (input_block_field ~ ",")* ~
     "}"
 }

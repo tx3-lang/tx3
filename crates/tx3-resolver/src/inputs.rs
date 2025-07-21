@@ -4,7 +4,7 @@ use std::collections::{BTreeMap, HashSet};
 use tx3_lang::{
     applying,
     backend::{UtxoPattern, UtxoStore},
-    ir, Utxo, UtxoRef, UtxoSet,
+    ir, CanonicalAssets, Utxo, UtxoRef, UtxoSet,
 };
 
 use crate::Error;
@@ -86,50 +86,46 @@ impl From<HashSet<UtxoRef>> for Subset {
     }
 }
 
-fn utxo_includes_asset(utxo: &Utxo, expected: &ir::AssetExpr) -> Result<bool, Error> {
-    let amount = data_or_bail!(&expected.amount, number);
-
-    let match_ok = utxo
-        .assets
-        .iter()
-        .filter(|x| x.class_matches(expected))
-        .any(|x| x.amount.as_number().is_some_and(|x| x >= amount));
-
-    Ok(match_ok)
+pub trait CoinSelection {
+    fn pick(search_space: UtxoSet, target: &CanonicalAssets) -> HashSet<Utxo>;
 }
 
-fn utxo_matches_min_amount(utxo: &Utxo, min_amount: &ir::Expression) -> Result<bool, Error> {
-    let expected = data_or_bail!(min_amount, assets);
+struct FirstFullMatch;
 
-    let match_all = expected
-        .iter()
-        .map(|asset| utxo_includes_asset(utxo, asset))
-        .collect::<Result<Vec<_>, _>>()?
-        .iter()
-        .all(|x| *x);
-
-    Ok(match_all)
-}
-
-fn utxo_matches(utxo: &Utxo, criteria: &ir::InputQuery) -> Result<bool, Error> {
-    let min_amount_check = if let Some(min_amount) = &criteria.min_amount.as_option() {
-        utxo_matches_min_amount(utxo, min_amount)?
-    } else {
-        // if there is no min amount requirement, then the utxo matches
-        true
-    };
-
-    Ok(min_amount_check)
-}
-
-fn pick_first_utxo_match(utxos: UtxoSet, criteria: &ir::InputQuery) -> Result<Option<Utxo>, Error> {
-    for utxo in utxos {
-        if utxo_matches(&utxo, criteria)? {
-            return Ok(Some(utxo));
+impl CoinSelection for FirstFullMatch {
+    fn pick(search_space: UtxoSet, target: &CanonicalAssets) -> HashSet<Utxo> {
+        for utxo in search_space.iter() {
+            if utxo.assets.contains_total(target) {
+                return HashSet::from_iter(vec![utxo.clone()]);
+            }
         }
-    }
 
-    Ok(None)
+        HashSet::new()
+    }
+}
+
+struct NaiveAccumulator;
+
+impl CoinSelection for NaiveAccumulator {
+    fn pick(search_space: UtxoSet, target: &CanonicalAssets) -> HashSet<Utxo> {
+        let mut matched = HashSet::new();
+        let mut required = target.clone();
+
+        for utxo in search_space.iter() {
+            if utxo.assets.contains_some(target) {
+                matched.insert(utxo.clone());
+                required = required - utxo.assets.clone();
+            }
+
+            if required.is_empty_or_negative() {
+                return matched;
+            }
+        }
+
+        // if we didn't accumulate enough by the end of the search space,
+        // then we didn't find a match
+        HashSet::new()
+    }
 }
 
 const MAX_SEARCH_SPACE_SIZE: usize = 50;
@@ -250,13 +246,16 @@ impl<'a, S: UtxoStore> InputSelector<'a, S> {
 
         let utxos = self.store.fetch_utxos(refs).await?;
 
-        let matched = pick_first_utxo_match(utxos, criteria)?;
+        let target = data_or_bail!(&criteria.min_amount, assets);
+        let target = CanonicalAssets::from(Vec::from(target));
 
-        if let Some(utxo) = matched {
-            Ok(vec![utxo].into_iter().collect())
+        let matched = if criteria.many {
+            NaiveAccumulator::pick(utxos, &target)
         } else {
-            Ok(UtxoSet::new())
-        }
+            FirstFullMatch::pick(utxos, &target)
+        };
+
+        Ok(matched)
     }
 }
 
@@ -290,6 +289,7 @@ mod tests {
         address: &mock::KnownAddress,
         naked_amount: Option<u64>,
         other_assets: Vec<(mock::KnownAsset, u64)>,
+        many: bool,
     ) -> ir::InputQuery {
         let naked_asset = naked_amount.map(|x| ir::AssetExpr {
             policy: ir::Expression::None,
@@ -312,6 +312,7 @@ mod tests {
             address: ir::Expression::Address(address.to_bytes()),
             min_amount: ir::Expression::Assets(all_assets),
             r#ref: ir::Expression::None,
+            many,
         }
     }
 
@@ -324,7 +325,7 @@ mod tests {
         let selector = InputSelector::new(&store);
 
         for subject in mock::KnownAddress::everyone() {
-            let criteria = new_input_query(&subject, None, vec![]);
+            let criteria = new_input_query(&subject, None, vec![], false);
 
             let utxos = selector.select(&criteria).await.unwrap();
 
@@ -344,12 +345,12 @@ mod tests {
 
         let selector = InputSelector::new(&store);
 
-        let criteria = new_input_query(&mock::KnownAddress::Alice, Some(6_000_000), vec![]);
+        let criteria = new_input_query(&mock::KnownAddress::Alice, Some(6_000_000), vec![], false);
 
         let utxos = selector.select(&criteria).await.unwrap();
         assert!(utxos.is_empty());
 
-        let criteria = new_input_query(&mock::KnownAddress::Alice, Some(4_000_000), vec![]);
+        let criteria = new_input_query(&mock::KnownAddress::Alice, Some(4_000_000), vec![], false);
 
         let utxos = selector.select(&criteria).await.unwrap();
 
@@ -366,23 +367,45 @@ mod tests {
         let selector = InputSelector::new(&store);
 
         for address in mock::KnownAddress::everyone() {
-            // test negative case where we ask more than available amount
+            // test negative case where we ask for a single utxo with more than available
+            // amount
 
-            let criteria = new_input_query(&address, None, vec![(mock::KnownAsset::Hosky, 2000)]);
+            let criteria =
+                new_input_query(&address, None, vec![(mock::KnownAsset::Hosky, 1001)], false);
+
+            let utxos = selector.select(&criteria).await.unwrap();
+            assert!(utxos.is_empty());
+
+            // test positive case where we ask for any number of utxo adding to the target
+            // amount
+
+            let criteria =
+                new_input_query(&address, None, vec![(mock::KnownAsset::Hosky, 1001)], true);
+
+            let utxos = selector.select(&criteria).await.unwrap();
+            assert!(utxos.len() > 1);
+
+            // test negative case where we ask for any number of utxo adding to the target
+            // amount that is not possible
+
+            let criteria =
+                new_input_query(&address, None, vec![(mock::KnownAsset::Hosky, 4001)], true);
 
             let utxos = selector.select(&criteria).await.unwrap();
             assert!(utxos.is_empty());
 
             // test negative case where we ask for a different asset
 
-            let criteria = new_input_query(&address, None, vec![(mock::KnownAsset::Snek, 500)]);
+            let criteria =
+                new_input_query(&address, None, vec![(mock::KnownAsset::Snek, 500)], false);
 
             let utxos = selector.select(&criteria).await.unwrap();
             assert!(utxos.is_empty());
 
             // test positive case where we ask for the present asset and amount within range
 
-            let criteria = new_input_query(&address, None, vec![(mock::KnownAsset::Hosky, 500)]);
+            let criteria =
+                new_input_query(&address, None, vec![(mock::KnownAsset::Hosky, 500)], false);
 
             let utxos = selector.select(&criteria).await.unwrap();
             assert_eq!(utxos.len(), 1);

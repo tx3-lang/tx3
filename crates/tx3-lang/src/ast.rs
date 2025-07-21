@@ -355,7 +355,7 @@ pub struct MetadataBlock {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct InputBlock {
     pub name: String,
-    pub is_many: bool,
+    pub many: bool,
     pub fields: Vec<InputBlockField>,
     pub span: Span,
 }

@@ -22,7 +22,8 @@
               "min_amount": {
                 "EvalParam": "ExpectFees"
               },
-              "ref": "None"
+              "ref": "None",
+              "many": false
             }
           ]
         }
@@ -65,7 +66,8 @@
                               "min_amount": {
                                 "EvalParam": "ExpectFees"
                               },
-                              "ref": "None"
+                              "ref": "None",
+                              "many": false
                             }
                           ]
                         }
@@ -242,7 +244,8 @@
               "min_amount": {
                 "EvalParam": "ExpectFees"
               },
-              "ref": "None"
+              "ref": "None",
+              "many": false
             }
           ]
         }

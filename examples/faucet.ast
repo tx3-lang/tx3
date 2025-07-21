@@ -46,7 +46,7 @@
       "inputs": [
         {
           "name": "provided_gas",
-          "is_many": false,
+          "many": false,
           "fields": [
             {
               "From": {

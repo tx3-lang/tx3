@@ -80,11 +80,7 @@ fn wildcard_utxos(datum: Option<tx3_lang::ir::Expression>) -> HashSet<Utxo> {
         },
         address,
         datum: Some(datum.unwrap_or(tx3_lang::ir::Expression::None)),
-        assets: vec![tx3_lang::ir::AssetExpr {
-            policy: tx3_lang::ir::Expression::None,
-            asset_name: tx3_lang::ir::Expression::None,
-            amount: tx3_lang::ir::Expression::Number(500_000_000_i128),
-        }],
+        assets: tx3_lang::CanonicalAssets::from_naked_amount(500_000_000),
         script: None,
     };
 

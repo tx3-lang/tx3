@@ -35,7 +35,7 @@
       "inputs": [
         {
           "name": "source",
-          "is_many": false,
+          "many": false,
           "fields": [
             {
               "From": {

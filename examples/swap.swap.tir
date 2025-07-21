@@ -20,7 +20,8 @@
                 }
               },
               "min_amount": "None",
-              "ref": "None"
+              "ref": "None",
+              "many": false
             }
           ]
         }
@@ -47,8 +48,7 @@
             }
           ]
         }
-      },
-      "policy": null
+      }
     },
     {
       "name": "payment",
@@ -82,13 +82,13 @@
                   ]
                 }
               },
-              "ref": "None"
+              "ref": "None",
+              "many": false
             }
           ]
         }
       },
-      "redeemer": "None",
-      "policy": null
+      "redeemer": "None"
     }
   ],
   "outputs": [
@@ -127,7 +127,8 @@
                                       }
                                     },
                                     "min_amount": "None",
-                                    "ref": "None"
+                                    "ref": "None",
+                                    "many": false
                                   }
                                 ]
                               }
@@ -178,7 +179,8 @@
                                       }
                                     },
                                     "min_amount": "None",
-                                    "ref": "None"
+                                    "ref": "None",
+                                    "many": false
                                   }
                                 ]
                               }
@@ -226,7 +228,8 @@
                     }
                   },
                   "min_amount": "None",
-                  "ref": "None"
+                  "ref": "None",
+                  "many": false
                 }
               ]
             }
@@ -285,7 +288,8 @@
                                         ]
                                       }
                                     },
-                                    "ref": "None"
+                                    "ref": "None",
+                                    "many": false
                                   }
                                 ]
                               }
