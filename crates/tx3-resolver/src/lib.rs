@@ -1,7 +1,7 @@
 use tx3_lang::{
     applying::{self, Apply as _},
     backends::{self, Compiler, TxEval, UtxoStore},
-    ir,
+    ir::{self, Node},
 };
 
 pub mod inputs;
@@ -37,17 +37,17 @@ pub enum Error {
 }
 
 async fn eval_pass<C: Compiler, S: UtxoStore>(
-    tx: &tx3_lang::ProtoTx,
+    tx: &ir::Tx,
     compiler: &C,
     utxos: &S,
     last_eval: Option<&TxEval>,
 ) -> Result<Option<TxEval>, Error> {
-    let mut attempt = tx.clone();
+    let attempt = tx.clone();
 
     let fees = last_eval.as_ref().map(|e| e.fee).unwrap_or(0);
-    attempt.set_fees(fees);
+    let attempt = applying::apply_fees(attempt, fees)?;
 
-    attempt = attempt.apply()?;
+    let attempt = applying::reduce(attempt)?;
 
     let attempt = crate::inputs::resolve(attempt.into(), utxos).await?;
 
@@ -74,7 +74,7 @@ async fn eval_pass<C: Compiler, S: UtxoStore>(
 
 pub async fn resolve_tx<C: Compiler, S: UtxoStore>(
     tx: tx3_lang::ProtoTx,
-    compiler: &C,
+    compiler: &mut C,
     utxos: &S,
     max_optimize_rounds: usize,
 ) -> Result<TxEval, Error> {
@@ -83,6 +83,10 @@ pub async fn resolve_tx<C: Compiler, S: UtxoStore>(
 
     // one initial pass to reduce any available params;
     let tx = tx.apply()?;
+
+    // reduce compiler ops
+    let tx = ir::Tx::from(tx);
+    let tx = tx.apply(compiler)?;
 
     while let Some(better) = eval_pass(&tx, compiler, utxos, last_eval.as_ref()).await? {
         last_eval = Some(better);

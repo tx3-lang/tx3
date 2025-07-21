@@ -350,3 +350,278 @@ pub struct Tx {
     pub signers: Option<Signers>,
     pub metadata: Vec<Metadata>,
 }
+
+pub trait Visitor {
+    fn reduce(&mut self, op: Expression) -> Result<Expression, crate::applying::Error>;
+}
+
+pub trait Node: Sized {
+    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::applying::Error>;
+}
+
+impl<T: Node> Node for Option<T> {
+    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::applying::Error> {
+        self.map(|x| x.apply(visitor)).transpose()
+    }
+}
+
+impl<T: Node> Node for Box<T> {
+    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::applying::Error> {
+        let visited = (*self).apply(visitor)?;
+        Ok(Box::new(visited))
+    }
+}
+
+impl Node for (Expression, Expression) {
+    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::applying::Error> {
+        let (a, b) = self;
+        Ok((a.apply(visitor)?, b.apply(visitor)?))
+    }
+}
+
+impl<T: Node> Node for Vec<T> {
+    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::applying::Error> {
+        self.into_iter().map(|x| x.apply(visitor)).collect()
+    }
+}
+
+impl Node for StructExpr {
+    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::applying::Error> {
+        let visited = Self {
+            constructor: self.constructor,
+            fields: self.fields.apply(visitor)?,
+        };
+
+        Ok(visited)
+    }
+}
+
+impl Node for AssetExpr {
+    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::applying::Error> {
+        let visited = Self {
+            policy: self.policy.apply(visitor)?,
+            asset_name: self.asset_name.apply(visitor)?,
+            amount: self.amount.apply(visitor)?,
+        };
+
+        Ok(visited)
+    }
+}
+
+impl Node for InputQuery {
+    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::applying::Error> {
+        let visited = Self {
+            address: self.address.apply(visitor)?,
+            min_amount: self.min_amount.apply(visitor)?,
+            r#ref: self.r#ref.apply(visitor)?,
+        };
+
+        Ok(visited)
+    }
+}
+
+impl Node for Param {
+    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::applying::Error> {
+        let visited = match self {
+            Param::Set(x) => Param::Set(x.apply(visitor)?),
+            Param::ExpectValue(name, ty) => Param::ExpectValue(name, ty),
+            Param::ExpectInput(name, query) => Param::ExpectInput(name, query.apply(visitor)?),
+            Param::ExpectFees => Param::ExpectFees,
+        };
+
+        Ok(visited)
+    }
+}
+
+impl Node for BuiltInOp {
+    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::applying::Error> {
+        let visited = match self {
+            BuiltInOp::NoOp(x) => BuiltInOp::NoOp(x.apply(visitor)?),
+            BuiltInOp::Add(a, b) => BuiltInOp::Add(a.apply(visitor)?, b.apply(visitor)?),
+            BuiltInOp::Sub(a, b) => BuiltInOp::Sub(a.apply(visitor)?, b.apply(visitor)?),
+            BuiltInOp::Concat(a, b) => BuiltInOp::Concat(a.apply(visitor)?, b.apply(visitor)?),
+            BuiltInOp::Negate(x) => BuiltInOp::Negate(x.apply(visitor)?),
+            BuiltInOp::Property(x, i) => BuiltInOp::Property(x.apply(visitor)?, i),
+        };
+
+        Ok(visited)
+    }
+}
+
+impl Node for CompilerOp {
+    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::applying::Error> {
+        let visited = match self {
+            CompilerOp::BuildScriptAddress(x) => CompilerOp::BuildScriptAddress(x.apply(visitor)?),
+        };
+
+        Ok(visited)
+    }
+}
+
+impl Node for Coerce {
+    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::applying::Error> {
+        let visited = match self {
+            Coerce::NoOp(x) => Coerce::NoOp(x.apply(visitor)?),
+            Coerce::IntoAssets(x) => Coerce::IntoAssets(x.apply(visitor)?),
+            Coerce::IntoDatum(x) => Coerce::IntoDatum(x.apply(visitor)?),
+            Coerce::IntoScript(x) => Coerce::IntoScript(x.apply(visitor)?),
+        };
+
+        Ok(visited)
+    }
+}
+
+impl Node for Expression {
+    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::applying::Error> {
+        // first we visit the nested expressions
+        let visited = match self {
+            Expression::List(x) => Expression::List(x.apply(visitor)?),
+            Expression::Tuple(x) => Expression::Tuple(x.apply(visitor)?),
+            Expression::Struct(x) => Expression::Struct(x.apply(visitor)?),
+            Expression::Assets(x) => Expression::Assets(x.apply(visitor)?),
+            Expression::EvalParam(x) => Expression::EvalParam(x.apply(visitor)?),
+            Expression::AdHocDirective(x) => Expression::AdHocDirective(x.apply(visitor)?),
+            Expression::EvalBuiltIn(x) => Expression::EvalBuiltIn(x.apply(visitor)?),
+            Expression::EvalCompiler(x) => Expression::EvalCompiler(x.apply(visitor)?),
+            Expression::EvalCoerce(x) => Expression::EvalCoerce(x.apply(visitor)?),
+
+            // leaf expressions don't need to be visited
+            Expression::Bytes(x) => Expression::Bytes(x),
+            Expression::None => Expression::None,
+            Expression::Number(x) => Expression::Number(x),
+            Expression::Bool(x) => Expression::Bool(x),
+            Expression::String(x) => Expression::String(x),
+            Expression::Address(x) => Expression::Address(x),
+            Expression::Hash(x) => Expression::Hash(x),
+            Expression::UtxoRefs(x) => Expression::UtxoRefs(x),
+            Expression::UtxoSet(x) => Expression::UtxoSet(x),
+        };
+
+        // then we reduce the visited expression
+        visitor.reduce(visited)
+    }
+}
+
+impl Node for Input {
+    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::applying::Error> {
+        let visited = Self {
+            utxos: self.utxos.apply(visitor)?,
+            redeemer: self.redeemer.apply(visitor)?,
+            ..self
+        };
+
+        Ok(visited)
+    }
+}
+
+impl Node for Output {
+    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::applying::Error> {
+        let visited = Self {
+            address: self.address.apply(visitor)?,
+            datum: self.datum.apply(visitor)?,
+            amount: self.amount.apply(visitor)?,
+            ..self
+        };
+
+        Ok(visited)
+    }
+}
+
+impl Node for Validity {
+    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::applying::Error> {
+        let visited = Self {
+            since: self.since.apply(visitor)?,
+            until: self.until.apply(visitor)?,
+            ..self
+        };
+
+        Ok(visited)
+    }
+}
+
+impl Node for Mint {
+    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::applying::Error> {
+        let visited = Self {
+            amount: self.amount.apply(visitor)?,
+            redeemer: self.redeemer.apply(visitor)?,
+            ..self
+        };
+
+        Ok(visited)
+    }
+}
+
+impl Node for Collateral {
+    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::applying::Error> {
+        let visited = Self {
+            utxos: self.utxos.apply(visitor)?,
+            ..self
+        };
+
+        Ok(visited)
+    }
+}
+
+impl Node for Metadata {
+    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::applying::Error> {
+        let visited = Self {
+            key: self.key.apply(visitor)?,
+            value: self.value.apply(visitor)?,
+            ..self
+        };
+
+        Ok(visited)
+    }
+}
+
+impl Node for Signers {
+    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::applying::Error> {
+        let visited = Self {
+            signers: self.signers.apply(visitor)?,
+            ..self
+        };
+
+        Ok(visited)
+    }
+}
+
+impl Node for HashMap<String, Expression> {
+    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::applying::Error> {
+        let visited: Vec<_> = self
+            .into_iter()
+            .map(|(k, v)| visitor.reduce(v).map(|v| (k, v)))
+            .collect::<Result<_, _>>()?;
+
+        Ok(visited.into_iter().collect())
+    }
+}
+
+impl Node for AdHocDirective {
+    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::applying::Error> {
+        let visited = Self {
+            name: self.name,
+            data: self.data.apply(visitor)?,
+        };
+
+        Ok(visited)
+    }
+}
+
+impl Node for Tx {
+    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::applying::Error> {
+        let visited = Self {
+            fees: self.fees.apply(visitor)?,
+            references: self.references.apply(visitor)?,
+            inputs: self.inputs.apply(visitor)?,
+            outputs: self.outputs.apply(visitor)?,
+            validity: self.validity.apply(visitor)?,
+            mints: self.mints.apply(visitor)?,
+            adhoc: self.adhoc.apply(visitor)?,
+            collateral: self.collateral.apply(visitor)?,
+            signers: self.signers.apply(visitor)?,
+            metadata: self.metadata.apply(visitor)?,
+        };
+
+        Ok(visited)
+    }
+}

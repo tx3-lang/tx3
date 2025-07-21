@@ -1,6 +1,11 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
-use tx3_lang::{applying, backends::Compiler as _, ir, ArgValue, Protocol, Utxo, UtxoRef};
+use tx3_lang::{
+    applying,
+    backends::Compiler as _,
+    ir::{self, Node as _},
+    ArgValue, Protocol, Utxo, UtxoRef,
+};
 
 use super::*;
 
@@ -106,18 +111,19 @@ fn fill_inputs(tx: tx3_lang::ir::Tx, utxos: HashSet<Utxo>) -> tx3_lang::ir::Tx {
 fn compile_tx_round(
     mut tx: tx3_lang::ir::Tx,
     fees: u64,
-    compiler: &Compiler,
+    compiler: &mut Compiler,
     utxos: HashSet<Utxo>,
 ) -> TxEval {
     tx = applying::apply_fees(tx, fees).unwrap();
     tx = applying::reduce(tx).unwrap();
+    tx = tx.apply(compiler).unwrap();
 
     tx = fill_inputs(tx, utxos);
 
     compiler.compile(&tx).unwrap()
 }
 
-fn test_compile(tx: tx3_lang::ir::Tx, compiler: &Compiler, utxos: HashSet<Utxo>) -> TxEval {
+fn test_compile(tx: tx3_lang::ir::Tx, compiler: &mut Compiler, utxos: HashSet<Utxo>) -> TxEval {
     let mut fees = 0;
     let mut rounds = 0;
     let mut tx_eval = None;
@@ -131,9 +137,9 @@ fn test_compile(tx: tx3_lang::ir::Tx, compiler: &Compiler, utxos: HashSet<Utxo>)
     tx_eval.unwrap()
 }
 
-#[tokio::test]
+#[pollster::test]
 async fn smoke_test_transfer() {
-    let compiler = test_compiler(None);
+    let mut compiler = test_compiler(None);
     let utxos = wildcard_utxos(None);
     let protocol = load_protocol("transfer");
 
@@ -145,15 +151,15 @@ async fn smoke_test_transfer() {
             .apply()
             .unwrap();
 
-    let tx = test_compile(tx.into(), &compiler, utxos);
+    let tx = test_compile(tx.into(), &mut compiler, utxos);
 
     println!("{}", hex::encode(tx.payload));
     println!("{}", tx.fee);
 }
 
-#[tokio::test]
+#[pollster::test]
 async fn smoke_test_vesting() {
-    let compiler = test_compiler(None);
+    let mut compiler = test_compiler(None);
     let utxos = wildcard_utxos(None);
     let protocol = load_protocol("vesting");
 
@@ -166,7 +172,7 @@ async fn smoke_test_vesting() {
             .apply()
             .unwrap();
 
-    let tx = test_compile(tx.into(), &compiler, utxos);
+    let tx = test_compile(tx.into(), &mut compiler, utxos);
 
     println!("{}", hex::encode(tx.payload));
 
@@ -176,9 +182,9 @@ async fn smoke_test_vesting() {
     );
 }
 
-#[tokio::test]
+#[pollster::test]
 async fn smoke_test_vesting_unlock() {
-    let compiler = test_compiler(None);
+    let mut compiler = test_compiler(None);
     let utxos = wildcard_utxos(None);
     let protocol = load_protocol("vesting");
 
@@ -196,7 +202,7 @@ async fn smoke_test_vesting_unlock() {
             .apply()
             .unwrap();
 
-    let tx = test_compile(tx.into(), &compiler, utxos);
+    let tx = test_compile(tx.into(), &mut compiler, utxos);
 
     assert_eq!(
         hex::encode(tx.hash),
@@ -204,9 +210,9 @@ async fn smoke_test_vesting_unlock() {
     );
 }
 
-#[tokio::test]
+#[pollster::test]
 async fn faucet_test() {
-    let compiler = test_compiler(None);
+    let mut compiler = test_compiler(None);
     let utxos = wildcard_utxos(None);
     let protocol = load_protocol("faucet");
 
@@ -222,7 +228,7 @@ async fn faucet_test() {
 
     let tx = tx.apply().unwrap();
 
-    let tx = test_compile(tx.into(), &compiler, utxos);
+    let tx = test_compile(tx.into(), &mut compiler, utxos);
 
     assert_eq!(
         hex::encode(tx.hash),
@@ -230,9 +236,9 @@ async fn faucet_test() {
     );
 }
 
-#[tokio::test]
+#[pollster::test]
 async fn input_datum_test() {
-    let compiler = test_compiler(None);
+    let mut compiler = test_compiler(None);
 
     let utxos = wildcard_utxos(Some(tx3_lang::ir::Expression::Struct(
         tx3_lang::ir::StructExpr {
@@ -256,7 +262,7 @@ async fn input_datum_test() {
 
     let tx = tx.apply().unwrap();
 
-    let tx = test_compile(tx.into(), &compiler, utxos);
+    let tx = test_compile(tx.into(), &mut compiler, utxos);
 
     println!("{}", hex::encode(tx.payload));
 
@@ -266,9 +272,9 @@ async fn input_datum_test() {
     );
 }
 
-#[tokio::test]
+#[pollster::test]
 async fn env_vars_test() {
-    let compiler = test_compiler(None);
+    let mut compiler = test_compiler(None);
     let utxos = wildcard_utxos(None);
     let protocol = load_protocol("env_vars");
 
@@ -292,7 +298,7 @@ async fn env_vars_test() {
 
     let tx = tx.apply().unwrap();
 
-    let tx = test_compile(tx.into(), &compiler, utxos);
+    let tx = test_compile(tx.into(), &mut compiler, utxos);
 
     assert_eq!(
         hex::encode(tx.hash),
@@ -300,9 +306,9 @@ async fn env_vars_test() {
     );
 }
 
-#[tokio::test]
+#[pollster::test]
 async fn local_vars_test() {
-    let compiler = test_compiler(None);
+    let mut compiler = test_compiler(None);
     let utxos = wildcard_utxos(None);
     let protocol = load_protocol("local_vars");
 
@@ -319,7 +325,7 @@ async fn local_vars_test() {
 
     let tx = tx.apply().unwrap();
 
-    let tx = test_compile(tx.into(), &compiler, utxos);
+    let tx = test_compile(tx.into(), &mut compiler, utxos);
 
     assert_eq!(
         hex::encode(tx.hash),
@@ -327,9 +333,9 @@ async fn local_vars_test() {
     );
 }
 
-#[tokio::test]
+#[pollster::test]
 async fn adhoc_plutus_witness_test() {
-    let compiler = test_compiler(None);
+    let mut compiler = test_compiler(None);
     let utxos = wildcard_utxos(None);
     let protocol = load_protocol("cardano_witness");
 
@@ -344,7 +350,7 @@ async fn adhoc_plutus_witness_test() {
 
     let tx = tx.apply().unwrap();
 
-    let tx = test_compile(tx.into(), &compiler, utxos);
+    let tx = test_compile(tx.into(), &mut compiler, utxos);
 
     assert_eq!(
         hex::encode(tx.hash),
@@ -352,9 +358,9 @@ async fn adhoc_plutus_witness_test() {
     );
 }
 
-#[tokio::test]
+#[pollster::test]
 async fn adhoc_native_witness_test() {
-    let compiler = test_compiler(None);
+    let mut compiler = test_compiler(None);
     let utxos = wildcard_utxos(None);
     let protocol = load_protocol("cardano_witness");
 
@@ -369,7 +375,7 @@ async fn adhoc_native_witness_test() {
 
     let tx = tx.apply().unwrap();
 
-    let tx = test_compile(tx.into(), &compiler, utxos);
+    let tx = test_compile(tx.into(), &mut compiler, utxos);
 
     println!("{}", hex::encode(&tx.payload));
 
@@ -378,11 +384,11 @@ async fn adhoc_native_witness_test() {
     assert!(!tx.payload.is_empty());
 }
 
-#[tokio::test]
+#[pollster::test]
 async fn extra_fees_test() {
     let extra_fees = 1_200_000;
 
-    let compiler = test_compiler(Some(Config {
+    let mut compiler = test_compiler(Some(Config {
         extra_fees: Some(extra_fees),
     }));
 
@@ -398,14 +404,14 @@ async fn extra_fees_test() {
             .apply()
             .unwrap();
 
-    let tx = test_compile(tx.into(), &compiler, utxos);
+    let tx = test_compile(tx.into(), &mut compiler, utxos);
 
     assert!(tx.fee >= extra_fees);
 }
 
-#[tokio::test]
+#[pollster::test]
 async fn extra_fees_zero_test() {
-    let compiler = test_compiler(Some(Config {
+    let mut compiler = test_compiler(Some(Config {
         extra_fees: Some(0),
     }));
 
@@ -421,7 +427,7 @@ async fn extra_fees_zero_test() {
             .apply()
             .unwrap();
 
-    let tx = test_compile(tx.into(), &compiler, utxos);
+    let tx = test_compile(tx.into(), &mut compiler, utxos);
 
     assert!(!tx.payload.is_empty());
     assert!(tx.fee < DEFAULT_EXTRA_FEES);

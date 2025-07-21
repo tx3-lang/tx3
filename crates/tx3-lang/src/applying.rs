@@ -3,12 +3,15 @@ use std::{
     ops::Neg,
 };
 
-use crate::{ir, ArgValue, Utxo};
+use crate::{backends, ir, ArgValue, Utxo};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("invalid built-in operation {0:?}")]
     InvalidBuiltInOp(Box<ir::BuiltInOp>),
+
+    #[error(transparent)]
+    BackendError(#[from] backends::Error),
 
     #[error("invalid argument {0:?} for {1}")]
     InvalidArgument(ArgValue, String),
@@ -276,7 +279,7 @@ pub trait Apply: Sized + std::fmt::Debug {
     fn reduce(self) -> Result<Self, Error>;
 }
 
-trait Composite: Sized {
+pub trait Composite: Sized {
     fn reduce_self(self) -> Result<Self, Error> {
         Ok(self)
     }
