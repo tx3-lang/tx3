@@ -159,16 +159,6 @@ pub fn expr_into_address(
         ir::Expression::Hash(x) => policy_into_address(x, network),
         ir::Expression::Bytes(x) => bytes_into_address(x),
         ir::Expression::String(x) => string_into_address(x),
-        ir::Expression::EvalCompiler(x) => match x.as_ref() {
-            ir::CompilerOp::BuildScriptAddress(x) => {
-                let hash: primitives::Hash<28> = expr_into_hash(x)?;
-                policy_into_address(hash.as_ref(), network)
-            }
-            _ => Err(Error::CoerceError(
-                format!("{expr:?}"),
-                "Address".to_string(),
-            )),
-        },
         _ => Err(Error::CoerceError(
             format!("{expr:?}"),
             "Address".to_string(),

@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use crate::{ir, UtxoRef, UtxoSet};
+use crate::{applying, ir, UtxoRef, UtxoSet};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -36,6 +36,9 @@ pub enum Error {
 
     #[error("can't resolve symbol '{0}'")]
     CantResolveSymbol(String),
+
+    #[error("can't reduce {0:?}")]
+    CantReduce(ir::CompilerOp),
 }
 
 #[derive(Debug, PartialEq)]
@@ -48,6 +51,16 @@ pub struct TxEval {
 
 pub trait Compiler {
     fn compile(&self, tx: &ir::Tx) -> Result<TxEval, Error>;
+    fn execute(&self, op: ir::CompilerOp) -> Result<ir::Expression, Error>;
+}
+
+impl<C: Compiler> ir::Visitor for C {
+    fn reduce(&mut self, expr: ir::Expression) -> Result<ir::Expression, applying::Error> {
+        match expr {
+            ir::Expression::EvalCompiler(op) => Ok(self.execute(*op)?),
+            _ => Ok(expr),
+        }
+    }
 }
 
 pub enum UtxoPattern<'a> {
