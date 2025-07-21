@@ -561,6 +561,7 @@ impl Analyzable for DataExpr {
             DataExpr::PropertyOp(x) => x.is_resolved(),
             DataExpr::StaticAssetConstructor(x) => x.is_resolved(),
             DataExpr::AnyAssetConstructor(x) => x.is_resolved(),
+            // DataExpr::ConcatOp(x) => x.is_resolved(),
             _ => true,
         }
     }
