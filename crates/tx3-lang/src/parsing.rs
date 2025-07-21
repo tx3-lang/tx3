@@ -2326,7 +2326,7 @@ mod tests {
 
     fn test_parsing_example(example: &str) {
         let program = parse_well_known_example(example);
-        println!("{:?}", program);
+        println!("{}", serde_json::to_string(&program).unwrap());
         make_snapshot_if_missing(example, &program);
 
         let manifest_dir = env!("CARGO_MANIFEST_DIR");
