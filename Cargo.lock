@@ -275,6 +275,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "chainfuzz"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c6c7291c6f2d61e9564491b63c58b385c80d905f0e9449c2638bd8ca16156815"
+dependencies = [
+ "hex",
+ "rand 0.9.1",
+ "sha2",
+]
+
+[[package]]
 name = "chrono"
 version = "0.4.40"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2067,7 +2078,7 @@ version = "0.9.0"
 dependencies = [
  "assert-json-diff",
  "bincode",
- "chainfuzz",
+ "chainfuzz 0.1.0",
  "hex",
  "miette",
  "paste",
@@ -2084,7 +2095,7 @@ dependencies = [
 name = "tx3-resolver"
 version = "0.9.0"
 dependencies = [
- "chainfuzz",
+ "chainfuzz 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "pollster",
  "thiserror 2.0.11",
  "trait-variant",
