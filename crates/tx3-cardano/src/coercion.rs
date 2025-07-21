@@ -1,9 +1,10 @@
 use std::str::FromStr as _;
 
 use pallas::{codec::utils::Int, ledger::primitives::conway as primitives};
+use tx3_lang::backend::Error;
 use tx3_lang::ir;
 
-use crate::{Error, Network};
+use crate::Network;
 
 pub fn string_into_address(value: &str) -> Result<pallas::ledger::addresses::Address, Error> {
     pallas::ledger::addresses::Address::from_str(value)
@@ -40,7 +41,7 @@ pub fn expr_into_number(expr: &ir::Expression) -> Result<i128, Error> {
         ir::Expression::Number(x) => Ok(*x),
         ir::Expression::Assets(x) if x.len() == 1 => expr_into_number(&x[0].amount),
         _ => Err(Error::CoerceError(
-            format!("{:?}", expr),
+            format!("{expr:?}"),
             "Number".to_string(),
         )),
     }
@@ -60,7 +61,7 @@ pub fn expr_into_metadatum(
             primitives::Bytes::from(x.clone()),
         )),
         _ => Err(Error::CoerceError(
-            format!("{:?}", expr),
+            format!("{expr:?}"),
             "Metadatum".to_string(),
         )),
     }
@@ -78,7 +79,7 @@ pub fn expr_into_utxo_refs(expr: &ir::Expression) -> Result<Vec<tx3_lang::UtxoRe
             }])
         }
         _ => Err(Error::CoerceError(
-            format!("{:?}", expr),
+            format!("{expr:?}"),
             "UtxoRefs".to_string(),
         )),
     }
@@ -87,10 +88,7 @@ pub fn expr_into_utxo_refs(expr: &ir::Expression) -> Result<Vec<tx3_lang::UtxoRe
 pub fn expr_into_assets(ir: &ir::Expression) -> Result<Vec<ir::AssetExpr>, Error> {
     match ir {
         ir::Expression::Assets(x) => Ok(x.clone()),
-        _ => Err(Error::CoerceError(
-            format!("{:?}", ir),
-            "Assets".to_string(),
-        )),
+        _ => Err(Error::CoerceError(format!("{ir:?}"), "Assets".to_string())),
     }
 }
 
@@ -106,7 +104,7 @@ pub fn address_into_stake_credential(
                 Ok(primitives::StakeCredential::ScriptHash(*x))
             }
             _ => Err(Error::CoerceError(
-                format!("{:?}", address),
+                format!("{address:?}"),
                 "StakeCredential".to_string(),
             )),
         },
@@ -119,7 +117,7 @@ pub fn address_into_stake_credential(
             }
         },
         _ => Err(Error::CoerceError(
-            format!("{:?}", address),
+            format!("{address:?}"),
             "StakeCredential".to_string(),
         )),
     }
@@ -134,7 +132,11 @@ pub fn expr_into_reward_account(
     let hash_bytes = match address {
         pallas::ledger::addresses::Address::Shelley(x) => x.delegation().to_vec(),
         pallas::ledger::addresses::Address::Stake(x) => x.to_vec(),
-        _ => return Err(Error::NoStakeAccount),
+        _ => {
+            return Err(Error::FormatError(
+                "can't convert address to reward account".to_string(),
+            ))
+        }
     };
 
     Ok(primitives::RewardAccount::from(hash_bytes))
@@ -157,18 +159,8 @@ pub fn expr_into_address(
         ir::Expression::Hash(x) => policy_into_address(x, network),
         ir::Expression::Bytes(x) => bytes_into_address(x),
         ir::Expression::String(x) => string_into_address(x),
-        ir::Expression::EvalCompiler(x) => match x.as_ref() {
-            ir::CompilerOp::BuildScriptAddress(x) => {
-                let hash: primitives::Hash<28> = expr_into_hash(x)?;
-                policy_into_address(&hash.to_vec(), network)
-            }
-            _ => Err(Error::CoerceError(
-                format!("{:?}", expr),
-                "Address".to_string(),
-            )),
-        },
         _ => Err(Error::CoerceError(
-            format!("{:?}", expr),
+            format!("{expr:?}"),
             "Address".to_string(),
         )),
     }
@@ -179,7 +171,7 @@ pub fn address_into_keyhash(
 ) -> Result<primitives::AddrKeyhash, Error> {
     let pallas::ledger::addresses::Address::Shelley(address) = address else {
         return Err(Error::CoerceError(
-            format!("{:?}", address),
+            format!("{address:?}"),
             "Shelley address".to_string(),
         ));
     };
@@ -198,7 +190,7 @@ pub fn expr_into_address_keyhash(expr: &ir::Expression) -> Result<primitives::Ad
             address_into_keyhash(&address)
         }
         _ => Err(Error::CoerceError(
-            format!("{:?}", expr),
+            format!("{expr:?}"),
             "AddrKeyhash".to_string(),
         )),
     }
@@ -208,7 +200,7 @@ pub fn expr_into_bytes(ir: &ir::Expression) -> Result<primitives::Bytes, Error> 
     match ir {
         ir::Expression::Bytes(x) => Ok(primitives::Bytes::from(x.clone())),
         ir::Expression::String(s) => Ok(primitives::Bytes::from(s.as_bytes().to_vec())),
-        _ => Err(Error::CoerceError(format!("{:?}", ir), "Bytes".to_string())),
+        _ => Err(Error::CoerceError(format!("{ir:?}"), "Bytes".to_string())),
     }
 }
 
@@ -218,6 +210,6 @@ pub fn expr_into_hash<const SIZE: usize>(
     match ir {
         ir::Expression::Bytes(x) => Ok(primitives::Hash::from(x.as_slice())),
         ir::Expression::Hash(x) => Ok(primitives::Hash::from(x.as_slice())),
-        _ => Err(Error::CoerceError(format!("{:?}", ir), "Hash".to_string())),
+        _ => Err(Error::CoerceError(format!("{ir:?}"), "Hash".to_string())),
     }
 }

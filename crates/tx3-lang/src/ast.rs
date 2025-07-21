@@ -355,7 +355,7 @@ pub struct MetadataBlock {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct InputBlock {
     pub name: String,
-    pub is_many: bool,
+    pub many: bool,
     pub fields: Vec<InputBlockField>,
     pub span: Span,
 }
@@ -785,7 +785,7 @@ impl std::fmt::Display for Type {
             Type::UtxoRef => write!(f, "UtxoRef"),
             Type::AnyAsset => write!(f, "AnyAsset"),
             Type::Utxo => write!(f, "Utxo"),
-            Type::List(inner) => write!(f, "List<{}>", inner),
+            Type::List(inner) => write!(f, "List<{inner}>"),
             Type::Custom(id) => write!(f, "{}", id.value),
         }
     }

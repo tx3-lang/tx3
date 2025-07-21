@@ -3,7 +3,7 @@
   "txs": [
     {
       "name": {
-        "value": "mint_from_script",
+        "value": "mint_from_plutus",
         "span": {
           "dummy": false,
           "start": 18,
@@ -97,7 +97,7 @@
       "inputs": [
         {
           "name": "source",
-          "is_many": false,
+          "many": false,
           "fields": [
             {
               "From": {
@@ -321,6 +321,312 @@
         }
       ],
       "metadata": null
+    },
+    {
+      "name": {
+        "value": "mint_from_native_script",
+        "span": {
+          "dummy": false,
+          "start": 601,
+          "end": 624
+        }
+      },
+      "parameters": {
+        "parameters": [
+          {
+            "name": {
+              "value": "quantity",
+              "span": {
+                "dummy": false,
+                "start": 630,
+                "end": 638
+              }
+            },
+            "type": "Int"
+          }
+        ],
+        "span": {
+          "dummy": false,
+          "start": 624,
+          "end": 645
+        }
+      },
+      "locals": {
+        "assigns": [
+          {
+            "name": {
+              "value": "new_token",
+              "span": {
+                "dummy": false,
+                "start": 668,
+                "end": 677
+              }
+            },
+            "value": {
+              "AnyAssetConstructor": {
+                "policy": {
+                  "HexString": {
+                    "value": "bd3ae991b5aafccafe5ca70758bd36a9b2f872f57f6d3a1ffa0eb777",
+                    "span": {
+                      "dummy": false,
+                      "start": 688,
+                      "end": 746
+                    }
+                  }
+                },
+                "asset_name": {
+                  "String": {
+                    "value": "ABC",
+                    "span": {
+                      "dummy": false,
+                      "start": 748,
+                      "end": 753
+                    }
+                  }
+                },
+                "amount": {
+                  "Identifier": {
+                    "value": "quantity",
+                    "span": {
+                      "dummy": false,
+                      "start": 755,
+                      "end": 763
+                    }
+                  }
+                },
+                "span": {
+                  "dummy": false,
+                  "start": 679,
+                  "end": 764
+                }
+              }
+            },
+            "span": {
+              "dummy": false,
+              "start": 668,
+              "end": 764
+            }
+          }
+        ],
+        "span": {
+          "dummy": false,
+          "start": 652,
+          "end": 771
+        }
+      },
+      "references": [],
+      "inputs": [
+        {
+          "name": "source",
+          "many": false,
+          "fields": [
+            {
+              "From": {
+                "Identifier": {
+                  "value": "Minter",
+                  "span": {
+                    "dummy": false,
+                    "start": 806,
+                    "end": 812
+                  }
+                }
+              }
+            },
+            {
+              "MinAmount": {
+                "Identifier": {
+                  "value": "fees",
+                  "span": {
+                    "dummy": false,
+                    "start": 834,
+                    "end": 838
+                  }
+                }
+              }
+            }
+          ],
+          "span": {
+            "dummy": false,
+            "start": 777,
+            "end": 845
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": null,
+          "fields": [
+            {
+              "To": {
+                "Identifier": {
+                  "value": "Minter",
+                  "span": {
+                    "dummy": false,
+                    "start": 993,
+                    "end": 999
+                  }
+                }
+              }
+            },
+            {
+              "Amount": {
+                "SubOp": {
+                  "lhs": {
+                    "AddOp": {
+                      "lhs": {
+                        "Identifier": {
+                          "value": "source",
+                          "span": {
+                            "dummy": false,
+                            "start": 1017,
+                            "end": 1023
+                          }
+                        }
+                      },
+                      "rhs": {
+                        "Identifier": {
+                          "value": "new_token",
+                          "span": {
+                            "dummy": false,
+                            "start": 1026,
+                            "end": 1035
+                          }
+                        }
+                      },
+                      "span": {
+                        "dummy": false,
+                        "start": 1024,
+                        "end": 1025
+                      }
+                    }
+                  },
+                  "rhs": {
+                    "Identifier": {
+                      "value": "fees",
+                      "span": {
+                        "dummy": false,
+                        "start": 1038,
+                        "end": 1042
+                      }
+                    }
+                  },
+                  "span": {
+                    "dummy": false,
+                    "start": 1036,
+                    "end": 1037
+                  }
+                }
+              }
+            }
+          ],
+          "span": {
+            "dummy": false,
+            "start": 972,
+            "end": 1049
+          }
+        }
+      ],
+      "validity": null,
+      "burn": null,
+      "mints": [
+        {
+          "fields": [
+            {
+              "Amount": {
+                "Identifier": {
+                  "value": "new_token",
+                  "span": {
+                    "dummy": false,
+                    "start": 946,
+                    "end": 955
+                  }
+                }
+              }
+            }
+          ],
+          "span": {
+            "dummy": false,
+            "start": 923,
+            "end": 962
+          }
+        }
+      ],
+      "signers": null,
+      "adhoc": [
+        {
+          "Cardano": {
+            "NativeWitness": {
+              "fields": [
+                {
+                  "Script": [
+                    {
+                      "HexString": {
+                        "value": "820181820400",
+                        "span": {
+                          "dummy": false,
+                          "start": 1097,
+                          "end": 1111
+                        }
+                      }
+                    },
+                    {
+                      "dummy": false,
+                      "start": 1089,
+                      "end": 1111
+                    }
+                  ]
+                }
+              ],
+              "span": {
+                "dummy": false,
+                "start": 1064,
+                "end": 1118
+              }
+            }
+          }
+        }
+      ],
+      "span": {
+        "dummy": false,
+        "start": 598,
+        "end": 1120
+      },
+      "collateral": [
+        {
+          "fields": [
+            {
+              "From": {
+                "Identifier": {
+                  "value": "Minter",
+                  "span": {
+                    "dummy": false,
+                    "start": 878,
+                    "end": 884
+                  }
+                }
+              }
+            },
+            {
+              "MinAmount": {
+                "Identifier": {
+                  "value": "fees",
+                  "span": {
+                    "dummy": false,
+                    "start": 906,
+                    "end": 910
+                  }
+                }
+              }
+            }
+          ],
+          "span": {
+            "dummy": false,
+            "start": 851,
+            "end": 917
+          }
+        }
+      ],
+      "metadata": null
     }
   ],
   "types": [],
@@ -346,6 +652,6 @@
   "span": {
     "dummy": false,
     "start": 0,
-    "end": 597
+    "end": 1121
   }
 }

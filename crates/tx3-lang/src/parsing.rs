@@ -35,7 +35,7 @@ impl From<pest::error::Error<Rule>> for Error {
     fn from(error: pest::error::Error<Rule>) -> Self {
         match &error.variant {
             pest::error::ErrorVariant::ParsingError { positives, .. } => Error {
-                message: format!("expected {:?}", positives),
+                message: format!("expected {positives:?}"),
                 src: error.line().to_string(),
                 span: error.location.into(),
             },
@@ -520,7 +520,13 @@ impl AstNode for InputBlock {
         let span = pair.as_span().into();
         let mut inner = pair.into_inner();
 
-        let name = inner.next().unwrap().as_str().to_string();
+        let next = inner.next().unwrap();
+
+        let (many, name) = match next.as_rule() {
+            Rule::input_many => (true, inner.next().unwrap().as_str().to_string()),
+            Rule::identifier => (false, next.as_str().to_string()),
+            _ => unreachable!("Unexpected rule in input_block: {:?}", next.as_rule()),
+        };
 
         let fields = inner
             .map(|x| InputBlockField::parse(x))
@@ -528,7 +534,7 @@ impl AstNode for InputBlock {
 
         Ok(InputBlock {
             name,
-            is_many: false,
+            many,
             fields,
             span,
         })
@@ -1166,9 +1172,9 @@ impl AstNode for DataExpr {
                 Rule::unit => Ok(DataExpr::Unit),
                 Rule::identifier => DataExpr::identifier_parse(x),
                 Rule::utxo_ref => DataExpr::utxo_ref_parse(x),
-                            Rule::static_asset_constructor => DataExpr::static_asset_constructor_parse(x),
-            Rule::any_asset_constructor => DataExpr::any_asset_constructor_parse(x),
-            Rule::concat_constructor => DataExpr::concat_constructor_parse(x),
+                Rule::static_asset_constructor => DataExpr::static_asset_constructor_parse(x),
+                Rule::any_asset_constructor => DataExpr::any_asset_constructor_parse(x),
+                Rule::concat_constructor => DataExpr::concat_constructor_parse(x),
                 Rule::data_expr => DataExpr::parse(x),
                 x => unreachable!("unexpected rule as data primary: {:?}", x),
             })
@@ -1443,23 +1449,6 @@ mod tests {
     fn smoke_test_parse_string() {
         let _ = parse_string("tx swap() {}").unwrap();
     }
-
-    /*input_to_ast_check!(
-        ast::ConcatOp,
-        "basic",
-        r#"concat("hello", "world")"#,
-        ast::ConcatOp {
-            lhs: Box::new(ast::DataExpr::String(ast::StringLiteral {
-                value: "hello".to_string(),
-                span: ast::Span::DUMMY,
-            })),
-            rhs: Box::new(ast::DataExpr::String(ast::StringLiteral {
-                value: "world".to_string(),
-                span: ast::Span::DUMMY,
-            })),
-            span: ast::Span::DUMMY,
-        }
-    );*/
 
     macro_rules! input_to_ast_check {
         ($ast:ty, $name:expr, $input:expr, $expected:expr) => {
@@ -1819,6 +1808,23 @@ mod tests {
 
     input_to_ast_check!(
         DataExpr,
+        "concat_op",
+        r#"concat("hello", "world")"#,
+        DataExpr::ConcatOp(ConcatOp {
+            lhs: Box::new(ast::DataExpr::String(ast::StringLiteral {
+                value: "hello".to_string(),
+                span: ast::Span::DUMMY,
+            })),
+            rhs: Box::new(ast::DataExpr::String(ast::StringLiteral {
+                value: "world".to_string(),
+                span: ast::Span::DUMMY,
+            })),
+            span: ast::Span::DUMMY,
+        })
+    );
+
+    input_to_ast_check!(
+        DataExpr,
         "property_access",
         "subject.property",
         DataExpr::PropertyOp(PropertyOp {
@@ -2136,6 +2142,30 @@ mod tests {
                     span: Span::DUMMY,
                 },
             ],
+            span: Span::DUMMY,
+        }
+    );
+
+    input_to_ast_check!(
+        InputBlock,
+        "single",
+        r#"input source {}"#,
+        InputBlock {
+            many: false,
+            name: "source".to_string(),
+            fields: vec![],
+            span: Span::DUMMY,
+        }
+    );
+
+    input_to_ast_check!(
+        InputBlock,
+        "multiple",
+        r#"input* source {}"#,
+        InputBlock {
+            many: true,
+            name: "source".to_string(),
+            fields: vec![],
             span: Span::DUMMY,
         }
     );

@@ -106,7 +106,7 @@ impl Error {
     ) -> Self {
         Self::InvalidSymbol(InvalidSymbolError {
             expected,
-            got: format!("{:?}", got),
+            got: format!("{got:?}"),
             src: None,
             span: ast.span().clone(),
         })

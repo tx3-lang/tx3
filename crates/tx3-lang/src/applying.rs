@@ -1,15 +1,15 @@
-use std::{
-    collections::{BTreeMap, HashMap, HashSet},
-    ops::Neg,
-};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
-use crate::{ir, ArgValue, Utxo};
+use crate::{backend, ir, ArgValue, CanonicalAssets, Utxo};
 use crate::ir::Expression;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("invalid built-in operation {0:?}")]
     InvalidBuiltInOp(Box<ir::BuiltInOp>),
+
+    #[error(transparent)]
+    BackendError(#[from] backend::Error),
 
     #[error("invalid argument {0:?} for {1}")]
     InvalidArgument(ArgValue, String),
@@ -38,7 +38,7 @@ pub trait Indexable: std::fmt::Debug {
 
     fn index_or_err(&self, index: usize) -> Result<ir::Expression, Error> {
         self.index(index)
-            .ok_or(Error::PropertyIndexNotFound(index, format!("{:?}", self)))
+            .ok_or(Error::PropertyIndexNotFound(index, format!("{self:?}")))
     }
 }
 
@@ -81,12 +81,12 @@ where
     fn add(self, other: ir::Expression) -> Result<ir::Expression, Error> {
         let y = match other {
             ir::Expression::Assets(x) => CanonicalAssets::from(x),
-            ir::Expression::None => CanonicalAssets::new(),
+            ir::Expression::None => CanonicalAssets::empty(),
             other => {
                 return Err(Error::InvalidBinaryOp(
                     "add".to_string(),
-                    format!("{:?}", self),
-                    format!("{:?}", other),
+                    format!("{self:?}"),
+                    format!("{other:?}"),
                 ))
             }
         };
@@ -102,7 +102,7 @@ where
     }
 
     fn neg(self) -> Result<ir::Expression, Error> {
-        let negated = self.into().neg();
+        let negated = std::ops::Neg::neg(self.into());
         Ok(ir::Expression::Assets(negated.into()))
     }
 }
@@ -114,8 +114,8 @@ impl Arithmetic for i128 {
             ir::Expression::None => Ok(ir::Expression::Number(self)),
             _ => Err(Error::InvalidBinaryOp(
                 "add".to_string(),
-                format!("{:?}", self),
-                format!("{:?}", other),
+                format!("{self:?}"),
+                format!("{other:?}"),
             )),
         }
     }
@@ -138,8 +138,8 @@ impl Arithmetic for ir::Expression {
             ir::Expression::Assets(x) => Arithmetic::add(x, other),
             x => Err(Error::InvalidBinaryOp(
                 "add".to_string(),
-                format!("{:?}", x),
-                format!("{:?}", other),
+                format!("{x:?}"),
+                format!("{other:?}"),
             )),
         }
     }
@@ -151,8 +151,8 @@ impl Arithmetic for ir::Expression {
             ir::Expression::Assets(x) => Arithmetic::sub(x, other),
             x => Err(Error::InvalidBinaryOp(
                 "sub".to_string(),
-                format!("{:?}", x),
-                format!("{:?}", other),
+                format!("{x:?}"),
+                format!("{other:?}"),
             )),
         }
     }
@@ -162,7 +162,7 @@ impl Arithmetic for ir::Expression {
             ir::Expression::None => Ok(ir::Expression::None),
             ir::Expression::Number(x) => Arithmetic::neg(x),
             ir::Expression::Assets(x) => Arithmetic::neg(x),
-            x => Err(Error::InvalidUnaryOp("neg".to_string(), format!("{:?}", x))),
+            x => Err(Error::InvalidUnaryOp("neg".to_string(), format!("{x:?}"))),
         }
     }
 }
@@ -174,8 +174,8 @@ impl Concatenable for String {
             ir::Expression::None => Ok(ir::Expression::String(self)),
             _ => Err(Error::InvalidBinaryOp(
                 "concat".to_string(),
-                format!("String({:?})", self),
-                format!("{:?}", other),
+                format!("String({self:?})"),
+                format!("{other:?}"),
             )),
         }
     }
@@ -207,8 +207,8 @@ impl Concatenable for Vec<u8> {
             ir::Expression::None => Ok(ir::Expression::Bytes(self)),
             _ => Err(Error::InvalidBinaryOp(
                 "concat".to_string(),
-                format!("Bytes({:?})", self),
-                format!("{:?}", other),
+                format!("Bytes({self:?})"),
+                format!("{other:?}"),
             )),
         }
     }
@@ -223,8 +223,8 @@ impl Concatenable for ir::Expression {
             ir::Expression::List(x) => Concatenable::concat(x, other),
             x => Err(Error::InvalidBinaryOp(
                 "concat".to_string(),
-                format!("{:?}", x),
-                format!("{:?}", other),
+                format!("{x:?}"),
+                format!("{other:?}"),
             )),
         }
     }
@@ -240,9 +240,14 @@ impl Coerceable for ir::Expression {
         match self {
             ir::Expression::None => Ok(ir::Expression::None),
             ir::Expression::Assets(x) => Ok(ir::Expression::Assets(x)),
-            ir::Expression::UtxoSet(x) => Ok(ir::Expression::Assets(
-                x.into_iter().flat_map(|x| x.assets).collect(),
-            )),
+            ir::Expression::UtxoSet(x) => {
+                let all = x
+                    .into_iter()
+                    .map(|x| x.assets)
+                    .fold(CanonicalAssets::empty(), |acc, x| acc + x);
+
+                Ok(ir::Expression::Assets(all.into()))
+            }
             _ => Err(Error::CannotCoerceIntoAssets(self)),
         }
     }
@@ -293,7 +298,7 @@ pub trait Apply: Sized + std::fmt::Debug {
     fn reduce(self) -> Result<Self, Error>;
 }
 
-trait Composite: Sized {
+pub trait Composite: Sized {
     fn reduce_self(self) -> Result<Self, Error> {
         Ok(self)
     }
@@ -643,58 +648,6 @@ impl Composite for ir::BuiltInOp {
     }
 }
 
-type AssetClass = (Option<Vec<u8>>, Option<Vec<u8>>);
-
-struct CanonicalAssets(HashMap<AssetClass, i128>);
-
-impl CanonicalAssets {
-    fn new() -> Self {
-        Self(HashMap::new())
-    }
-}
-
-impl std::ops::Neg for CanonicalAssets {
-    type Output = Self;
-
-    fn neg(self) -> Self {
-        let mut negated = self.0;
-
-        for (_, value) in negated.iter_mut() {
-            *value = -*value;
-        }
-
-        Self(negated)
-    }
-}
-
-impl std::ops::Add for CanonicalAssets {
-    type Output = Self;
-
-    fn add(self, other: Self) -> Self {
-        let mut aggregated = self.0;
-
-        for (key, value) in other.0 {
-            *aggregated.entry(key).or_default() += value;
-        }
-
-        Self(aggregated)
-    }
-}
-
-impl std::ops::Sub for CanonicalAssets {
-    type Output = Self;
-
-    fn sub(self, other: Self) -> Self {
-        let mut aggregated = self.0;
-
-        for (key, value) in other.0 {
-            *aggregated.entry(key).or_default() -= value;
-        }
-
-        Self(aggregated)
-    }
-}
-
 impl From<ir::AssetExpr> for CanonicalAssets {
     fn from(asset: ir::AssetExpr) -> Self {
         let policy = asset.expect_constant_policy().map(|x| x.to_vec());
@@ -707,7 +660,7 @@ impl From<ir::AssetExpr> for CanonicalAssets {
 
 impl From<Vec<ir::AssetExpr>> for CanonicalAssets {
     fn from(assets: Vec<ir::AssetExpr>) -> Self {
-        let mut result = CanonicalAssets::new();
+        let mut result = CanonicalAssets::empty();
 
         for asset in assets {
             let asset = asset.into();
@@ -794,6 +747,7 @@ impl Composite for ir::InputQuery {
             address: f(self.address)?,
             min_amount: f(self.min_amount)?,
             r#ref: f(self.r#ref)?,
+            ..self
         })
     }
 }
@@ -1446,6 +1400,7 @@ mod tests {
                     "in".to_string(),
                     ir::Type::Int,
                 ))),
+                many: false,
             },
         )));
 
@@ -1466,6 +1421,7 @@ mod tests {
                 address: ir::Expression::None,
                 min_amount: ir::Expression::None,
                 r#ref: ir::Expression::Number(100),
+                many: false,
             })
         );
     }
@@ -1535,11 +1491,7 @@ mod tests {
                 r#ref: UtxoRef::new(b"abc", 0),
                 address: b"abc".to_vec(),
                 datum: None,
-                assets: vec![ir::AssetExpr {
-                    policy: ir::Expression::None,
-                    asset_name: ir::Expression::None,
-                    amount: ir::Expression::Number(300),
-                }],
+                assets: CanonicalAssets::from_naked_amount(300),
                 script: None,
             }]),
         )]);
@@ -1583,6 +1535,7 @@ mod tests {
                     amount: ir::Expression::Number(400),
                 }]),
                 r#ref: ir::Expression::None,
+                many: false,
             }
         );
     }
@@ -1746,11 +1699,7 @@ mod tests {
             r#ref: UtxoRef::new(b"abc", 1),
             address: b"abc".into(),
             datum: Some(ir::Expression::Number(1)),
-            assets: vec![ir::AssetExpr {
-                policy: ir::Expression::Bytes(b"abc".to_vec()),
-                asset_name: ir::Expression::Bytes(b"111".to_vec()),
-                amount: ir::Expression::Number(1),
-            }],
+            assets: CanonicalAssets::from_single_asset(b"abc", b"111", 1),
             script: None,
         }];
 
@@ -1762,7 +1711,7 @@ mod tests {
 
         assert_eq!(
             reduced,
-            ir::Coerce::NoOp(ir::Expression::Assets(utxos[0].assets.clone()))
+            ir::Coerce::NoOp(ir::Expression::Assets(utxos[0].assets.clone().into()))
         );
     }
 
@@ -1772,11 +1721,7 @@ mod tests {
             r#ref: UtxoRef::new(b"abc", 1),
             address: b"abc".into(),
             datum: Some(ir::Expression::Number(1)),
-            assets: vec![ir::AssetExpr {
-                policy: ir::Expression::None,
-                asset_name: ir::Expression::None,
-                amount: ir::Expression::Number(1),
-            }],
+            assets: CanonicalAssets::from_naked_amount(1),
             script: None,
         }];
 
