@@ -889,9 +889,5 @@ mod tests {
 
     test_lowering!(cardano_witness);
 
-    #[test]
-    fn test_lowering_list_concat(){
-        test_lowering_example("list_concat");
-    }
-
+    test_lowering!(list_concat);
 }
