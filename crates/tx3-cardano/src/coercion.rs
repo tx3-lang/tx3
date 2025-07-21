@@ -1,7 +1,7 @@
 use std::str::FromStr as _;
 
 use pallas::{codec::utils::Int, ledger::primitives::conway as primitives};
-use tx3_lang::backends::Error;
+use tx3_lang::backend::Error;
 use tx3_lang::ir;
 
 use crate::Network;

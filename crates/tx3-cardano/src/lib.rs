@@ -8,7 +8,7 @@ pub use pallas;
 
 use pallas::ledger::primitives;
 use pallas::ledger::traverse::ComputeHash;
-use tx3_lang::backends::TxEval;
+use tx3_lang::backend::TxEval;
 use tx3_lang::{applying, ir};
 
 #[cfg(test)]
@@ -49,8 +49,8 @@ impl Compiler {
     }
 }
 
-impl tx3_lang::backends::Compiler for Compiler {
-    fn compile(&self, tx: &tx3_lang::ir::Tx) -> Result<TxEval, tx3_lang::backends::Error> {
+impl tx3_lang::backend::Compiler for Compiler {
+    fn compile(&self, tx: &tx3_lang::ir::Tx) -> Result<TxEval, tx3_lang::backend::Error> {
         let tx = compile::entry_point(tx, &self.pparams)?;
 
         let hash = tx.transaction_body.compute_hash();
@@ -71,14 +71,14 @@ impl tx3_lang::backends::Compiler for Compiler {
         Ok(eval)
     }
 
-    fn execute(&self, op: ir::CompilerOp) -> Result<ir::Expression, tx3_lang::backends::Error> {
+    fn execute(&self, op: ir::CompilerOp) -> Result<ir::Expression, tx3_lang::backend::Error> {
         match op {
             ir::CompilerOp::BuildScriptAddress(x) => {
                 let hash: primitives::Hash<28> = coercion::expr_into_hash(&x)?;
                 let address = coercion::policy_into_address(hash.as_ref(), self.pparams.network)?;
                 Ok(ir::Expression::Address(address.to_vec()))
             }
-            _ => Err(tx3_lang::backends::Error::CantReduce(op)),
+            _ => Err(tx3_lang::backend::Error::CantReduce(op)),
         }
     }
 }

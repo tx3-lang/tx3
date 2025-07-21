@@ -3,7 +3,7 @@ use std::{
     ops::Neg,
 };
 
-use crate::{backends, ir, ArgValue, Utxo};
+use crate::{backend, ir, ArgValue, Utxo};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -11,7 +11,7 @@ pub enum Error {
     InvalidBuiltInOp(Box<ir::BuiltInOp>),
 
     #[error(transparent)]
-    BackendError(#[from] backends::Error),
+    BackendError(#[from] backend::Error),
 
     #[error("invalid argument {0:?} for {1}")]
     InvalidArgument(ArgValue, String),

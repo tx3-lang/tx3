@@ -1,5 +1,6 @@
 [package]
 name = "tx3-resolver"
+description = "Infrastructure for resolving tx3 transactions"
 publish.workspace = true
 authors.workspace = true
 edition.workspace = true

@@ -11,7 +11,7 @@ use pallas::{
     },
 };
 
-use tx3_lang::{backends::Error, ir};
+use tx3_lang::{backend::Error, ir};
 
 use crate::{
     coercion::{self, expr_into_metadatum, expr_into_number},

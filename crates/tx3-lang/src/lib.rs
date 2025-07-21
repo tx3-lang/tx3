@@ -27,7 +27,7 @@
 pub mod analyzing;
 pub mod applying;
 pub mod ast;
-pub mod backends;
+pub mod backend;
 pub mod ir;
 pub mod loading;
 pub mod lowering;

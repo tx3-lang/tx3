@@ -1,6 +1,6 @@
 use tx3_lang::{
     applying::{self, Apply as _},
-    backends::{self, Compiler, TxEval, UtxoStore},
+    backend::{self, Compiler, TxEval, UtxoStore},
     ir::{self, Node},
 };
 
@@ -11,9 +11,6 @@ pub mod mock;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("store error: {0}")]
-    StoreError(String),
-
     #[error("input query too broad")]
     InputQueryTooBroad,
 
@@ -33,7 +30,7 @@ pub enum Error {
     CantCompileNonConstantTir,
 
     #[error("backend error: {0}")]
-    BackendError(#[from] backends::Error),
+    BackendError(#[from] backend::Error),
 }
 
 async fn eval_pass<C: Compiler, S: UtxoStore>(

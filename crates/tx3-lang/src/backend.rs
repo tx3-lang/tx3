@@ -7,6 +7,9 @@ pub enum Error {
     #[error("transient error: {0}")]
     TransientError(String),
 
+    #[error("store error: {0}")]
+    StoreError(String),
+
     #[error("invalid pattern: {0}")]
     InvalidPattern(String),
 

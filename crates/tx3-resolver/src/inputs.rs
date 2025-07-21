@@ -3,7 +3,7 @@
 use std::collections::{BTreeMap, HashSet};
 use tx3_lang::{
     applying,
-    backends::{UtxoPattern, UtxoStore},
+    backend::{UtxoPattern, UtxoStore},
     ir, Utxo, UtxoRef, UtxoSet,
 };
 

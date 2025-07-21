@@ -1,10 +1,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use tx3_lang::{
-    applying,
-    backends::Compiler as _,
-    ir::{self, Node as _},
-    ArgValue, Protocol, Utxo, UtxoRef,
+    applying, backend::Compiler as _, ir::Node as _, ArgValue, Protocol, Utxo, UtxoRef,
 };
 
 use super::*;

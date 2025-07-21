@@ -7,7 +7,7 @@ pub use chainfuzz::utxos::UtxoMap;
 pub use chainfuzz::utxos::{utxo_with_random_amount, utxo_with_random_asset, UtxoGenerator};
 pub use chainfuzz::{TxoRef as FuzzTxoRef, Utxo as FuzzUtxo};
 
-use tx3_lang::backends::{Error, UtxoPattern, UtxoStore};
+use tx3_lang::backend::{Error, UtxoPattern, UtxoStore};
 use tx3_lang::{ir, Utxo, UtxoRef, UtxoSet};
 
 fn from_fuzz_utxo(txo: &chainfuzz::TxoRef, utxo: &chainfuzz::Utxo) -> Utxo {
