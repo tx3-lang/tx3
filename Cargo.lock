@@ -267,7 +267,7 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "chainfuzz"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "hex",
  "rand 0.9.1",
@@ -276,9 +276,9 @@ dependencies = [
 
 [[package]]
 name = "chainfuzz"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c6c7291c6f2d61e9564491b63c58b385c80d905f0e9449c2638bd8ca16156815"
+checksum = "650703d7bb56fef255f152591840a628f2264aaa5551fb56ddfadb645aede316"
 dependencies = [
  "hex",
  "rand 0.9.1",
@@ -2078,7 +2078,7 @@ version = "0.9.0"
 dependencies = [
  "assert-json-diff",
  "bincode",
- "chainfuzz 0.1.0",
+ "chainfuzz 0.2.0",
  "hex",
  "miette",
  "paste",
@@ -2095,7 +2095,7 @@ dependencies = [
 name = "tx3-resolver"
 version = "0.9.0"
 dependencies = [
- "chainfuzz 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "chainfuzz 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "pollster",
  "thiserror 2.0.11",
  "trait-variant",

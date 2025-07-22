@@ -32,7 +32,8 @@
                 "EvalParam": "ExpectFees"
               },
               "ref": "None",
-              "many": false
+              "many": false,
+              "collateral": false
             }
           ]
         }

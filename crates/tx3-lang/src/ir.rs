@@ -142,6 +142,7 @@ impl ScriptSource {
                             min_amount: Expression::None,
                             many: false,
                             r#ref,
+                            collateral: false,
                         },
                     )
                     .into(),
@@ -295,6 +296,7 @@ pub struct InputQuery {
     pub min_amount: Expression,
     pub r#ref: Expression,
     pub many: bool,
+    pub collateral: bool,
 }
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]

@@ -197,9 +197,11 @@ async fn smoke_test_vesting_unlock() {
 
     let tx = test_compile(tx.into(), &mut compiler, utxos);
 
+    println!("{}", hex::encode(tx.payload));
+
     assert_eq!(
         hex::encode(tx.hash),
-        "25d3d58935f885f14ff9af81864a4838ef7207c9d49701d94fae21e1e3ae6cbd"
+        "d8feb5dc4336240f98b82d4c3c1039bb1503c98f671bf2e2980f28ddc1aa81fa"
     );
 }
 

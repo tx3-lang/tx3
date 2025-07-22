@@ -36,7 +36,8 @@
                 ]
               },
               "ref": "None",
-              "many": false
+              "many": false,
+              "collateral": false
             }
           ]
         }
@@ -178,7 +179,8 @@
                                 ]
                               },
                               "ref": "None",
-                              "many": false
+                              "many": false,
+                              "collateral": false
                             }
                           ]
                         }

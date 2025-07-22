@@ -23,7 +23,8 @@
                 "EvalParam": "ExpectFees"
               },
               "ref": "None",
-              "many": false
+              "many": false,
+              "collateral": false
             }
           ]
         }
@@ -67,7 +68,8 @@
                                 "EvalParam": "ExpectFees"
                               },
                               "ref": "None",
-                              "many": false
+                              "many": false,
+                              "collateral": false
                             }
                           ]
                         }
@@ -226,7 +228,8 @@
                 "EvalParam": "ExpectFees"
               },
               "ref": "None",
-              "many": false
+              "many": false,
+              "collateral": true
             }
           ]
         }

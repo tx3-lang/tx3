@@ -535,6 +535,7 @@ impl IntoLower for ast::InputBlock {
             min_amount: min_amount.unwrap_or(ir::Expression::None),
             r#ref: r#ref.unwrap_or(ir::Expression::None),
             many: self.many,
+            collateral: false,
         };
 
         let param = ir::Param::ExpectInput(self.name.to_lowercase().clone(), query);
@@ -702,6 +703,7 @@ impl IntoLower for ast::CollateralBlock {
             min_amount: min_amount.unwrap_or(ir::Expression::None),
             r#ref: r#ref.unwrap_or(ir::Expression::None),
             many: false,
+            collateral: true,
         };
 
         let param = ir::Param::ExpectInput("collateral".to_string(), query);
