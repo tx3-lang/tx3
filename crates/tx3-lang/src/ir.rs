@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{Utxo, UtxoRef};
 
-pub const IR_VERSION: &str = "v1alpha7";
+pub const IR_VERSION: &str = "v1alpha8";
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct StructExpr {
