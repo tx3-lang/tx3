@@ -9,7 +9,7 @@ pub use pallas;
 use pallas::ledger::primitives;
 use pallas::ledger::traverse::ComputeHash;
 use tx3_lang::backend::TxEval;
-use tx3_lang::{applying, ir};
+use tx3_lang::ir;
 
 #[cfg(test)]
 pub mod tests;
@@ -33,7 +33,7 @@ pub const EXECUTION_UNITS: primitives::ExUnits = primitives::ExUnits {
 
 const DEFAULT_EXTRA_FEES: u64 = 200_000;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Config {
     pub extra_fees: Option<u64>,
 }
@@ -78,7 +78,6 @@ impl tx3_lang::backend::Compiler for Compiler {
                 let address = coercion::policy_into_address(hash.as_ref(), self.pparams.network)?;
                 Ok(ir::Expression::Address(address.to_vec()))
             }
-            _ => Err(tx3_lang::backend::Error::CantReduce(op)),
         }
     }
 }

@@ -216,7 +216,7 @@ fn compile_mint_block(tx: &ir::Tx) -> Result<Option<primitives::Mint>, Error> {
     let burns = asset_math::aggregate_assets(burns);
 
     let all = match (mints, burns) {
-        (Some(mints), Some(burns)) => asset_math::aggregate_assets([mints, burns].into_iter()),
+        (Some(mints), Some(burns)) => asset_math::aggregate_assets([mints, burns]),
         (Some(mints), None) => Some(mints),
         (None, Some(burns)) => Some(burns),
         (None, None) => None,
@@ -662,7 +662,7 @@ fn infer_required_scripts(
 
     // TODO: other sources for scripts
 
-    let all_scripts = HashSet::from_iter(mint_policies.into_iter());
+    let all_scripts = HashSet::from_iter(mint_policies);
 
     // TODO: remove if script is already present via reference inputs
 

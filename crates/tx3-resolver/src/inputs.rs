@@ -161,7 +161,7 @@ impl<'a, S: UtxoStore> InputSelector<'a, S> {
 
         let utxos = self
             .store
-            .narrow_refs(UtxoPattern::by_address(&address))
+            .narrow_refs(UtxoPattern::by_address(address))
             .await?;
 
         Ok(Subset::Specific(utxos.into_iter().collect()))
@@ -185,7 +185,7 @@ impl<'a, S: UtxoStore> InputSelector<'a, S> {
 
         let utxos = self
             .store
-            .narrow_refs(UtxoPattern::by_asset(&policy_bytes, &name_bytes))
+            .narrow_refs(UtxoPattern::by_asset(policy_bytes, name_bytes))
             .await?;
 
         Ok(Subset::Specific(utxos.into_iter().collect()))
@@ -197,7 +197,7 @@ impl<'a, S: UtxoStore> InputSelector<'a, S> {
         let mut matches = Subset::All;
 
         for asset in assets {
-            let next = self.narrow_by_asset_presence(&asset).await?;
+            let next = self.narrow_by_asset_presence(asset).await?;
             matches = Subset::intersection(matches, next);
         }
 
@@ -207,7 +207,7 @@ impl<'a, S: UtxoStore> InputSelector<'a, S> {
     fn narrow_by_ref(&self, expr: &ir::Expression) -> Result<Subset, Error> {
         let refs = data_or_bail!(expr, utxo_refs);
 
-        let refs = HashSet::from_iter(refs.into_iter().cloned());
+        let refs = HashSet::from_iter(refs.iter().cloned());
 
         Ok(Subset::Specific(refs))
     }

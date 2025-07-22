@@ -13,7 +13,7 @@ homepage.workspace = true
 readme.workspace = true
 
 [dependencies]
-tx3-lang = { version = "0.9.0", path = "../tx3-lang" }
+tx3-lang = { version = "0.10.0", path = "../tx3-lang" }
 
 thiserror = { workspace = true }
 trait-variant = { workspace = true }

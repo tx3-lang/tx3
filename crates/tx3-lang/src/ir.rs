@@ -526,7 +526,6 @@ impl Node for Output {
             address: self.address.apply(visitor)?,
             datum: self.datum.apply(visitor)?,
             amount: self.amount.apply(visitor)?,
-            ..self
         };
 
         Ok(visited)
@@ -538,7 +537,6 @@ impl Node for Validity {
         let visited = Self {
             since: self.since.apply(visitor)?,
             until: self.until.apply(visitor)?,
-            ..self
         };
 
         Ok(visited)
@@ -550,7 +548,6 @@ impl Node for Mint {
         let visited = Self {
             amount: self.amount.apply(visitor)?,
             redeemer: self.redeemer.apply(visitor)?,
-            ..self
         };
 
         Ok(visited)
@@ -561,7 +558,6 @@ impl Node for Collateral {
     fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::applying::Error> {
         let visited = Self {
             utxos: self.utxos.apply(visitor)?,
-            ..self
         };
 
         Ok(visited)
@@ -573,7 +569,6 @@ impl Node for Metadata {
         let visited = Self {
             key: self.key.apply(visitor)?,
             value: self.value.apply(visitor)?,
-            ..self
         };
 
         Ok(visited)
@@ -584,7 +579,6 @@ impl Node for Signers {
     fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::applying::Error> {
         let visited = Self {
             signers: self.signers.apply(visitor)?,
-            ..self
         };
 
         Ok(visited)

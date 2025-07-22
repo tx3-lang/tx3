@@ -46,7 +46,7 @@ async fn eval_pass<C: Compiler, S: UtxoStore>(
 
     let attempt = applying::reduce(attempt)?;
 
-    let attempt = crate::inputs::resolve(attempt.into(), utxos).await?;
+    let attempt = crate::inputs::resolve(attempt, utxos).await?;
 
     let attempt = tx3_lang::ProtoTx::from(attempt);
 
