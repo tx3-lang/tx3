@@ -21,7 +21,8 @@
               },
               "min_amount": "None",
               "ref": "None",
-              "many": false
+              "many": false,
+              "collateral": false
             }
           ]
         }
@@ -83,7 +84,8 @@
                 }
               },
               "ref": "None",
-              "many": false
+              "many": false,
+              "collateral": false
             }
           ]
         }
@@ -128,7 +130,8 @@
                                     },
                                     "min_amount": "None",
                                     "ref": "None",
-                                    "many": false
+                                    "many": false,
+                                    "collateral": false
                                   }
                                 ]
                               }
@@ -180,7 +183,8 @@
                                     },
                                     "min_amount": "None",
                                     "ref": "None",
-                                    "many": false
+                                    "many": false,
+                                    "collateral": false
                                   }
                                 ]
                               }
@@ -229,7 +233,8 @@
                   },
                   "min_amount": "None",
                   "ref": "None",
-                  "many": false
+                  "many": false,
+                  "collateral": false
                 }
               ]
             }
@@ -289,7 +294,8 @@
                                       }
                                     },
                                     "ref": "None",
-                                    "many": false
+                                    "many": false,
+                                    "collateral": false
                                   }
                                 ]
                               }

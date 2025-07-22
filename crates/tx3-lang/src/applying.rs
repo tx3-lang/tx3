@@ -633,11 +633,11 @@ impl Composite for ir::BuiltInOp {
 
 impl From<ir::AssetExpr> for CanonicalAssets {
     fn from(asset: ir::AssetExpr) -> Self {
-        let policy = asset.expect_constant_policy().map(|x| x.to_vec());
-        let asset_name = asset.expect_constant_name().map(|x| x.to_vec());
+        let policy = asset.expect_constant_policy();
+        let name = asset.expect_constant_name();
         let amount = asset.expect_constant_amount();
 
-        Self(HashMap::from([((policy, asset_name), amount)]))
+        Self::from_asset(policy, name, amount)
     }
 }
 
@@ -658,13 +658,15 @@ impl From<CanonicalAssets> for Vec<ir::AssetExpr> {
     fn from(assets: CanonicalAssets) -> Self {
         let mut result = Vec::new();
 
-        for ((policy, asset_name), amount) in assets.0.into_iter() {
+        for (class, amount) in assets.0.into_iter() {
             result.push(ir::AssetExpr {
-                policy: policy
-                    .map(ir::Expression::Bytes)
+                policy: class
+                    .policy()
+                    .map(|x| ir::Expression::Bytes(x.to_vec()))
                     .unwrap_or(ir::Expression::None),
-                asset_name: asset_name
-                    .map(ir::Expression::Bytes)
+                asset_name: class
+                    .name()
+                    .map(|x| ir::Expression::Bytes(x.to_vec()))
                     .unwrap_or(ir::Expression::None),
                 amount: ir::Expression::Number(amount),
             });
@@ -1391,6 +1393,7 @@ mod tests {
                     ir::Type::Int,
                 ))),
                 many: false,
+                collateral: false,
             },
         )));
 
@@ -1412,6 +1415,7 @@ mod tests {
                 min_amount: ir::Expression::None,
                 r#ref: ir::Expression::Number(100),
                 many: false,
+                collateral: false,
             })
         );
     }
@@ -1526,6 +1530,7 @@ mod tests {
                 }]),
                 r#ref: ir::Expression::None,
                 many: false,
+                collateral: false,
             }
         );
     }
@@ -1689,7 +1694,7 @@ mod tests {
             r#ref: UtxoRef::new(b"abc", 1),
             address: b"abc".into(),
             datum: Some(ir::Expression::Number(1)),
-            assets: CanonicalAssets::from_single_asset(b"abc", b"111", 1),
+            assets: CanonicalAssets::from_defined_asset(b"abc", b"111", 1),
             script: None,
         }];
 

@@ -23,7 +23,8 @@
                 "EvalParam": "ExpectFees"
               },
               "ref": "None",
-              "many": false
+              "many": false,
+              "collateral": false
             }
           ]
         }
@@ -82,7 +83,8 @@
                   ]
                 }
               },
-              "many": false
+              "many": false,
+              "collateral": false
             }
           ]
         }
@@ -131,7 +133,8 @@
                                 "EvalParam": "ExpectFees"
                               },
                               "ref": "None",
-                              "many": false
+                              "many": false,
+                              "collateral": false
                             }
                           ]
                         }
@@ -190,7 +193,8 @@
                                   ]
                                 }
                               },
-                              "many": false
+                              "many": false,
+                              "collateral": false
                             }
                           ]
                         }
@@ -212,7 +216,33 @@
   "mints": [],
   "burns": [],
   "adhoc": [],
-  "collateral": [],
+  "collateral": [
+    {
+      "utxos": {
+        "EvalParam": {
+          "ExpectInput": [
+            "collateral",
+            {
+              "address": {
+                "EvalParam": {
+                  "ExpectValue": [
+                    "beneficiary",
+                    "Address"
+                  ]
+                }
+              },
+              "min_amount": {
+                "EvalParam": "ExpectFees"
+              },
+              "ref": "None",
+              "many": false,
+              "collateral": true
+            }
+          ]
+        }
+      }
+    }
+  ],
   "signers": null,
   "metadata": []
 }
