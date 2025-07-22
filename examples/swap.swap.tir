@@ -20,7 +20,9 @@
                 }
               },
               "min_amount": "None",
-              "ref": "None"
+              "ref": "None",
+              "many": false,
+              "collateral": false
             }
           ]
         }
@@ -47,8 +49,7 @@
             }
           ]
         }
-      },
-      "policy": null
+      }
     },
     {
       "name": "payment",
@@ -82,13 +83,14 @@
                   ]
                 }
               },
-              "ref": "None"
+              "ref": "None",
+              "many": false,
+              "collateral": false
             }
           ]
         }
       },
-      "redeemer": "None",
-      "policy": null
+      "redeemer": "None"
     }
   ],
   "outputs": [
@@ -127,7 +129,9 @@
                                       }
                                     },
                                     "min_amount": "None",
-                                    "ref": "None"
+                                    "ref": "None",
+                                    "many": false,
+                                    "collateral": false
                                   }
                                 ]
                               }
@@ -178,7 +182,9 @@
                                       }
                                     },
                                     "min_amount": "None",
-                                    "ref": "None"
+                                    "ref": "None",
+                                    "many": false,
+                                    "collateral": false
                                   }
                                 ]
                               }
@@ -226,7 +232,9 @@
                     }
                   },
                   "min_amount": "None",
-                  "ref": "None"
+                  "ref": "None",
+                  "many": false,
+                  "collateral": false
                 }
               ]
             }
@@ -285,7 +293,9 @@
                                         ]
                                       }
                                     },
-                                    "ref": "None"
+                                    "ref": "None",
+                                    "many": false,
+                                    "collateral": false
                                   }
                                 ]
                               }
@@ -324,6 +334,7 @@
   ],
   "validity": null,
   "mints": [],
+  "burns": [],
   "adhoc": [],
   "collateral": [],
   "signers": null,

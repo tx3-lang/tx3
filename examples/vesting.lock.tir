@@ -35,13 +35,14 @@
                   }
                 ]
               },
-              "ref": "None"
+              "ref": "None",
+              "many": false,
+              "collateral": false
             }
           ]
         }
       },
-      "redeemer": "None",
-      "policy": null
+      "redeemer": "None"
     }
   ],
   "outputs": [
@@ -177,7 +178,9 @@
                                   }
                                 ]
                               },
-                              "ref": "None"
+                              "ref": "None",
+                              "many": false,
+                              "collateral": false
                             }
                           ]
                         }
@@ -213,6 +216,7 @@
   ],
   "validity": null,
   "mints": [],
+  "burns": [],
   "adhoc": [],
   "collateral": [],
   "signers": null,

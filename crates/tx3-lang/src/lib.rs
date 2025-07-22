@@ -27,6 +27,7 @@
 pub mod analyzing;
 pub mod applying;
 pub mod ast;
+pub mod backend;
 pub mod ir;
 pub mod loading;
 pub mod lowering;
@@ -57,12 +58,177 @@ impl UtxoRef {
     }
 }
 
+pub type AssetPolicy = Vec<u8>;
+pub type AssetName = Vec<u8>;
+
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
+pub enum AssetClass {
+    Naked,
+    Named(AssetName),
+    Defined(AssetPolicy, AssetName),
+}
+
+impl AssetClass {
+    pub fn is_defined(&self) -> bool {
+        matches!(self, AssetClass::Defined(_, _))
+    }
+
+    pub fn is_named(&self) -> bool {
+        matches!(self, AssetClass::Named(_))
+    }
+
+    pub fn is_naked(&self) -> bool {
+        matches!(self, AssetClass::Naked)
+    }
+
+    pub fn policy(&self) -> Option<&[u8]> {
+        match self {
+            AssetClass::Defined(policy, _) => Some(policy),
+            _ => None,
+        }
+    }
+
+    pub fn name(&self) -> Option<&[u8]> {
+        match self {
+            AssetClass::Defined(_, name) => Some(name),
+            AssetClass::Named(name) => Some(name),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct CanonicalAssets(HashMap<AssetClass, i128>);
+
+impl std::ops::Deref for CanonicalAssets {
+    type Target = HashMap<AssetClass, i128>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl CanonicalAssets {
+    pub fn empty() -> Self {
+        Self(HashMap::new())
+    }
+
+    pub fn from_naked_amount(amount: i128) -> Self {
+        Self(HashMap::from([(AssetClass::Naked, amount)]))
+    }
+
+    pub fn from_named_asset(asset_name: &[u8], amount: i128) -> Self {
+        Self(HashMap::from([(
+            AssetClass::Named(asset_name.to_vec()),
+            amount,
+        )]))
+    }
+
+    pub fn from_defined_asset(policy: &[u8], asset_name: &[u8], amount: i128) -> Self {
+        Self(HashMap::from([(
+            AssetClass::Defined(policy.to_vec(), asset_name.to_vec()),
+            amount,
+        )]))
+    }
+
+    pub fn from_asset(policy: Option<&[u8]>, name: Option<&[u8]>, amount: i128) -> Self {
+        match (policy, name) {
+            (Some(policy), Some(name)) => Self::from_defined_asset(policy, name, amount),
+            (Some(policy), None) => Self::from_defined_asset(policy, &[], amount),
+            (None, Some(name)) => Self::from_named_asset(name, amount),
+            (None, None) => Self::from_naked_amount(amount),
+        }
+    }
+
+    pub fn naked_amount(&self) -> Option<i128> {
+        self.get(&AssetClass::Naked).cloned()
+    }
+
+    pub fn contains_total(&self, other: &Self) -> bool {
+        for (class, amount) in other.iter() {
+            let Some(self_amount) = self.get(class) else {
+                return false;
+            };
+
+            if self_amount < amount {
+                return false;
+            }
+        }
+
+        true
+    }
+
+    pub fn contains_some(&self, other: &Self) -> bool {
+        for (class, _) in other.iter() {
+            if let Some(self_amount) = self.get(class) {
+                if *self_amount > 0 {
+                    return true;
+                }
+            }
+        }
+
+        false
+    }
+
+    pub fn is_empty_or_negative(&self) -> bool {
+        for (_, value) in self.iter() {
+            if *value > 0 {
+                return false;
+            }
+        }
+
+        true
+    }
+}
+
+impl std::ops::Neg for CanonicalAssets {
+    type Output = Self;
+
+    fn neg(self) -> Self {
+        let mut negated = self.0;
+
+        for (_, value) in negated.iter_mut() {
+            *value = -*value;
+        }
+
+        Self(negated)
+    }
+}
+
+impl std::ops::Add for CanonicalAssets {
+    type Output = Self;
+
+    fn add(self, other: Self) -> Self {
+        let mut aggregated = self.0;
+
+        for (key, value) in other.0 {
+            *aggregated.entry(key).or_default() += value;
+        }
+
+        Self(aggregated)
+    }
+}
+
+impl std::ops::Sub for CanonicalAssets {
+    type Output = Self;
+
+    fn sub(self, other: Self) -> Self {
+        let mut aggregated = self.0;
+
+        for (key, value) in other.0 {
+            *aggregated.entry(key).or_default() -= value;
+        }
+
+        Self(aggregated)
+    }
+}
+
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]
 pub struct Utxo {
     pub r#ref: UtxoRef,
     pub address: Vec<u8>,
     pub datum: Option<ir::Expression>,
-    pub assets: Vec<ir::AssetExpr>,
+    pub assets: CanonicalAssets,
     pub script: Option<ir::Expression>,
 }
 
@@ -170,7 +336,7 @@ impl Protocol {
     }
 }
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 pub use applying::{apply_args, apply_fees, apply_inputs, find_params, find_queries, reduce};
 use bincode::{Decode, Encode};
@@ -192,6 +358,12 @@ impl From<ir::Tx> for ProtoTx {
             inputs: std::collections::BTreeMap::new(),
             fees: None,
         }
+    }
+}
+
+impl From<ProtoTx> for ir::Tx {
+    fn from(tx: ProtoTx) -> Self {
+        tx.ir
     }
 }
 
@@ -298,11 +470,7 @@ mod tests {
                 },
                 address: b"abababa".to_vec(),
                 datum: None,
-                assets: vec![ir::AssetExpr {
-                    policy: ir::Expression::Bytes(b"abababa".to_vec()),
-                    asset_name: ir::Expression::Bytes(b"asset".to_vec()),
-                    amount: ir::Expression::Number(100),
-                }],
+                assets: CanonicalAssets::from_defined_asset(b"abababa", b"asset", 100),
                 script: Some(ir::Expression::Bytes(b"abce".to_vec())),
             }]),
         );

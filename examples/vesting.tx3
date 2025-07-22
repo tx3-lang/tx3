@@ -49,6 +49,11 @@ tx unlock(
         redeemer: (),
     }
 
+    collateral {
+        from: Beneficiary,
+        min_amount: fees,
+    }
+
     output target {
         to: Beneficiary,
         amount: gas + locked - fees,

@@ -35,7 +35,7 @@ impl From<pest::error::Error<Rule>> for Error {
     fn from(error: pest::error::Error<Rule>) -> Self {
         match &error.variant {
             pest::error::ErrorVariant::ParsingError { positives, .. } => Error {
-                message: format!("expected {:?}", positives),
+                message: format!("expected {positives:?}"),
                 src: error.line().to_string(),
                 span: error.location.into(),
             },
@@ -197,7 +197,7 @@ impl AstNode for TxDef {
         let mut inputs = Vec::new();
         let mut outputs = Vec::new();
         let mut validity = None;
-        let mut burn = None;
+        let mut burns = Vec::new();
         let mut mints = Vec::new();
         let mut adhoc = Vec::new();
         let mut collateral = Vec::new();
@@ -211,8 +211,8 @@ impl AstNode for TxDef {
                 Rule::input_block => inputs.push(InputBlock::parse(item)?),
                 Rule::output_block => outputs.push(OutputBlock::parse(item)?),
                 Rule::validity_block => validity = Some(ValidityBlock::parse(item)?),
-                Rule::burn_block => burn = Some(BurnBlock::parse(item)?),
                 Rule::mint_block => mints.push(MintBlock::parse(item)?),
+                Rule::burn_block => burns.push(MintBlock::parse(item)?),
                 Rule::chain_specific_block => adhoc.push(ChainSpecificBlock::parse(item)?),
                 Rule::collateral_block => collateral.push(CollateralBlock::parse(item)?),
                 Rule::signers_block => signers = Some(SignersBlock::parse(item)?),
@@ -229,8 +229,8 @@ impl AstNode for TxDef {
             inputs,
             outputs,
             validity,
-            burn,
             mints,
+            burns,
             signers,
             adhoc,
             scope: None,
@@ -520,7 +520,13 @@ impl AstNode for InputBlock {
         let span = pair.as_span().into();
         let mut inner = pair.into_inner();
 
-        let name = inner.next().unwrap().as_str().to_string();
+        let next = inner.next().unwrap();
+
+        let (many, name) = match next.as_rule() {
+            Rule::input_many => (true, inner.next().unwrap().as_str().to_string()),
+            Rule::identifier => (false, next.as_str().to_string()),
+            _ => unreachable!("Unexpected rule in input_block: {:?}", next.as_rule()),
+        };
 
         let fields = inner
             .map(|x| InputBlockField::parse(x))
@@ -528,7 +534,7 @@ impl AstNode for InputBlock {
 
         Ok(InputBlock {
             name,
-            is_many: false,
+            many,
             fields,
             span,
         })
@@ -709,25 +715,6 @@ impl AstNode for MintBlock {
     }
 }
 
-impl AstNode for BurnBlock {
-    const RULE: Rule = Rule::burn_block;
-
-    fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
-        let span = pair.as_span().into();
-        let inner = pair.into_inner();
-
-        let fields = inner
-            .map(|x| MintBlockField::parse(x))
-            .collect::<Result<Vec<_>, _>>()?;
-
-        Ok(BurnBlock { fields, span })
-    }
-
-    fn span(&self) -> &Span {
-        &self.span
-    }
-}
-
 impl AstNode for RecordField {
     const RULE: Rule = Rule::record_field;
 
@@ -872,6 +859,28 @@ impl AstNode for AnyAssetConstructor {
             policy: Box::new(policy),
             asset_name: Box::new(asset_name),
             amount: Box::new(amount),
+            span,
+        })
+    }
+
+    fn span(&self) -> &Span {
+        &self.span
+    }
+}
+
+impl AstNode for ConcatOp {
+    const RULE: Rule = Rule::concat_constructor;
+
+    fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
+        let span = pair.as_span().into();
+        let mut inner = pair.into_inner();
+
+        let lhs = DataExpr::parse(inner.next().unwrap())?;
+        let rhs = DataExpr::parse(inner.next().unwrap())?;
+
+        Ok(ConcatOp {
+            lhs: Box::new(lhs),
+            rhs: Box::new(rhs),
             span,
         })
     }
@@ -1076,6 +1085,10 @@ impl DataExpr {
         )?))
     }
 
+    fn concat_constructor_parse(pair: Pair<Rule>) -> Result<Self, Error> {
+        Ok(DataExpr::ConcatOp(ConcatOp::parse(pair)?))
+    }
+
     fn negate_op_parse(pair: Pair<Rule>, right: DataExpr) -> Result<Self, Error> {
         Ok(DataExpr::NegateOp(NegateOp {
             operand: Box::new(right),
@@ -1142,6 +1155,7 @@ impl AstNode for DataExpr {
                 Rule::utxo_ref => DataExpr::utxo_ref_parse(x),
                 Rule::static_asset_constructor => DataExpr::static_asset_constructor_parse(x),
                 Rule::any_asset_constructor => DataExpr::any_asset_constructor_parse(x),
+                Rule::concat_constructor => DataExpr::concat_constructor_parse(x),
                 Rule::data_expr => DataExpr::parse(x),
                 x => unreachable!("unexpected rule as data primary: {:?}", x),
             })
@@ -1176,6 +1190,7 @@ impl AstNode for DataExpr {
             DataExpr::Identifier(x) => x.span(),
             DataExpr::AddOp(x) => &x.span,
             DataExpr::SubOp(x) => &x.span,
+            DataExpr::ConcatOp(x) => &x.span,
             DataExpr::NegateOp(x) => &x.span,
             DataExpr::PropertyOp(x) => &x.span,
             DataExpr::UtxoRef(x) => x.span(),
@@ -1406,6 +1421,7 @@ pub fn parse_well_known_example(example: &str) -> Program {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ast;
     use assert_json_diff::assert_json_eq;
     use paste::paste;
     use pest::Parser;
@@ -1773,6 +1789,23 @@ mod tests {
 
     input_to_ast_check!(
         DataExpr,
+        "concat_op",
+        r#"concat("hello", "world")"#,
+        DataExpr::ConcatOp(ConcatOp {
+            lhs: Box::new(ast::DataExpr::String(ast::StringLiteral {
+                value: "hello".to_string(),
+                span: ast::Span::DUMMY,
+            })),
+            rhs: Box::new(ast::DataExpr::String(ast::StringLiteral {
+                value: "world".to_string(),
+                span: ast::Span::DUMMY,
+            })),
+            span: ast::Span::DUMMY,
+        })
+    );
+
+    input_to_ast_check!(
+        DataExpr,
         "property_access",
         "subject.property",
         DataExpr::PropertyOp(PropertyOp {
@@ -2095,6 +2128,30 @@ mod tests {
     );
 
     input_to_ast_check!(
+        InputBlock,
+        "single",
+        r#"input source {}"#,
+        InputBlock {
+            many: false,
+            name: "source".to_string(),
+            fields: vec![],
+            span: Span::DUMMY,
+        }
+    );
+
+    input_to_ast_check!(
+        InputBlock,
+        "multiple",
+        r#"input* source {}"#,
+        InputBlock {
+            many: true,
+            name: "source".to_string(),
+            fields: vec![],
+            span: Span::DUMMY,
+        }
+    );
+
+    input_to_ast_check!(
         OutputBlock,
         "output_block_anonymous",
         r#"output {
@@ -2174,8 +2231,8 @@ mod tests {
             inputs: vec![],
             outputs: vec![],
             validity: None,
-            burn: None,
             mints: vec![],
+            burns: vec![],
             signers: None,
             adhoc: vec![],
             collateral: vec![],
@@ -2209,8 +2266,8 @@ mod tests {
             inputs: vec![],
             outputs: vec![],
             validity: None,
-            burn: None,
             mints: vec![],
+            burns: vec![],
             signers: None,
             adhoc: vec![],
             collateral: vec![],
@@ -2241,8 +2298,8 @@ mod tests {
                 inputs: vec![],
                 outputs: vec![],
                 validity: None,
-                burn: None,
                 mints: vec![],
+                burns: vec![],
                 signers: None,
                 adhoc: vec![],
                 collateral: vec![],
@@ -2327,4 +2384,6 @@ mod tests {
     test_parsing!(local_vars);
 
     test_parsing!(cardano_witness);
+
+    test_parsing!(burn);
 }

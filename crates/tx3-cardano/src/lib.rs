@@ -2,98 +2,17 @@ use std::collections::HashMap;
 
 pub mod coercion;
 pub mod compile;
-pub mod ledgers;
-pub mod resolve;
 
 // Re-export pallas for upstream users
 pub use pallas;
 
-#[derive(Debug, thiserror::Error)]
-pub enum Error {
-    #[error("error coercing {0} into {1}")]
-    CoerceError(String, String),
+use pallas::ledger::primitives;
+use pallas::ledger::traverse::ComputeHash;
+use tx3_lang::backend::TxEval;
+use tx3_lang::ir;
 
-    #[error("invalid asset expression '{0}'")]
-    InvalidAssetExpression(String),
-
-    #[error("missing address")]
-    MissingAddress,
-
-    #[error("invalid address expression '{0}'")]
-    InvalidAddressExpression(String),
-
-    #[error("ledger internal error: {0}")]
-    LedgerInternalError(String),
-
-    #[error("tx '{0}' not found")]
-    TxNotFound(String),
-
-    #[error("definition '{0}' not found")]
-    DefinitionNotFound(String),
-
-    #[error("party '{0}' not assigned")]
-    PartyNotAssigned(String),
-
-    #[error("arg '{0}' not assigned")]
-    ArgNotAssigned(String),
-
-    #[error("invalid address")]
-    InvalidAddress(#[from] pallas::ledger::addresses::Error),
-
-    #[error("no stake account found")]
-    NoStakeAccount,
-
-    #[error("mapping error {0}")]
-    MappingError(String),
-
-    #[error("missing input utxo")]
-    MissingInputUtxo,
-
-    #[error("missing amount")]
-    MissingAmount,
-
-    #[error("missing asset name")]
-    MissingAssetName,
-
-    #[error("missing asset")]
-    MissingAsset,
-
-    #[error("missing minting policy")]
-    MissingMintingPolicy,
-
-    #[error("missing withdrawal")]
-    MissingWithdrawal,
-
-    #[error("missing redeemer")]
-    MissingRedeemer,
-
-    #[error("input query too broad")]
-    InputQueryTooBroad,
-
-    #[error("asset value too high")]
-    AssetValueTooHigh,
-
-    #[error("outputs too high")]
-    OutputsTooHigh,
-
-    #[error("error applying tx values")]
-    ApplyError(#[from] tx3_lang::applying::Error),
-
-    #[error("no AST analysis performed")]
-    NoAstAnalysis,
-
-    #[error("inputs for '{0}' not resolved, query: {1:?}")]
-    InputsNotResolved(String, Box<tx3_lang::ir::InputQuery>),
-
-    #[error("can't resolve symbol '{0:?}'")]
-    CantResolveSymbol(Box<tx3_lang::ast::Symbol>),
-
-    #[error("max optimize rounds reached")]
-    MaxOptimizeRoundsReached,
-
-    #[error("can't compile non-constant TIR")]
-    CantCompileNonConstantTir,
-}
+#[cfg(test)]
+pub mod tests;
 
 pub type Network = pallas::ledger::primitives::NetworkId;
 pub type PlutusVersion = u8;
@@ -107,12 +26,64 @@ pub struct PParams {
     pub cost_models: HashMap<PlutusVersion, CostModel>,
 }
 
-pub use compile::compile_tx;
-use pallas::ledger::primitives;
-pub use resolve::resolve_tx;
-pub use resolve::Ledger;
-
 pub const EXECUTION_UNITS: primitives::ExUnits = primitives::ExUnits {
     mem: 2000000,
     steps: 2000000000,
 };
+
+const DEFAULT_EXTRA_FEES: u64 = 200_000;
+
+#[derive(Debug, Clone, Default)]
+pub struct Config {
+    pub extra_fees: Option<u64>,
+}
+
+pub struct Compiler {
+    pub pparams: PParams,
+    pub config: Config,
+}
+
+impl Compiler {
+    pub fn new(pparams: PParams, config: Config) -> Self {
+        Self { pparams, config }
+    }
+}
+
+impl tx3_lang::backend::Compiler for Compiler {
+    fn compile(&self, tx: &tx3_lang::ir::Tx) -> Result<TxEval, tx3_lang::backend::Error> {
+        let tx = compile::entry_point(tx, &self.pparams)?;
+
+        let hash = tx.transaction_body.compute_hash();
+
+        let payload = pallas::codec::minicbor::to_vec(&tx).unwrap();
+
+        let size_fees = eval_size_fees(&payload, &self.pparams, self.config.extra_fees);
+
+        //let redeemer_fees = eval_redeemer_fees(tx, pparams)?;
+
+        let eval = TxEval {
+            payload,
+            hash: hash.to_vec(),
+            fee: size_fees, // TODO: add redeemer fees
+            ex_units: 0,
+        };
+
+        Ok(eval)
+    }
+
+    fn execute(&self, op: ir::CompilerOp) -> Result<ir::Expression, tx3_lang::backend::Error> {
+        match op {
+            ir::CompilerOp::BuildScriptAddress(x) => {
+                let hash: primitives::Hash<28> = coercion::expr_into_hash(&x)?;
+                let address = coercion::policy_into_address(hash.as_ref(), self.pparams.network)?;
+                Ok(ir::Expression::Address(address.to_vec()))
+            }
+        }
+    }
+}
+
+fn eval_size_fees(tx: &[u8], pparams: &PParams, extra_fees: Option<u64>) -> u64 {
+    tx.len() as u64 * pparams.min_fee_coefficient
+        + pparams.min_fee_constant
+        + extra_fees.unwrap_or(DEFAULT_EXTRA_FEES)
+}
