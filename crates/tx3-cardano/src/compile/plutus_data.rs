@@ -149,7 +149,7 @@ impl TryIntoData for ir::Expression {
             ir::Expression::List(x) => x.try_as_data(),
             ir::Expression::Map(x) => x.try_as_data(),
             x => Err(super::Error::CoerceError(
-                format!("{:?}", x),
+                format!("{x:?}"),
                 "PlutusData".to_string(),
             )),
         }

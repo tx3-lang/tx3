@@ -22,7 +22,9 @@
               "min_amount": {
                 "EvalParam": "ExpectFees"
               },
-              "ref": "None"
+              "ref": "None",
+              "many": false,
+              "collateral": false
             }
           ]
         }
@@ -65,7 +67,9 @@
                               "min_amount": {
                                 "EvalParam": "ExpectFees"
                               },
-                              "ref": "None"
+                              "ref": "None",
+                              "many": false,
+                              "collateral": false
                             }
                           ]
                         }
@@ -184,41 +188,22 @@
           }
         ]
       },
-      "redeemer": {
-        "Struct": {
-          "constructor": 0,
-          "fields": []
-        }
-      }
+      "redeemer": "None"
     }
   ],
+  "burns": [],
   "adhoc": [
     {
-      "name": "plutus_witness",
+      "name": "native_witness",
       "data": {
-        "version": {
-          "Number": 3
-        },
         "script": {
           "Bytes": [
-            81,
+            130,
             1,
-            1,
-            0,
-            35,
-            37,
-            152,
-            0,
-            165,
-            24,
-            164,
-            209,
-            54,
-            86,
-            64,
+            129,
+            130,
             4,
-            174,
-            105
+            0
           ]
         }
       }
@@ -242,7 +227,9 @@
               "min_amount": {
                 "EvalParam": "ExpectFees"
               },
-              "ref": "None"
+              "ref": "None",
+              "many": false,
+              "collateral": true
             }
           ]
         }

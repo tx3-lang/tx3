@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/tx3-cardano", "crates/tx3-lang", "crates/tx3-test"]
+members = ["crates/tx3-cardano", "crates/tx3-lang", "crates/tx3-resolver"]
 
 [workspace.package]
 publish = true
@@ -8,8 +8,12 @@ authors = ["TxPipe"]
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/tx3-lang/tx3"
-version = "0.8.2"
+version = "0.10.0"
 keywords = ["blockchain", "cardano", "utxo", "dsl"]
 documentation = "https://docs.rs/tx3-lang"
 homepage = "https://github.com/tx3-lang/tx3"
 readme = "README.md"
+
+[workspace.dependencies]
+thiserror = "2.0.11"
+trait-variant = "0.1.2"

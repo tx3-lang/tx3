@@ -554,6 +554,8 @@ impl IntoLower for ast::InputBlock {
             address: address.unwrap_or(ir::Expression::None),
             min_amount: min_amount.unwrap_or(ir::Expression::None),
             r#ref: r#ref.unwrap_or(ir::Expression::None),
+            many: self.many,
+            collateral: false,
         };
 
         let param = ir::Param::ExpectInput(self.name.to_lowercase().clone(), query);
@@ -648,6 +650,7 @@ impl IntoLower for ast::MintBlock {
         Ok(ir::Mint { amount, redeemer })
     }
 }
+
 impl IntoLower for ast::MetadataBlockField {
     type Output = ir::Metadata;
     fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
@@ -719,6 +722,8 @@ impl IntoLower for ast::CollateralBlock {
             address: from.unwrap_or(ir::Expression::None),
             min_amount: min_amount.unwrap_or(ir::Expression::None),
             r#ref: r#ref.unwrap_or(ir::Expression::None),
+            many: false,
+            collateral: true,
         };
 
         let param = ir::Param::ExpectInput("collateral".to_string(), query);
@@ -772,6 +777,11 @@ impl IntoLower for ast::TxDef {
                 .transpose()?,
             mints: self
                 .mints
+                .iter()
+                .map(|x| x.into_lower(ctx))
+                .collect::<Result<Vec<_>, _>>()?,
+            burns: self
+                .burns
                 .iter()
                 .map(|x| x.into_lower(ctx))
                 .collect::<Result<Vec<_>, _>>()?,
@@ -908,4 +918,5 @@ mod tests {
     test_lowering!(cardano_witness);
 
     test_lowering!(map);
+    test_lowering!(burn);
 }

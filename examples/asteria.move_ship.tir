@@ -123,7 +123,9 @@
                   ]
                 }
               },
-              "ref": "None"
+              "ref": "None",
+              "many": false,
+              "collateral": false
             }
           ]
         }
@@ -150,8 +152,7 @@
             }
           ]
         }
-      },
-      "policy": null
+      }
     },
     {
       "name": "pilot",
@@ -217,13 +218,14 @@
                   }
                 ]
               },
-              "ref": "None"
+              "ref": "None",
+              "many": false,
+              "collateral": false
             }
           ]
         }
       },
-      "redeemer": "None",
-      "policy": null
+      "redeemer": "None"
     },
     {
       "name": "fees",
@@ -243,13 +245,14 @@
               "min_amount": {
                 "EvalParam": "ExpectFees"
               },
-              "ref": "None"
+              "ref": "None",
+              "many": false,
+              "collateral": false
             }
           ]
         }
       },
-      "redeemer": "None",
-      "policy": null
+      "redeemer": "None"
     }
   ],
   "outputs": [
@@ -391,7 +394,9 @@
                                         ]
                                       }
                                     },
-                                    "ref": "None"
+                                    "ref": "None",
+                                    "many": false,
+                                    "collateral": false
                                   }
                                 ]
                               }
@@ -538,7 +543,9 @@
                                         ]
                                       }
                                     },
-                                    "ref": "None"
+                                    "ref": "None",
+                                    "many": false,
+                                    "collateral": false
                                   }
                                 ]
                               }
@@ -682,7 +689,9 @@
                                   ]
                                 }
                               },
-                              "ref": "None"
+                              "ref": "None",
+                              "many": false,
+                              "collateral": false
                             }
                           ]
                         }
@@ -815,7 +824,9 @@
                                   ]
                                 }
                               },
-                              "ref": "None"
+                              "ref": "None",
+                              "many": false,
+                              "collateral": false
                             }
                           ]
                         }
@@ -948,7 +959,9 @@
                                   ]
                                 }
                               },
-                              "ref": "None"
+                              "ref": "None",
+                              "many": false,
+                              "collateral": false
                             }
                           ]
                         }
@@ -1084,7 +1097,9 @@
                             ]
                           }
                         },
-                        "ref": "None"
+                        "ref": "None",
+                        "many": false,
+                        "collateral": false
                       }
                     ]
                   }
@@ -1221,7 +1236,9 @@
                             }
                           ]
                         },
-                        "ref": "None"
+                        "ref": "None",
+                        "many": false,
+                        "collateral": false
                       }
                     ]
                   }
@@ -1246,7 +1263,9 @@
                         "min_amount": {
                           "EvalParam": "ExpectFees"
                         },
-                        "ref": "None"
+                        "ref": "None",
+                        "many": false,
+                        "collateral": false
                       }
                     ]
                   }
@@ -1260,6 +1279,60 @@
   ],
   "validity": null,
   "mints": [],
+  "burns": [
+    {
+      "amount": {
+        "Assets": [
+          {
+            "policy": {
+              "Bytes": [
+                107,
+                156,
+                69,
+                106,
+                166,
+                80,
+                203,
+                128,
+                138,
+                154,
+                181,
+                67,
+                38,
+                224,
+                57,
+                213,
+                35,
+                94,
+                214,
+                159,
+                6,
+                156,
+                150,
+                100,
+                168,
+                254,
+                91,
+                105
+              ]
+            },
+            "asset_name": {
+              "String": "FUEL"
+            },
+            "amount": {
+              "EvalParam": {
+                "ExpectValue": [
+                  "required_fuel",
+                  "Int"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "redeemer": "None"
+    }
+  ],
   "adhoc": [],
   "collateral": [],
   "signers": null,
