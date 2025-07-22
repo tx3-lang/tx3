@@ -1,14 +1,14 @@
-use std::{
-    collections::{BTreeMap, HashMap, HashSet},
-    ops::Neg,
-};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
-use crate::{ir, ArgValue, Utxo};
+use crate::{backend, ir, ArgValue, CanonicalAssets, Utxo};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("invalid built-in operation {0:?}")]
     InvalidBuiltInOp(Box<ir::BuiltInOp>),
+
+    #[error(transparent)]
+    BackendError(#[from] backend::Error),
 
     #[error("invalid argument {0:?} for {1}")]
     InvalidArgument(ArgValue, String),
@@ -37,7 +37,7 @@ pub trait Indexable: std::fmt::Debug {
 
     fn index_or_err(&self, index: usize) -> Result<ir::Expression, Error> {
         self.index(index)
-            .ok_or(Error::PropertyIndexNotFound(index, format!("{:?}", self)))
+            .ok_or(Error::PropertyIndexNotFound(index, format!("{self:?}")))
     }
 }
 
@@ -80,12 +80,12 @@ where
     fn add(self, other: ir::Expression) -> Result<ir::Expression, Error> {
         let y = match other {
             ir::Expression::Assets(x) => CanonicalAssets::from(x),
-            ir::Expression::None => CanonicalAssets::new(),
+            ir::Expression::None => CanonicalAssets::empty(),
             other => {
                 return Err(Error::InvalidBinaryOp(
                     "add".to_string(),
-                    format!("{:?}", self),
-                    format!("{:?}", other),
+                    format!("{self:?}"),
+                    format!("{other:?}"),
                 ))
             }
         };
@@ -101,7 +101,7 @@ where
     }
 
     fn neg(self) -> Result<ir::Expression, Error> {
-        let negated = self.into().neg();
+        let negated = std::ops::Neg::neg(self.into());
         Ok(ir::Expression::Assets(negated.into()))
     }
 }
@@ -113,8 +113,8 @@ impl Arithmetic for i128 {
             ir::Expression::None => Ok(ir::Expression::Number(self)),
             _ => Err(Error::InvalidBinaryOp(
                 "add".to_string(),
-                format!("{:?}", self),
-                format!("{:?}", other),
+                format!("{self:?}"),
+                format!("{other:?}"),
             )),
         }
     }
@@ -137,8 +137,8 @@ impl Arithmetic for ir::Expression {
             ir::Expression::Assets(x) => Arithmetic::add(x, other),
             x => Err(Error::InvalidBinaryOp(
                 "add".to_string(),
-                format!("{:?}", x),
-                format!("{:?}", other),
+                format!("{x:?}"),
+                format!("{other:?}"),
             )),
         }
     }
@@ -150,8 +150,8 @@ impl Arithmetic for ir::Expression {
             ir::Expression::Assets(x) => Arithmetic::sub(x, other),
             x => Err(Error::InvalidBinaryOp(
                 "sub".to_string(),
-                format!("{:?}", x),
-                format!("{:?}", other),
+                format!("{x:?}"),
+                format!("{other:?}"),
             )),
         }
     }
@@ -161,7 +161,7 @@ impl Arithmetic for ir::Expression {
             ir::Expression::None => Ok(ir::Expression::None),
             ir::Expression::Number(x) => Arithmetic::neg(x),
             ir::Expression::Assets(x) => Arithmetic::neg(x),
-            x => Err(Error::InvalidUnaryOp("neg".to_string(), format!("{:?}", x))),
+            x => Err(Error::InvalidUnaryOp("neg".to_string(), format!("{x:?}"))),
         }
     }
 }
@@ -173,8 +173,8 @@ impl Concatenable for String {
             ir::Expression::None => Ok(ir::Expression::String(self)),
             _ => Err(Error::InvalidBinaryOp(
                 "concat".to_string(),
-                format!("String({:?})", self),
-                format!("{:?}", other),
+                format!("String({self:?})"),
+                format!("{other:?}"),
             )),
         }
     }
@@ -191,8 +191,8 @@ impl Concatenable for Vec<u8> {
             ir::Expression::None => Ok(ir::Expression::Bytes(self)),
             _ => Err(Error::InvalidBinaryOp(
                 "concat".to_string(),
-                format!("Bytes({:?})", self),
-                format!("{:?}", other),
+                format!("Bytes({self:?})"),
+                format!("{other:?}"),
             )),
         }
     }
@@ -206,8 +206,8 @@ impl Concatenable for ir::Expression {
             ir::Expression::Bytes(x) => Concatenable::concat(x, other),
             x => Err(Error::InvalidBinaryOp(
                 "concat".to_string(),
-                format!("{:?}", x),
-                format!("{:?}", other),
+                format!("{x:?}"),
+                format!("{other:?}"),
             )),
         }
     }
@@ -223,9 +223,14 @@ impl Coerceable for ir::Expression {
         match self {
             ir::Expression::None => Ok(ir::Expression::None),
             ir::Expression::Assets(x) => Ok(ir::Expression::Assets(x)),
-            ir::Expression::UtxoSet(x) => Ok(ir::Expression::Assets(
-                x.into_iter().flat_map(|x| x.assets).collect(),
-            )),
+            ir::Expression::UtxoSet(x) => {
+                let all = x
+                    .into_iter()
+                    .map(|x| x.assets)
+                    .fold(CanonicalAssets::empty(), |acc, x| acc + x);
+
+                Ok(ir::Expression::Assets(all.into()))
+            }
             _ => Err(Error::CannotCoerceIntoAssets(self)),
         }
     }
@@ -276,7 +281,7 @@ pub trait Apply: Sized + std::fmt::Debug {
     fn reduce(self) -> Result<Self, Error>;
 }
 
-trait Composite: Sized {
+pub trait Composite: Sized {
     fn reduce_self(self) -> Result<Self, Error> {
         Ok(self)
     }
@@ -626,71 +631,19 @@ impl Composite for ir::BuiltInOp {
     }
 }
 
-type AssetClass = (Option<Vec<u8>>, Option<Vec<u8>>);
-
-struct CanonicalAssets(HashMap<AssetClass, i128>);
-
-impl CanonicalAssets {
-    fn new() -> Self {
-        Self(HashMap::new())
-    }
-}
-
-impl std::ops::Neg for CanonicalAssets {
-    type Output = Self;
-
-    fn neg(self) -> Self {
-        let mut negated = self.0;
-
-        for (_, value) in negated.iter_mut() {
-            *value = -*value;
-        }
-
-        Self(negated)
-    }
-}
-
-impl std::ops::Add for CanonicalAssets {
-    type Output = Self;
-
-    fn add(self, other: Self) -> Self {
-        let mut aggregated = self.0;
-
-        for (key, value) in other.0 {
-            *aggregated.entry(key).or_default() += value;
-        }
-
-        Self(aggregated)
-    }
-}
-
-impl std::ops::Sub for CanonicalAssets {
-    type Output = Self;
-
-    fn sub(self, other: Self) -> Self {
-        let mut aggregated = self.0;
-
-        for (key, value) in other.0 {
-            *aggregated.entry(key).or_default() -= value;
-        }
-
-        Self(aggregated)
-    }
-}
-
 impl From<ir::AssetExpr> for CanonicalAssets {
     fn from(asset: ir::AssetExpr) -> Self {
-        let policy = asset.expect_constant_policy().map(|x| x.to_vec());
-        let asset_name = asset.expect_constant_name().map(|x| x.to_vec());
+        let policy = asset.expect_constant_policy();
+        let name = asset.expect_constant_name();
         let amount = asset.expect_constant_amount();
 
-        Self(HashMap::from([((policy, asset_name), amount)]))
+        Self::from_asset(policy, name, amount)
     }
 }
 
 impl From<Vec<ir::AssetExpr>> for CanonicalAssets {
     fn from(assets: Vec<ir::AssetExpr>) -> Self {
-        let mut result = CanonicalAssets::new();
+        let mut result = CanonicalAssets::empty();
 
         for asset in assets {
             let asset = asset.into();
@@ -705,13 +658,15 @@ impl From<CanonicalAssets> for Vec<ir::AssetExpr> {
     fn from(assets: CanonicalAssets) -> Self {
         let mut result = Vec::new();
 
-        for ((policy, asset_name), amount) in assets.0.into_iter() {
+        for (class, amount) in assets.0.into_iter() {
             result.push(ir::AssetExpr {
-                policy: policy
-                    .map(ir::Expression::Bytes)
+                policy: class
+                    .policy()
+                    .map(|x| ir::Expression::Bytes(x.to_vec()))
                     .unwrap_or(ir::Expression::None),
-                asset_name: asset_name
-                    .map(ir::Expression::Bytes)
+                asset_name: class
+                    .name()
+                    .map(|x| ir::Expression::Bytes(x.to_vec()))
                     .unwrap_or(ir::Expression::None),
                 amount: ir::Expression::Number(amount),
             });
@@ -777,6 +732,7 @@ impl Composite for ir::InputQuery {
             address: f(self.address)?,
             min_amount: f(self.min_amount)?,
             r#ref: f(self.r#ref)?,
+            ..self
         })
     }
 }
@@ -1253,6 +1209,7 @@ impl Apply for ir::Tx {
             outputs: self.outputs.apply_args(args)?,
             validity: self.validity.apply_args(args)?,
             mints: self.mints.apply_args(args)?,
+            burns: self.burns.apply_args(args)?,
             fees: self.fees.apply_args(args)?,
             adhoc: self.adhoc.apply_args(args)?,
             collateral: self.collateral.apply_args(args)?,
@@ -1270,6 +1227,7 @@ impl Apply for ir::Tx {
             outputs: self.outputs.apply_inputs(args)?,
             validity: self.validity.apply_inputs(args)?,
             mints: self.mints.apply_inputs(args)?,
+            burns: self.burns.apply_inputs(args)?,
             fees: self.fees.apply_inputs(args)?,
             adhoc: self.adhoc.apply_inputs(args)?,
             collateral: self.collateral.apply_inputs(args)?,
@@ -1285,6 +1243,7 @@ impl Apply for ir::Tx {
             outputs: self.outputs.apply_fees(fees)?,
             validity: self.validity.apply_fees(fees)?,
             mints: self.mints.apply_fees(fees)?,
+            burns: self.burns.apply_fees(fees)?,
             fees: self.fees.apply_fees(fees)?,
             adhoc: self.adhoc.apply_fees(fees)?,
             collateral: self.collateral.apply_fees(fees)?,
@@ -1297,6 +1256,7 @@ impl Apply for ir::Tx {
         self.inputs.iter().all(|x| x.is_constant())
             && self.outputs.iter().all(|x| x.is_constant())
             && self.mints.iter().all(|x| x.is_constant())
+            && self.burns.iter().all(|x| x.is_constant())
             && self.fees.is_constant()
             && self.metadata.is_constant()
             && self.validity.is_constant()
@@ -1312,6 +1272,7 @@ impl Apply for ir::Tx {
         params.extend(self.inputs.params());
         params.extend(self.outputs.params());
         params.extend(self.mints.params());
+        params.extend(self.burns.params());
         params.extend(self.fees.params());
         params.extend(self.adhoc.params());
         params.extend(self.signers.params());
@@ -1327,6 +1288,7 @@ impl Apply for ir::Tx {
         queries.extend(self.inputs.queries());
         queries.extend(self.outputs.queries());
         queries.extend(self.mints.queries());
+        queries.extend(self.burns.queries());
         queries.extend(self.fees.queries());
         queries.extend(self.adhoc.queries());
         queries.extend(self.signers.queries());
@@ -1344,6 +1306,7 @@ impl Apply for ir::Tx {
             outputs: self.outputs.reduce()?,
             validity: self.validity.reduce()?,
             mints: self.mints.reduce()?,
+            burns: self.burns.reduce()?,
             fees: self.fees.reduce()?,
             adhoc: self.adhoc.reduce()?,
             collateral: self.collateral.reduce()?,
@@ -1430,6 +1393,8 @@ mod tests {
                     "in".to_string(),
                     ir::Type::Int,
                 ))),
+                many: false,
+                collateral: false,
             },
         )));
 
@@ -1450,6 +1415,8 @@ mod tests {
                 address: ir::Expression::None,
                 min_amount: ir::Expression::None,
                 r#ref: ir::Expression::Number(100),
+                many: false,
+                collateral: false,
             })
         );
     }
@@ -1519,11 +1486,7 @@ mod tests {
                 r#ref: UtxoRef::new(b"abc", 0),
                 address: b"abc".to_vec(),
                 datum: None,
-                assets: vec![ir::AssetExpr {
-                    policy: ir::Expression::None,
-                    asset_name: ir::Expression::None,
-                    amount: ir::Expression::Number(300),
-                }],
+                assets: CanonicalAssets::from_naked_amount(300),
                 script: None,
             }]),
         )]);
@@ -1567,6 +1530,8 @@ mod tests {
                     amount: ir::Expression::Number(400),
                 }]),
                 r#ref: ir::Expression::None,
+                many: false,
+                collateral: false,
             }
         );
     }
@@ -1730,11 +1695,7 @@ mod tests {
             r#ref: UtxoRef::new(b"abc", 1),
             address: b"abc".into(),
             datum: Some(ir::Expression::Number(1)),
-            assets: vec![ir::AssetExpr {
-                policy: ir::Expression::Bytes(b"abc".to_vec()),
-                asset_name: ir::Expression::Bytes(b"111".to_vec()),
-                amount: ir::Expression::Number(1),
-            }],
+            assets: CanonicalAssets::from_defined_asset(b"abc", b"111", 1),
             script: None,
         }];
 
@@ -1746,7 +1707,7 @@ mod tests {
 
         assert_eq!(
             reduced,
-            ir::Coerce::NoOp(ir::Expression::Assets(utxos[0].assets.clone()))
+            ir::Coerce::NoOp(ir::Expression::Assets(utxos[0].assets.clone().into()))
         );
     }
 
@@ -1756,11 +1717,7 @@ mod tests {
             r#ref: UtxoRef::new(b"abc", 1),
             address: b"abc".into(),
             datum: Some(ir::Expression::Number(1)),
-            assets: vec![ir::AssetExpr {
-                policy: ir::Expression::None,
-                asset_name: ir::Expression::None,
-                amount: ir::Expression::Number(1),
-            }],
+            assets: CanonicalAssets::from_naked_amount(1),
             script: None,
         }];
 

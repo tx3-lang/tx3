@@ -1,6 +1,6 @@
 [package]
-name = "tx3-cardano"
-description = "Cardano compiler for tx3-lang protocols"
+name = "tx3-resolver"
+description = "Infrastructure for resolving tx3 transactions"
 publish.workspace = true
 authors.workspace = true
 edition.workspace = true
@@ -13,16 +13,11 @@ homepage.workspace = true
 readme.workspace = true
 
 [dependencies]
-pallas = { version = ">=1.0.0-alpha, <2.0.0" }
-# pallas = { version = ">=1.0.0-alpha, <2.0.0", path = "../../../../txpipe/pallas/pallas" }
-# pallas = { git = "https://github.com/txpipe/pallas.git" }
-
-hex = "0.4.3"
-thiserror = "2.0.11"
 tx3-lang = { version = "0.10.0", path = "../tx3-lang" }
-utxorpc = "0.10.0"
-serde = "1.0.218"
-trait-variant = "0.1.2"
+
+thiserror = { workspace = true }
+trait-variant = { workspace = true }
 
 [dev-dependencies]
 pollster = { version = "0.4.0", features = ["macro"] }
+chainfuzz = { version = "0.2.0" }

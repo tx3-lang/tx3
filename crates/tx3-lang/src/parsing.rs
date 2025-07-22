@@ -37,7 +37,7 @@ impl From<pest::error::Error<Rule>> for Error {
     fn from(error: pest::error::Error<Rule>) -> Self {
         match &error.variant {
             pest::error::ErrorVariant::ParsingError { positives, .. } => Error {
-                message: format!("expected {:?}", positives),
+                message: format!("expected {positives:?}"),
                 src: error.line().to_string(),
                 span: error.location.into(),
             },
@@ -199,7 +199,7 @@ impl AstNode for TxDef {
         let mut inputs = Vec::new();
         let mut outputs = Vec::new();
         let mut validity = None;
-        let mut burn = None;
+        let mut burns = Vec::new();
         let mut mints = Vec::new();
         let mut adhoc = Vec::new();
         let mut collateral = Vec::new();
@@ -213,8 +213,8 @@ impl AstNode for TxDef {
                 Rule::input_block => inputs.push(InputBlock::parse(item)?),
                 Rule::output_block => outputs.push(OutputBlock::parse(item)?),
                 Rule::validity_block => validity = Some(ValidityBlock::parse(item)?),
-                Rule::burn_block => burn = Some(BurnBlock::parse(item)?),
                 Rule::mint_block => mints.push(MintBlock::parse(item)?),
+                Rule::burn_block => burns.push(MintBlock::parse(item)?),
                 Rule::chain_specific_block => adhoc.push(ChainSpecificBlock::parse(item)?),
                 Rule::collateral_block => collateral.push(CollateralBlock::parse(item)?),
                 Rule::signers_block => signers = Some(SignersBlock::parse(item)?),
@@ -231,8 +231,8 @@ impl AstNode for TxDef {
             inputs,
             outputs,
             validity,
-            burn,
             mints,
+            burns,
             signers,
             adhoc,
             scope: None,
@@ -522,7 +522,13 @@ impl AstNode for InputBlock {
         let span = pair.as_span().into();
         let mut inner = pair.into_inner();
 
-        let name = inner.next().unwrap().as_str().to_string();
+        let next = inner.next().unwrap();
+
+        let (many, name) = match next.as_rule() {
+            Rule::input_many => (true, inner.next().unwrap().as_str().to_string()),
+            Rule::identifier => (false, next.as_str().to_string()),
+            _ => unreachable!("Unexpected rule in input_block: {:?}", next.as_rule()),
+        };
 
         let fields = inner
             .map(|x| InputBlockField::parse(x))
@@ -530,7 +536,7 @@ impl AstNode for InputBlock {
 
         Ok(InputBlock {
             name,
-            is_many: false,
+            many,
             fields,
             span,
         })
@@ -710,25 +716,6 @@ impl AstNode for MintBlock {
             .collect::<Result<Vec<_>, _>>()?;
 
         Ok(MintBlock { fields, span })
-    }
-
-    fn span(&self) -> &Span {
-        &self.span
-    }
-}
-
-impl AstNode for BurnBlock {
-    const RULE: Rule = Rule::burn_block;
-
-    fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
-        let span = pair.as_span().into();
-        let inner = pair.into_inner();
-
-        let fields = inner
-            .map(|x| MintBlockField::parse(x))
-            .collect::<Result<Vec<_>, _>>()?;
-
-        Ok(BurnBlock { fields, span })
     }
 
     fn span(&self) -> &Span {
@@ -1827,6 +1814,23 @@ mod tests {
 
     input_to_ast_check!(
         DataExpr,
+        "concat_op",
+        r#"concat("hello", "world")"#,
+        DataExpr::ConcatOp(ConcatOp {
+            lhs: Box::new(ast::DataExpr::String(ast::StringLiteral {
+                value: "hello".to_string(),
+                span: ast::Span::DUMMY,
+            })),
+            rhs: Box::new(ast::DataExpr::String(ast::StringLiteral {
+                value: "world".to_string(),
+                span: ast::Span::DUMMY,
+            })),
+            span: ast::Span::DUMMY,
+        })
+    );
+
+    input_to_ast_check!(
+        DataExpr,
         "property_access",
         "subject.property",
         DataExpr::PropertyOp(PropertyOp {
@@ -2149,6 +2153,30 @@ mod tests {
     );
 
     input_to_ast_check!(
+        InputBlock,
+        "single",
+        r#"input source {}"#,
+        InputBlock {
+            many: false,
+            name: "source".to_string(),
+            fields: vec![],
+            span: Span::DUMMY,
+        }
+    );
+
+    input_to_ast_check!(
+        InputBlock,
+        "multiple",
+        r#"input* source {}"#,
+        InputBlock {
+            many: true,
+            name: "source".to_string(),
+            fields: vec![],
+            span: Span::DUMMY,
+        }
+    );
+
+    input_to_ast_check!(
         OutputBlock,
         "output_block_anonymous",
         r#"output {
@@ -2228,8 +2256,8 @@ mod tests {
             inputs: vec![],
             outputs: vec![],
             validity: None,
-            burn: None,
             mints: vec![],
+            burns: vec![],
             signers: None,
             adhoc: vec![],
             collateral: vec![],
@@ -2263,8 +2291,8 @@ mod tests {
             inputs: vec![],
             outputs: vec![],
             validity: None,
-            burn: None,
             mints: vec![],
+            burns: vec![],
             signers: None,
             adhoc: vec![],
             collateral: vec![],
@@ -2295,8 +2323,8 @@ mod tests {
                 inputs: vec![],
                 outputs: vec![],
                 validity: None,
-                burn: None,
                 mints: vec![],
+                burns: vec![],
                 signers: None,
                 adhoc: vec![],
                 collateral: vec![],
@@ -2383,4 +2411,5 @@ mod tests {
     test_parsing!(cardano_witness);
 
     test_parsing!(reference_script);
+    test_parsing!(burn);
 }

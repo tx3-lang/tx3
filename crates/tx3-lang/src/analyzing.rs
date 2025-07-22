@@ -106,7 +106,7 @@ impl Error {
     ) -> Self {
         Self::InvalidSymbol(InvalidSymbolError {
             expected,
-            got: format!("{:?}", got),
+            got: format!("{got:?}"),
             src: None,
             span: ast.span().clone(),
         })
@@ -999,6 +999,8 @@ impl Analyzable for TxDef {
 
         let mints = self.mints.analyze(Some(parent.clone()));
 
+        let burns = self.burns.analyze(Some(parent.clone()));
+
         let adhoc = self.adhoc.analyze(Some(parent.clone()));
 
         let validity = self.validity.analyze(Some(parent.clone()));
@@ -1018,6 +1020,7 @@ impl Analyzable for TxDef {
             + inputs
             + outputs
             + mints
+            + burns
             + adhoc
             + validity
             + metadata
@@ -1030,6 +1033,7 @@ impl Analyzable for TxDef {
         self.inputs.is_resolved()
             && self.outputs.is_resolved()
             && self.mints.is_resolved()
+            && self.locals.is_resolved()
             && self.adhoc.is_resolved()
             && self.validity.is_resolved()
             && self.metadata.is_resolved()

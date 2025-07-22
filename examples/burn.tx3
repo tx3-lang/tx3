@@ -1,0 +1,24 @@
+party Burner;
+
+tx burn_stuff(
+    quantity: Int
+) {
+    locals {
+        to_burn: AnyAsset(0x6b9c456aa650cb808a9ab54326e039d5235ed69f069c9664a8fe5b69, "ABC", quantity),
+    }
+
+    input source {
+        from: Burner,
+        min_amount: to_burn + fees,
+    }
+    
+    burn {
+        amount: to_burn,
+        redeemer: (),
+    }
+    
+    output {
+        to: Burner,
+        amount: source - to_burn - fees,
+    }
+}

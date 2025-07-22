@@ -35,7 +35,9 @@
                   }
                 ]
               },
-              "ref": "None"
+              "ref": "None",
+              "many": false,
+              "collateral": false
             }
           ]
         }
@@ -119,7 +121,9 @@
                                   }
                                 ]
                               },
-                              "ref": "None"
+                              "ref": "None",
+                              "many": false,
+                              "collateral": false
                             }
                           ]
                         }
@@ -156,6 +160,7 @@
   ],
   "validity": null,
   "mints": [],
+  "burns": [],
   "adhoc": [],
   "collateral": [],
   "signers": null,

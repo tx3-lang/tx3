@@ -35,7 +35,9 @@
                   }
                 ]
               },
-              "ref": "None"
+              "ref": "None",
+              "many": false,
+              "collateral": false
             }
           ]
         }
@@ -74,9 +76,6 @@
         "AdHocDirective": {
           "name": "plutus_witness",
           "data": {
-            "version": {
-              "Number": 3
-            },
             "script": {
               "Bytes": [
                 81,
@@ -98,6 +97,9 @@
                 174,
                 105
               ]
+            },
+            "version": {
+              "Number": 3
             }
           }
         }
@@ -150,7 +152,9 @@
                                   }
                                 ]
                               },
-                              "ref": "None"
+                              "ref": "None",
+                              "many": false,
+                              "collateral": false
                             }
                           ]
                         }
@@ -187,6 +191,7 @@
   ],
   "validity": null,
   "mints": [],
+  "burns": [],
   "adhoc": [],
   "collateral": [],
   "signers": null,

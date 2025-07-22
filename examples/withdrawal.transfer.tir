@@ -35,7 +35,9 @@
                   }
                 ]
               },
-              "ref": "None"
+              "ref": "None",
+              "many": false,
+              "collateral": false
             }
           ]
         }
@@ -119,7 +121,9 @@
                                   }
                                 ]
                               },
-                              "ref": "None"
+                              "ref": "None",
+                              "many": false,
+                              "collateral": false
                             }
                           ]
                         }
@@ -156,10 +160,14 @@
   ],
   "validity": null,
   "mints": [],
+  "burns": [],
   "adhoc": [
     {
       "name": "withdrawal",
       "data": {
+        "amount": {
+          "Number": 0
+        },
         "redeemer": {
           "Struct": {
             "constructor": 0,
@@ -173,9 +181,6 @@
               "Address"
             ]
           }
-        },
-        "amount": {
-          "Number": 0
         }
       }
     }

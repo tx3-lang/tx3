@@ -145,9 +145,9 @@ data_expr = { data_prefix* ~ data_primary ~ data_postfix* ~ (data_infix ~ data_p
         string |
         struct_constructor |
         list_constructor |
+        concat_constructor |
         any_asset_constructor |
         static_asset_constructor |
-        concat_constructor |
         identifier |
         "(" ~ data_expr ~ ")"
     }
@@ -187,6 +187,7 @@ list_constructor = {
 
 // input block
 
+input_many = { "*" }
 input_block_from = { "from" ~ ":" ~ data_expr }
 input_block_datum_is = { "datum_is" ~ ":" ~ type }
 input_block_min_amount = { "min_amount" ~ ":" ~ data_expr }
@@ -202,7 +203,7 @@ input_block_field = _{
 }
 
 input_block = {
-    "input" ~ identifier ~ ("*")? ~ "{" ~
+    "input" ~ input_many? ~ identifier ~ "{" ~
     (input_block_field ~ ",")* ~
     "}"
 }
@@ -336,12 +337,25 @@ cardano_plutus_witness_block = {
     "plutus_witness" ~ "{" ~ (cardano_plutus_witness_field ~ ",")+ ~ "}"
 }
 
+cardano_native_witness_script = {
+    "script" ~ ":" ~ data_expr
+}
+
+cardano_native_witness_field = _{
+    cardano_native_witness_script
+}
+
+cardano_native_witness_block = {
+    "native_witness" ~ "{" ~ (cardano_native_witness_field ~ ",")+ ~ "}"
+}
+
 cardano_block = {
     "cardano" ~ "::" ~ (
         cardano_stake_delegation_certificate |
         cardano_vote_delegation_certificate |
         cardano_withdrawal_block |
-        cardano_plutus_witness_block
+        cardano_plutus_witness_block |
+        cardano_native_witness_block
     )
 }
 
