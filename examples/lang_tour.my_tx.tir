@@ -35,7 +35,9 @@
                   }
                 ]
               },
-              "ref": "None"
+              "ref": "None",
+              "many": false,
+              "collateral": false
             }
           ]
         }
@@ -69,8 +71,7 @@
             }
           ]
         }
-      },
-      "policy": null
+      }
     }
   ],
   "outputs": [
@@ -159,7 +160,9 @@
                                   }
                                 ]
                               },
-                              "ref": "None"
+                              "ref": "None",
+                              "many": false,
+                              "collateral": false
                             }
                           ]
                         }
@@ -215,7 +218,9 @@
                                       }
                                     ]
                                   },
-                                  "ref": "None"
+                                  "ref": "None",
+                                  "many": false,
+                                  "collateral": false
                                 }
                               ]
                             }
@@ -271,7 +276,9 @@
                                         }
                                       ]
                                     },
-                                    "ref": "None"
+                                    "ref": "None",
+                                    "many": false,
+                                    "collateral": false
                                   }
                                 ]
                               }
@@ -316,7 +323,9 @@
                                         }
                                       ]
                                     },
-                                    "ref": "None"
+                                    "ref": "None",
+                                    "many": false,
+                                    "collateral": false
                                   }
                                 ]
                               }
@@ -361,7 +370,9 @@
                                         }
                                       ]
                                     },
-                                    "ref": "None"
+                                    "ref": "None",
+                                    "many": false,
+                                    "collateral": false
                                   }
                                 ]
                               }
@@ -464,6 +475,7 @@
       }
     }
   ],
+  "burns": [],
   "adhoc": [],
   "collateral": [],
   "signers": {

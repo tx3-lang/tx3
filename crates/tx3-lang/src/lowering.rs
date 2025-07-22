@@ -361,6 +361,19 @@ impl IntoLower for ast::SubOp {
     }
 }
 
+impl IntoLower for ast::ConcatOp {
+    type Output = ir::Expression;
+
+    fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
+        let left = self.lhs.into_lower(ctx)?;
+        let right = self.rhs.into_lower(ctx)?;
+
+        Ok(ir::Expression::EvalBuiltIn(Box::new(
+            ir::BuiltInOp::Concat(left, right),
+        )))
+    }
+}
+
 impl IntoLower for ast::NegateOp {
     type Output = ir::Expression;
 
@@ -441,6 +454,7 @@ impl IntoLower for ast::DataExpr {
             ast::DataExpr::Identifier(x) => x.into_lower(ctx)?,
             ast::DataExpr::AddOp(x) => x.into_lower(ctx)?,
             ast::DataExpr::SubOp(x) => x.into_lower(ctx)?,
+            ast::DataExpr::ConcatOp(x) => x.into_lower(ctx)?,
             ast::DataExpr::NegateOp(x) => x.into_lower(ctx)?,
             ast::DataExpr::PropertyOp(x) => x.into_lower(ctx)?,
             ast::DataExpr::UtxoRef(x) => x.into_lower(ctx)?,
@@ -533,6 +547,8 @@ impl IntoLower for ast::InputBlock {
             address: address.unwrap_or(ir::Expression::None),
             min_amount: min_amount.unwrap_or(ir::Expression::None),
             r#ref: r#ref.unwrap_or(ir::Expression::None),
+            many: self.many,
+            collateral: false,
         };
 
         let param = ir::Param::ExpectInput(self.name.to_lowercase().clone(), query);
@@ -627,6 +643,7 @@ impl IntoLower for ast::MintBlock {
         Ok(ir::Mint { amount, redeemer })
     }
 }
+
 impl IntoLower for ast::MetadataBlockField {
     type Output = ir::Metadata;
     fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
@@ -698,6 +715,8 @@ impl IntoLower for ast::CollateralBlock {
             address: from.unwrap_or(ir::Expression::None),
             min_amount: min_amount.unwrap_or(ir::Expression::None),
             r#ref: r#ref.unwrap_or(ir::Expression::None),
+            many: false,
+            collateral: true,
         };
 
         let param = ir::Param::ExpectInput("collateral".to_string(), query);
@@ -751,6 +770,11 @@ impl IntoLower for ast::TxDef {
                 .transpose()?,
             mints: self
                 .mints
+                .iter()
+                .map(|x| x.into_lower(ctx))
+                .collect::<Result<Vec<_>, _>>()?,
+            burns: self
+                .burns
                 .iter()
                 .map(|x| x.into_lower(ctx))
                 .collect::<Result<Vec<_>, _>>()?,
@@ -886,4 +910,6 @@ mod tests {
 
     test_lowering!(cardano_witness);
     test_lowering!(tuple);
+
+    test_lowering!(burn);
 }

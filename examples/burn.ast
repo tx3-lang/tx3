@@ -3,33 +3,22 @@
   "txs": [
     {
       "name": {
-        "value": "mint_from_local",
+        "value": "burn_stuff",
         "span": {
           "dummy": false,
-          "start": 19,
-          "end": 34
+          "start": 18,
+          "end": 28
         }
       },
       "parameters": {
         "parameters": [
           {
             "name": {
-              "value": "mint_policy",
-              "span": {
-                "dummy": false,
-                "start": 40,
-                "end": 51
-              }
-            },
-            "type": "Bytes"
-          },
-          {
-            "name": {
               "value": "quantity",
               "span": {
                 "dummy": false,
-                "start": 64,
-                "end": 72
+                "start": 34,
+                "end": 42
               }
             },
             "type": "Int"
@@ -37,30 +26,30 @@
         ],
         "span": {
           "dummy": false,
-          "start": 34,
-          "end": 79
+          "start": 28,
+          "end": 49
         }
       },
       "locals": {
         "assigns": [
           {
             "name": {
-              "value": "token",
+              "value": "to_burn",
               "span": {
                 "dummy": false,
-                "start": 103,
-                "end": 108
+                "start": 73,
+                "end": 80
               }
             },
             "value": {
               "AnyAssetConstructor": {
                 "policy": {
-                  "Identifier": {
-                    "value": "mint_policy",
+                  "HexString": {
+                    "value": "6b9c456aa650cb808a9ab54326e039d5235ed69f069c9664a8fe5b69",
                     "span": {
                       "dummy": false,
-                      "start": 119,
-                      "end": 130
+                      "start": 91,
+                      "end": 149
                     }
                   }
                 },
@@ -69,8 +58,8 @@
                     "value": "ABC",
                     "span": {
                       "dummy": false,
-                      "start": 132,
-                      "end": 137
+                      "start": 151,
+                      "end": 156
                     }
                   }
                 },
@@ -79,29 +68,29 @@
                     "value": "quantity",
                     "span": {
                       "dummy": false,
-                      "start": 139,
-                      "end": 147
+                      "start": 158,
+                      "end": 166
                     }
                   }
                 },
                 "span": {
                   "dummy": false,
-                  "start": 110,
-                  "end": 148
+                  "start": 82,
+                  "end": 167
                 }
               }
             },
             "span": {
               "dummy": false,
-              "start": 103,
-              "end": 148
+              "start": 73,
+              "end": 167
             }
           }
         ],
         "span": {
           "dummy": false,
-          "start": 86,
-          "end": 155
+          "start": 56,
+          "end": 174
         }
       },
       "references": [],
@@ -113,23 +102,42 @@
             {
               "From": {
                 "Identifier": {
-                  "value": "Minter",
+                  "value": "Burner",
                   "span": {
                     "dummy": false,
-                    "start": 253,
-                    "end": 259
+                    "start": 209,
+                    "end": 215
                   }
                 }
               }
             },
             {
               "MinAmount": {
-                "Identifier": {
-                  "value": "fees",
+                "AddOp": {
+                  "lhs": {
+                    "Identifier": {
+                      "value": "to_burn",
+                      "span": {
+                        "dummy": false,
+                        "start": 237,
+                        "end": 244
+                      }
+                    }
+                  },
+                  "rhs": {
+                    "Identifier": {
+                      "value": "fees",
+                      "span": {
+                        "dummy": false,
+                        "start": 247,
+                        "end": 251
+                      }
+                    }
+                  },
                   "span": {
                     "dummy": false,
-                    "start": 281,
-                    "end": 285
+                    "start": 245,
+                    "end": 246
                   }
                 }
               }
@@ -137,8 +145,8 @@
           ],
           "span": {
             "dummy": false,
-            "start": 224,
-            "end": 292
+            "start": 180,
+            "end": 258
           }
         }
       ],
@@ -149,11 +157,11 @@
             {
               "To": {
                 "Identifier": {
-                  "value": "Minter",
+                  "value": "Burner",
                   "span": {
                     "dummy": false,
-                    "start": 323,
-                    "end": 329
+                    "start": 358,
+                    "end": 364
                   }
                 }
               }
@@ -162,12 +170,31 @@
               "Amount": {
                 "SubOp": {
                   "lhs": {
-                    "Identifier": {
-                      "value": "token",
+                    "SubOp": {
+                      "lhs": {
+                        "Identifier": {
+                          "value": "source",
+                          "span": {
+                            "dummy": false,
+                            "start": 382,
+                            "end": 388
+                          }
+                        }
+                      },
+                      "rhs": {
+                        "Identifier": {
+                          "value": "to_burn",
+                          "span": {
+                            "dummy": false,
+                            "start": 391,
+                            "end": 398
+                          }
+                        }
+                      },
                       "span": {
                         "dummy": false,
-                        "start": 347,
-                        "end": 352
+                        "start": 389,
+                        "end": 390
                       }
                     }
                   },
@@ -176,15 +203,15 @@
                       "value": "fees",
                       "span": {
                         "dummy": false,
-                        "start": 355,
-                        "end": 359
+                        "start": 401,
+                        "end": 405
                       }
                     }
                   },
                   "span": {
                     "dummy": false,
-                    "start": 353,
-                    "end": 354
+                    "start": 399,
+                    "end": 400
                   }
                 }
               }
@@ -192,23 +219,24 @@
           ],
           "span": {
             "dummy": false,
-            "start": 302,
-            "end": 366
+            "start": 337,
+            "end": 412
           }
         }
       ],
       "validity": null,
-      "mints": [
+      "mints": [],
+      "burns": [
         {
           "fields": [
             {
               "Amount": {
                 "Identifier": {
-                  "value": "token",
+                  "value": "to_burn",
                   "span": {
                     "dummy": false,
-                    "start": 184,
-                    "end": 189
+                    "start": 291,
+                    "end": 298
                   }
                 }
               }
@@ -219,18 +247,17 @@
           ],
           "span": {
             "dummy": false,
-            "start": 161,
-            "end": 218
+            "start": 268,
+            "end": 327
           }
         }
       ],
-      "burns": [],
       "signers": null,
       "adhoc": [],
       "span": {
         "dummy": false,
-        "start": 16,
-        "end": 368
+        "start": 15,
+        "end": 414
       },
       "collateral": [],
       "metadata": null
@@ -241,17 +268,17 @@
   "parties": [
     {
       "name": {
-        "value": "Minter",
+        "value": "Burner",
         "span": {
           "dummy": false,
-          "start": 7,
-          "end": 13
+          "start": 6,
+          "end": 12
         }
       },
       "span": {
         "dummy": false,
-        "start": 1,
-        "end": 14
+        "start": 0,
+        "end": 13
       }
     }
   ],
@@ -259,6 +286,6 @@
   "span": {
     "dummy": false,
     "start": 0,
-    "end": 369
+    "end": 415
   }
 }

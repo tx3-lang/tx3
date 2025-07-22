@@ -12,16 +12,16 @@ documentation.workspace = true
 homepage.workspace = true
 readme.workspace = true
 
-
 [dependencies]
+thiserror = { workspace = true }
+trait-variant = { workspace = true }
+
 miette = { version = "7.4.0", features = ["fancy"] }
 pest = { version = "2.7.15", features = ["miette-error", "pretty-print"] }
 pest_derive = "2.7.15"
 serde = { version = "1.0.217", features = ["derive"] }
-thiserror = "2.0.11"
 hex = "0.4.3"
 bincode = "2.0.1"
-
 
 [dev-dependencies]
 assert-json-diff = "2.0.2"
