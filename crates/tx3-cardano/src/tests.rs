@@ -232,6 +232,38 @@ async fn faucet_test() {
 }
 
 #[pollster::test]
+async fn list_concat_test() {
+    let mut compiler = test_compiler(None);
+    let datum = Some(ir::Expression::Struct(
+        ir::StructExpr {
+            constructor: 0,
+            fields: vec![
+                ir::Expression::List(vec![]),
+            ],
+        },
+    ));
+    let utxos = wildcard_utxos(datum);
+    let protocol = load_protocol("list_concat");
+    let mut tx = protocol
+        .new_tx("concat_list")
+        .unwrap()
+        .apply()
+        .unwrap();
+
+    tx.set_arg("myparty", address_to_bytes("addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"));
+
+    let tx = tx.apply().unwrap();
+
+    let tx = test_compile(tx.into(), &mut compiler, utxos);
+
+    assert_eq!(
+        hex::encode(tx.hash),
+        "bc70528d1ba6d41c31bbbd064722258de7231271acd0fad8d77a8b5823a82181"
+    );
+
+}
+
+#[pollster::test]
 async fn input_datum_test() {
     let mut compiler = test_compiler(None);
 
