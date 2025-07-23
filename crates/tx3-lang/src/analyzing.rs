@@ -534,11 +534,32 @@ impl Analyzable for ListConstructor {
     }
 }
 
+impl Analyzable for MapField {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+        self.key.analyze(parent.clone()) + self.value.analyze(parent.clone())
+    }
+
+    fn is_resolved(&self) -> bool {
+        self.key.is_resolved() && self.value.is_resolved()
+    }
+}
+
+impl Analyzable for MapConstructor {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+        self.fields.analyze(parent)
+    }
+
+    fn is_resolved(&self) -> bool {
+        self.fields.is_resolved()
+    }
+}
+
 impl Analyzable for DataExpr {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
         match self {
             DataExpr::StructConstructor(x) => x.analyze(parent),
             DataExpr::ListConstructor(x) => x.analyze(parent),
+            DataExpr::MapConstructor(x) => x.analyze(parent),
             DataExpr::Identifier(x) => x.analyze(parent),
             DataExpr::AddOp(x) => x.analyze(parent),
             DataExpr::SubOp(x) => x.analyze(parent),
@@ -554,6 +575,7 @@ impl Analyzable for DataExpr {
         match self {
             DataExpr::StructConstructor(x) => x.is_resolved(),
             DataExpr::ListConstructor(x) => x.is_resolved(),
+            DataExpr::MapConstructor(x) => x.is_resolved(),
             DataExpr::Identifier(x) => x.is_resolved(),
             DataExpr::AddOp(x) => x.is_resolved(),
             DataExpr::SubOp(x) => x.is_resolved(),

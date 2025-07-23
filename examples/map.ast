@@ -1,0 +1,444 @@
+{
+  "env": null,
+  "txs": [
+    {
+      "name": {
+        "value": "transfer",
+        "span": {
+          "dummy": false,
+          "start": 71,
+          "end": 79
+        }
+      },
+      "parameters": {
+        "parameters": [
+          {
+            "name": {
+              "value": "quantity",
+              "span": {
+                "dummy": false,
+                "start": 85,
+                "end": 93
+              }
+            },
+            "type": "Int"
+          }
+        ],
+        "span": {
+          "dummy": false,
+          "start": 79,
+          "end": 100
+        }
+      },
+      "locals": null,
+      "references": [],
+      "inputs": [
+        {
+          "name": "source",
+          "many": false,
+          "fields": [
+            {
+              "From": {
+                "Identifier": {
+                  "value": "Sender",
+                  "span": {
+                    "dummy": false,
+                    "start": 136,
+                    "end": 142
+                  }
+                }
+              }
+            },
+            {
+              "MinAmount": {
+                "StaticAssetConstructor": {
+                  "type": {
+                    "value": "Ada",
+                    "span": {
+                      "dummy": false,
+                      "start": 164,
+                      "end": 167
+                    }
+                  },
+                  "amount": {
+                    "Identifier": {
+                      "value": "quantity",
+                      "span": {
+                        "dummy": false,
+                        "start": 168,
+                        "end": 176
+                      }
+                    }
+                  },
+                  "span": {
+                    "dummy": false,
+                    "start": 164,
+                    "end": 177
+                  }
+                }
+              }
+            }
+          ],
+          "span": {
+            "dummy": false,
+            "start": 107,
+            "end": 184
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": null,
+          "fields": [
+            {
+              "To": {
+                "Identifier": {
+                  "value": "Receiver",
+                  "span": {
+                    "dummy": false,
+                    "start": 211,
+                    "end": 219
+                  }
+                }
+              }
+            },
+            {
+              "Amount": {
+                "StaticAssetConstructor": {
+                  "type": {
+                    "value": "Ada",
+                    "span": {
+                      "dummy": false,
+                      "start": 237,
+                      "end": 240
+                    }
+                  },
+                  "amount": {
+                    "Identifier": {
+                      "value": "quantity",
+                      "span": {
+                        "dummy": false,
+                        "start": 241,
+                        "end": 249
+                      }
+                    }
+                  },
+                  "span": {
+                    "dummy": false,
+                    "start": 237,
+                    "end": 250
+                  }
+                }
+              }
+            }
+          ],
+          "span": {
+            "dummy": false,
+            "start": 190,
+            "end": 257
+          }
+        },
+        {
+          "name": null,
+          "fields": [
+            {
+              "To": {
+                "Identifier": {
+                  "value": "Sender",
+                  "span": {
+                    "dummy": false,
+                    "start": 284,
+                    "end": 290
+                  }
+                }
+              }
+            },
+            {
+              "Amount": {
+                "SubOp": {
+                  "lhs": {
+                    "SubOp": {
+                      "lhs": {
+                        "Identifier": {
+                          "value": "source",
+                          "span": {
+                            "dummy": false,
+                            "start": 308,
+                            "end": 314
+                          }
+                        }
+                      },
+                      "rhs": {
+                        "StaticAssetConstructor": {
+                          "type": {
+                            "value": "Ada",
+                            "span": {
+                              "dummy": false,
+                              "start": 317,
+                              "end": 320
+                            }
+                          },
+                          "amount": {
+                            "Identifier": {
+                              "value": "quantity",
+                              "span": {
+                                "dummy": false,
+                                "start": 321,
+                                "end": 329
+                              }
+                            }
+                          },
+                          "span": {
+                            "dummy": false,
+                            "start": 317,
+                            "end": 330
+                          }
+                        }
+                      },
+                      "span": {
+                        "dummy": false,
+                        "start": 315,
+                        "end": 316
+                      }
+                    }
+                  },
+                  "rhs": {
+                    "Identifier": {
+                      "value": "fees",
+                      "span": {
+                        "dummy": false,
+                        "start": 333,
+                        "end": 337
+                      }
+                    }
+                  },
+                  "span": {
+                    "dummy": false,
+                    "start": 331,
+                    "end": 332
+                  }
+                }
+              }
+            },
+            {
+              "Datum": {
+                "StructConstructor": {
+                  "type": {
+                    "value": "Datum",
+                    "span": {
+                      "dummy": false,
+                      "start": 354,
+                      "end": 359
+                    }
+                  },
+                  "case": {
+                    "name": {
+                      "value": "Default",
+                      "span": {
+                        "dummy": true,
+                        "start": 0,
+                        "end": 0
+                      }
+                    },
+                    "fields": [
+                      {
+                        "name": {
+                          "value": "A",
+                          "span": {
+                            "dummy": false,
+                            "start": 372,
+                            "end": 373
+                          }
+                        },
+                        "value": {
+                          "MapConstructor": {
+                            "fields": [
+                              {
+                                "key": {
+                                  "Number": 1
+                                },
+                                "value": {
+                                  "Identifier": {
+                                    "value": "quantity",
+                                    "span": {
+                                      "dummy": false,
+                                      "start": 378,
+                                      "end": 386
+                                    }
+                                  }
+                                },
+                                "span": {
+                                  "dummy": false,
+                                  "start": 376,
+                                  "end": 386
+                                }
+                              },
+                              {
+                                "key": {
+                                  "Number": 2
+                                },
+                                "value": {
+                                  "Identifier": {
+                                    "value": "quantity",
+                                    "span": {
+                                      "dummy": false,
+                                      "start": 390,
+                                      "end": 398
+                                    }
+                                  }
+                                },
+                                "span": {
+                                  "dummy": false,
+                                  "start": 388,
+                                  "end": 398
+                                }
+                              }
+                            ],
+                            "span": {
+                              "dummy": false,
+                              "start": 375,
+                              "end": 400
+                            }
+                          }
+                        },
+                        "span": {
+                          "dummy": false,
+                          "start": 372,
+                          "end": 400
+                        }
+                      }
+                    ],
+                    "spread": null,
+                    "span": {
+                      "dummy": false,
+                      "start": 360,
+                      "end": 411
+                    }
+                  },
+                  "span": {
+                    "dummy": false,
+                    "start": 354,
+                    "end": 411
+                  }
+                }
+              }
+            }
+          ],
+          "span": {
+            "dummy": false,
+            "start": 263,
+            "end": 418
+          }
+        }
+      ],
+      "validity": null,
+      "mints": [],
+      "burns": [],
+      "signers": null,
+      "adhoc": [],
+      "span": {
+        "dummy": false,
+        "start": 68,
+        "end": 420
+      },
+      "collateral": [],
+      "metadata": null
+    }
+  ],
+  "types": [
+    {
+      "name": {
+        "value": "Datum",
+        "span": {
+          "dummy": false,
+          "start": 5,
+          "end": 10
+        }
+      },
+      "cases": [
+        {
+          "name": {
+            "value": "Default",
+            "span": {
+              "dummy": true,
+              "start": 0,
+              "end": 0
+            }
+          },
+          "fields": [
+            {
+              "name": {
+                "value": "A",
+                "span": {
+                  "dummy": false,
+                  "start": 15,
+                  "end": 16
+                }
+              },
+              "type": {
+                "Map": [
+                  "Int",
+                  "Int"
+                ]
+              },
+              "span": {
+                "dummy": false,
+                "start": 15,
+                "end": 31
+              }
+            }
+          ],
+          "span": {
+            "dummy": false,
+            "start": 0,
+            "end": 34
+          }
+        }
+      ],
+      "span": {
+        "dummy": false,
+        "start": 0,
+        "end": 34
+      }
+    }
+  ],
+  "assets": [],
+  "parties": [
+    {
+      "name": {
+        "value": "Sender",
+        "span": {
+          "dummy": false,
+          "start": 42,
+          "end": 48
+        }
+      },
+      "span": {
+        "dummy": false,
+        "start": 36,
+        "end": 49
+      }
+    },
+    {
+      "name": {
+        "value": "Receiver",
+        "span": {
+          "dummy": false,
+          "start": 57,
+          "end": 65
+        }
+      },
+      "span": {
+        "dummy": false,
+        "start": 51,
+        "end": 66
+      }
+    }
+  ],
+  "policies": [],
+  "span": {
+    "dummy": false,
+    "start": 0,
+    "end": 420
+  }
+}

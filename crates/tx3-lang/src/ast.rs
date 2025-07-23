@@ -610,6 +610,37 @@ impl ListConstructor {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct MapField {
+    pub key: DataExpr,
+    pub value: DataExpr,
+    pub span: Span,
+}
+
+impl MapField {
+    pub fn target_type(&self) -> Option<Type> {
+        self.key.target_type()
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct MapConstructor {
+    pub fields: Vec<MapField>,
+    pub span: Span,
+}
+
+impl MapConstructor {
+    pub fn target_type(&self) -> Option<Type> {
+        if let Some(first_field) = self.fields.first() {
+            let key_type = first_field.key.target_type()?;
+            let value_type = first_field.value.target_type()?;
+            Some(Type::Map(Box::new(key_type), Box::new(value_type)))
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct UtxoRef {
     pub txid: Vec<u8>,
     pub index: u64,
@@ -694,6 +725,7 @@ pub enum DataExpr {
     HexString(HexStringLiteral),
     StructConstructor(StructConstructor),
     ListConstructor(ListConstructor),
+    MapConstructor(MapConstructor),
     StaticAssetConstructor(StaticAssetConstructor),
     AnyAssetConstructor(AnyAssetConstructor),
     Identifier(Identifier),
@@ -724,6 +756,7 @@ impl DataExpr {
             DataExpr::HexString(_) => Some(Type::Bytes),
             DataExpr::StructConstructor(x) => x.target_type(),
             DataExpr::ListConstructor(x) => x.target_type(),
+            DataExpr::MapConstructor(x) => x.target_type(),
             DataExpr::AddOp(x) => x.target_type(),
             DataExpr::SubOp(x) => x.target_type(),
             DataExpr::ConcatOp(x) => x.target_type(),
@@ -764,6 +797,7 @@ pub enum Type {
     UtxoRef,
     AnyAsset,
     List(Box<Type>),
+    Map(Box<Type>, Box<Type>),
     Custom(Identifier),
 }
 
@@ -779,6 +813,7 @@ impl std::fmt::Display for Type {
             Type::UtxoRef => write!(f, "UtxoRef"),
             Type::AnyAsset => write!(f, "AnyAsset"),
             Type::Utxo => write!(f, "Utxo"),
+            Type::Map(key, value) => write!(f, "Map<{}, {}>", key, value),
             Type::List(inner) => write!(f, "List<{inner}>"),
             Type::Custom(id) => write!(f, "{}", id.value),
         }
