@@ -197,9 +197,11 @@ async fn smoke_test_vesting_unlock() {
 
     let tx = test_compile(tx.into(), &mut compiler, utxos);
 
+    println!("{}", hex::encode(tx.payload));
+
     assert_eq!(
         hex::encode(tx.hash),
-        "25d3d58935f885f14ff9af81864a4838ef7207c9d49701d94fae21e1e3ae6cbd"
+        "d8feb5dc4336240f98b82d4c3c1039bb1503c98f671bf2e2980f28ddc1aa81fa"
     );
 }
 
@@ -348,6 +350,29 @@ async fn adhoc_plutus_witness_test() {
     assert_eq!(
         hex::encode(tx.hash),
         "dc2f396b205fe4e5bee3ecbf1d259e8db295c3a7775c9026958d60c3beec5d08"
+    );
+}
+
+#[pollster::test]
+async fn burn_test() {
+    let mut compiler = test_compiler(None);
+    let utxos = wildcard_utxos(None);
+    let protocol = load_protocol("burn");
+
+    let mut tx = protocol.new_tx("burn_stuff").unwrap().apply().unwrap();
+
+    tx.set_arg("burner", address_to_bytes("addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"));
+    tx.set_arg("quantity", ArgValue::Int(100_000_000));
+
+    let tx = tx.apply().unwrap();
+
+    let tx = test_compile(tx.into(), &mut compiler, utxos);
+
+    println!("{}", hex::encode(tx.payload));
+
+    assert_eq!(
+        hex::encode(tx.hash),
+        "71e84fad764e06316f4e7137ab86cb2665bbca803ac8a1d380d006d8ba355c47"
     );
 }
 

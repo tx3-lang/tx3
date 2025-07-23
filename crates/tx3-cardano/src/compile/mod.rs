@@ -102,12 +102,18 @@ fn compile_native_asset_for_output(
 
 fn compile_native_asset_for_mint(
     ir: &ir::AssetExpr,
+    is_burn: bool,
 ) -> Result<primitives::Multiasset<primitives::NonZeroInt>, Error> {
     let policy = coercion::expr_into_bytes(&ir.policy)?;
     let policy = primitives::Hash::from(policy.as_slice());
     let asset_name = coercion::expr_into_bytes(&ir.asset_name)?;
     let amount = coercion::expr_into_number(&ir.amount)?;
-    let amount = primitives::NonZeroInt::try_from(amount as i64).unwrap();
+
+    let amount = if !is_burn {
+        primitives::NonZeroInt::try_from(amount as i64).unwrap()
+    } else {
+        primitives::NonZeroInt::try_from(-amount as i64).unwrap()
+    };
 
     let asset = asset!(policy, asset_name.clone(), amount);
 
@@ -181,27 +187,42 @@ fn compile_output_block(
 }
 
 fn compile_mint_block(tx: &ir::Tx) -> Result<Option<primitives::Mint>, Error> {
-    let mint = if !tx.mints.is_empty() {
-        let assets: Vec<_> = tx
-            .mints
-            .iter()
-            .flat_map(|x| coercion::expr_into_assets(&x.amount))
-            .collect();
+    if tx.mints.is_empty() && tx.burns.is_empty() {
+        return Ok(None);
+    }
 
-        let assets = assets
-            .iter()
-            .flatten()
-            .map(compile_native_asset_for_mint)
-            .collect::<Result<Vec<_>, _>>()?;
+    let mints: Vec<_> = tx
+        .mints
+        .iter()
+        .map(|x| coercion::expr_into_assets(&x.amount))
+        .collect::<Result<Vec<_>, _>>()?
+        .iter()
+        .flatten()
+        .map(|x| compile_native_asset_for_mint(x, false))
+        .collect::<Result<Vec<_>, _>>()?;
 
-        let value = asset_math::aggregate_assets(assets).unwrap();
+    let mints = asset_math::aggregate_assets(mints);
 
-        Some(value)
-    } else {
-        None
+    let burns = tx
+        .burns
+        .iter()
+        .map(|x| coercion::expr_into_assets(&x.amount))
+        .collect::<Result<Vec<_>, _>>()?
+        .iter()
+        .flatten()
+        .map(|x| compile_native_asset_for_mint(x, true))
+        .collect::<Result<Vec<_>, _>>()?;
+
+    let burns = asset_math::aggregate_assets(burns);
+
+    let all = match (mints, burns) {
+        (Some(mints), Some(burns)) => asset_math::aggregate_assets([mints, burns]),
+        (Some(mints), None) => Some(mints),
+        (None, Some(burns)) => Some(burns),
+        (None, None) => None,
     };
 
-    Ok(mint)
+    Ok(all)
 }
 
 fn compile_inputs(tx: &ir::Tx) -> Result<Vec<primitives::TransactionInput>, Error> {
@@ -641,7 +662,7 @@ fn infer_required_scripts(
 
     // TODO: other sources for scripts
 
-    let all_scripts = HashSet::from_iter(mint_policies.into_iter());
+    let all_scripts = HashSet::from_iter(mint_policies);
 
     // TODO: remove if script is already present via reference inputs
 

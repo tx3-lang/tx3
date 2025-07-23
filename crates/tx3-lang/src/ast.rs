@@ -204,8 +204,8 @@ pub struct TxDef {
     pub inputs: Vec<InputBlock>,
     pub outputs: Vec<OutputBlock>,
     pub validity: Option<ValidityBlock>,
-    pub burn: Option<BurnBlock>,
     pub mints: Vec<MintBlock>,
+    pub burns: Vec<MintBlock>,
     pub signers: Option<SignersBlock>,
     pub adhoc: Vec<ChainSpecificBlock>,
     pub span: Span,
@@ -458,12 +458,6 @@ impl MintBlock {
     pub(crate) fn find(&self, key: &str) -> Option<&MintBlockField> {
         self.fields.iter().find(|x| x.key() == key)
     }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct BurnBlock {
-    pub fields: Vec<MintBlockField>,
-    pub span: Span,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

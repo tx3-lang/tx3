@@ -206,7 +206,6 @@
         }
       ],
       "validity": null,
-      "burn": null,
       "mints": [
         {
           "fields": [
@@ -233,6 +232,7 @@
           }
         }
       ],
+      "burns": [],
       "signers": null,
       "adhoc": [
         {
@@ -527,7 +527,6 @@
         }
       ],
       "validity": null,
-      "burn": null,
       "mints": [
         {
           "fields": [
@@ -551,6 +550,7 @@
           }
         }
       ],
+      "burns": [],
       "signers": null,
       "adhoc": [
         {

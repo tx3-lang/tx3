@@ -197,7 +197,7 @@ impl AstNode for TxDef {
         let mut inputs = Vec::new();
         let mut outputs = Vec::new();
         let mut validity = None;
-        let mut burn = None;
+        let mut burns = Vec::new();
         let mut mints = Vec::new();
         let mut adhoc = Vec::new();
         let mut collateral = Vec::new();
@@ -211,8 +211,8 @@ impl AstNode for TxDef {
                 Rule::input_block => inputs.push(InputBlock::parse(item)?),
                 Rule::output_block => outputs.push(OutputBlock::parse(item)?),
                 Rule::validity_block => validity = Some(ValidityBlock::parse(item)?),
-                Rule::burn_block => burn = Some(BurnBlock::parse(item)?),
                 Rule::mint_block => mints.push(MintBlock::parse(item)?),
+                Rule::burn_block => burns.push(MintBlock::parse(item)?),
                 Rule::chain_specific_block => adhoc.push(ChainSpecificBlock::parse(item)?),
                 Rule::collateral_block => collateral.push(CollateralBlock::parse(item)?),
                 Rule::signers_block => signers = Some(SignersBlock::parse(item)?),
@@ -229,8 +229,8 @@ impl AstNode for TxDef {
             inputs,
             outputs,
             validity,
-            burn,
             mints,
+            burns,
             signers,
             adhoc,
             scope: None,
@@ -708,25 +708,6 @@ impl AstNode for MintBlock {
             .collect::<Result<Vec<_>, _>>()?;
 
         Ok(MintBlock { fields, span })
-    }
-
-    fn span(&self) -> &Span {
-        &self.span
-    }
-}
-
-impl AstNode for BurnBlock {
-    const RULE: Rule = Rule::burn_block;
-
-    fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
-        let span = pair.as_span().into();
-        let inner = pair.into_inner();
-
-        let fields = inner
-            .map(|x| MintBlockField::parse(x))
-            .collect::<Result<Vec<_>, _>>()?;
-
-        Ok(BurnBlock { fields, span })
     }
 
     fn span(&self) -> &Span {
@@ -2250,8 +2231,8 @@ mod tests {
             inputs: vec![],
             outputs: vec![],
             validity: None,
-            burn: None,
             mints: vec![],
+            burns: vec![],
             signers: None,
             adhoc: vec![],
             collateral: vec![],
@@ -2285,8 +2266,8 @@ mod tests {
             inputs: vec![],
             outputs: vec![],
             validity: None,
-            burn: None,
             mints: vec![],
+            burns: vec![],
             signers: None,
             adhoc: vec![],
             collateral: vec![],
@@ -2317,8 +2298,8 @@ mod tests {
                 inputs: vec![],
                 outputs: vec![],
                 validity: None,
-                burn: None,
                 mints: vec![],
+                burns: vec![],
                 signers: None,
                 adhoc: vec![],
                 collateral: vec![],
@@ -2402,6 +2383,8 @@ mod tests {
     test_parsing!(local_vars);
 
     test_parsing!(cardano_witness);
+
+    test_parsing!(burn);
 
     test_parsing!(list_concat);
 }

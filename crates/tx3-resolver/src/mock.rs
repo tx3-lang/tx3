@@ -21,7 +21,7 @@ fn from_fuzz_utxo(txo: &chainfuzz::TxoRef, utxo: &chainfuzz::Utxo) -> Utxo {
             let name = x.class.name.as_slice();
             let amount = x.amount;
 
-            CanonicalAssets::from_single_asset(&policy, name, amount as i128)
+            CanonicalAssets::from_asset(Some(policy.as_slice()), Some(name), amount as i128)
         })
         .fold(CanonicalAssets::empty(), |acc, x| acc + x);
 

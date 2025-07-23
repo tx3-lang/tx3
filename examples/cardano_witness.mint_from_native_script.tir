@@ -23,7 +23,8 @@
                 "EvalParam": "ExpectFees"
               },
               "ref": "None",
-              "many": false
+              "many": false,
+              "collateral": false
             }
           ]
         }
@@ -67,7 +68,8 @@
                                 "EvalParam": "ExpectFees"
                               },
                               "ref": "None",
-                              "many": false
+                              "many": false,
+                              "collateral": false
                             }
                           ]
                         }
@@ -189,6 +191,7 @@
       "redeemer": "None"
     }
   ],
+  "burns": [],
   "adhoc": [
     {
       "name": "native_witness",
@@ -225,7 +228,8 @@
                 "EvalParam": "ExpectFees"
               },
               "ref": "None",
-              "many": false
+              "many": false,
+              "collateral": true
             }
           ]
         }

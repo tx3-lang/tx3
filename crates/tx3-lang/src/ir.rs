@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{Utxo, UtxoRef};
 
-pub const IR_VERSION: &str = "v1alpha7";
+pub const IR_VERSION: &str = "v1alpha8";
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct StructExpr {
@@ -142,6 +142,7 @@ impl ScriptSource {
                             min_amount: Expression::None,
                             many: false,
                             r#ref,
+                            collateral: false,
                         },
                     )
                     .into(),
@@ -295,6 +296,7 @@ pub struct InputQuery {
     pub min_amount: Expression,
     pub r#ref: Expression,
     pub many: bool,
+    pub collateral: bool,
 }
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -347,6 +349,7 @@ pub struct Tx {
     pub outputs: Vec<Output>,
     pub validity: Option<Validity>,
     pub mints: Vec<Mint>,
+    pub burns: Vec<Mint>,
     pub adhoc: Vec<AdHocDirective>,
     pub collateral: Vec<Collateral>,
     pub signers: Option<Signers>,
@@ -523,7 +526,6 @@ impl Node for Output {
             address: self.address.apply(visitor)?,
             datum: self.datum.apply(visitor)?,
             amount: self.amount.apply(visitor)?,
-            ..self
         };
 
         Ok(visited)
@@ -535,7 +537,6 @@ impl Node for Validity {
         let visited = Self {
             since: self.since.apply(visitor)?,
             until: self.until.apply(visitor)?,
-            ..self
         };
 
         Ok(visited)
@@ -547,7 +548,6 @@ impl Node for Mint {
         let visited = Self {
             amount: self.amount.apply(visitor)?,
             redeemer: self.redeemer.apply(visitor)?,
-            ..self
         };
 
         Ok(visited)
@@ -558,7 +558,6 @@ impl Node for Collateral {
     fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::applying::Error> {
         let visited = Self {
             utxos: self.utxos.apply(visitor)?,
-            ..self
         };
 
         Ok(visited)
@@ -570,7 +569,6 @@ impl Node for Metadata {
         let visited = Self {
             key: self.key.apply(visitor)?,
             value: self.value.apply(visitor)?,
-            ..self
         };
 
         Ok(visited)
@@ -581,7 +579,6 @@ impl Node for Signers {
     fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::applying::Error> {
         let visited = Self {
             signers: self.signers.apply(visitor)?,
-            ..self
         };
 
         Ok(visited)
@@ -619,6 +616,7 @@ impl Node for Tx {
             outputs: self.outputs.apply(visitor)?,
             validity: self.validity.apply(visitor)?,
             mints: self.mints.apply(visitor)?,
+            burns: self.burns.apply(visitor)?,
             adhoc: self.adhoc.apply(visitor)?,
             collateral: self.collateral.apply(visitor)?,
             signers: self.signers.apply(visitor)?,

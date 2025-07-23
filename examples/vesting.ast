@@ -352,8 +352,8 @@
         }
       ],
       "validity": null,
-      "burn": null,
       "mints": [],
+      "burns": [],
       "signers": null,
       "adhoc": [],
       "span": {
@@ -480,8 +480,8 @@
                   "value": "Beneficiary",
                   "span": {
                     "dummy": false,
-                    "start": 862,
-                    "end": 873
+                    "start": 939,
+                    "end": 950
                   }
                 }
               }
@@ -496,8 +496,8 @@
                           "value": "gas",
                           "span": {
                             "dummy": false,
-                            "start": 891,
-                            "end": 894
+                            "start": 968,
+                            "end": 971
                           }
                         }
                       },
@@ -506,15 +506,15 @@
                           "value": "locked",
                           "span": {
                             "dummy": false,
-                            "start": 897,
-                            "end": 903
+                            "start": 974,
+                            "end": 980
                           }
                         }
                       },
                       "span": {
                         "dummy": false,
-                        "start": 895,
-                        "end": 896
+                        "start": 972,
+                        "end": 973
                       }
                     }
                   },
@@ -523,15 +523,60 @@
                       "value": "fees",
                       "span": {
                         "dummy": false,
-                        "start": 906,
-                        "end": 910
+                        "start": 983,
+                        "end": 987
                       }
                     }
                   },
                   "span": {
                     "dummy": false,
-                    "start": 904,
-                    "end": 905
+                    "start": 981,
+                    "end": 982
+                  }
+                }
+              }
+            }
+          ],
+          "span": {
+            "dummy": false,
+            "start": 911,
+            "end": 994
+          }
+        }
+      ],
+      "validity": null,
+      "mints": [],
+      "burns": [],
+      "signers": null,
+      "adhoc": [],
+      "span": {
+        "dummy": false,
+        "start": 616,
+        "end": 996
+      },
+      "collateral": [
+        {
+          "fields": [
+            {
+              "From": {
+                "Identifier": {
+                  "value": "Beneficiary",
+                  "span": {
+                    "dummy": false,
+                    "start": 861,
+                    "end": 872
+                  }
+                }
+              }
+            },
+            {
+              "MinAmount": {
+                "Identifier": {
+                  "value": "fees",
+                  "span": {
+                    "dummy": false,
+                    "start": 894,
+                    "end": 898
                   }
                 }
               }
@@ -540,21 +585,10 @@
           "span": {
             "dummy": false,
             "start": 834,
-            "end": 917
+            "end": 905
           }
         }
       ],
-      "validity": null,
-      "burn": null,
-      "mints": [],
-      "signers": null,
-      "adhoc": [],
-      "span": {
-        "dummy": false,
-        "start": 616,
-        "end": 919
-      },
-      "collateral": [],
       "metadata": null
     }
   ],
@@ -705,6 +739,6 @@
   "span": {
     "dummy": false,
     "start": 0,
-    "end": 920
+    "end": 997
   }
 }

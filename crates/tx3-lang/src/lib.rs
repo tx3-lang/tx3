@@ -58,7 +58,44 @@ impl UtxoRef {
     }
 }
 
-pub type AssetClass = (Option<Vec<u8>>, Option<Vec<u8>>);
+pub type AssetPolicy = Vec<u8>;
+pub type AssetName = Vec<u8>;
+
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
+pub enum AssetClass {
+    Naked,
+    Named(AssetName),
+    Defined(AssetPolicy, AssetName),
+}
+
+impl AssetClass {
+    pub fn is_defined(&self) -> bool {
+        matches!(self, AssetClass::Defined(_, _))
+    }
+
+    pub fn is_named(&self) -> bool {
+        matches!(self, AssetClass::Named(_))
+    }
+
+    pub fn is_naked(&self) -> bool {
+        matches!(self, AssetClass::Naked)
+    }
+
+    pub fn policy(&self) -> Option<&[u8]> {
+        match self {
+            AssetClass::Defined(policy, _) => Some(policy),
+            _ => None,
+        }
+    }
+
+    pub fn name(&self) -> Option<&[u8]> {
+        match self {
+            AssetClass::Defined(_, name) => Some(name),
+            AssetClass::Named(name) => Some(name),
+            _ => None,
+        }
+    }
+}
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct CanonicalAssets(HashMap<AssetClass, i128>);
@@ -77,14 +114,34 @@ impl CanonicalAssets {
     }
 
     pub fn from_naked_amount(amount: i128) -> Self {
-        Self(HashMap::from([((None, None), amount)]))
+        Self(HashMap::from([(AssetClass::Naked, amount)]))
     }
 
-    pub fn from_single_asset(policy: &[u8], asset_name: &[u8], amount: i128) -> Self {
+    pub fn from_named_asset(asset_name: &[u8], amount: i128) -> Self {
         Self(HashMap::from([(
-            (Some(policy.to_vec()), Some(asset_name.to_vec())),
+            AssetClass::Named(asset_name.to_vec()),
             amount,
         )]))
+    }
+
+    pub fn from_defined_asset(policy: &[u8], asset_name: &[u8], amount: i128) -> Self {
+        Self(HashMap::from([(
+            AssetClass::Defined(policy.to_vec(), asset_name.to_vec()),
+            amount,
+        )]))
+    }
+
+    pub fn from_asset(policy: Option<&[u8]>, name: Option<&[u8]>, amount: i128) -> Self {
+        match (policy, name) {
+            (Some(policy), Some(name)) => Self::from_defined_asset(policy, name, amount),
+            (Some(policy), None) => Self::from_defined_asset(policy, &[], amount),
+            (None, Some(name)) => Self::from_named_asset(name, amount),
+            (None, None) => Self::from_naked_amount(amount),
+        }
+    }
+
+    pub fn naked_amount(&self) -> Option<i128> {
+        self.get(&AssetClass::Naked).cloned()
     }
 
     pub fn contains_total(&self, other: &Self) -> bool {
@@ -409,7 +466,7 @@ mod tests {
                 },
                 address: b"abababa".to_vec(),
                 datum: None,
-                assets: CanonicalAssets::from_single_asset(b"abababa", b"asset", 100),
+                assets: CanonicalAssets::from_defined_asset(b"abababa", b"asset", 100),
                 script: Some(ir::Expression::Bytes(b"abce".to_vec())),
             }]),
         );
