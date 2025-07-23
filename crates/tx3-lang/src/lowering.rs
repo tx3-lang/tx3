@@ -567,6 +567,10 @@ impl IntoLower for ast::OutputBlockField {
                 let ctx = ctx.enter_datum_expr();
                 x.into_lower(&ctx)
             }
+            ast::OutputBlockField::ReferenceScript(x) => {
+                let out = x.into_lower(ctx)?;
+                Ok(ir::Expression::AdHocDirective(Box::new(out)))
+            }
         }
     }
 }
@@ -578,11 +582,13 @@ impl IntoLower for ast::OutputBlock {
         let address = self.find("to").into_lower(ctx)?.unwrap_or_default();
         let datum = self.find("datum").into_lower(ctx)?.unwrap_or_default();
         let amount = self.find("amount").into_lower(ctx)?.unwrap_or_default();
+        let ref_script = self.find("ref_script").into_lower(ctx)?.unwrap_or_default();
 
         Ok(ir::Output {
             address,
             datum,
             amount,
+            ref_script,
         })
     }
 }
@@ -897,5 +903,8 @@ mod tests {
 
     test_lowering!(cardano_witness);
 
+    test_lowering!(reference_script);
+
+    test_lowering!(withdrawal);
     test_lowering!(burn);
 }
