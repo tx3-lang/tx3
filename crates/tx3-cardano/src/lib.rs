@@ -59,8 +59,10 @@ impl Compiler {
 }
 
 impl tx3_lang::backend::Compiler for Compiler {
-    fn compile(&self, tx: &tx3_lang::ir::Tx) -> Result<TxEval, tx3_lang::backend::Error> {
+    fn compile(&mut self, tx: &tx3_lang::ir::Tx) -> Result<TxEval, tx3_lang::backend::Error> {
         let tx = compile::entry_point(tx, &self.pparams)?;
+
+        self.latest_tx_body = Some(tx.transaction_body.clone());
 
         let hash = tx.transaction_body.compute_hash();
 

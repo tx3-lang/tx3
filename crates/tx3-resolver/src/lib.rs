@@ -32,7 +32,7 @@ pub enum Error {
 
 async fn eval_pass<C: Compiler, S: UtxoStore>(
     tx: &ir::Tx,
-    compiler: &C,
+    compiler: &mut C,
     utxos: &S,
     last_eval: Option<&TxEval>,
 ) -> Result<Option<TxEval>, Error> {
