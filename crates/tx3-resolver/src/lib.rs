@@ -42,6 +42,8 @@ async fn eval_pass<C: Compiler, S: UtxoStore>(
 
     let attempt = applying::apply_fees(attempt, fees)?;
 
+    let attempt = attempt.apply(compiler)?;
+
     let attempt = applying::reduce(attempt)?;
 
     let attempt = crate::inputs::resolve(attempt, utxos).await?;
@@ -83,7 +85,6 @@ pub async fn resolve_tx<C: Compiler, S: UtxoStore>(
 
     // reduce compiler ops
     let tx = ir::Tx::from(tx);
-    let tx = tx.apply(compiler)?;
 
     while let Some(better) = eval_pass(&tx, compiler, utxos, last_eval.as_ref()).await? {
         last_eval = Some(better);
