@@ -1889,4 +1889,40 @@ mod tests {
             _ => panic!("Expected string 'hello'"),
         }
     }
+
+    #[test]
+    fn test_min_utxo_add_non_reduction() {
+        let op = ir::Expression::from_builtin(ir::BuiltInOp::Add(
+            ir::Expression::Assets(vec![ir::AssetExpr {
+                policy: ir::Expression::None,
+                asset_name: ir::Expression::None,
+                amount: ir::Expression::Number(29),
+            }]),
+            ir::Expression::EvalCompiler(Box::new(ir::CompilerOp::ComputeMinUtxo(
+                ir::Expression::Number(20),
+            ))),
+        ));
+
+        let reduced = op.clone().reduce().unwrap();
+
+        assert!(op == reduced)
+    }
+
+    #[test]
+    fn test_min_utxo_sub_non_reduction() {
+        let op = ir::Expression::from_builtin(ir::BuiltInOp::Sub(
+            ir::Expression::Assets(vec![ir::AssetExpr {
+                policy: ir::Expression::None,
+                asset_name: ir::Expression::None,
+                amount: ir::Expression::Number(29),
+            }]),
+            ir::Expression::EvalCompiler(Box::new(ir::CompilerOp::ComputeMinUtxo(
+                ir::Expression::Number(20),
+            ))),
+        ));
+
+        let reduced = op.clone().reduce().unwrap();
+
+        assert!(op == reduced)
+    }
 }
