@@ -1180,4 +1180,42 @@ mod tests {
             })
         );
     }
+
+    #[test]
+    fn test_min_utxo_analysis() {
+        let mut ast = crate::parsing::parse_string(
+            r#"
+        party Alice;
+        tx test() {
+            output my_output {
+                to: Alice,
+                amount: min_utxo(my_output),
+            }
+        }
+    "#,
+        )
+        .unwrap();
+
+        let result = analyze(&mut ast);
+        assert!(result.errors.is_empty());
+    }
+
+    #[test]
+    fn test_min_utxo_undefined_output_error() {
+        let mut ast = crate::parsing::parse_string(
+            r#"
+        party Alice;
+        tx test() {
+            output {
+                to: Alice,
+                amount: min_utxo(nonexistent_output),
+            }
+        }
+    "#,
+        )
+        .unwrap();
+
+        let result = analyze(&mut ast);
+        assert!(!result.errors.is_empty());
+    }
 }
