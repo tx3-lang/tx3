@@ -590,7 +590,11 @@ impl AstNode for OutputBlock {
             .map(|x| x.as_rule() == Rule::identifier)
             .unwrap_or_default();
 
-        let name = has_name.then(|| inner.next().unwrap().as_str().to_string());
+        let name = if has_name {
+            Some(Identifier::parse(inner.next().unwrap())?)
+        } else {
+            None
+        };
 
         let fields = inner
             .map(|x| OutputBlockField::parse(x))
