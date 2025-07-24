@@ -1089,6 +1089,11 @@ impl DataExpr {
         )?))
     }
 
+    fn min_utxo_parse(pair: Pair<Rule>) -> Result<Self, Error> {
+        let inner = pair.into_inner().next().unwrap();
+        Ok(DataExpr::MinUtxo(Identifier::parse(inner)?))
+    }
+
     fn concat_constructor_parse(pair: Pair<Rule>) -> Result<Self, Error> {
         Ok(DataExpr::ConcatOp(ConcatOp::parse(pair)?))
     }
@@ -1160,6 +1165,7 @@ impl AstNode for DataExpr {
                 Rule::static_asset_constructor => DataExpr::static_asset_constructor_parse(x),
                 Rule::any_asset_constructor => DataExpr::any_asset_constructor_parse(x),
                 Rule::concat_constructor => DataExpr::concat_constructor_parse(x),
+                Rule::min_utxo => DataExpr::min_utxo_parse(x),
                 Rule::data_expr => DataExpr::parse(x),
                 x => unreachable!("unexpected rule as data primary: {:?}", x),
             })
@@ -1198,6 +1204,7 @@ impl AstNode for DataExpr {
             DataExpr::NegateOp(x) => &x.span,
             DataExpr::PropertyOp(x) => &x.span,
             DataExpr::UtxoRef(x) => x.span(),
+            DataExpr::MinUtxo(x) => x.span(),
         }
     }
 }
