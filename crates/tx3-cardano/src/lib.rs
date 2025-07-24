@@ -32,20 +32,29 @@ pub const EXECUTION_UNITS: primitives::ExUnits = primitives::ExUnits {
 };
 
 const DEFAULT_EXTRA_FEES: u64 = 200_000;
+const MIN_UTXO_BYTES: i128 = 197;
 
 #[derive(Debug, Clone, Default)]
 pub struct Config {
     pub extra_fees: Option<u64>,
 }
 
+pub type TxBody =
+    pallas::codec::utils::KeepRaw<'static, primitives::conway::TransactionBody<'static>>;
+
 pub struct Compiler {
     pub pparams: PParams,
     pub config: Config,
+    pub latest_tx_body: Option<TxBody>,
 }
 
 impl Compiler {
     pub fn new(pparams: PParams, config: Config) -> Self {
-        Self { pparams, config }
+        Self {
+            pparams,
+            config,
+            latest_tx_body: None,
+        }
     }
 }
 
