@@ -60,13 +60,12 @@ impl Compiler {
 
 impl tx3_lang::backend::Compiler for Compiler {
     fn compile(&mut self, tx: &tx3_lang::ir::Tx) -> Result<TxEval, tx3_lang::backend::Error> {
-        let tx = compile::entry_point(tx, &self.pparams)?;
+        let compiled_tx = compile::entry_point(tx, &self.pparams)?;
 
-        self.latest_tx_body = Some(tx.transaction_body.clone());
+        let hash = compiled_tx.transaction_body.compute_hash();
+        let payload = pallas::codec::minicbor::to_vec(&compiled_tx).unwrap();
 
-        let hash = tx.transaction_body.compute_hash();
-
-        let payload = pallas::codec::minicbor::to_vec(&tx).unwrap();
+        self.latest_tx_body = Some(compiled_tx.transaction_body);
 
         let size_fees = eval_size_fees(&payload, &self.pparams, self.config.extra_fees);
 
