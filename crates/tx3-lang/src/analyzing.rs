@@ -287,6 +287,12 @@ impl Scope {
             .insert(name.to_string(), Symbol::Input(Box::new(input)));
     }
 
+    pub fn track_output(&mut self, index: usize, output: OutputBlock) {
+        if let Some(n) = output.name {
+            self.symbols.insert(n.value, Symbol::Output(index));
+        }
+    }
+
     pub fn track_record_fields_for_type(&mut self, ty: &Type) {
         let schema = ty.properties();
 
@@ -546,6 +552,7 @@ impl Analyzable for DataExpr {
             DataExpr::PropertyOp(x) => x.analyze(parent),
             DataExpr::StaticAssetConstructor(x) => x.analyze(parent),
             DataExpr::AnyAssetConstructor(x) => x.analyze(parent),
+            DataExpr::MinUtxo(x) => x.analyze(parent),
             _ => AnalyzeReport::default(),
         }
     }
@@ -561,6 +568,7 @@ impl Analyzable for DataExpr {
             DataExpr::PropertyOp(x) => x.is_resolved(),
             DataExpr::StaticAssetConstructor(x) => x.is_resolved(),
             DataExpr::AnyAssetConstructor(x) => x.is_resolved(),
+            DataExpr::MinUtxo(x) => x.is_resolved(),
             _ => true,
         }
     }
@@ -963,7 +971,6 @@ impl Analyzable for TxDef {
             for param in self.parameters.parameters.iter() {
                 current.track_param_var(&param.name.value, param.r#type.clone());
             }
-
             Rc::new(current)
         };
 
@@ -978,6 +985,10 @@ impl Analyzable for TxDef {
                 current.track_local_expr(&assign.name.value, assign.value.clone());
             }
 
+            for (index, output) in self.outputs.iter().enumerate() {
+                current.track_output(index, output.clone())
+            }
+
             Rc::new(current)
         };
 
@@ -988,6 +999,10 @@ impl Analyzable for TxDef {
 
             for input in self.inputs.iter() {
                 current.track_input(&input.name, input.clone());
+            }
+
+            for (index, output) in self.outputs.iter().enumerate() {
+                current.track_output(index, output.clone())
             }
 
             Rc::new(current)
