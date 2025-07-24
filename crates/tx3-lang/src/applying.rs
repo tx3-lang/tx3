@@ -131,33 +131,46 @@ impl Arithmetic for i128 {
 
 impl Arithmetic for ir::Expression {
     fn add(self, other: ir::Expression) -> Result<ir::Expression, Error> {
-        match self {
-            ir::Expression::None => Ok(other),
-            ir::Expression::Number(x) => Arithmetic::add(x, other),
-            ir::Expression::Assets(x) => Arithmetic::add(x, other),
-            x => Err(Error::InvalidBinaryOp(
-                "add".to_string(),
-                format!("{x:?}"),
-                format!("{other:?}"),
-            )),
+        if matches!(self, ir::Expression::EvalCompiler(_))
+            || matches!(other, ir::Expression::EvalCompiler(_))
+        {
+            Ok(Self::from_builtin(ir::BuiltInOp::Add(self, other)))
+        } else {
+            match self {
+                ir::Expression::None => Ok(other),
+                ir::Expression::Number(x) => Arithmetic::add(x, other),
+                ir::Expression::Assets(x) => Arithmetic::add(x, other),
+                x => Err(Error::InvalidBinaryOp(
+                    "add".to_string(),
+                    format!("{x:?}"),
+                    format!("{other:?}"),
+                )),
+            }
         }
     }
 
     fn sub(self, other: ir::Expression) -> Result<ir::Expression, Error> {
-        match self {
-            ir::Expression::None => Ok(other),
-            ir::Expression::Number(x) => Arithmetic::sub(x, other),
-            ir::Expression::Assets(x) => Arithmetic::sub(x, other),
-            x => Err(Error::InvalidBinaryOp(
-                "sub".to_string(),
-                format!("{x:?}"),
-                format!("{other:?}"),
-            )),
+        if matches!(self, ir::Expression::EvalCompiler(_))
+            || matches!(other, ir::Expression::EvalCompiler(_))
+        {
+            Ok(Self::from_builtin(ir::BuiltInOp::Sub(self, other)))
+        } else {
+            match self {
+                ir::Expression::None => Ok(other),
+                ir::Expression::Number(x) => Arithmetic::sub(x, other),
+                ir::Expression::Assets(x) => Arithmetic::sub(x, other),
+                x => Err(Error::InvalidBinaryOp(
+                    "sub".to_string(),
+                    format!("{x:?}"),
+                    format!("{other:?}"),
+                )),
+            }
         }
     }
 
     fn neg(self) -> Result<ir::Expression, Error> {
         match self {
+            ir::Expression::EvalCompiler(_) => Ok(Self::from_builtin(ir::BuiltInOp::Negate(self))),
             ir::Expression::None => Ok(ir::Expression::None),
             ir::Expression::Number(x) => Arithmetic::neg(x),
             ir::Expression::Assets(x) => Arithmetic::neg(x),
@@ -1125,6 +1138,7 @@ impl Composite for ir::CompilerOp {
     fn components(&self) -> Vec<&ir::Expression> {
         match self {
             ir::CompilerOp::BuildScriptAddress(x) => vec![x],
+            ir::CompilerOp::ComputeMinUtxo(x) => vec![x],
         }
     }
 
@@ -1134,6 +1148,7 @@ impl Composite for ir::CompilerOp {
     {
         match self {
             ir::CompilerOp::BuildScriptAddress(x) => Ok(ir::CompilerOp::BuildScriptAddress(f(x)?)),
+            ir::CompilerOp::ComputeMinUtxo(x) => Ok(ir::CompilerOp::ComputeMinUtxo(f(x)?)),
         }
     }
 }
