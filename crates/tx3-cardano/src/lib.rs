@@ -89,6 +89,18 @@ impl tx3_lang::backend::Compiler for Compiler {
                 let address = coercion::policy_into_address(hash.as_ref(), self.pparams.network)?;
                 Ok(ir::Expression::Address(address.to_vec()))
             }
+            ir::CompilerOp::ComputeMinUtxo(x) => {
+                let lovelace = compile::compute_min_utxo(
+                    x,
+                    &self.latest_tx_body,
+                    self.pparams.coins_per_utxo_byte as i128,
+                )?;
+                Ok(ir::Expression::Assets(vec![ir::AssetExpr {
+                    policy: ir::Expression::None,
+                    asset_name: ir::Expression::None,
+                    amount: ir::Expression::Number(lovelace),
+                }]))
+            }
         }
     }
 }
