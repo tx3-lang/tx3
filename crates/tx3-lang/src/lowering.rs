@@ -902,4 +902,6 @@ mod tests {
     test_lowering!(cardano_witness);
 
     test_lowering!(burn);
+
+    test_lowering!(min_utxo);
 }
