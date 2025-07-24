@@ -1950,6 +1950,28 @@ mod tests {
     );
 
     input_to_ast_check!(
+        DataExpr,
+        "min_utxo_basic",
+        "min_utxo(output1)",
+        DataExpr::MinUtxo(Identifier::new("output1"))
+    );
+
+    input_to_ast_check!(
+        DataExpr,
+        "min_utxo_in_expression",
+        "Ada(100) + min_utxo(my_output)",
+        DataExpr::AddOp(AddOp {
+            lhs: Box::new(DataExpr::StaticAssetConstructor(StaticAssetConstructor {
+                r#type: Identifier::new("Ada"),
+                amount: Box::new(DataExpr::Number(100)),
+                span: Span::DUMMY,
+            })),
+            rhs: Box::new(DataExpr::MinUtxo(Identifier::new("my_output"))),
+            span: Span::DUMMY,
+        })
+    );
+
+    input_to_ast_check!(
         StructConstructor,
         "struct_constructor_record",
         "MyRecord {
@@ -2329,7 +2351,7 @@ mod tests {
     #[test]
     fn test_spans_are_respected() {
         let program = parse_well_known_example("lang_tour");
-        assert_eq!(program.span, Span::new(0, 1497));
+        assert_eq!(program.span, Span::new(0, 1560));
 
         assert_eq!(program.parties[0].span, Span::new(47, 61));
 
