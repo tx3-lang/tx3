@@ -2,9 +2,9 @@
 
 use std::collections::{BTreeMap, HashSet};
 use tx3_lang::{
-    applying,
+    CanonicalAssets, Utxo, UtxoRef, UtxoSet, applying,
     backend::{UtxoPattern, UtxoStore},
-    ir, CanonicalAssets, Utxo, UtxoRef, UtxoSet,
+    ir,
 };
 
 use crate::Error;
@@ -149,11 +149,12 @@ const MAX_SEARCH_SPACE_SIZE: usize = 50;
 
 struct InputSelector<'a, S: UtxoStore> {
     store: &'a S,
+    ignore: Vec<UtxoRef>,
 }
 
 impl<'a, S: UtxoStore> InputSelector<'a, S> {
-    pub fn new(store: &'a S) -> Self {
-        Self { store }
+    pub fn new(store: &'a S, ignore: Vec<UtxoRef>) -> Self {
+        Self { store, ignore }
     }
 
     async fn narrow_by_address(&self, expr: &ir::Expression) -> Result<Subset, Error> {
@@ -259,7 +260,10 @@ impl<'a, S: UtxoStore> InputSelector<'a, S> {
             Subset::All => return Err(Error::InputQueryTooBroad),
         };
 
-        let refs = refs.into_iter().collect();
+        let refs = refs
+            .into_iter()
+            .filter(|x| !self.ignore.contains(x))
+            .collect();
 
         let utxos = self.store.fetch_utxos(refs).await?;
 
@@ -282,7 +286,15 @@ pub async fn resolve<T: UtxoStore>(tx: ir::Tx, utxos: &T) -> Result<ir::Tx, Erro
     let mut all_inputs = BTreeMap::new();
 
     for (name, query) in applying::find_queries(&tx) {
-        let selector = InputSelector::new(utxos);
+        let ignore = if name == "collateral" {
+            vec![]
+        } else {
+            all_inputs
+                .values()
+                .flat_map(|x: &UtxoSet| x.iter().map(|x| x.r#ref.clone()))
+                .collect::<Vec<_>>()
+        };
+        let selector = InputSelector::new(utxos, ignore);
 
         let utxos = selector.select(&query).await?;
 
@@ -345,7 +357,7 @@ mod tests {
             },
         );
 
-        let selector = InputSelector::new(&store);
+        let selector = InputSelector::new(&store, vec![]);
 
         for subject in mock::KnownAddress::everyone() {
             let criteria = new_input_query(&subject, None, vec![], false, false);
@@ -368,7 +380,7 @@ mod tests {
             },
         );
 
-        let selector = InputSelector::new(&store);
+        let selector = InputSelector::new(&store, vec![]);
 
         let criteria = new_input_query(
             &mock::KnownAddress::Alice,
@@ -403,7 +415,7 @@ mod tests {
             },
         );
 
-        let selector = InputSelector::new(&store);
+        let selector = InputSelector::new(&store, vec![]);
 
         for address in mock::KnownAddress::everyone() {
             // test negative case where we ask for a single utxo with more than available
@@ -488,7 +500,7 @@ mod tests {
             },
         );
 
-        let selector = InputSelector::new(&store);
+        let selector = InputSelector::new(&store, vec![]);
 
         for address in mock::KnownAddress::everyone() {
             let criteria = new_input_query(&address, Some(1_000_000), vec![], false, true);
@@ -500,5 +512,76 @@ mod tests {
             assert_eq!(utxo.assets.keys().len(), 1);
             assert_eq!(utxo.assets.keys().next().unwrap().is_naked(), true);
         }
+    }
+
+    #[pollster::test]
+    async fn test_resolve_ignores_selected_utxos() {
+        let store = mock::seed_random_memory_store(
+            |_: &mock::FuzzTxoRef, x: &mock::KnownAddress, _: u64| {
+                mock::utxo_with_random_amount(x, 4_000_000..5_000_000)
+            },
+        );
+
+        let address = &mock::KnownAddress::Alice;
+
+        let first_input = ir::Input {
+            name: "first_input".to_string(),
+            utxos: ir::Param::ExpectInput(
+                "first_input".to_string(),
+                new_input_query(address, Some(4_000_000), vec![], false, false),
+            )
+            .into(),
+            redeemer: ir::Expression::None,
+        };
+
+        let second_input = ir::Input {
+            name: "second_input".to_string(),
+            utxos: ir::Param::ExpectInput(
+                "second_input".to_string(),
+                new_input_query(address, Some(4_000_000), vec![], false, false),
+            )
+            .into(),
+            redeemer: ir::Expression::None,
+        };
+
+        let tx = ir::Tx {
+            fees: ir::Expression::Number(200_000),
+            references: vec![],
+            inputs: vec![first_input, second_input],
+            outputs: vec![],
+            validity: None,
+            mints: vec![],
+            burns: vec![],
+            adhoc: vec![],
+            collateral: vec![],
+            signers: None,
+            metadata: vec![],
+        };
+
+        let resolved_tx = resolve(tx, &store).await.unwrap();
+
+        let first_utxo_refs: HashSet<UtxoRef> = match &resolved_tx.inputs[0].utxos {
+            ir::Expression::EvalParam(param) => match param.as_ref() {
+                ir::Param::Set(ir::Expression::UtxoSet(utxos)) => {
+                    utxos.iter().map(|u| u.r#ref.clone()).collect()
+                }
+                _ => panic!("Expected Set(UtxoSet), got {:?}", param),
+            },
+            ir::Expression::UtxoSet(utxos) => utxos.iter().map(|u| u.r#ref.clone()).collect(),
+            _ => panic!("Expected UtxoSet or EvalParam(Set(UtxoSet)), got {:?}", resolved_tx.inputs[0].utxos),
+        };
+
+        let second_utxo_refs: HashSet<UtxoRef> = match &resolved_tx.inputs[1].utxos {
+            ir::Expression::EvalParam(param) => match param.as_ref() {
+                ir::Param::Set(ir::Expression::UtxoSet(utxos)) => {
+                    utxos.iter().map(|u| u.r#ref.clone()).collect()
+                }
+                _ => panic!("Expected Set(UtxoSet), got {:?}", param),
+            },
+            ir::Expression::UtxoSet(utxos) => utxos.iter().map(|u| u.r#ref.clone()).collect(),
+            _ => panic!("Expected UtxoSet or EvalParam(Set(UtxoSet)), got {:?}", resolved_tx.inputs[1].utxos),
+        };
+
+        assert!(first_utxo_refs.is_disjoint(&second_utxo_refs));
     }
 }
