@@ -32,30 +32,40 @@ pub const EXECUTION_UNITS: primitives::ExUnits = primitives::ExUnits {
 };
 
 const DEFAULT_EXTRA_FEES: u64 = 200_000;
+const MIN_UTXO_BYTES: i128 = 197;
 
 #[derive(Debug, Clone, Default)]
 pub struct Config {
     pub extra_fees: Option<u64>,
 }
 
+pub type TxBody =
+    pallas::codec::utils::KeepRaw<'static, primitives::conway::TransactionBody<'static>>;
+
 pub struct Compiler {
     pub pparams: PParams,
     pub config: Config,
+    pub latest_tx_body: Option<TxBody>,
 }
 
 impl Compiler {
     pub fn new(pparams: PParams, config: Config) -> Self {
-        Self { pparams, config }
+        Self {
+            pparams,
+            config,
+            latest_tx_body: None,
+        }
     }
 }
 
 impl tx3_lang::backend::Compiler for Compiler {
-    fn compile(&self, tx: &tx3_lang::ir::Tx) -> Result<TxEval, tx3_lang::backend::Error> {
-        let tx = compile::entry_point(tx, &self.pparams)?;
+    fn compile(&mut self, tx: &tx3_lang::ir::Tx) -> Result<TxEval, tx3_lang::backend::Error> {
+        let compiled_tx = compile::entry_point(tx, &self.pparams)?;
 
-        let hash = tx.transaction_body.compute_hash();
+        let hash = compiled_tx.transaction_body.compute_hash();
+        let payload = pallas::codec::minicbor::to_vec(&compiled_tx).unwrap();
 
-        let payload = pallas::codec::minicbor::to_vec(&tx).unwrap();
+        self.latest_tx_body = Some(compiled_tx.transaction_body);
 
         let size_fees = eval_size_fees(&payload, &self.pparams, self.config.extra_fees);
 
@@ -77,6 +87,18 @@ impl tx3_lang::backend::Compiler for Compiler {
                 let hash: primitives::Hash<28> = coercion::expr_into_hash(&x)?;
                 let address = coercion::policy_into_address(hash.as_ref(), self.pparams.network)?;
                 Ok(ir::Expression::Address(address.to_vec()))
+            }
+            ir::CompilerOp::ComputeMinUtxo(x) => {
+                let lovelace = compile::compute_min_utxo(
+                    x,
+                    &self.latest_tx_body,
+                    self.pparams.coins_per_utxo_byte as i128,
+                )?;
+                Ok(ir::Expression::Assets(vec![ir::AssetExpr {
+                    policy: ir::Expression::None,
+                    asset_name: ir::Expression::None,
+                    amount: ir::Expression::Number(lovelace),
+                }]))
             }
         }
     }

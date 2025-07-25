@@ -99,7 +99,14 @@
       ],
       "outputs": [
         {
-          "name": "target",
+          "name": {
+            "value": "target",
+            "span": {
+              "dummy": false,
+              "start": 330,
+              "end": 336
+            }
+          },
           "fields": [
             {
               "To": {
@@ -472,7 +479,14 @@
       ],
       "outputs": [
         {
-          "name": "target",
+          "name": {
+            "value": "target",
+            "span": {
+              "dummy": false,
+              "start": 918,
+              "end": 924
+            }
+          },
           "fields": [
             {
               "To": {

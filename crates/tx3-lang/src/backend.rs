@@ -53,7 +53,7 @@ pub struct TxEval {
 }
 
 pub trait Compiler {
-    fn compile(&self, tx: &ir::Tx) -> Result<TxEval, Error>;
+    fn compile(&mut self, tx: &ir::Tx) -> Result<TxEval, Error>;
     fn execute(&self, op: ir::CompilerOp) -> Result<ir::Expression, Error>;
 }
 

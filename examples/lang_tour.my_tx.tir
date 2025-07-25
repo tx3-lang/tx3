@@ -20,20 +20,33 @@
                 }
               },
               "min_amount": {
-                "Assets": [
-                  {
-                    "policy": "None",
-                    "asset_name": "None",
-                    "amount": {
-                      "EvalParam": {
-                        "ExpectValue": [
-                          "quantity",
-                          "Int"
-                        ]
+                "EvalBuiltIn": {
+                  "Add": [
+                    {
+                      "Assets": [
+                        {
+                          "policy": "None",
+                          "asset_name": "None",
+                          "amount": {
+                            "EvalParam": {
+                              "ExpectValue": [
+                                "quantity",
+                                "Int"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "EvalCompiler": {
+                        "ComputeMinUtxo": {
+                          "Number": 0
+                        }
                       }
                     }
-                  }
-                ]
+                  ]
+                }
               },
               "ref": "None",
               "many": false,
@@ -145,20 +158,33 @@
                                 }
                               },
                               "min_amount": {
-                                "Assets": [
-                                  {
-                                    "policy": "None",
-                                    "asset_name": "None",
-                                    "amount": {
-                                      "EvalParam": {
-                                        "ExpectValue": [
-                                          "quantity",
-                                          "Int"
-                                        ]
+                                "EvalBuiltIn": {
+                                  "Add": [
+                                    {
+                                      "Assets": [
+                                        {
+                                          "policy": "None",
+                                          "asset_name": "None",
+                                          "amount": {
+                                            "EvalParam": {
+                                              "ExpectValue": [
+                                                "quantity",
+                                                "Int"
+                                              ]
+                                            }
+                                          }
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "EvalCompiler": {
+                                        "ComputeMinUtxo": {
+                                          "Number": 0
+                                        }
                                       }
                                     }
-                                  }
-                                ]
+                                  ]
+                                }
                               },
                               "ref": "None",
                               "many": false,
@@ -203,20 +229,33 @@
                                     }
                                   },
                                   "min_amount": {
-                                    "Assets": [
-                                      {
-                                        "policy": "None",
-                                        "asset_name": "None",
-                                        "amount": {
-                                          "EvalParam": {
-                                            "ExpectValue": [
-                                              "quantity",
-                                              "Int"
-                                            ]
+                                    "EvalBuiltIn": {
+                                      "Add": [
+                                        {
+                                          "Assets": [
+                                            {
+                                              "policy": "None",
+                                              "asset_name": "None",
+                                              "amount": {
+                                                "EvalParam": {
+                                                  "ExpectValue": [
+                                                    "quantity",
+                                                    "Int"
+                                                  ]
+                                                }
+                                              }
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "EvalCompiler": {
+                                            "ComputeMinUtxo": {
+                                              "Number": 0
+                                            }
                                           }
                                         }
-                                      }
-                                    ]
+                                      ]
+                                    }
                                   },
                                   "ref": "None",
                                   "many": false,
@@ -240,162 +279,214 @@
         "EvalBuiltIn": {
           "Add": [
             {
-              "Assets": [
-                {
-                  "policy": {
-                    "EvalBuiltIn": {
-                      "Property": [
-                        {
-                          "EvalCoerce": {
-                            "IntoAssets": {
-                              "EvalParam": {
-                                "ExpectInput": [
-                                  "source",
-                                  {
-                                    "address": {
-                                      "EvalParam": {
-                                        "ExpectValue": [
-                                          "myparty",
-                                          "Address"
-                                        ]
-                                      }
-                                    },
-                                    "min_amount": {
-                                      "Assets": [
+              "EvalBuiltIn": {
+                "Add": [
+                  {
+                    "Assets": [
+                      {
+                        "policy": {
+                          "EvalBuiltIn": {
+                            "Property": [
+                              {
+                                "EvalCoerce": {
+                                  "IntoAssets": {
+                                    "EvalParam": {
+                                      "ExpectInput": [
+                                        "source",
                                         {
-                                          "policy": "None",
-                                          "asset_name": "None",
-                                          "amount": {
+                                          "address": {
                                             "EvalParam": {
                                               "ExpectValue": [
-                                                "quantity",
-                                                "Int"
+                                                "myparty",
+                                                "Address"
                                               ]
                                             }
-                                          }
+                                          },
+                                          "min_amount": {
+                                            "EvalBuiltIn": {
+                                              "Add": [
+                                                {
+                                                  "Assets": [
+                                                    {
+                                                      "policy": "None",
+                                                      "asset_name": "None",
+                                                      "amount": {
+                                                        "EvalParam": {
+                                                          "ExpectValue": [
+                                                            "quantity",
+                                                            "Int"
+                                                          ]
+                                                        }
+                                                      }
+                                                    }
+                                                  ]
+                                                },
+                                                {
+                                                  "EvalCompiler": {
+                                                    "ComputeMinUtxo": {
+                                                      "Number": 0
+                                                    }
+                                                  }
+                                                }
+                                              ]
+                                            }
+                                          },
+                                          "ref": "None",
+                                          "many": false,
+                                          "collateral": false
                                         }
                                       ]
-                                    },
-                                    "ref": "None",
-                                    "many": false,
-                                    "collateral": false
+                                    }
                                   }
-                                ]
-                              }
-                            }
+                                }
+                              },
+                              2
+                            ]
                           }
                         },
-                        2
-                      ]
-                    }
+                        "asset_name": {
+                          "EvalBuiltIn": {
+                            "Property": [
+                              {
+                                "EvalCoerce": {
+                                  "IntoAssets": {
+                                    "EvalParam": {
+                                      "ExpectInput": [
+                                        "source",
+                                        {
+                                          "address": {
+                                            "EvalParam": {
+                                              "ExpectValue": [
+                                                "myparty",
+                                                "Address"
+                                              ]
+                                            }
+                                          },
+                                          "min_amount": {
+                                            "EvalBuiltIn": {
+                                              "Add": [
+                                                {
+                                                  "Assets": [
+                                                    {
+                                                      "policy": "None",
+                                                      "asset_name": "None",
+                                                      "amount": {
+                                                        "EvalParam": {
+                                                          "ExpectValue": [
+                                                            "quantity",
+                                                            "Int"
+                                                          ]
+                                                        }
+                                                      }
+                                                    }
+                                                  ]
+                                                },
+                                                {
+                                                  "EvalCompiler": {
+                                                    "ComputeMinUtxo": {
+                                                      "Number": 0
+                                                    }
+                                                  }
+                                                }
+                                              ]
+                                            }
+                                          },
+                                          "ref": "None",
+                                          "many": false,
+                                          "collateral": false
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              1
+                            ]
+                          }
+                        },
+                        "amount": {
+                          "EvalBuiltIn": {
+                            "Property": [
+                              {
+                                "EvalCoerce": {
+                                  "IntoAssets": {
+                                    "EvalParam": {
+                                      "ExpectInput": [
+                                        "source",
+                                        {
+                                          "address": {
+                                            "EvalParam": {
+                                              "ExpectValue": [
+                                                "myparty",
+                                                "Address"
+                                              ]
+                                            }
+                                          },
+                                          "min_amount": {
+                                            "EvalBuiltIn": {
+                                              "Add": [
+                                                {
+                                                  "Assets": [
+                                                    {
+                                                      "policy": "None",
+                                                      "asset_name": "None",
+                                                      "amount": {
+                                                        "EvalParam": {
+                                                          "ExpectValue": [
+                                                            "quantity",
+                                                            "Int"
+                                                          ]
+                                                        }
+                                                      }
+                                                    }
+                                                  ]
+                                                },
+                                                {
+                                                  "EvalCompiler": {
+                                                    "ComputeMinUtxo": {
+                                                      "Number": 0
+                                                    }
+                                                  }
+                                                }
+                                              ]
+                                            }
+                                          },
+                                          "ref": "None",
+                                          "many": false,
+                                          "collateral": false
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              0
+                            ]
+                          }
+                        }
+                      }
+                    ]
                   },
-                  "asset_name": {
-                    "EvalBuiltIn": {
-                      "Property": [
-                        {
-                          "EvalCoerce": {
-                            "IntoAssets": {
-                              "EvalParam": {
-                                "ExpectInput": [
-                                  "source",
-                                  {
-                                    "address": {
-                                      "EvalParam": {
-                                        "ExpectValue": [
-                                          "myparty",
-                                          "Address"
-                                        ]
-                                      }
-                                    },
-                                    "min_amount": {
-                                      "Assets": [
-                                        {
-                                          "policy": "None",
-                                          "asset_name": "None",
-                                          "amount": {
-                                            "EvalParam": {
-                                              "ExpectValue": [
-                                                "quantity",
-                                                "Int"
-                                              ]
-                                            }
-                                          }
-                                        }
-                                      ]
-                                    },
-                                    "ref": "None",
-                                    "many": false,
-                                    "collateral": false
-                                  }
-                                ]
-                              }
-                            }
-                          }
-                        },
-                        1
-                      ]
-                    }
-                  },
-                  "amount": {
-                    "EvalBuiltIn": {
-                      "Property": [
-                        {
-                          "EvalCoerce": {
-                            "IntoAssets": {
-                              "EvalParam": {
-                                "ExpectInput": [
-                                  "source",
-                                  {
-                                    "address": {
-                                      "EvalParam": {
-                                        "ExpectValue": [
-                                          "myparty",
-                                          "Address"
-                                        ]
-                                      }
-                                    },
-                                    "min_amount": {
-                                      "Assets": [
-                                        {
-                                          "policy": "None",
-                                          "asset_name": "None",
-                                          "amount": {
-                                            "EvalParam": {
-                                              "ExpectValue": [
-                                                "quantity",
-                                                "Int"
-                                              ]
-                                            }
-                                          }
-                                        }
-                                      ]
-                                    },
-                                    "ref": "None",
-                                    "many": false,
-                                    "collateral": false
-                                  }
-                                ]
-                              }
-                            }
-                          }
-                        },
-                        0
-                      ]
-                    }
+                  {
+                    "Assets": [
+                      {
+                        "policy": "None",
+                        "asset_name": "None",
+                        "amount": {
+                          "Number": 40
+                        }
+                      }
+                    ]
                   }
-                }
-              ]
+                ]
+              }
             },
             {
-              "Assets": [
-                {
-                  "policy": "None",
-                  "asset_name": "None",
-                  "amount": {
-                    "Number": 40
-                  }
+              "EvalCompiler": {
+                "ComputeMinUtxo": {
+                  "Number": 0
                 }
-              ]
+              }
             }
           ]
         }

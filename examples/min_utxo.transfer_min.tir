@@ -1,0 +1,174 @@
+{
+  "fees": {
+    "EvalParam": "ExpectFees"
+  },
+  "references": [],
+  "inputs": [
+    {
+      "name": "source",
+      "utxos": {
+        "EvalParam": {
+          "ExpectInput": [
+            "source",
+            {
+              "address": {
+                "EvalParam": {
+                  "ExpectValue": [
+                    "sender",
+                    "Address"
+                  ]
+                }
+              },
+              "min_amount": {
+                "EvalBuiltIn": {
+                  "Add": [
+                    {
+                      "EvalBuiltIn": {
+                        "Add": [
+                          {
+                            "EvalParam": "ExpectFees"
+                          },
+                          {
+                            "EvalCompiler": {
+                              "ComputeMinUtxo": {
+                                "Number": 0
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "EvalCompiler": {
+                        "ComputeMinUtxo": {
+                          "Number": 1
+                        }
+                      }
+                    }
+                  ]
+                }
+              },
+              "ref": "None",
+              "many": false,
+              "collateral": false
+            }
+          ]
+        }
+      },
+      "redeemer": "None"
+    }
+  ],
+  "outputs": [
+    {
+      "address": {
+        "EvalParam": {
+          "ExpectValue": [
+            "receiver",
+            "Address"
+          ]
+        }
+      },
+      "datum": "None",
+      "amount": {
+        "EvalCompiler": {
+          "ComputeMinUtxo": {
+            "Number": 0
+          }
+        }
+      }
+    },
+    {
+      "address": {
+        "EvalParam": {
+          "ExpectValue": [
+            "sender",
+            "Address"
+          ]
+        }
+      },
+      "datum": "None",
+      "amount": {
+        "EvalBuiltIn": {
+          "Sub": [
+            {
+              "EvalBuiltIn": {
+                "Sub": [
+                  {
+                    "EvalCoerce": {
+                      "IntoAssets": {
+                        "EvalParam": {
+                          "ExpectInput": [
+                            "source",
+                            {
+                              "address": {
+                                "EvalParam": {
+                                  "ExpectValue": [
+                                    "sender",
+                                    "Address"
+                                  ]
+                                }
+                              },
+                              "min_amount": {
+                                "EvalBuiltIn": {
+                                  "Add": [
+                                    {
+                                      "EvalBuiltIn": {
+                                        "Add": [
+                                          {
+                                            "EvalParam": "ExpectFees"
+                                          },
+                                          {
+                                            "EvalCompiler": {
+                                              "ComputeMinUtxo": {
+                                                "Number": 0
+                                              }
+                                            }
+                                          }
+                                        ]
+                                      }
+                                    },
+                                    {
+                                      "EvalCompiler": {
+                                        "ComputeMinUtxo": {
+                                          "Number": 1
+                                        }
+                                      }
+                                    }
+                                  ]
+                                }
+                              },
+                              "ref": "None",
+                              "many": false,
+                              "collateral": false
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "EvalParam": "ExpectFees"
+                  }
+                ]
+              }
+            },
+            {
+              "EvalCompiler": {
+                "ComputeMinUtxo": {
+                  "Number": 0
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "validity": null,
+  "mints": [],
+  "burns": [],
+  "adhoc": [],
+  "collateral": [],
+  "signers": null,
+  "metadata": []
+}
