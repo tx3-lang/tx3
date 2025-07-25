@@ -131,9 +131,7 @@ impl Arithmetic for i128 {
 
 impl Arithmetic for ir::Expression {
     fn add(self, other: ir::Expression) -> Result<ir::Expression, Error> {
-        if matches!(self, ir::Expression::EvalCompiler(_))
-            || matches!(other, ir::Expression::EvalCompiler(_))
-        {
+        if self.contains_eval_compiler() || other.contains_eval_compiler() {
             Ok(Self::from_builtin(ir::BuiltInOp::Add(self, other)))
         } else {
             match self {
@@ -150,9 +148,7 @@ impl Arithmetic for ir::Expression {
     }
 
     fn sub(self, other: ir::Expression) -> Result<ir::Expression, Error> {
-        if matches!(self, ir::Expression::EvalCompiler(_))
-            || matches!(other, ir::Expression::EvalCompiler(_))
-        {
+        if self.contains_eval_compiler() || other.contains_eval_compiler() {
             Ok(Self::from_builtin(ir::BuiltInOp::Sub(self, other)))
         } else {
             match self {

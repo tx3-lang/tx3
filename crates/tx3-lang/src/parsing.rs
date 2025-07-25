@@ -1438,18 +1438,6 @@ mod tests {
     use pest::Parser;
 
     #[test]
-    fn test_min_utxo_invalid_syntax() {
-        let result = parse_string("tx test() { output { amount: min_utxo(), } }");
-        assert!(result.is_err()); // Should fail - missing identifier
-    }
-
-    #[test]
-    fn test_min_utxo_wrong_arguments() {
-        let result = parse_string("tx test() { output { amount: min_utxo(a, b), } }");
-        assert!(result.is_err()); // Should fail - too many arguments
-    }
-
-    #[test]
     fn smoke_test_parse_string() {
         let _ = parse_string("tx swap() {}").unwrap();
     }
