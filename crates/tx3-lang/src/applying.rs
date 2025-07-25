@@ -131,42 +131,33 @@ impl Arithmetic for i128 {
 
 impl Arithmetic for ir::Expression {
     fn add(self, other: ir::Expression) -> Result<ir::Expression, Error> {
-        if self.contains_eval_compiler() || other.contains_eval_compiler() {
-            Ok(Self::from_builtin(ir::BuiltInOp::Add(self, other)))
-        } else {
-            match self {
-                ir::Expression::None => Ok(other),
-                ir::Expression::Number(x) => Arithmetic::add(x, other),
-                ir::Expression::Assets(x) => Arithmetic::add(x, other),
-                x => Err(Error::InvalidBinaryOp(
-                    "add".to_string(),
-                    format!("{x:?}"),
-                    format!("{other:?}"),
-                )),
-            }
+        match self {
+            ir::Expression::None => Ok(other),
+            ir::Expression::Number(x) => Arithmetic::add(x, other),
+            ir::Expression::Assets(x) => Arithmetic::add(x, other),
+            x => Err(Error::InvalidBinaryOp(
+                "add".to_string(),
+                format!("{x:?}"),
+                format!("{other:?}"),
+            )),
         }
     }
 
     fn sub(self, other: ir::Expression) -> Result<ir::Expression, Error> {
-        if self.contains_eval_compiler() || other.contains_eval_compiler() {
-            Ok(Self::from_builtin(ir::BuiltInOp::Sub(self, other)))
-        } else {
-            match self {
-                ir::Expression::None => Ok(other),
-                ir::Expression::Number(x) => Arithmetic::sub(x, other),
-                ir::Expression::Assets(x) => Arithmetic::sub(x, other),
-                x => Err(Error::InvalidBinaryOp(
-                    "sub".to_string(),
-                    format!("{x:?}"),
-                    format!("{other:?}"),
-                )),
-            }
+        match self {
+            ir::Expression::None => Ok(other),
+            ir::Expression::Number(x) => Arithmetic::sub(x, other),
+            ir::Expression::Assets(x) => Arithmetic::sub(x, other),
+            x => Err(Error::InvalidBinaryOp(
+                "sub".to_string(),
+                format!("{x:?}"),
+                format!("{other:?}"),
+            )),
         }
     }
 
     fn neg(self) -> Result<ir::Expression, Error> {
         match self {
-            ir::Expression::EvalCompiler(_) => Ok(Self::from_builtin(ir::BuiltInOp::Negate(self))),
             ir::Expression::None => Ok(ir::Expression::None),
             ir::Expression::Number(x) => Arithmetic::neg(x),
             ir::Expression::Assets(x) => Arithmetic::neg(x),
@@ -954,7 +945,7 @@ impl Apply for ir::Expression {
             Self::EvalParam(x) => x.is_constant(),
             Self::EvalBuiltIn(x) => x.is_constant(),
             Self::EvalCoerce(x) => x.is_constant(),
-            Self::EvalCompiler(x) => x.is_constant(),
+            Self::EvalCompiler(_) => false,
             Self::AdHocDirective(x) => x.is_constant(),
 
             // Don't fall into the temptation of simplifying the following cases under a single
@@ -1888,7 +1879,7 @@ mod tests {
 
     #[test]
     fn test_min_utxo_add_non_reduction() {
-        let op = ir::Expression::from_builtin(ir::BuiltInOp::Add(
+        let op = ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Add(
             ir::Expression::Assets(vec![ir::AssetExpr {
                 policy: ir::Expression::None,
                 asset_name: ir::Expression::None,
@@ -1897,7 +1888,7 @@ mod tests {
             ir::Expression::EvalCompiler(Box::new(ir::CompilerOp::ComputeMinUtxo(
                 ir::Expression::Number(20),
             ))),
-        ));
+        )));
 
         let reduced = op.clone().reduce().unwrap();
 
@@ -1906,7 +1897,7 @@ mod tests {
 
     #[test]
     fn test_min_utxo_sub_non_reduction() {
-        let op = ir::Expression::from_builtin(ir::BuiltInOp::Sub(
+        let op = ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Sub(
             ir::Expression::Assets(vec![ir::AssetExpr {
                 policy: ir::Expression::None,
                 asset_name: ir::Expression::None,
@@ -1915,7 +1906,7 @@ mod tests {
             ir::Expression::EvalCompiler(Box::new(ir::CompilerOp::ComputeMinUtxo(
                 ir::Expression::Number(20),
             ))),
-        ));
+        )));
 
         let reduced = op.clone().reduce().unwrap();
 

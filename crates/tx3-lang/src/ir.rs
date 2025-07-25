@@ -265,68 +265,6 @@ impl Expression {
             _ => None,
         }
     }
-
-    pub fn from_builtin(op: BuiltInOp) -> Self {
-        Self::EvalBuiltIn(Box::new(op))
-    }
-
-    /// Check if the expression contains an `EvalCompiler` expression.
-    pub fn contains_eval_compiler(&self) -> bool {
-        match self {
-            Self::List(xs) => xs.iter().any(|x| x.contains_eval_compiler()),
-            Self::Tuple(tuple) => {
-                tuple.0.contains_eval_compiler() || tuple.1.contains_eval_compiler()
-            }
-            Self::Struct(s) => s.fields.iter().any(|x| x.contains_eval_compiler()),
-            Self::Assets(x) => x.iter().any(|x| {
-                x.amount.contains_eval_compiler()
-                    || x.policy.contains_eval_compiler()
-                    || x.asset_name.contains_eval_compiler()
-            }),
-            Self::EvalParam(x) => match **x {
-                Param::Set(ref x) => x.contains_eval_compiler(),
-                Param::ExpectInput(_, ref q) => {
-                    q.min_amount.contains_eval_compiler()
-                        || q.address.contains_eval_compiler()
-                        || q.r#ref.contains_eval_compiler()
-                }
-                Param::ExpectValue(_, _) | Param::ExpectFees => false,
-            },
-            Self::EvalCoerce(x) => match **x {
-                Coerce::NoOp(ref x) => x.contains_eval_compiler(),
-                Coerce::IntoAssets(ref x) => x.contains_eval_compiler(),
-                Coerce::IntoDatum(ref x) => x.contains_eval_compiler(),
-                Coerce::IntoScript(ref x) => x.contains_eval_compiler(),
-            },
-            Self::AdHocDirective(x) => x.data.values().any(|v| v.contains_eval_compiler()),
-            Self::EvalBuiltIn(x) => match **x {
-                BuiltInOp::NoOp(ref x) => x.contains_eval_compiler(),
-                BuiltInOp::Add(ref a, ref b) => {
-                    a.contains_eval_compiler() || b.contains_eval_compiler()
-                }
-                BuiltInOp::Sub(ref a, ref b) => {
-                    a.contains_eval_compiler() || b.contains_eval_compiler()
-                }
-                BuiltInOp::Concat(ref a, ref b) => {
-                    a.contains_eval_compiler() || b.contains_eval_compiler()
-                }
-                BuiltInOp::Negate(ref x) => x.contains_eval_compiler(),
-                BuiltInOp::Property(ref x, _) => x.contains_eval_compiler(),
-            },
-            Self::EvalCompiler(_) => true,
-            // variants never contain EvalCompiler operations
-            // Don't add _ here, as it will match future variants
-            Self::UtxoRefs(_)
-            | Self::UtxoSet(_)
-            | Self::Hash(_)
-            | Self::Address(_)
-            | Self::String(_)
-            | Self::Bytes(_)
-            | Self::Number(_)
-            | Self::Bool(_)
-            | Self::None => false,
-        }
-    }
 }
 
 impl From<BuiltInOp> for Expression {
