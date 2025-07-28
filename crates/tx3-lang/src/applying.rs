@@ -658,7 +658,7 @@ impl From<CanonicalAssets> for Vec<ir::AssetExpr> {
     fn from(assets: CanonicalAssets) -> Self {
         let mut result = Vec::new();
 
-        for (class, amount) in assets.0.into_iter() {
+        for (class, amount) in assets.into_iter() {
             result.push(ir::AssetExpr {
                 policy: class
                     .policy()
