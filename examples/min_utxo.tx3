@@ -1,0 +1,21 @@
+party Sender;
+party Receiver;
+
+tx transfer_min(
+    quantity: Int
+) {
+    input source {
+        from: Sender,
+        min_amount: fees + min_utxo(minimal_utxo) + min_utxo(change),
+    }
+
+    output minimal_utxo {
+        to: Receiver,
+        amount: min_utxo(minimal_utxo),
+    }
+
+    output change {
+      to: Sender,
+      amount: source - fees - min_utxo(minimal_utxo),
+    }
+}

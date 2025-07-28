@@ -23,9 +23,6 @@ pub enum Error {
     #[error("apply error: {0}")]
     ApplyError(#[from] applying::Error),
 
-    #[error("max optimize rounds reached")]
-    MaxOptimizeRoundsReached,
-
     #[error("can't compile non-constant tir")]
     CantCompileNonConstantTir,
 
@@ -35,14 +32,17 @@ pub enum Error {
 
 async fn eval_pass<C: Compiler, S: UtxoStore>(
     tx: &ir::Tx,
-    compiler: &C,
+    compiler: &mut C,
     utxos: &S,
     last_eval: Option<&TxEval>,
 ) -> Result<Option<TxEval>, Error> {
     let attempt = tx.clone();
 
     let fees = last_eval.as_ref().map(|e| e.fee).unwrap_or(0);
+
     let attempt = applying::apply_fees(attempt, fees)?;
+
+    let attempt = attempt.apply(compiler)?;
 
     let attempt = applying::reduce(attempt)?;
 
@@ -75,6 +75,8 @@ pub async fn resolve_tx<C: Compiler, S: UtxoStore>(
     utxos: &S,
     max_optimize_rounds: usize,
 ) -> Result<TxEval, Error> {
+    let max_optimize_rounds = max_optimize_rounds.max(3);
+
     let mut last_eval = None;
     let mut rounds = 0;
 
@@ -83,13 +85,12 @@ pub async fn resolve_tx<C: Compiler, S: UtxoStore>(
 
     // reduce compiler ops
     let tx = ir::Tx::from(tx);
-    let tx = tx.apply(compiler)?;
 
     while let Some(better) = eval_pass(&tx, compiler, utxos, last_eval.as_ref()).await? {
         last_eval = Some(better);
 
         if rounds > max_optimize_rounds {
-            return Err(Error::MaxOptimizeRoundsReached);
+            break;
         }
 
         rounds += 1;
