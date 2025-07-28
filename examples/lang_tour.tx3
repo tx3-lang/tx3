@@ -39,7 +39,7 @@ tx my_tx(
     input source {
         from: MyParty,
         datum_is: MyRecord,
-        min_amount: Ada(quantity),
+        min_amount: Ada(quantity) + min_utxo(named_output),
         redeemer: MyVariant::Case1 {
             field1: field_a,
             field2: 0xAFAFAF,
@@ -57,7 +57,7 @@ tx my_tx(
         redeemer: (),
     }
 
-    output {
+    output named_output {
         to: MyParty,
         datum: MyRecord {
             field1: quantity,
@@ -65,7 +65,7 @@ tx my_tx(
             field4: [1, 2, 3, source.field1],
             ...source
         },
-        amount: AnyAsset(source.field3, source.field2, source.field1) + Ada(40),
+        amount: AnyAsset(source.field3, source.field2, source.field1) + Ada(40) + min_utxo(named_output),
     }
 
     signers {

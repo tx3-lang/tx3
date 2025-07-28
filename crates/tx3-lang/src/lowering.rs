@@ -195,6 +195,7 @@ impl IntoLower for ast::Identifier {
                     Ok(policy.hash)
                 }
             }
+            ast::Symbol::Output(index) => Ok(ir::Expression::Number(*index as i128)),
             _ => {
                 dbg!(&self);
                 todo!();
@@ -445,6 +446,9 @@ impl IntoLower for ast::DataExpr {
             ast::DataExpr::NegateOp(x) => x.into_lower(ctx)?,
             ast::DataExpr::PropertyOp(x) => x.into_lower(ctx)?,
             ast::DataExpr::UtxoRef(x) => x.into_lower(ctx)?,
+            ast::DataExpr::MinUtxo(x) => ir::Expression::EvalCompiler(Box::new(
+                ir::CompilerOp::ComputeMinUtxo(x.into_lower(ctx)?),
+            )),
         };
 
         Ok(out)
@@ -907,4 +911,6 @@ mod tests {
 
     test_lowering!(withdrawal);
     test_lowering!(burn);
+
+    test_lowering!(min_utxo);
 }
