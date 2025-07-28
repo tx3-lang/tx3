@@ -350,10 +350,6 @@ cardano_native_witness_block = {
     "native_witness" ~ "{" ~ (cardano_native_witness_field ~ ",")+ ~ "}"
 }
 
-cardano_treasury_donation_field = {
-    "coin" ~ ":" ~ data_expr
-}
-
 cardano_treasury_donation_block = {
     "treasury_donation" ~ "{" ~ "coin" ~ ":" ~ data_expr ~ "," ~ "}"
 }
