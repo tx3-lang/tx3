@@ -42,6 +42,20 @@ impl AssetClass {
     }
 }
 
+impl std::fmt::Display for AssetClass {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AssetClass::Naked => write!(f, "naked")?,
+            AssetClass::Named(name) => write!(f, "{}", hex::encode(name))?,
+            AssetClass::Defined(policy, name) => {
+                write!(f, "{}.{}", hex::encode(policy), hex::encode(name))?
+            }
+        }
+
+        Ok(())
+    }
+}
+
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct CanonicalAssets(HashMap<AssetClass, i128>);
 
@@ -50,19 +64,7 @@ impl std::fmt::Display for CanonicalAssets {
         write!(f, "CanonicalAssets {{")?;
 
         for (class, amount) in self.iter() {
-            match class {
-                AssetClass::Naked => write!(f, "naked:{}", amount)?,
-                AssetClass::Named(name) => write!(f, "{}:{}", hex::encode(name), amount)?,
-                AssetClass::Defined(policy, name) => {
-                    write!(
-                        f,
-                        "{}.{}:{}",
-                        hex::encode(policy),
-                        hex::encode(name),
-                        amount
-                    )?;
-                }
-            }
+            write!(f, "{}:{}", class, amount)?;
         }
 
         write!(f, "}}")?;
