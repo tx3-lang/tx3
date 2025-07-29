@@ -104,27 +104,56 @@ impl CoinSelection for FirstFullMatch {
     }
 }
 
+fn find_first_excess_utxo(utxos: &HashSet<Utxo>, target: &CanonicalAssets) -> Option<Utxo> {
+    let available = utxos
+        .iter()
+        .fold(CanonicalAssets::empty(), |acc, x| acc + x.assets.clone());
+
+    let excess = available - target.clone();
+
+    if excess.is_empty_or_negative() {
+        return None;
+    }
+
+    for utxo in utxos.iter() {
+        if excess.contains_total(&utxo.assets) {
+            return Some(utxo.clone());
+        }
+    }
+
+    None
+}
+
 struct NaiveAccumulator;
 
 impl CoinSelection for NaiveAccumulator {
     fn pick(search_space: UtxoSet, target: &CanonicalAssets) -> HashSet<Utxo> {
         let mut matched = HashSet::new();
-        let mut required = target.clone();
+        let mut pending = target.clone();
 
         for utxo in search_space.iter() {
             if utxo.assets.contains_some(target) {
                 matched.insert(utxo.clone());
-                required = required - utxo.assets.clone();
+                pending = pending - utxo.assets.clone();
             }
 
-            if required.is_empty_or_negative() {
-                return matched;
+            if pending.is_empty_or_negative() {
+                // break early if we already have enough
+                break;
             }
         }
 
-        // if we didn't accumulate enough by the end of the search space,
-        // then we didn't find a match
-        HashSet::new()
+        if !pending.is_empty_or_negative() {
+            // if we didn't accumulate enough by the end of the search space,
+            // then we didn't find a match
+            return HashSet::new();
+        }
+
+        while let Some(utxo) = find_first_excess_utxo(&matched, target) {
+            matched.remove(&utxo);
+        }
+
+        matched
     }
 }
 
@@ -149,11 +178,15 @@ const MAX_SEARCH_SPACE_SIZE: usize = 50;
 
 struct InputSelector<'a, S: UtxoStore> {
     store: &'a S,
+    ignore: HashSet<UtxoRef>,
 }
 
 impl<'a, S: UtxoStore> InputSelector<'a, S> {
     pub fn new(store: &'a S) -> Self {
-        Self { store }
+        Self {
+            store,
+            ignore: HashSet::new(),
+        }
     }
 
     async fn narrow_by_address(&self, expr: &ir::Expression) -> Result<Subset, Error> {
@@ -250,7 +283,7 @@ impl<'a, S: UtxoStore> InputSelector<'a, S> {
         ]))
     }
 
-    pub async fn select(&self, criteria: &ir::InputQuery) -> Result<UtxoSet, Error> {
+    pub async fn select(&mut self, criteria: &ir::InputQuery) -> Result<UtxoSet, Error> {
         let search_space = self.narrow_search_space(criteria).await?;
 
         let refs = match search_space {
@@ -259,7 +292,10 @@ impl<'a, S: UtxoStore> InputSelector<'a, S> {
             Subset::All => return Err(Error::InputQueryTooBroad),
         };
 
-        let refs = refs.into_iter().collect();
+        let refs = refs
+            .into_iter()
+            .filter(|x| !self.ignore.contains(x))
+            .collect();
 
         let utxos = self.store.fetch_utxos(refs).await?;
 
@@ -274,6 +310,8 @@ impl<'a, S: UtxoStore> InputSelector<'a, S> {
             FirstFullMatch::pick(utxos, &target)
         };
 
+        self.ignore.extend(matched.iter().map(|x| x.r#ref.clone()));
+
         Ok(matched)
     }
 }
@@ -281,9 +319,9 @@ impl<'a, S: UtxoStore> InputSelector<'a, S> {
 pub async fn resolve<T: UtxoStore>(tx: ir::Tx, utxos: &T) -> Result<ir::Tx, Error> {
     let mut all_inputs = BTreeMap::new();
 
-    for (name, query) in applying::find_queries(&tx) {
-        let selector = InputSelector::new(utxos);
+    let mut selector = InputSelector::new(utxos);
 
+    for (name, query) in applying::find_queries(&tx) {
         let utxos = selector.select(&query).await?;
 
         if utxos.is_empty() {
@@ -300,6 +338,8 @@ pub async fn resolve<T: UtxoStore>(tx: ir::Tx, utxos: &T) -> Result<ir::Tx, Erro
 
 #[cfg(test)]
 mod tests {
+    use chainfuzz::utxos::utxo_with_random_amount;
+
     use crate::mock;
 
     use super::*;
@@ -343,9 +383,10 @@ mod tests {
             |_: &mock::FuzzTxoRef, x: &mock::KnownAddress, _: u64| {
                 mock::utxo_with_random_amount(x, 4_000_000..5_000_000)
             },
+            2..4,
         );
 
-        let selector = InputSelector::new(&store);
+        let mut selector = InputSelector::new(&store);
 
         for subject in mock::KnownAddress::everyone() {
             let criteria = new_input_query(&subject, None, vec![], false, false);
@@ -366,9 +407,10 @@ mod tests {
             |_: &mock::FuzzTxoRef, x: &mock::KnownAddress, _: u64| {
                 mock::utxo_with_random_amount(x, 4_000_000..5_000_000)
             },
+            2..4,
         );
 
-        let selector = InputSelector::new(&store);
+        let mut selector = InputSelector::new(&store);
 
         let criteria = new_input_query(
             &mock::KnownAddress::Alice,
@@ -401,9 +443,8 @@ mod tests {
             |_: &mock::FuzzTxoRef, x: &mock::KnownAddress, _: u64| {
                 mock::utxo_with_random_asset(x, mock::KnownAsset::Hosky, 500..1000)
             },
+            2..4,
         );
-
-        let selector = InputSelector::new(&store);
 
         for address in mock::KnownAddress::everyone() {
             // test negative case where we ask for a single utxo with more than available
@@ -417,6 +458,7 @@ mod tests {
                 false,
             );
 
+            let mut selector = InputSelector::new(&store);
             let utxos = selector.select(&criteria).await.unwrap();
             assert!(utxos.is_empty());
 
@@ -431,6 +473,7 @@ mod tests {
                 false,
             );
 
+            let mut selector = InputSelector::new(&store);
             let utxos = selector.select(&criteria).await.unwrap();
             assert!(utxos.len() > 1);
 
@@ -445,6 +488,7 @@ mod tests {
                 false,
             );
 
+            let mut selector = InputSelector::new(&store);
             let utxos = selector.select(&criteria).await.unwrap();
             assert!(utxos.is_empty());
 
@@ -458,6 +502,7 @@ mod tests {
                 false,
             );
 
+            let mut selector = InputSelector::new(&store);
             let utxos = selector.select(&criteria).await.unwrap();
             assert!(utxos.is_empty());
 
@@ -471,6 +516,7 @@ mod tests {
                 false,
             );
 
+            let mut selector = InputSelector::new(&store);
             let utxos = selector.select(&criteria).await.unwrap();
             assert_eq!(utxos.len(), 1);
         }
@@ -486,9 +532,10 @@ mod tests {
                     mock::utxo_with_random_asset(x, mock::KnownAsset::Hosky, 500..1000)
                 }
             },
+            2..4,
         );
 
-        let selector = InputSelector::new(&store);
+        let mut selector = InputSelector::new(&store);
 
         for address in mock::KnownAddress::everyone() {
             let criteria = new_input_query(&address, Some(1_000_000), vec![], false, true);
@@ -499,6 +546,49 @@ mod tests {
             let utxo = utxos.iter().next().unwrap();
             assert_eq!(utxo.assets.keys().len(), 1);
             assert_eq!(utxo.assets.keys().next().unwrap().is_naked(), true);
+        }
+    }
+
+    #[pollster::test]
+    async fn test_resolve_ignores_selected_utxos() {
+        let store = mock::seed_random_memory_store(
+            |_: &mock::FuzzTxoRef, x: &mock::KnownAddress, seq: u64| {
+                if seq % 2 == 0 {
+                    mock::utxo_with_random_amount(x, 1_000..1_500)
+                } else {
+                    mock::utxo_with_random_amount(x, 100..150)
+                }
+            },
+            2..3, // exclusive range, this means only two utxos per address
+        );
+
+        for address in mock::KnownAddress::everyone() {
+            let mut selector = InputSelector::new(&store);
+
+            // we ask for a large amount utxo knowing that we have one of those
+            let query1 = new_input_query(&address, Some(1_000), vec![], true, false);
+            let utxos1 = selector.select(&query1).await.unwrap();
+            assert_eq!(utxos1.len(), 1);
+
+            // we ask for a large amount utxo again knowing that we already selected one of
+            // those
+            let query2 = new_input_query(&address, Some(1_000), vec![], true, false);
+            let utxos2 = selector.select(&query2).await.unwrap();
+            assert_eq!(utxos2.len(), 0);
+
+            // we ask for a small amount utxo knowing that we have one of those
+            let query3 = new_input_query(&address, Some(100), vec![], true, false);
+            let utxos3 = selector.select(&query3).await.unwrap();
+            assert_eq!(utxos3.len(), 1);
+
+            // we ask for a small amount utxo again knowing that we already selected one of
+            // those
+            let query4 = new_input_query(&address, Some(100), vec![], true, false);
+            let utxos4 = selector.select(&query4).await.unwrap();
+            assert_eq!(utxos4.len(), 0);
+
+            // we ensure that selected utxos are not the same
+            utxos1.is_disjoint(&utxos3);
         }
     }
 }
