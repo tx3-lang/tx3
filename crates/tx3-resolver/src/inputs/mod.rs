@@ -3,17 +3,19 @@
 use std::collections::{BTreeMap, HashSet};
 use tx3_lang::{
     applying,
-    backend::{UtxoPattern, UtxoStore},
+    backend::{self, UtxoStore},
     ir, CanonicalAssets, Utxo, UtxoRef, UtxoSet,
 };
 
-use crate::Error;
+use crate::inputs::searching::SearchSpace;
+
+mod searching;
 
 macro_rules! data_or_bail {
     ($expr:expr, bytes) => {
         $expr
             .as_bytes()
-            .ok_or(Error::ExpectedData("bytes".to_string(), $expr.clone()))?
+            .ok_or(Error::ExpectedData("bytes".to_string(), $expr.clone()))
     };
 
     ($expr:expr, number) => {
@@ -25,65 +27,38 @@ macro_rules! data_or_bail {
     ($expr:expr, assets) => {
         $expr
             .as_assets()
-            .ok_or(Error::ExpectedData("assets".to_string(), $expr.clone()))?
+            .ok_or(Error::ExpectedData("assets".to_string(), $expr.clone()))
     };
 
     ($expr:expr, utxo_refs) => {
         $expr
             .as_utxo_refs()
-            .ok_or(Error::ExpectedData("utxo refs".to_string(), $expr.clone()))?
+            .ok_or(Error::ExpectedData("utxo refs".to_string(), $expr.clone()))
     };
 }
 
-enum Subset {
-    All,
-    Specific(HashSet<UtxoRef>),
+pub struct Diagnostic {
+    pub query: ir::InputQuery,
+    pub utxos: UtxoSet,
+    pub selected: UtxoSet,
 }
 
-impl Subset {
-    #[allow(dead_code)]
-    fn union(a: Self, b: Self) -> Self {
-        match (a, b) {
-            (Self::All, _) => Self::All,
-            (_, Self::All) => Self::All,
-            (Self::Specific(s1), Self::Specific(s2)) => {
-                Self::Specific(s1.union(&s2).cloned().collect())
-            }
-        }
-    }
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
+    #[error("expected {0}, got {1:?}")]
+    ExpectedData(String, ir::Expression),
 
-    fn intersection(a: Self, b: Self) -> Self {
-        match (a, b) {
-            (Self::All, x) => x,
-            (x, Self::All) => x,
-            (Self::Specific(s1), Self::Specific(s2)) => {
-                Self::Specific(s1.intersection(&s2).cloned().collect())
-            }
-        }
-    }
+    #[error("input query too broad")]
+    InputQueryTooBroad,
 
-    fn intersection_of_all<const N: usize>(subsets: [Self; N]) -> Self {
-        let mut result = Subset::All;
+    #[error("input not resolved: {0} {1:?} {2:?}")]
+    InputNotResolved(String, CanonicalQuery, SearchSpace),
 
-        for subset in subsets {
-            result = Self::intersection(result, subset);
-        }
+    #[error("store error: {0}")]
+    StoreError(#[from] backend::Error),
 
-        result
-    }
-
-    fn is_empty(&self) -> bool {
-        match self {
-            Self::All => false,
-            Self::Specific(s) => s.is_empty(),
-        }
-    }
-}
-
-impl From<HashSet<UtxoRef>> for Subset {
-    fn from(value: HashSet<UtxoRef>) -> Self {
-        Self::Specific(value)
-    }
+    #[error("apply error: {0}")]
+    ApplyError(#[from] applying::Error),
 }
 
 pub trait CoinSelection {
@@ -189,122 +164,28 @@ impl<'a, S: UtxoStore> InputSelector<'a, S> {
         }
     }
 
-    async fn narrow_by_address(&self, expr: &ir::Expression) -> Result<Subset, Error> {
-        let address = data_or_bail!(expr, bytes);
-
-        let utxos = self
-            .store
-            .narrow_refs(UtxoPattern::by_address(address))
-            .await?;
-
-        Ok(Subset::Specific(utxos.into_iter().collect()))
-    }
-
-    async fn narrow_by_asset_presence(&self, expr: &ir::AssetExpr) -> Result<Subset, Error> {
-        let amount = data_or_bail!(&expr.amount, number);
-
-        // skip filtering if required amount is 0 since it's not adding any constraints
-        if amount == 0 {
-            return Ok(Subset::All);
-        }
-
-        // skip filtering lovelace since it's not an custom asset
-        if expr.policy.is_none() {
-            return Ok(Subset::All);
-        }
-
-        let policy_bytes = data_or_bail!(&expr.policy, bytes);
-        let name_bytes = data_or_bail!(&expr.asset_name, bytes);
-
-        let utxos = self
-            .store
-            .narrow_refs(UtxoPattern::by_asset(policy_bytes, name_bytes))
-            .await?;
-
-        Ok(Subset::Specific(utxos.into_iter().collect()))
-    }
-
-    async fn narrow_by_multi_asset_presence(&self, expr: &ir::Expression) -> Result<Subset, Error> {
-        let assets = data_or_bail!(expr, assets);
-
-        let mut matches = Subset::All;
-
-        for asset in assets {
-            let next = self.narrow_by_asset_presence(asset).await?;
-            matches = Subset::intersection(matches, next);
-        }
-
-        Ok(matches)
-    }
-
-    fn narrow_by_ref(&self, expr: &ir::Expression) -> Result<Subset, Error> {
-        let refs = data_or_bail!(expr, utxo_refs);
-
-        let refs = HashSet::from_iter(refs.iter().cloned());
-
-        Ok(Subset::Specific(refs))
-    }
-
-    async fn narrow_search_space(&self, criteria: &ir::InputQuery) -> Result<Subset, Error> {
-        let matching_address = if let Some(address) = &criteria.address.as_option() {
-            self.narrow_by_address(address).await?
-        } else {
-            Subset::All
-        };
-
-        if matching_address.is_empty() {
-            // TODO: track this as part of a detailed diagnostic
-        }
-
-        let matching_assets = if let Some(min_amount) = &criteria.min_amount.as_option() {
-            self.narrow_by_multi_asset_presence(min_amount).await?
-        } else {
-            Subset::All
-        };
-
-        if matching_assets.is_empty() {
-            // TODO: track this as part of a detailed diagnostic
-        }
-
-        let matching_refs = if let Some(refs) = &criteria.r#ref.as_option() {
-            self.narrow_by_ref(refs)?
-        } else {
-            Subset::All
-        };
-
-        if matching_refs.is_empty() {
-            // TODO: track this as part of a detailed diagnostic
-        }
-
-        Ok(Subset::intersection_of_all([
-            matching_address,
-            matching_assets,
-            matching_refs,
-        ]))
-    }
-
-    pub async fn select(&mut self, criteria: &ir::InputQuery) -> Result<UtxoSet, Error> {
-        let search_space = self.narrow_search_space(criteria).await?;
-
-        let refs = match search_space {
-            Subset::Specific(refs) if refs.len() <= MAX_SEARCH_SPACE_SIZE => refs,
-            Subset::Specific(_) => return Err(Error::InputQueryTooBroad),
-            Subset::All => return Err(Error::InputQueryTooBroad),
-        };
-
-        let refs = refs
+    pub async fn select(
+        &mut self,
+        search_space: &SearchSpace,
+        criteria: &CanonicalQuery,
+    ) -> Result<UtxoSet, Error> {
+        let refs = search_space
+            .matched
+            .clone()
             .into_iter()
             .filter(|x| !self.ignore.contains(x))
             .collect();
 
         let utxos = self.store.fetch_utxos(refs).await?;
 
-        let target = data_or_bail!(&criteria.min_amount, assets);
-        let target = CanonicalAssets::from(Vec::from(target));
+        let target = criteria
+            .min_amount
+            .clone()
+            .unwrap_or(CanonicalAssets::empty());
 
         let matched = if criteria.collateral {
             CollateralMatch::pick(utxos, &target)
-        } else if criteria.many {
+        } else if criteria.support_many {
             NaiveAccumulator::pick(utxos, &target)
         } else {
             FirstFullMatch::pick(utxos, &target)
@@ -316,16 +197,87 @@ impl<'a, S: UtxoStore> InputSelector<'a, S> {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct CanonicalQuery {
+    pub address: Option<Vec<u8>>,
+    pub min_amount: Option<CanonicalAssets>,
+    pub refs: HashSet<UtxoRef>,
+    pub support_many: bool,
+    pub collateral: bool,
+}
+
+impl std::fmt::Display for CanonicalQuery {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "CanonicalQuery {{")?;
+
+        if let Some(address) = &self.address {
+            write!(f, "address: {}", hex::encode(address))?;
+        }
+
+        if let Some(min_amount) = &self.min_amount {
+            write!(f, "min_amount: {}", min_amount)?;
+        }
+
+        for (i, ref_) in self.refs.iter().enumerate() {
+            write!(f, "ref[{}]:{}#{}", i, hex::encode(&ref_.txid), ref_.index)?;
+        }
+
+        write!(f, "support_many: {:?}", self.support_many)?;
+        write!(f, "for_collateral: {:?}", self.collateral)?;
+        write!(f, "}}")
+    }
+}
+
+impl TryFrom<ir::InputQuery> for CanonicalQuery {
+    type Error = Error;
+
+    fn try_from(query: ir::InputQuery) -> Result<Self, Self::Error> {
+        let address = query
+            .address
+            .as_option()
+            .map(|x| data_or_bail!(x, bytes))
+            .transpose()?
+            .map(|x| Vec::from(x));
+
+        let min_amount = query
+            .min_amount
+            .as_option()
+            .map(|x| data_or_bail!(x, assets))
+            .transpose()?
+            .map(|x| CanonicalAssets::from(Vec::from(x)));
+
+        let refs = query
+            .r#ref
+            .as_option()
+            .map(|x| data_or_bail!(x, utxo_refs))
+            .transpose()?
+            .map(|x| HashSet::from_iter(x.iter().cloned()))
+            .unwrap_or_default();
+
+        Ok(Self {
+            address,
+            min_amount,
+            refs,
+            support_many: query.many,
+            collateral: query.collateral,
+        })
+    }
+}
+
 pub async fn resolve<T: UtxoStore>(tx: ir::Tx, utxos: &T) -> Result<ir::Tx, Error> {
     let mut all_inputs = BTreeMap::new();
 
     let mut selector = InputSelector::new(utxos);
 
     for (name, query) in applying::find_queries(&tx) {
-        let utxos = selector.select(&query).await?;
+        let query = CanonicalQuery::try_from(query)?;
+
+        let space = searching::narrow_search_space(utxos, &query, MAX_SEARCH_SPACE_SIZE).await?;
+
+        let utxos = selector.select(&space, &query).await?;
 
         if utxos.is_empty() {
-            return Err(Error::InputNotResolved(name, query));
+            return Err(Error::InputNotResolved(name.to_string(), query, space));
         }
 
         all_inputs.insert(name, utxos);
@@ -338,8 +290,6 @@ pub async fn resolve<T: UtxoStore>(tx: ir::Tx, utxos: &T) -> Result<ir::Tx, Erro
 
 #[cfg(test)]
 mod tests {
-    use chainfuzz::utxos::utxo_with_random_amount;
-
     use crate::mock;
 
     use super::*;
@@ -350,7 +300,7 @@ mod tests {
         other_assets: Vec<(mock::KnownAsset, u64)>,
         many: bool,
         collateral: bool,
-    ) -> ir::InputQuery {
+    ) -> CanonicalQuery {
         let naked_asset = naked_amount.map(|x| ir::AssetExpr {
             policy: ir::Expression::None,
             asset_name: ir::Expression::None,
@@ -375,6 +325,8 @@ mod tests {
             many,
             collateral,
         }
+        .try_into()
+        .unwrap()
     }
 
     #[pollster::test]
@@ -391,7 +343,11 @@ mod tests {
         for subject in mock::KnownAddress::everyone() {
             let criteria = new_input_query(&subject, None, vec![], false, false);
 
-            let utxos = selector.select(&criteria).await.unwrap();
+            let space = searching::narrow_search_space(&store, &criteria, MAX_SEARCH_SPACE_SIZE)
+                .await
+                .unwrap();
+
+            let utxos = selector.select(&space, &criteria).await.unwrap();
 
             assert_eq!(utxos.len(), 1);
 
@@ -420,7 +376,11 @@ mod tests {
             false,
         );
 
-        let utxos = selector.select(&criteria).await.unwrap();
+        let space = searching::narrow_search_space(&store, &criteria, MAX_SEARCH_SPACE_SIZE)
+            .await
+            .unwrap();
+
+        let utxos = selector.select(&space, &criteria).await.unwrap();
         assert!(utxos.is_empty());
 
         let criteria = new_input_query(
@@ -431,7 +391,7 @@ mod tests {
             false,
         );
 
-        let utxos = selector.select(&criteria).await.unwrap();
+        let utxos = selector.select(&space, &criteria).await.unwrap();
 
         let match_count = dbg!(utxos.len());
         assert_eq!(match_count, 1);
@@ -458,8 +418,12 @@ mod tests {
                 false,
             );
 
+            let space = searching::narrow_search_space(&store, &criteria, MAX_SEARCH_SPACE_SIZE)
+                .await
+                .unwrap();
+
             let mut selector = InputSelector::new(&store);
-            let utxos = selector.select(&criteria).await.unwrap();
+            let utxos = selector.select(&space, &criteria).await.unwrap();
             assert!(utxos.is_empty());
 
             // test positive case where we ask for any number of utxo adding to the target
@@ -473,8 +437,12 @@ mod tests {
                 false,
             );
 
+            let space = searching::narrow_search_space(&store, &criteria, MAX_SEARCH_SPACE_SIZE)
+                .await
+                .unwrap();
+
             let mut selector = InputSelector::new(&store);
-            let utxos = selector.select(&criteria).await.unwrap();
+            let utxos = selector.select(&space, &criteria).await.unwrap();
             assert!(utxos.len() > 1);
 
             // test negative case where we ask for any number of utxo adding to the target
@@ -488,8 +456,12 @@ mod tests {
                 false,
             );
 
+            let space = searching::narrow_search_space(&store, &criteria, MAX_SEARCH_SPACE_SIZE)
+                .await
+                .unwrap();
+
             let mut selector = InputSelector::new(&store);
-            let utxos = selector.select(&criteria).await.unwrap();
+            let utxos = selector.select(&space, &criteria).await.unwrap();
             assert!(utxos.is_empty());
 
             // test negative case where we ask for a different asset
@@ -502,8 +474,12 @@ mod tests {
                 false,
             );
 
+            let space = searching::narrow_search_space(&store, &criteria, MAX_SEARCH_SPACE_SIZE)
+                .await
+                .unwrap();
+
             let mut selector = InputSelector::new(&store);
-            let utxos = selector.select(&criteria).await.unwrap();
+            let utxos = selector.select(&space, &criteria).await.unwrap();
             assert!(utxos.is_empty());
 
             // test positive case where we ask for the present asset and amount within range
@@ -516,8 +492,12 @@ mod tests {
                 false,
             );
 
+            let space = searching::narrow_search_space(&store, &criteria, MAX_SEARCH_SPACE_SIZE)
+                .await
+                .unwrap();
+
             let mut selector = InputSelector::new(&store);
-            let utxos = selector.select(&criteria).await.unwrap();
+            let utxos = selector.select(&space, &criteria).await.unwrap();
             assert_eq!(utxos.len(), 1);
         }
     }
@@ -540,7 +520,11 @@ mod tests {
         for address in mock::KnownAddress::everyone() {
             let criteria = new_input_query(&address, Some(1_000_000), vec![], false, true);
 
-            let utxos = selector.select(&criteria).await.unwrap();
+            let space = searching::narrow_search_space(&store, &criteria, MAX_SEARCH_SPACE_SIZE)
+                .await
+                .unwrap();
+
+            let utxos = selector.select(&space, &criteria).await.unwrap();
 
             assert_eq!(utxos.len(), 1);
             let utxo = utxos.iter().next().unwrap();
@@ -567,24 +551,44 @@ mod tests {
 
             // we ask for a large amount utxo knowing that we have one of those
             let query1 = new_input_query(&address, Some(1_000), vec![], true, false);
-            let utxos1 = selector.select(&query1).await.unwrap();
+
+            let space = searching::narrow_search_space(&store, &query1, MAX_SEARCH_SPACE_SIZE)
+                .await
+                .unwrap();
+
+            let utxos1 = selector.select(&space, &query1).await.unwrap();
             assert_eq!(utxos1.len(), 1);
 
             // we ask for a large amount utxo again knowing that we already selected one of
             // those
             let query2 = new_input_query(&address, Some(1_000), vec![], true, false);
-            let utxos2 = selector.select(&query2).await.unwrap();
+
+            let space = searching::narrow_search_space(&store, &query2, MAX_SEARCH_SPACE_SIZE)
+                .await
+                .unwrap();
+
+            let utxos2 = selector.select(&space, &query2).await.unwrap();
             assert_eq!(utxos2.len(), 0);
 
             // we ask for a small amount utxo knowing that we have one of those
             let query3 = new_input_query(&address, Some(100), vec![], true, false);
-            let utxos3 = selector.select(&query3).await.unwrap();
+
+            let space = searching::narrow_search_space(&store, &query3, MAX_SEARCH_SPACE_SIZE)
+                .await
+                .unwrap();
+
+            let utxos3 = selector.select(&space, &query3).await.unwrap();
             assert_eq!(utxos3.len(), 1);
 
             // we ask for a small amount utxo again knowing that we already selected one of
             // those
             let query4 = new_input_query(&address, Some(100), vec![], true, false);
-            let utxos4 = selector.select(&query4).await.unwrap();
+
+            let space = searching::narrow_search_space(&store, &query4, MAX_SEARCH_SPACE_SIZE)
+                .await
+                .unwrap();
+
+            let utxos4 = selector.select(&space, &query4).await.unwrap();
             assert_eq!(utxos4.len(), 0);
 
             // we ensure that selected utxos are not the same

@@ -59,6 +59,12 @@ impl UtxoRef {
     }
 }
 
+impl std::fmt::Display for UtxoRef {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}#{}", hex::encode(&self.txid), self.index)
+    }
+}
+
 pub use assets::{AssetClass, AssetName, AssetPolicy, CanonicalAssets};
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]
