@@ -45,6 +45,38 @@ impl AssetClass {
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct CanonicalAssets(HashMap<AssetClass, i128>);
 
+impl std::fmt::Display for CanonicalAssets {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "CanonicalAssets {{")?;
+
+        for (class, amount) in self.iter() {
+            match class {
+                AssetClass::Naked => write!(f, "naked:{}", amount)?,
+                AssetClass::Named(name) => write!(f, "{}:{}", hex::encode(name), amount)?,
+                AssetClass::Defined(policy, name) => {
+                    write!(
+                        f,
+                        "{}.{}:{}",
+                        hex::encode(policy),
+                        hex::encode(name),
+                        amount
+                    )?;
+                }
+            }
+        }
+
+        write!(f, "}}")?;
+
+        Ok(())
+    }
+}
+
+impl Default for CanonicalAssets {
+    fn default() -> Self {
+        Self::empty()
+    }
+}
+
 impl std::ops::Deref for CanonicalAssets {
     type Target = HashMap<AssetClass, i128>;
 

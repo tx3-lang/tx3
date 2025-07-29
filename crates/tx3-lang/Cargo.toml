@@ -15,12 +15,12 @@ readme.workspace = true
 [dependencies]
 thiserror = { workspace = true }
 trait-variant = { workspace = true }
+hex = { workspace = true }
 
 miette = { version = "7.4.0", features = ["fancy"] }
 pest = { version = "2.7.15", features = ["miette-error", "pretty-print"] }
 pest_derive = "2.7.15"
 serde = { version = "1.0.217", features = ["derive"] }
-hex = "0.4.3"
 bincode = "2.0.1"
 
 [dev-dependencies]

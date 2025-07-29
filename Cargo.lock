@@ -2154,6 +2154,7 @@ name = "tx3-resolver"
 version = "0.10.1"
 dependencies = [
  "chainfuzz",
+ "hex",
  "pollster",
  "thiserror 2.0.11",
  "trait-variant",

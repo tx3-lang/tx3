@@ -17,6 +17,7 @@ tx3-lang = { version = "0.10.1", path = "../tx3-lang" }
 
 thiserror = { workspace = true }
 trait-variant = { workspace = true }
+hex = { workspace = true }
 
 [dev-dependencies]
 pollster = { version = "0.4.0", features = ["macro"] }
