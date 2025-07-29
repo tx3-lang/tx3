@@ -153,7 +153,5 @@ pub fn seed_random_memory_store<G: UtxoGenerator>(
 
     let map = chainfuzz::utxos::make_custom_utxo_map(everyone, utxos_per_address, f);
 
-    chainfuzz::utxos::print_utxo_map(&map);
-
     MockStore { utxos: map }
 }
