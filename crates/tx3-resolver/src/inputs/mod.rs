@@ -51,7 +51,7 @@ pub enum Error {
     #[error("input query too broad")]
     InputQueryTooBroad,
 
-    #[error("input not resolved: {0} {1:?} {2:?}")]
+    #[error("input not resolved: {0} {1} {2}")]
     InputNotResolved(String, CanonicalQuery, SearchSpace),
 
     #[error("store error: {0}")]
@@ -80,6 +80,12 @@ impl CoinSelection for FirstFullMatch {
 }
 
 fn find_first_excess_utxo(utxos: &HashSet<Utxo>, target: &CanonicalAssets) -> Option<Utxo> {
+    // if there is only one utxo, then we can't remove them. This is to avoid the
+    // edge case where the target is empty (eg: 0 fees gas on a testnet or L2)
+    if utxos.len() == 1 {
+        return None;
+    }
+
     let available = utxos
         .iter()
         .fold(CanonicalAssets::empty(), |acc, x| acc + x.assets.clone());
@@ -355,6 +361,57 @@ mod tests {
                 assert_eq!(utxo.address, subject.to_bytes());
             }
         }
+    }
+
+    #[pollster::test]
+    async fn test_input_query_too_broad() {
+        let store = mock::seed_random_memory_store(
+            |_: &mock::FuzzTxoRef, x: &mock::KnownAddress, _: u64| {
+                mock::utxo_with_random_amount(x, 4_000_000..5_000_000)
+            },
+            2..4,
+        );
+
+        let empty_criteria = ir::InputQuery {
+            address: ir::Expression::None,
+            min_amount: ir::Expression::None,
+            r#ref: ir::Expression::None,
+            many: false,
+            collateral: false,
+        }
+        .try_into()
+        .unwrap();
+
+        let space = searching::narrow_search_space(&store, &empty_criteria, MAX_SEARCH_SPACE_SIZE)
+            .await
+            .unwrap_err();
+
+        assert!(matches!(space, Error::InputQueryTooBroad));
+    }
+
+    #[pollster::test]
+    async fn test_select_anything() {
+        let store = mock::seed_random_memory_store(
+            |_: &mock::FuzzTxoRef, x: &mock::KnownAddress, seq: u64| {
+                if seq % 2 == 0 {
+                    mock::utxo_with_random_amount(x, 4_000_000..5_000_000)
+                } else {
+                    mock::utxo_with_random_asset(x, mock::KnownAsset::Hosky, 500..1000)
+                }
+            },
+            2..3, // exclusive range, this means always two utxos per address
+        );
+
+        let mut selector = InputSelector::new(&store);
+
+        let criteria = new_input_query(&mock::KnownAddress::Alice, None, vec![], true, false);
+
+        let space = searching::narrow_search_space(&store, &criteria, MAX_SEARCH_SPACE_SIZE)
+            .await
+            .unwrap();
+
+        let utxos = selector.select(&space, &criteria).await.unwrap();
+        assert_eq!(utxos.len(), 1);
     }
 
     #[pollster::test]
