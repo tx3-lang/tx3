@@ -490,7 +490,8 @@
             }
           ]
         }
-      }
+      },
+      "ref_script": "None"
     }
   ],
   "validity": {
