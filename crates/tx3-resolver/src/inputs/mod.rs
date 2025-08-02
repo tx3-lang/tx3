@@ -155,6 +155,19 @@ impl<'a, S: UtxoStore> InputSelector<'a, S> {
         }
     }
 
+    fn pick_from_set(utxos: UtxoSet, criteria: &CanonicalQuery) -> UtxoSet {
+        let target = criteria
+            .min_amount
+            .clone()
+            .unwrap_or(CanonicalAssets::empty());
+
+        if criteria.support_many {
+            NaiveAccumulator::pick(utxos, &target)
+        } else {
+            FirstFullMatch::pick(utxos, &target)
+        }
+    }
+
     pub async fn select_collateral(
         &mut self,
         search_space: &SearchSpace,
@@ -179,16 +192,7 @@ impl<'a, S: UtxoStore> InputSelector<'a, S> {
             .filter(|x| x.assets.is_only_naked())
             .collect();
 
-        let target = criteria
-            .min_amount
-            .clone()
-            .unwrap_or(CanonicalAssets::empty());
-
-        let matched = if criteria.support_many {
-            NaiveAccumulator::pick(utxos, &target)
-        } else {
-            FirstFullMatch::pick(utxos, &target)
-        };
+        let matched = Self::pick_from_set(utxos, criteria);
 
         self.ignore_collateral
             .extend(matched.iter().map(|x| x.r#ref.clone()));
@@ -210,16 +214,7 @@ impl<'a, S: UtxoStore> InputSelector<'a, S> {
 
         let utxos = self.store.fetch_utxos(refs).await?;
 
-        let target = criteria
-            .min_amount
-            .clone()
-            .unwrap_or(CanonicalAssets::empty());
-
-        let matched = if criteria.support_many {
-            NaiveAccumulator::pick(utxos, &target)
-        } else {
-            FirstFullMatch::pick(utxos, &target)
-        };
+        let matched = Self::pick_from_set(utxos, criteria);
 
         self.ignore.extend(matched.iter().map(|x| x.r#ref.clone()));
 
