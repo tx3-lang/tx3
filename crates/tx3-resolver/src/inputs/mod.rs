@@ -138,28 +138,12 @@ impl CoinSelection for NaiveAccumulator {
     }
 }
 
-struct CollateralMatch;
-
-impl CoinSelection for CollateralMatch {
-    fn pick(search_space: UtxoSet, target: &CanonicalAssets) -> HashSet<Utxo> {
-        for utxo in search_space.iter() {
-            let only_naked = utxo.assets.keys().all(|x| x.is_naked());
-            let has_enough = utxo.assets.contains_total(target);
-
-            if only_naked && has_enough {
-                return HashSet::from_iter(vec![utxo.clone()]);
-            }
-        }
-
-        HashSet::new()
-    }
-}
-
 const MAX_SEARCH_SPACE_SIZE: usize = 50;
 
 struct InputSelector<'a, S: UtxoStore> {
     store: &'a S,
     ignore: HashSet<UtxoRef>,
+    ignore_collateral: HashSet<UtxoRef>,
 }
 
 impl<'a, S: UtxoStore> InputSelector<'a, S> {
@@ -167,10 +151,52 @@ impl<'a, S: UtxoStore> InputSelector<'a, S> {
         Self {
             store,
             ignore: HashSet::new(),
+            ignore_collateral: HashSet::new(),
         }
     }
 
-    pub async fn select(
+    pub async fn select_collateral(
+        &mut self,
+        search_space: &SearchSpace,
+        criteria: &CanonicalQuery,
+    ) -> Result<UtxoSet, Error> {
+        let refs = search_space
+            .matched
+            .clone()
+            .into_iter()
+            .filter(|x| !self.ignore_collateral.contains(x))
+            .collect();
+
+        let utxos = self.store.fetch_utxos(refs).await?;
+
+        // Collateral has the extra constraint that it must be a naked utxo
+        // so we need to filter out any utxos that are not naked.
+        //
+        // TODO: this seems like a ledger specific constraint, we should somehow
+        // abstract it away. Maybe as a different call in the UtxoStore trait.
+        let utxos = utxos
+            .into_iter()
+            .filter(|x| x.assets.is_only_naked())
+            .collect();
+
+        let target = criteria
+            .min_amount
+            .clone()
+            .unwrap_or(CanonicalAssets::empty());
+
+        let matched = if criteria.support_many {
+            NaiveAccumulator::pick(utxos, &target)
+        } else {
+            FirstFullMatch::pick(utxos, &target)
+        };
+
+        self.ignore_collateral
+            .extend(matched.iter().map(|x| x.r#ref.clone()));
+
+        Ok(matched)
+    }
+
+    pub async fn select_input(
         &mut self,
         search_space: &SearchSpace,
         criteria: &CanonicalQuery,
@@ -189,9 +215,7 @@ impl<'a, S: UtxoStore> InputSelector<'a, S> {
             .clone()
             .unwrap_or(CanonicalAssets::empty());
 
-        let matched = if criteria.collateral {
-            CollateralMatch::pick(utxos, &target)
-        } else if criteria.support_many {
+        let matched = if criteria.support_many {
             NaiveAccumulator::pick(utxos, &target)
         } else {
             FirstFullMatch::pick(utxos, &target)
@@ -200,6 +224,18 @@ impl<'a, S: UtxoStore> InputSelector<'a, S> {
         self.ignore.extend(matched.iter().map(|x| x.r#ref.clone()));
 
         Ok(matched)
+    }
+
+    pub async fn select(
+        &mut self,
+        search_space: &SearchSpace,
+        criteria: &CanonicalQuery,
+    ) -> Result<UtxoSet, Error> {
+        if criteria.collateral {
+            self.select_collateral(search_space, criteria).await
+        } else {
+            self.select_input(search_space, criteria).await
+        }
     }
 }
 
@@ -587,6 +623,40 @@ mod tests {
             let utxo = utxos.iter().next().unwrap();
             assert_eq!(utxo.assets.keys().len(), 1);
             assert_eq!(utxo.assets.keys().next().unwrap().is_naked(), true);
+        }
+    }
+
+    #[pollster::test]
+    async fn test_select_same_collateral_and_input() {
+        let store = mock::seed_random_memory_store(
+            |_: &mock::FuzzTxoRef, x: &mock::KnownAddress, _: u64| {
+                mock::utxo_with_random_amount(x, 4_000_000..5_000_000)
+            },
+            1..2, // exclusive range, this means only one utxo per address
+        );
+
+        let mut selector = InputSelector::new(&store);
+
+        for address in mock::KnownAddress::everyone() {
+            // we select the only utxo availabel as an input
+            let criteria = new_input_query(&address, Some(1_000_000), vec![], false, false);
+
+            let space = searching::narrow_search_space(&store, &criteria, MAX_SEARCH_SPACE_SIZE)
+                .await
+                .unwrap();
+
+            let utxos = selector.select(&space, &criteria).await.unwrap();
+            assert_eq!(utxos.len(), 1);
+
+            // try to select the same utxo as collateral
+            let criteria = new_input_query(&address, Some(1_000_000), vec![], false, true);
+
+            let space = searching::narrow_search_space(&store, &criteria, MAX_SEARCH_SPACE_SIZE)
+                .await
+                .unwrap();
+
+            let utxos = selector.select(&space, &criteria).await.unwrap();
+            assert_eq!(utxos.len(), 1);
         }
     }
 

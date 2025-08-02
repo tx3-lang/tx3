@@ -189,6 +189,10 @@ impl CanonicalAssets {
 
         true
     }
+
+    pub fn is_only_naked(&self) -> bool {
+        self.iter().all(|(x, _)| x.is_naked())
+    }
 }
 
 impl From<CanonicalAssets> for HashMap<AssetClass, i128> {
