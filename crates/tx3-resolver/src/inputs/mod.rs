@@ -7,7 +7,7 @@ use tx3_lang::{
     ir, CanonicalAssets, Utxo, UtxoRef, UtxoSet,
 };
 
-use crate::inputs::searching::SearchSpace;
+pub use crate::inputs::searching::SearchSpace;
 
 mod searching;
 
