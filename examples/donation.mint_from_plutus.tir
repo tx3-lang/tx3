@@ -1,0 +1,233 @@
+{
+  "fees": {
+    "EvalParam": "ExpectFees"
+  },
+  "references": [],
+  "inputs": [
+    {
+      "name": "source",
+      "utxos": {
+        "EvalParam": {
+          "ExpectInput": [
+            "source",
+            {
+              "address": {
+                "EvalParam": {
+                  "ExpectValue": [
+                    "contributor",
+                    "Address"
+                  ]
+                }
+              },
+              "min_amount": {
+                "EvalBuiltIn": {
+                  "Add": [
+                    {
+                      "EvalBuiltIn": {
+                        "Add": [
+                          {
+                            "EvalParam": "ExpectFees"
+                          },
+                          {
+                            "Assets": [
+                              {
+                                "policy": "None",
+                                "asset_name": "None",
+                                "amount": {
+                                  "EvalBuiltIn": {
+                                    "Add": [
+                                      {
+                                        "EvalParam": {
+                                          "ExpectValue": [
+                                            "quantity",
+                                            "Int"
+                                          ]
+                                        }
+                                      },
+                                      {
+                                        "Number": 445
+                                      }
+                                    ]
+                                  }
+                                }
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "EvalCompiler": {
+                        "ComputeMinUtxo": {
+                          "Number": 0
+                        }
+                      }
+                    }
+                  ]
+                }
+              },
+              "ref": "None",
+              "many": false,
+              "collateral": false
+            }
+          ]
+        }
+      },
+      "redeemer": "None"
+    }
+  ],
+  "outputs": [
+    {
+      "address": {
+        "EvalParam": {
+          "ExpectValue": [
+            "contributor",
+            "Address"
+          ]
+        }
+      },
+      "datum": "None",
+      "amount": {
+        "EvalBuiltIn": {
+          "Sub": [
+            {
+              "EvalBuiltIn": {
+                "Sub": [
+                  {
+                    "EvalCoerce": {
+                      "IntoAssets": {
+                        "EvalParam": {
+                          "ExpectInput": [
+                            "source",
+                            {
+                              "address": {
+                                "EvalParam": {
+                                  "ExpectValue": [
+                                    "contributor",
+                                    "Address"
+                                  ]
+                                }
+                              },
+                              "min_amount": {
+                                "EvalBuiltIn": {
+                                  "Add": [
+                                    {
+                                      "EvalBuiltIn": {
+                                        "Add": [
+                                          {
+                                            "EvalParam": "ExpectFees"
+                                          },
+                                          {
+                                            "Assets": [
+                                              {
+                                                "policy": "None",
+                                                "asset_name": "None",
+                                                "amount": {
+                                                  "EvalBuiltIn": {
+                                                    "Add": [
+                                                      {
+                                                        "EvalParam": {
+                                                          "ExpectValue": [
+                                                            "quantity",
+                                                            "Int"
+                                                          ]
+                                                        }
+                                                      },
+                                                      {
+                                                        "Number": 445
+                                                      }
+                                                    ]
+                                                  }
+                                                }
+                                              }
+                                            ]
+                                          }
+                                        ]
+                                      }
+                                    },
+                                    {
+                                      "EvalCompiler": {
+                                        "ComputeMinUtxo": {
+                                          "Number": 0
+                                        }
+                                      }
+                                    }
+                                  ]
+                                }
+                              },
+                              "ref": "None",
+                              "many": false,
+                              "collateral": false
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "Assets": [
+                      {
+                        "policy": "None",
+                        "asset_name": "None",
+                        "amount": {
+                          "EvalBuiltIn": {
+                            "Add": [
+                              {
+                                "EvalParam": {
+                                  "ExpectValue": [
+                                    "quantity",
+                                    "Int"
+                                  ]
+                                }
+                              },
+                              {
+                                "Number": 445
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "EvalParam": "ExpectFees"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "validity": null,
+  "mints": [],
+  "burns": [],
+  "adhoc": [
+    {
+      "name": "treasury_donation",
+      "data": {
+        "coin": {
+          "EvalBuiltIn": {
+            "Add": [
+              {
+                "Number": 445
+              },
+              {
+                "EvalParam": {
+                  "ExpectValue": [
+                    "quantity",
+                    "Int"
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "collateral": [],
+  "signers": null,
+  "metadata": []
+}
