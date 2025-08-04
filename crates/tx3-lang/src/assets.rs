@@ -42,8 +42,42 @@ impl AssetClass {
     }
 }
 
+impl std::fmt::Display for AssetClass {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AssetClass::Naked => write!(f, "naked")?,
+            AssetClass::Named(name) => write!(f, "{}", hex::encode(name))?,
+            AssetClass::Defined(policy, name) => {
+                write!(f, "{}.{}", hex::encode(policy), hex::encode(name))?
+            }
+        }
+
+        Ok(())
+    }
+}
+
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct CanonicalAssets(HashMap<AssetClass, i128>);
+
+impl std::fmt::Display for CanonicalAssets {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "CanonicalAssets {{")?;
+
+        for (class, amount) in self.iter() {
+            write!(f, "{}:{}", class, amount)?;
+        }
+
+        write!(f, "}}")?;
+
+        Ok(())
+    }
+}
+
+impl Default for CanonicalAssets {
+    fn default() -> Self {
+        Self::empty()
+    }
+}
 
 impl std::ops::Deref for CanonicalAssets {
     type Target = HashMap<AssetClass, i128>;
@@ -154,6 +188,10 @@ impl CanonicalAssets {
         }
 
         true
+    }
+
+    pub fn is_only_naked(&self) -> bool {
+        self.iter().all(|(x, _)| x.is_naked())
     }
 }
 
