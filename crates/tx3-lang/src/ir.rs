@@ -235,6 +235,13 @@ impl Expression {
         }
     }
 
+    pub fn into_option(self) -> Option<Self> {
+        match self {
+            Self::None => None,
+            _ => Some(self),
+        }
+    }
+
     pub fn as_bytes(&self) -> Option<&[u8]> {
         match self {
             Self::Bytes(bytes) => Some(bytes),
