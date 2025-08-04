@@ -532,7 +532,10 @@ impl AstNode for TreasuryDonationBlock {
 
 impl Analyzable for TreasuryDonationBlock {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        self.coin.analyze(parent)
+        let coin = self.coin.analyze(parent);
+        let coin_type = AnalyzeReport::expect_data_expr_type(&self.coin, &Type::Int);
+
+        coin + coin_type
     }
 
     fn is_resolved(&self) -> bool {
@@ -653,7 +656,10 @@ impl IntoLower for CardanoBlock {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ast::*;
+    use crate::{
+        analyzing::analyze,
+        ast::{self, *},
+    };
     use pest::Parser;
 
     macro_rules! input_to_ast_check {
@@ -704,4 +710,50 @@ mod tests {
             span: Span::DUMMY,
         }
     );
+
+    input_to_ast_check!(
+        TreasuryDonationBlock,
+        "basic",
+        "treasury_donation {
+            coin: 2020,
+        }",
+        TreasuryDonationBlock {
+            coin: DataExpr::Number(2020),
+            span: Span::DUMMY,
+        }
+    );
+
+    #[test]
+    fn test_treasury_donation_type() {
+        let mut ast = crate::parsing::parse_string(
+            r#"
+            tx test(quantity: Int) {
+                cardano::treasury_donation {
+                  coin: quantity,
+                }
+            }
+            "#,
+        )
+        .unwrap();
+
+        let result = analyze(&mut ast);
+        assert!(result.errors.is_empty());
+    }
+
+    #[test]
+    fn test_treasury_donation_type_not_ok() {
+        let mut ast = crate::parsing::parse_string(
+            r#"
+            tx test(quantity: Bytes) {
+                cardano::treasury_donation {
+                  coin: quantity,
+                }
+            }
+            "#,
+        )
+        .unwrap();
+
+        let result = analyze(&mut ast);
+        assert!(!result.errors.is_empty());
+    }
 }
