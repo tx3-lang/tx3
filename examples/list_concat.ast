@@ -215,8 +215,8 @@
         }
       ],
       "validity": null,
-      "burn": null,
       "mints": [],
+      "burns": [],
       "signers": null,
       "adhoc": [],
       "span": {

@@ -21,7 +21,8 @@
               },
               "min_amount": "None",
               "ref": "None",
-              "many": false
+              "many": false,
+              "collateral": false
             }
           ]
         }
@@ -66,7 +67,8 @@
                                     },
                                     "min_amount": "None",
                                     "ref": "None",
-                                    "many": false
+                                    "many": false,
+                                    "collateral": false
                                   }
                                 ]
                               }
@@ -110,7 +112,8 @@
                         },
                         "min_amount": "None",
                         "ref": "None",
-                        "many": false
+                        "many": false,
+                        "collateral": false
                       }
                     ]
                   }
@@ -127,6 +130,7 @@
   ],
   "validity": null,
   "mints": [],
+  "burns": [],
   "adhoc": [],
   "collateral": [],
   "signers": null,
