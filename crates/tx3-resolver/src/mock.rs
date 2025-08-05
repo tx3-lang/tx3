@@ -1,5 +1,5 @@
 use std::collections::HashSet;
-use std::ops::{Deref, DerefMut};
+use std::ops::{Deref, DerefMut, Range, RangeBounds};
 
 pub use chainfuzz::addresses::KnownAddress;
 pub use chainfuzz::assets::KnownAsset;
@@ -9,6 +9,8 @@ pub use chainfuzz::{TxoRef as FuzzTxoRef, Utxo as FuzzUtxo};
 
 use tx3_lang::backend::{Error, UtxoPattern, UtxoStore};
 use tx3_lang::{ir, CanonicalAssets, Utxo, UtxoRef, UtxoSet};
+
+use crate::mock;
 
 fn from_fuzz_utxo(txo: &chainfuzz::TxoRef, utxo: &chainfuzz::Utxo) -> Utxo {
     let address = utxo.address.to_vec();
@@ -143,9 +145,11 @@ impl UtxoStore for MockStore {
     }
 }
 
-pub fn seed_random_memory_store<G: UtxoGenerator>(f: G) -> MockStore {
+pub fn seed_random_memory_store<G: UtxoGenerator>(
+    f: G,
+    utxos_per_address: Range<u64>,
+) -> MockStore {
     let everyone = KnownAddress::everyone();
-    let utxos_per_address = 2..4;
 
     let map = chainfuzz::utxos::make_custom_utxo_map(everyone, utxos_per_address, f);
 

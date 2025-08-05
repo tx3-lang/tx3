@@ -139,22 +139,6 @@ fn compile_value(ir: &ir::AssetExpr) -> Result<primitives::Value, Error> {
     }
 }
 
-// calculate min utxo lovelace according to spec
-// https://cips.cardano.org/cip/CIP-55
-
-/*
-fn eval_minutxo_constructor(&self, ctr: &ir::AssetConstructor) -> Result<primitives::Value, Error> {
-    let ratio = self.ledger.get_pparams()?.coins_per_utxo_byte;
-    let output = self.eval.find_output(ctr.name.as_str())?;
-    let serialized = pallas_codec::minicbor::to_vec(output).unwrap();
-    let min_lovelace = (160u64 + serialized.len() as u64) * ratio;
-
-    Ok(value!(min_lovelace as u64))
-
-    todo!()
-}
-    */
-
 fn compile_output_block(
     ir: &ir::Output,
     network: Network,
@@ -782,6 +766,27 @@ fn compute_script_data_hash(
     let data = primitives::ScriptData::build_for(witness_set, language_view);
 
     data.map(|x| x.hash())
+}
+
+// Compute min utxo lovelace according to spec
+// https://cips.cardano.org/cip/CIP-55
+pub fn compute_min_utxo(
+    x: ir::Expression,
+    tx_body: &Option<crate::TxBody>,
+    coins_per_byte: i128,
+) -> Result<i128, Error> {
+    let index = coercion::expr_into_number(&x)?;
+    let overhead = 160;
+
+    let total_bytes = if let Some(body) = tx_body {
+        let utxo = body.outputs.get(index as usize).unwrap();
+        let bytes = pallas::codec::minicbor::to_vec(utxo).unwrap().len() as i128;
+        bytes + overhead
+    } else {
+        crate::MIN_UTXO_BYTES
+    };
+
+    Ok(total_bytes * coins_per_byte)
 }
 
 pub fn entry_point(tx: &ir::Tx, pparams: &PParams) -> Result<primitives::Tx<'static>, Error> {

@@ -482,3 +482,37 @@ async fn extra_fees_zero_test() {
     assert!(!tx.payload.is_empty());
     assert!(tx.fee < DEFAULT_EXTRA_FEES);
 }
+
+#[pollster::test]
+async fn min_utxo_test() {
+    let mut compiler = test_compiler(None);
+    let utxos = wildcard_utxos(None);
+    let protocol = load_protocol("min_utxo");
+
+    let tx = protocol.new_tx("transfer_min")
+        .unwrap()
+        .with_arg("Sender", address_to_bytes("addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"))
+        .with_arg("Receiver", address_to_bytes("addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"))
+        .apply()
+        .unwrap();
+
+    let tx = test_compile(tx.into(), &mut compiler, utxos);
+
+    // 224 is the min amount of ada of the first utxo (why? (64 bytes + 160 fixed byets) * 1 coin_per_utxo_byte)
+    assert_eq!(
+        hex::encode(tx.hash),
+        "5853a69e54df5fe4e98692beca8d7d767575617af87b2e971b7c503172de8cb3"
+    );
+}
+
+#[pollster::test]
+async fn min_utxo_compiler_op_test() {
+    let compiler = test_compiler(None);
+
+    let result = compiler.execute(ir::CompilerOp::ComputeMinUtxo(ir::Expression::Number(0)));
+
+    assert!(result.is_ok());
+    if let Ok(ir::Expression::Assets(assets)) = result {
+        assert!(!assets.is_empty());
+    }
+}

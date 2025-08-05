@@ -8,7 +8,7 @@ authors = ["TxPipe"]
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/tx3-lang/tx3"
-version = "0.10.1"
+version = "0.11.0"
 keywords = ["blockchain", "cardano", "utxo", "dsl"]
 documentation = "https://docs.rs/tx3-lang"
 homepage = "https://github.com/tx3-lang/tx3"
@@ -17,3 +17,4 @@ readme = "README.md"
 [workspace.dependencies]
 thiserror = "2.0.11"
 trait-variant = "0.1.2"
+hex = "0.4.3"

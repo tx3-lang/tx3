@@ -11,28 +11,22 @@ pub mod mock;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("input query too broad")]
-    InputQueryTooBroad,
-
-    #[error("input not resolved: {0} {1:?}")]
-    InputNotResolved(String, ir::InputQuery),
-
-    #[error("expected {0}, got {1:?}")]
-    ExpectedData(String, ir::Expression),
-
-    #[error("apply error: {0}")]
-    ApplyError(#[from] applying::Error),
+    #[error(transparent)]
+    InputsError(#[from] inputs::Error),
 
     #[error("can't compile non-constant tir")]
     CantCompileNonConstantTir,
 
     #[error("backend error: {0}")]
     BackendError(#[from] backend::Error),
+
+    #[error("apply error: {0}")]
+    ApplyError(#[from] applying::Error),
 }
 
 async fn eval_pass<C: Compiler, S: UtxoStore>(
     tx: &ir::Tx,
-    compiler: &C,
+    compiler: &mut C,
     utxos: &S,
     last_eval: Option<&TxEval>,
 ) -> Result<Option<TxEval>, Error> {
@@ -41,6 +35,8 @@ async fn eval_pass<C: Compiler, S: UtxoStore>(
     let fees = last_eval.as_ref().map(|e| e.fee).unwrap_or(0);
 
     let attempt = applying::apply_fees(attempt, fees)?;
+
+    let attempt = attempt.apply(compiler)?;
 
     let attempt = applying::reduce(attempt)?;
 
@@ -83,7 +79,6 @@ pub async fn resolve_tx<C: Compiler, S: UtxoStore>(
 
     // reduce compiler ops
     let tx = ir::Tx::from(tx);
-    let tx = tx.apply(compiler)?;
 
     while let Some(better) = eval_pass(&tx, compiler, utxos, last_eval.as_ref()).await? {
         last_eval = Some(better);

@@ -71,6 +71,7 @@ pub enum BuiltInOp {
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum CompilerOp {
     BuildScriptAddress(Expression),
+    ComputeMinUtxo(Expression),
 }
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -228,6 +229,13 @@ impl Expression {
     }
 
     pub fn as_option(&self) -> Option<&Self> {
+        match self {
+            Self::None => None,
+            _ => Some(self),
+        }
+    }
+
+    pub fn into_option(self) -> Option<Self> {
         match self {
             Self::None => None,
             _ => Some(self),
@@ -458,6 +466,7 @@ impl Node for CompilerOp {
     fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::applying::Error> {
         let visited = match self {
             CompilerOp::BuildScriptAddress(x) => CompilerOp::BuildScriptAddress(x.apply(visitor)?),
+            CompilerOp::ComputeMinUtxo(x) => CompilerOp::ComputeMinUtxo(x.apply(visitor)?),
         };
 
         Ok(visited)
