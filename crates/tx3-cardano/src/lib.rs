@@ -31,7 +31,7 @@ pub const EXECUTION_UNITS: primitives::ExUnits = primitives::ExUnits {
     steps: 2000000000,
 };
 
-const DEFAULT_EXTRA_FEES: u64 = 200_000;
+const DEFAULT_EXTRA_FEES: u64 = 1_000_000;
 const MIN_UTXO_BYTES: i128 = 197;
 
 #[derive(Debug, Clone, Default)]

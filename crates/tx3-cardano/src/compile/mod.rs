@@ -748,7 +748,7 @@ fn infer_plutus_version(witness_set: &primitives::WitnessSet) -> PlutusVersion {
     } else {
         // TODO: should we error here?
         // Defaulting to Plutus V2 for now
-        1
+        2
     }
 }
 
