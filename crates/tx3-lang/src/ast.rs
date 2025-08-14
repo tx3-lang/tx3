@@ -115,6 +115,7 @@ impl Symbol {
             Symbol::ParamVar(_, ty) => Some(ty.as_ref().clone()),
             Symbol::RecordField(x) => Some(x.r#type.clone()),
             Symbol::Input(x) => x.datum_is().cloned(),
+            Symbol::PartyDef(_) => Some(Type::Address),
             x => {
                 dbg!(x);
                 None
@@ -802,6 +803,12 @@ impl Type {
                 vec![
                     ("tx_hash".to_string(), Type::Bytes),
                     ("output_index".to_string(), Type::Int),
+                ]
+            }
+            Type::Address => {
+                vec![
+                    ("payment".to_string(), Type::Bytes),
+                    ("staking".to_string(), Type::Bytes),
                 ]
             }
             Type::Custom(identifier) => {

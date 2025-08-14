@@ -59,6 +59,11 @@ impl Indexable for ir::Expression {
                 _ => None,
             },
             ir::Expression::Struct(x) => x.index(index),
+            ir::Expression::Address(x) => match index {
+                0 => x.get(1..29).map(|y| ir::Expression::Bytes(y.to_vec())),
+                1 => x.get(29..).map(|y| ir::Expression::Bytes(y.to_vec())),
+                _ => None
+            }
             _ => None,
         }
     }
