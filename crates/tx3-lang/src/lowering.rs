@@ -913,4 +913,6 @@ mod tests {
     test_lowering!(burn);
 
     test_lowering!(min_utxo);
+
+    test_lowering!(list_concat);
 }

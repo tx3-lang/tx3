@@ -436,6 +436,19 @@ impl Analyzable for AddOp {
     }
 }
 
+impl Analyzable for ConcatOp {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+        let left = self.lhs.analyze(parent.clone());
+        let right = self.rhs.analyze(parent.clone());
+
+        left + right
+    }
+
+    fn is_resolved(&self) -> bool {
+        self.lhs.is_resolved() && self.rhs.is_resolved()
+    }
+}
+
 impl Analyzable for SubOp {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
         let left = self.lhs.analyze(parent.clone());
@@ -553,6 +566,7 @@ impl Analyzable for DataExpr {
             DataExpr::StaticAssetConstructor(x) => x.analyze(parent),
             DataExpr::AnyAssetConstructor(x) => x.analyze(parent),
             DataExpr::MinUtxo(x) => x.analyze(parent),
+            DataExpr::ConcatOp(x) => x.analyze(parent),
             _ => AnalyzeReport::default(),
         }
     }
@@ -569,6 +583,7 @@ impl Analyzable for DataExpr {
             DataExpr::StaticAssetConstructor(x) => x.is_resolved(),
             DataExpr::AnyAssetConstructor(x) => x.is_resolved(),
             DataExpr::MinUtxo(x) => x.is_resolved(),
+            DataExpr::ConcatOp(x) => x.is_resolved(),
             _ => true,
         }
     }

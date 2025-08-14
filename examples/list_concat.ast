@@ -1,0 +1,309 @@
+{
+  "env": null,
+  "txs": [
+    {
+      "name": {
+        "value": "concat_list",
+        "span": {
+          "dummy": false,
+          "start": 59,
+          "end": 70
+        }
+      },
+      "parameters": {
+        "parameters": [],
+        "span": {
+          "dummy": false,
+          "start": 70,
+          "end": 72
+        }
+      },
+      "locals": null,
+      "references": [],
+      "inputs": [
+        {
+          "name": "source",
+          "many": false,
+          "fields": [
+            {
+              "From": {
+                "Identifier": {
+                  "value": "MyParty",
+                  "span": {
+                    "dummy": false,
+                    "start": 108,
+                    "end": 115
+                  }
+                }
+              }
+            },
+            {
+              "DatumIs": {
+                "Custom": {
+                  "value": "MyRecord",
+                  "span": {
+                    "dummy": true,
+                    "start": 0,
+                    "end": 0
+                  }
+                }
+              }
+            }
+          ],
+          "span": {
+            "dummy": false,
+            "start": 79,
+            "end": 150
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": null,
+          "fields": [
+            {
+              "To": {
+                "Identifier": {
+                  "value": "MyParty",
+                  "span": {
+                    "dummy": false,
+                    "start": 177,
+                    "end": 184
+                  }
+                }
+              }
+            },
+            {
+              "Amount": {
+                "SubOp": {
+                  "lhs": {
+                    "Identifier": {
+                      "value": "source",
+                      "span": {
+                        "dummy": false,
+                        "start": 202,
+                        "end": 208
+                      }
+                    }
+                  },
+                  "rhs": {
+                    "Identifier": {
+                      "value": "fees",
+                      "span": {
+                        "dummy": false,
+                        "start": 211,
+                        "end": 215
+                      }
+                    }
+                  },
+                  "span": {
+                    "dummy": false,
+                    "start": 209,
+                    "end": 210
+                  }
+                }
+              }
+            },
+            {
+              "Datum": {
+                "StructConstructor": {
+                  "type": {
+                    "value": "MyRecord",
+                    "span": {
+                      "dummy": false,
+                      "start": 232,
+                      "end": 240
+                    }
+                  },
+                  "case": {
+                    "name": {
+                      "value": "Default",
+                      "span": {
+                        "dummy": true,
+                        "start": 0,
+                        "end": 0
+                      }
+                    },
+                    "fields": [
+                      {
+                        "name": {
+                          "value": "list",
+                          "span": {
+                            "dummy": false,
+                            "start": 255,
+                            "end": 259
+                          }
+                        },
+                        "value": {
+                          "ConcatOp": {
+                            "lhs": {
+                              "PropertyOp": {
+                                "operand": {
+                                  "Identifier": {
+                                    "value": "source",
+                                    "span": {
+                                      "dummy": false,
+                                      "start": 268,
+                                      "end": 274
+                                    }
+                                  }
+                                },
+                                "property": {
+                                  "value": "list",
+                                  "span": {
+                                    "dummy": false,
+                                    "start": 275,
+                                    "end": 279
+                                  }
+                                },
+                                "span": {
+                                  "dummy": false,
+                                  "start": 274,
+                                  "end": 279
+                                }
+                              }
+                            },
+                            "rhs": {
+                              "ListConstructor": {
+                                "elements": [
+                                  {
+                                    "Number": 1
+                                  }
+                                ],
+                                "span": {
+                                  "dummy": false,
+                                  "start": 281,
+                                  "end": 284
+                                }
+                              }
+                            },
+                            "span": {
+                              "dummy": false,
+                              "start": 261,
+                              "end": 285
+                            }
+                          }
+                        },
+                        "span": {
+                          "dummy": false,
+                          "start": 255,
+                          "end": 285
+                        }
+                      }
+                    ],
+                    "spread": null,
+                    "span": {
+                      "dummy": false,
+                      "start": 241,
+                      "end": 296
+                    }
+                  },
+                  "span": {
+                    "dummy": false,
+                    "start": 232,
+                    "end": 296
+                  }
+                }
+              }
+            }
+          ],
+          "span": {
+            "dummy": false,
+            "start": 156,
+            "end": 303
+          }
+        }
+      ],
+      "validity": null,
+      "mints": [],
+      "burns": [],
+      "signers": null,
+      "adhoc": [],
+      "span": {
+        "dummy": false,
+        "start": 56,
+        "end": 305
+      },
+      "collateral": [],
+      "metadata": null
+    }
+  ],
+  "types": [
+    {
+      "name": {
+        "value": "MyRecord",
+        "span": {
+          "dummy": false,
+          "start": 5,
+          "end": 13
+        }
+      },
+      "cases": [
+        {
+          "name": {
+            "value": "Default",
+            "span": {
+              "dummy": true,
+              "start": 0,
+              "end": 0
+            }
+          },
+          "fields": [
+            {
+              "name": {
+                "value": "list",
+                "span": {
+                  "dummy": false,
+                  "start": 20,
+                  "end": 24
+                }
+              },
+              "type": {
+                "List": "Int"
+              },
+              "span": {
+                "dummy": false,
+                "start": 20,
+                "end": 35
+              }
+            }
+          ],
+          "span": {
+            "dummy": false,
+            "start": 0,
+            "end": 38
+          }
+        }
+      ],
+      "span": {
+        "dummy": false,
+        "start": 0,
+        "end": 38
+      }
+    }
+  ],
+  "assets": [],
+  "parties": [
+    {
+      "name": {
+        "value": "MyParty",
+        "span": {
+          "dummy": false,
+          "start": 46,
+          "end": 53
+        }
+      },
+      "span": {
+        "dummy": false,
+        "start": 40,
+        "end": 54
+      }
+    }
+  ],
+  "policies": [],
+  "span": {
+    "dummy": false,
+    "start": 0,
+    "end": 305
+  }
+}
