@@ -2,13 +2,14 @@ use std::collections::HashSet;
 
 use tx3_lang::{
     backend::{UtxoPattern, UtxoStore},
-    ir, AssetClass, CanonicalAssets, UtxoRef,
+    AssetClass, UtxoRef,
 };
 
 use crate::inputs::CanonicalQuery;
 
 use super::Error;
 
+#[derive(Debug, Clone)]
 pub enum Subset {
     All,
     Specific(HashSet<UtxoRef>),
@@ -42,23 +43,6 @@ impl Subset {
             }
         }
     }
-
-    fn intersection_of_all<const N: usize>(subsets: [Self; N]) -> Self {
-        let mut result = Subset::All;
-
-        for subset in subsets {
-            result = Self::intersection(result, subset);
-        }
-
-        result
-    }
-
-    fn is_empty(&self) -> bool {
-        match self {
-            Self::All => false,
-            Self::Specific(s) => s.is_empty(),
-        }
-    }
 }
 
 impl From<HashSet<UtxoRef>> for Subset {
@@ -69,49 +53,87 @@ impl From<HashSet<UtxoRef>> for Subset {
 
 #[derive(Debug, Clone)]
 pub struct SearchSpace {
-    pub matched: HashSet<UtxoRef>,
+    pub union: HashSet<UtxoRef>,
+    pub intersection: HashSet<UtxoRef>,
     pub by_address_count: Option<usize>,
     pub by_asset_class_count: Option<usize>,
     pub by_ref_count: Option<usize>,
 }
 
-impl std::fmt::Display for SearchSpace {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "SearchSpace {{")?;
-        write!(f, "matched:{}, ", self.matched.len())?;
-
-        for (i, ref_) in self.matched.iter().enumerate().take(10) {
-            write!(f, "match[{}]: {}, ", i, ref_)?;
+impl SearchSpace {
+    fn new() -> Self {
+        Self {
+            union: HashSet::new(),
+            intersection: HashSet::new(),
+            by_address_count: None,
+            by_asset_class_count: None,
+            by_ref_count: None,
         }
-
-        if self.matched.len() > 10 {
-            write!(f, "... {} more, ", self.matched.len() - 10)?;
-        }
-
-        write!(f, "by_address_count: {:?}, ", self.by_address_count)?;
-        write!(f, "by_asset_class_count: {:?}, ", self.by_asset_class_count)?;
-        write!(f, "by_ref_count: {:?}, ", self.by_ref_count)?;
-        write!(f, "}}")?;
-        Ok(())
     }
-}
 
-async fn narrow_by_address<T: UtxoStore>(store: &T, address: &[u8]) -> Result<Subset, Error> {
-    let utxos = store.narrow_refs(UtxoPattern::by_address(address)).await?;
+    fn is_empty(&self) -> bool {
+        self.union.is_empty()
+    }
 
-    Ok(Subset::Specific(utxos.into_iter().collect()))
+    fn add_matches(&mut self, utxos: HashSet<UtxoRef>) {
+        self.union = self.union.union(&utxos).cloned().collect();
+        self.intersection = self.intersection.intersection(&utxos).cloned().collect();
+    }
+
+    fn add_address_matches(&mut self, subset: Subset) {
+        match subset {
+            Subset::All => (),
+            Subset::Specific(utxos) => {
+                *self.by_address_count.get_or_insert(0) += utxos.len();
+                self.add_matches(utxos);
+            }
+        }
+    }
+
+    fn add_asset_class_matches(&mut self, subset: Subset) {
+        match subset {
+            Subset::All => (),
+            Subset::Specific(utxos) => {
+                *self.by_asset_class_count.get_or_insert(0) += utxos.len();
+                self.add_matches(utxos);
+            }
+        }
+    }
+
+    fn add_ref_matches(&mut self, utxos: HashSet<UtxoRef>) {
+        *self.by_ref_count.get_or_insert(0) += utxos.len();
+        self.add_matches(utxos);
+    }
+
+    pub fn take(&self, take: Option<usize>) -> HashSet<UtxoRef> {
+        let Some(take) = take else {
+            return self.union.clone();
+        };
+
+        // first we take from the intersection which are the best matches
+        let best: HashSet<_> = self.intersection.iter().take(take).cloned().collect();
+
+        if best.len() < take {
+            let others: HashSet<_> = self.union.difference(&best).cloned().collect();
+            let remaining: HashSet<_> = others.into_iter().take(take - best.len()).collect();
+            best.union(&remaining).cloned().collect()
+        } else {
+            best
+        }
+    }
 }
 
 async fn narrow_by_asset_class<T: UtxoStore>(
     store: &T,
-    assets: &AssetClass,
+    parent: Subset,
+    class: &AssetClass,
 ) -> Result<Subset, Error> {
     // skip filtering lovelace since it's not an custom asset
-    if matches!(assets, AssetClass::Naked) {
+    if matches!(class, AssetClass::Naked) {
         return Ok(Subset::All);
     }
 
-    let AssetClass::Defined(policy, name) = assets else {
+    let AssetClass::Defined(policy, name) = class else {
         return Ok(Subset::All);
     };
 
@@ -119,68 +141,40 @@ async fn narrow_by_asset_class<T: UtxoStore>(
         .narrow_refs(UtxoPattern::by_asset(policy, name))
         .await?;
 
-    Ok(Subset::Specific(utxos.into_iter().collect()))
-}
-
-async fn narrow_by_multi_asset_presence<T: UtxoStore>(
-    store: &T,
-    assets: &CanonicalAssets,
-) -> Result<Subset, Error> {
-    let mut matches = Subset::All;
-
-    for (class, amount) in assets.iter() {
-        if *amount > 0 {
-            let next = narrow_by_asset_class(store, class).await?;
-            matches = Subset::intersection(matches, next);
-        }
-    }
-
-    Ok(matches)
+    Ok(Subset::intersection(parent, Subset::Specific(utxos)))
 }
 
 pub async fn narrow_search_space<T: UtxoStore>(
     store: &T,
     criteria: &CanonicalQuery,
-    max_size: usize,
 ) -> Result<SearchSpace, Error> {
-    let matching_address = if let Some(address) = &criteria.address {
-        narrow_by_address(store, address).await?
+    let mut search_space = SearchSpace::new();
+
+    let parent_subset = if let Some(address) = &criteria.address {
+        let utxos = store.narrow_refs(UtxoPattern::by_address(address)).await?;
+        Subset::Specific(utxos)
     } else {
         Subset::All
     };
 
-    let matching_assets = if let Some(min_amount) = &criteria.min_amount {
-        narrow_by_multi_asset_presence(store, min_amount).await?
-    } else {
-        Subset::All
-    };
+    search_space.add_address_matches(parent_subset.clone());
 
-    let matching_refs = if !criteria.refs.is_empty() {
-        Subset::Specific(criteria.refs.clone())
-    } else {
-        Subset::All
-    };
-
-    let by_address_count = matching_address.count();
-    let by_asset_class_count = matching_assets.count();
-    let by_ref_count = matching_refs.count();
-
-    let subset = Subset::intersection_of_all([matching_address, matching_assets, matching_refs]);
-
-    let mut refs = match subset {
-        Subset::Specific(refs) => refs,
-        Subset::All => return Err(Error::InputQueryTooBroad),
-    };
-
-    if refs.len() > max_size {
-        let first_n = refs.into_iter().take(max_size);
-        refs = HashSet::from_iter(first_n);
+    if let Some(assets) = &criteria.min_amount {
+        for (class, amount) in assets.iter() {
+            if *amount > 0 {
+                let subset = narrow_by_asset_class(store, parent_subset.clone(), class).await?;
+                search_space.add_asset_class_matches(subset);
+            }
+        }
     }
 
-    Ok(SearchSpace {
-        matched: refs,
-        by_address_count,
-        by_asset_class_count,
-        by_ref_count,
-    })
+    if !criteria.refs.is_empty() {
+        search_space.add_ref_matches(criteria.refs.clone());
+    }
+
+    if search_space.is_empty() {
+        return Err(Error::InputQueryTooBroad);
+    }
+
+    Ok(search_space)
 }
