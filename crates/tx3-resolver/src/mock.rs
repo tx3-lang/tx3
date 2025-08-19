@@ -145,6 +145,23 @@ impl UtxoStore for MockStore {
     }
 }
 
+impl MockStore {
+    pub async fn by_known_address(&self, address: &KnownAddress) -> HashSet<UtxoRef> {
+        let bytes = address.to_bytes();
+        let pattern = UtxoPattern::ByAddress(bytes.as_slice());
+
+        self.narrow_refs(pattern).await.unwrap()
+    }
+
+    pub async fn by_known_asset(&self, asset: &KnownAsset) -> HashSet<UtxoRef> {
+        let policy = asset.policy();
+        let name = asset.name();
+        let pattern = UtxoPattern::ByAsset(policy.as_ref(), name.as_ref());
+
+        self.narrow_refs(pattern).await.unwrap()
+    }
+}
+
 pub fn seed_random_memory_store<G: UtxoGenerator>(
     f: G,
     utxos_per_address: Range<u64>,
