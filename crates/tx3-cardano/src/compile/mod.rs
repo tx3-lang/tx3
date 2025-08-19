@@ -80,6 +80,7 @@ fn compile_data_expr(ir: &ir::Expression) -> Result<primitives::PlutusData, Erro
         ir::Expression::String(x) => Ok(x.as_str().as_data()),
         ir::Expression::Struct(x) => compile_struct(x),
         ir::Expression::Address(x) => Ok(x.as_data()),
+        ir::Expression::List(x) => x.try_as_data(),
         _ => Err(Error::CoerceError(
             format!("{ir:?}"),
             "DataExpr".to_string(),
@@ -801,8 +802,8 @@ fn infer_plutus_version(witness_set: &primitives::WitnessSet) -> PlutusVersion {
         2
     } else {
         // TODO: should we error here?
-        // Defaulting to Plutus V2 for now
-        1
+        // Defaulting to Plutus V3 for now
+        2
     }
 }
 

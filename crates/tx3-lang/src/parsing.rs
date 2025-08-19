@@ -2395,7 +2395,6 @@ mod tests {
 
     fn test_parsing_example(example: &str) {
         let program = parse_well_known_example(example);
-
         make_snapshot_if_missing(example, &program);
 
         let manifest_dir = env!("CARGO_MANIFEST_DIR");
@@ -2445,4 +2444,6 @@ mod tests {
 
     test_parsing!(reference_script);
     test_parsing!(burn);
+
+    test_parsing!(list_concat);
 }

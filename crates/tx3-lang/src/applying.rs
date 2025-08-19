@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use crate::{backend, ir, ArgValue, CanonicalAssets, Utxo};
+use crate::ir::Expression;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -180,6 +181,21 @@ impl Concatenable for String {
     }
 }
 
+impl Concatenable for Vec<Expression> {
+    fn concat(self, other: Expression) -> Result<Expression, Error> {
+        match other {
+            Expression::List(expressions) => {
+                Ok(Expression::List([&self[..], &expressions[..]].concat()))
+            },
+            _ => Err(Error::InvalidBinaryOp(
+                "concat".to_string(),
+                format!("List({:?})", self),
+                format!("{:?}", other),
+            )),
+        }
+    }
+}
+
 impl Concatenable for Vec<u8> {
     fn concat(self, other: ir::Expression) -> Result<ir::Expression, Error> {
         match other {
@@ -204,6 +220,7 @@ impl Concatenable for ir::Expression {
             ir::Expression::None => Ok(other),
             ir::Expression::String(x) => Concatenable::concat(x, other),
             ir::Expression::Bytes(x) => Concatenable::concat(x, other),
+            ir::Expression::List(x) => Concatenable::concat(x, other),
             x => Err(Error::InvalidBinaryOp(
                 "concat".to_string(),
                 format!("{x:?}"),
@@ -1845,6 +1862,22 @@ mod tests {
         match reduced {
             ir::Expression::Bytes(b) => assert_eq!(b, vec![1, 2, 3, 4, 5, 6]),
             _ => panic!("Expected bytes [1, 2, 3, 4, 5, 6]"),
+        }
+    }
+
+    #[test]
+    fn test_list_concat_is_reduced() {
+        let op = Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Concat(
+            Expression::List(vec![Expression::Number(1)]),
+            Expression::List(vec![Expression::Number(2)]),
+        )));
+
+        let reduced = op.reduce().unwrap();
+
+        match reduced {
+            ir::Expression::List(b) => assert_eq!(b, vec![
+                Expression::Number(1), Expression::Number(2)]),
+            _ => panic!("Expected List [Number(1), Number(2)"),
         }
     }
 
