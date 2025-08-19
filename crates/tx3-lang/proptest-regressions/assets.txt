@@ -1,0 +1,8 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc a09944bd2ef3b2b8a2406d25d31e2e57096a93db9d4dbc996b94fbac1ba4dacb # shrinks to asset = CanonicalAssets({Defined([], []): 0})
+cc ff8eee99695eb7a91f391ae89362058f78a83d1b3501832f4d43249656803fb9 # shrinks to asset = CanonicalAssets({Defined([], []): 0})

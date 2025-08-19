@@ -590,7 +590,11 @@ impl AstNode for OutputBlock {
             .map(|x| x.as_rule() == Rule::identifier)
             .unwrap_or_default();
 
-        let name = has_name.then(|| inner.next().unwrap().as_str().to_string());
+        let name = if has_name {
+            Some(Identifier::parse(inner.next().unwrap())?)
+        } else {
+            None
+        };
 
         let fields = inner
             .map(|x| OutputBlockField::parse(x))
@@ -1124,6 +1128,11 @@ impl DataExpr {
         )?))
     }
 
+    fn min_utxo_parse(pair: Pair<Rule>) -> Result<Self, Error> {
+        let inner = pair.into_inner().next().unwrap();
+        Ok(DataExpr::MinUtxo(Identifier::parse(inner)?))
+    }
+
     fn concat_constructor_parse(pair: Pair<Rule>) -> Result<Self, Error> {
         Ok(DataExpr::ConcatOp(ConcatOp::parse(pair)?))
     }
@@ -1196,6 +1205,7 @@ impl AstNode for DataExpr {
                 Rule::static_asset_constructor => DataExpr::static_asset_constructor_parse(x),
                 Rule::any_asset_constructor => DataExpr::any_asset_constructor_parse(x),
                 Rule::concat_constructor => DataExpr::concat_constructor_parse(x),
+                Rule::min_utxo => DataExpr::min_utxo_parse(x),
                 Rule::data_expr => DataExpr::parse(x),
                 x => unreachable!("unexpected rule as data primary: {:?}", x),
             })
@@ -1235,6 +1245,7 @@ impl AstNode for DataExpr {
             DataExpr::NegateOp(x) => &x.span,
             DataExpr::PropertyOp(x) => &x.span,
             DataExpr::UtxoRef(x) => x.span(),
+            DataExpr::MinUtxo(x) => x.span(),
         }
     }
 }
@@ -2002,6 +2013,28 @@ mod tests {
     );
 
     input_to_ast_check!(
+        DataExpr,
+        "min_utxo_basic",
+        "min_utxo(output1)",
+        DataExpr::MinUtxo(Identifier::new("output1"))
+    );
+
+    input_to_ast_check!(
+        DataExpr,
+        "min_utxo_in_expression",
+        "Ada(100) + min_utxo(my_output)",
+        DataExpr::AddOp(AddOp {
+            lhs: Box::new(DataExpr::StaticAssetConstructor(StaticAssetConstructor {
+                r#type: Identifier::new("Ada"),
+                amount: Box::new(DataExpr::Number(100)),
+                span: Span::DUMMY,
+            })),
+            rhs: Box::new(DataExpr::MinUtxo(Identifier::new("my_output"))),
+            span: Span::DUMMY,
+        })
+    );
+
+    input_to_ast_check!(
         StructConstructor,
         "struct_constructor_record",
         "MyRecord {
@@ -2381,7 +2414,7 @@ mod tests {
     #[test]
     fn test_spans_are_respected() {
         let program = parse_well_known_example("lang_tour");
-        assert_eq!(program.span, Span::new(0, 1497));
+        assert_eq!(program.span, Span::new(0, 1560));
 
         assert_eq!(program.parties[0].span, Span::new(47, 61));
 
@@ -2400,7 +2433,6 @@ mod tests {
 
     fn test_parsing_example(example: &str) {
         let program = parse_well_known_example(example);
-
         make_snapshot_if_missing(example, &program);
 
         let manifest_dir = env!("CARGO_MANIFEST_DIR");
@@ -2450,4 +2482,6 @@ mod tests {
 
     test_parsing!(map);
     test_parsing!(burn);
+
+    test_parsing!(list_concat);
 }

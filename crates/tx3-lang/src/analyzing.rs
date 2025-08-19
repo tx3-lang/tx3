@@ -287,6 +287,12 @@ impl Scope {
             .insert(name.to_string(), Symbol::Input(Box::new(input)));
     }
 
+    pub fn track_output(&mut self, index: usize, output: OutputBlock) {
+        if let Some(n) = output.name {
+            self.symbols.insert(n.value, Symbol::Output(index));
+        }
+    }
+
     pub fn track_record_fields_for_type(&mut self, ty: &Type) {
         let schema = ty.properties();
 
@@ -418,6 +424,19 @@ impl Analyzable for PolicyDef {
 }
 
 impl Analyzable for AddOp {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+        let left = self.lhs.analyze(parent.clone());
+        let right = self.rhs.analyze(parent.clone());
+
+        left + right
+    }
+
+    fn is_resolved(&self) -> bool {
+        self.lhs.is_resolved() && self.rhs.is_resolved()
+    }
+}
+
+impl Analyzable for ConcatOp {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
         let left = self.lhs.analyze(parent.clone());
         let right = self.rhs.analyze(parent.clone());
@@ -567,6 +586,8 @@ impl Analyzable for DataExpr {
             DataExpr::PropertyOp(x) => x.analyze(parent),
             DataExpr::StaticAssetConstructor(x) => x.analyze(parent),
             DataExpr::AnyAssetConstructor(x) => x.analyze(parent),
+            DataExpr::MinUtxo(x) => x.analyze(parent),
+            DataExpr::ConcatOp(x) => x.analyze(parent),
             _ => AnalyzeReport::default(),
         }
     }
@@ -583,6 +604,8 @@ impl Analyzable for DataExpr {
             DataExpr::PropertyOp(x) => x.is_resolved(),
             DataExpr::StaticAssetConstructor(x) => x.is_resolved(),
             DataExpr::AnyAssetConstructor(x) => x.is_resolved(),
+            DataExpr::MinUtxo(x) => x.is_resolved(),
+            DataExpr::ConcatOp(x) => x.is_resolved(),
             _ => true,
         }
     }
@@ -985,7 +1008,6 @@ impl Analyzable for TxDef {
             for param in self.parameters.parameters.iter() {
                 current.track_param_var(&param.name.value, param.r#type.clone());
             }
-
             Rc::new(current)
         };
 
@@ -1000,6 +1022,10 @@ impl Analyzable for TxDef {
                 current.track_local_expr(&assign.name.value, assign.value.clone());
             }
 
+            for (index, output) in self.outputs.iter().enumerate() {
+                current.track_output(index, output.clone())
+            }
+
             Rc::new(current)
         };
 
@@ -1010,6 +1036,10 @@ impl Analyzable for TxDef {
 
             for input in self.inputs.iter() {
                 current.track_input(&input.name, input.clone());
+            }
+
+            for (index, output) in self.outputs.iter().enumerate() {
+                current.track_output(index, output.clone())
             }
 
             Rc::new(current)
@@ -1186,5 +1216,43 @@ mod tests {
                 span: Span::DUMMY,
             })
         );
+    }
+
+    #[test]
+    fn test_min_utxo_analysis() {
+        let mut ast = crate::parsing::parse_string(
+            r#"
+        party Alice;
+        tx test() {
+            output my_output {
+                to: Alice,
+                amount: min_utxo(my_output),
+            }
+        }
+    "#,
+        )
+        .unwrap();
+
+        let result = analyze(&mut ast);
+        assert!(result.errors.is_empty());
+    }
+
+    #[test]
+    fn test_min_utxo_undefined_output_error() {
+        let mut ast = crate::parsing::parse_string(
+            r#"
+        party Alice;
+        tx test() {
+            output {
+                to: Alice,
+                amount: min_utxo(nonexistent_output),
+            }
+        }
+    "#,
+        )
+        .unwrap();
+
+        let result = analyze(&mut ast);
+        assert!(!result.errors.is_empty());
     }
 }

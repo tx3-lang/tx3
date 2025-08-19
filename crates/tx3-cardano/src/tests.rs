@@ -201,7 +201,7 @@ async fn smoke_test_vesting_unlock() {
 
     assert_eq!(
         hex::encode(tx.hash),
-        "d8feb5dc4336240f98b82d4c3c1039bb1503c98f671bf2e2980f28ddc1aa81fa"
+        "a720d363d4cc1afa7be67eb4e0a8ddc5e7effe40316d2a49cc19836b9e04c0d4"
     );
 }
 
@@ -227,7 +227,30 @@ async fn faucet_test() {
 
     assert_eq!(
         hex::encode(tx.hash),
-        "3d371b0acf61eb979df1b18c3386141e5b0d54017f4e7e0f2065cde9ee79e6c8"
+        "0c699a172b9166f85f21229e47a7d7e24bc0de62f977fe9796795226293647e4"
+    );
+}
+
+#[pollster::test]
+async fn list_concat_test() {
+    let mut compiler = test_compiler(None);
+    let datum = Some(ir::Expression::Struct(ir::StructExpr {
+        constructor: 0,
+        fields: vec![ir::Expression::List(vec![])],
+    }));
+    let utxos = wildcard_utxos(datum);
+    let protocol = load_protocol("list_concat");
+    let mut tx = protocol.new_tx("concat_list").unwrap().apply().unwrap();
+
+    tx.set_arg("myparty", address_to_bytes("addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"));
+
+    let tx = tx.apply().unwrap();
+
+    let tx = test_compile(tx.into(), &mut compiler, utxos);
+
+    assert_eq!(
+        hex::encode(tx.hash),
+        "bc70528d1ba6d41c31bbbd064722258de7231271acd0fad8d77a8b5823a82181"
     );
 }
 
@@ -297,7 +320,7 @@ async fn env_vars_test() {
 
     assert_eq!(
         hex::encode(tx.hash),
-        "4d5f8a6535c06d00a46618fd9dfe06bcb910e5c4306d9a5d3b5180aa5eab93de"
+        "90f90b26589228954a9d3aeda823b4b74d296bc153e6427d9706537881967c6a"
     );
 }
 
@@ -324,7 +347,7 @@ async fn local_vars_test() {
 
     assert_eq!(
         hex::encode(tx.hash),
-        "1f46df35ffcdbc4d31d4a1509b24d8d51c227146771d345a34b7c73d9597d551"
+        "cb1978d0177fd1a36c282c60d0318766497cc597a17a3483db1c8ff54a547626"
     );
 }
 
@@ -449,4 +472,39 @@ async fn extra_fees_zero_test() {
 
     assert!(!tx.payload.is_empty());
     assert!(tx.fee < DEFAULT_EXTRA_FEES);
+}
+
+#[pollster::test]
+async fn min_utxo_test() {
+    let mut compiler = test_compiler(None);
+    let utxos = wildcard_utxos(None);
+    let protocol = load_protocol("min_utxo");
+
+    let tx = protocol.new_tx("transfer_min")
+        .unwrap()
+        .with_arg("Sender", address_to_bytes("addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"))
+        .with_arg("Receiver", address_to_bytes("addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"))
+        .apply()
+        .unwrap();
+
+    let tx = test_compile(tx.into(), &mut compiler, utxos);
+
+    // 224 is the min amount of ada of the first utxo (why? (64 bytes + 160 fixed
+    // byets) * 1 coin_per_utxo_byte)
+    assert_eq!(
+        hex::encode(tx.hash),
+        "5853a69e54df5fe4e98692beca8d7d767575617af87b2e971b7c503172de8cb3"
+    );
+}
+
+#[pollster::test]
+async fn min_utxo_compiler_op_test() {
+    let compiler = test_compiler(None);
+
+    let result = compiler.execute(ir::CompilerOp::ComputeMinUtxo(ir::Expression::Number(0)));
+
+    assert!(result.is_ok());
+    if let Ok(ir::Expression::Assets(assets)) = result {
+        assert!(!assets.is_empty());
+    }
 }

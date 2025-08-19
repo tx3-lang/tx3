@@ -126,6 +126,8 @@ concat_constructor = {
     "concat" ~ "(" ~ data_expr ~ "," ~ data_expr ~ ")"
 }
 
+min_utxo = { "min_utxo" ~ "(" ~ identifier ~ ")" }
+
 data_expr = { data_prefix* ~ data_primary ~ data_postfix* ~ (data_infix ~ data_prefix* ~ data_primary ~ data_postfix* )* }
 
     data_infix = _{ data_add | data_sub }
@@ -145,6 +147,7 @@ data_expr = { data_prefix* ~ data_primary ~ data_postfix* ~ (data_infix ~ data_p
         number |
         bool |
         string |
+        min_utxo |
         struct_constructor |
         list_constructor |
         map_constructor |

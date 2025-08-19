@@ -187,6 +187,21 @@ impl Concatenable for String {
     }
 }
 
+impl Concatenable for Vec<Expression> {
+    fn concat(self, other: Expression) -> Result<Expression, Error> {
+        match other {
+            Expression::List(expressions) => {
+                Ok(Expression::List([&self[..], &expressions[..]].concat()))
+            }
+            _ => Err(Error::InvalidBinaryOp(
+                "concat".to_string(),
+                format!("List({:?})", self),
+                format!("{:?}", other),
+            )),
+        }
+    }
+}
+
 impl Concatenable for Vec<u8> {
     fn concat(self, other: ir::Expression) -> Result<ir::Expression, Error> {
         match other {
@@ -211,6 +226,7 @@ impl Concatenable for ir::Expression {
             ir::Expression::None => Ok(other),
             ir::Expression::String(x) => Concatenable::concat(x, other),
             ir::Expression::Bytes(x) => Concatenable::concat(x, other),
+            ir::Expression::List(x) => Concatenable::concat(x, other),
             x => Err(Error::InvalidBinaryOp(
                 "concat".to_string(),
                 format!("{x:?}"),
@@ -666,7 +682,7 @@ impl From<CanonicalAssets> for Vec<ir::AssetExpr> {
     fn from(assets: CanonicalAssets) -> Self {
         let mut result = Vec::new();
 
-        for (class, amount) in assets.0.into_iter() {
+        for (class, amount) in assets.into_iter() {
             result.push(ir::AssetExpr {
                 policy: class
                     .policy()
@@ -984,7 +1000,7 @@ impl Apply for ir::Expression {
             Self::EvalParam(x) => x.is_constant(),
             Self::EvalBuiltIn(x) => x.is_constant(),
             Self::EvalCoerce(x) => x.is_constant(),
-            Self::EvalCompiler(x) => x.is_constant(),
+            Self::EvalCompiler(_) => false,
             Self::AdHocDirective(x) => x.is_constant(),
 
             // Don't fall into the temptation of simplifying the following cases under a single
@@ -1177,6 +1193,7 @@ impl Composite for ir::CompilerOp {
     fn components(&self) -> Vec<&ir::Expression> {
         match self {
             ir::CompilerOp::BuildScriptAddress(x) => vec![x],
+            ir::CompilerOp::ComputeMinUtxo(x) => vec![x],
         }
     }
 
@@ -1186,6 +1203,7 @@ impl Composite for ir::CompilerOp {
     {
         match self {
             ir::CompilerOp::BuildScriptAddress(x) => Ok(ir::CompilerOp::BuildScriptAddress(f(x)?)),
+            ir::CompilerOp::ComputeMinUtxo(x) => Ok(ir::CompilerOp::ComputeMinUtxo(f(x)?)),
         }
     }
 }
@@ -1898,6 +1916,23 @@ mod tests {
     }
 
     #[test]
+    fn test_list_concat_is_reduced() {
+        let op = Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Concat(
+            Expression::List(vec![Expression::Number(1)]),
+            Expression::List(vec![Expression::Number(2)]),
+        )));
+
+        let reduced = op.reduce().unwrap();
+
+        match reduced {
+            ir::Expression::List(b) => {
+                assert_eq!(b, vec![Expression::Number(1), Expression::Number(2)])
+            }
+            _ => panic!("Expected List [Number(1), Number(2)"),
+        }
+    }
+
+    #[test]
     fn test_concat_type_mismatch_error() {
         let op = ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Concat(
             ir::Expression::String("hello".to_string()),
@@ -1925,5 +1960,41 @@ mod tests {
             ir::Expression::String(s) => assert_eq!(s, "hello"),
             _ => panic!("Expected string 'hello'"),
         }
+    }
+
+    #[test]
+    fn test_min_utxo_add_non_reduction() {
+        let op = ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Add(
+            ir::Expression::Assets(vec![ir::AssetExpr {
+                policy: ir::Expression::None,
+                asset_name: ir::Expression::None,
+                amount: ir::Expression::Number(29),
+            }]),
+            ir::Expression::EvalCompiler(Box::new(ir::CompilerOp::ComputeMinUtxo(
+                ir::Expression::Number(20),
+            ))),
+        )));
+
+        let reduced = op.clone().reduce().unwrap();
+
+        assert!(op == reduced)
+    }
+
+    #[test]
+    fn test_min_utxo_sub_non_reduction() {
+        let op = ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Sub(
+            ir::Expression::Assets(vec![ir::AssetExpr {
+                policy: ir::Expression::None,
+                asset_name: ir::Expression::None,
+                amount: ir::Expression::Number(29),
+            }]),
+            ir::Expression::EvalCompiler(Box::new(ir::CompilerOp::ComputeMinUtxo(
+                ir::Expression::Number(20),
+            ))),
+        )));
+
+        let reduced = op.clone().reduce().unwrap();
+
+        assert!(op == reduced)
     }
 }
