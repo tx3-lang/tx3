@@ -1,0 +1,138 @@
+{
+  "fees": {
+    "EvalParam": "ExpectFees"
+  },
+  "references": [],
+  "inputs": [
+    {
+      "name": "source",
+      "utxos": {
+        "EvalParam": {
+          "ExpectInput": [
+            "source",
+            {
+              "address": {
+                "EvalParam": {
+                  "ExpectValue": [
+                    "myparty",
+                    "Address"
+                  ]
+                }
+              },
+              "min_amount": "None",
+              "ref": "None",
+              "many": false,
+              "collateral": false
+            }
+          ]
+        }
+      },
+      "redeemer": "None"
+    }
+  ],
+  "outputs": [
+    {
+      "address": {
+        "EvalParam": {
+          "ExpectValue": [
+            "myparty",
+            "Address"
+          ]
+        }
+      },
+      "datum": {
+        "Struct": {
+          "constructor": 0,
+          "fields": [
+            {
+              "EvalBuiltIn": {
+                "Concat": [
+                  {
+                    "EvalBuiltIn": {
+                      "Property": [
+                        {
+                          "EvalCoerce": {
+                            "IntoDatum": {
+                              "EvalParam": {
+                                "ExpectInput": [
+                                  "source",
+                                  {
+                                    "address": {
+                                      "EvalParam": {
+                                        "ExpectValue": [
+                                          "myparty",
+                                          "Address"
+                                        ]
+                                      }
+                                    },
+                                    "min_amount": "None",
+                                    "ref": "None",
+                                    "many": false,
+                                    "collateral": false
+                                  }
+                                ]
+                              }
+                            }
+                          }
+                        },
+                        0
+                      ]
+                    }
+                  },
+                  {
+                    "List": [
+                      {
+                        "Number": 1
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "amount": {
+        "EvalBuiltIn": {
+          "Sub": [
+            {
+              "EvalCoerce": {
+                "IntoAssets": {
+                  "EvalParam": {
+                    "ExpectInput": [
+                      "source",
+                      {
+                        "address": {
+                          "EvalParam": {
+                            "ExpectValue": [
+                              "myparty",
+                              "Address"
+                            ]
+                          }
+                        },
+                        "min_amount": "None",
+                        "ref": "None",
+                        "many": false,
+                        "collateral": false
+                      }
+                    ]
+                  }
+                }
+              }
+            },
+            {
+              "EvalParam": "ExpectFees"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "validity": null,
+  "mints": [],
+  "burns": [],
+  "adhoc": [],
+  "collateral": [],
+  "signers": null,
+  "metadata": []
+}

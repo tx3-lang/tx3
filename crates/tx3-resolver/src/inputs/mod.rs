@@ -51,7 +51,7 @@ pub enum Error {
     #[error("input query too broad")]
     InputQueryTooBroad,
 
-    #[error("input not resolved: {0} {1} {2}")]
+    #[error("input not resolved: {0}")]
     InputNotResolved(String, CanonicalQuery, SearchSpace),
 
     #[error("store error: {0}")]
@@ -113,9 +113,10 @@ impl CoinSelection for NaiveAccumulator {
         let mut pending = target.clone();
 
         for utxo in search_space.iter() {
-            if utxo.assets.contains_some(target) {
+            if utxo.assets.contains_some(&pending) {
                 matched.insert(utxo.clone());
-                pending = pending - utxo.assets.clone();
+                let to_include = utxo.assets.clone();
+                pending = pending - to_include;
             }
 
             if pending.is_empty_or_negative() {
@@ -174,8 +175,7 @@ impl<'a, S: UtxoStore> InputSelector<'a, S> {
         criteria: &CanonicalQuery,
     ) -> Result<UtxoSet, Error> {
         let refs = search_space
-            .matched
-            .clone()
+            .take(Some(MAX_SEARCH_SPACE_SIZE))
             .into_iter()
             .filter(|x| !self.ignore_collateral.contains(x))
             .collect();
@@ -206,8 +206,7 @@ impl<'a, S: UtxoStore> InputSelector<'a, S> {
         criteria: &CanonicalQuery,
     ) -> Result<UtxoSet, Error> {
         let refs = search_space
-            .matched
-            .clone()
+            .take(Some(MAX_SEARCH_SPACE_SIZE))
             .into_iter()
             .filter(|x| !self.ignore.contains(x))
             .collect();
@@ -309,7 +308,7 @@ pub async fn resolve<T: UtxoStore>(tx: ir::Tx, utxos: &T) -> Result<ir::Tx, Erro
     for (name, query) in applying::find_queries(&tx) {
         let query = CanonicalQuery::try_from(query)?;
 
-        let space = searching::narrow_search_space(utxos, &query, MAX_SEARCH_SPACE_SIZE).await?;
+        let space = searching::narrow_search_space(utxos, &query).await?;
 
         let utxos = selector.select(&space, &query).await?;
 
@@ -380,7 +379,7 @@ mod tests {
         for subject in mock::KnownAddress::everyone() {
             let criteria = new_input_query(&subject, None, vec![], false, false);
 
-            let space = searching::narrow_search_space(&store, &criteria, MAX_SEARCH_SPACE_SIZE)
+            let space = searching::narrow_search_space(&store, &criteria)
                 .await
                 .unwrap();
 
@@ -413,7 +412,7 @@ mod tests {
         .try_into()
         .unwrap();
 
-        let space = searching::narrow_search_space(&store, &empty_criteria, MAX_SEARCH_SPACE_SIZE)
+        let space = searching::narrow_search_space(&store, &empty_criteria)
             .await
             .unwrap_err();
 
@@ -437,7 +436,7 @@ mod tests {
 
         let criteria = new_input_query(&mock::KnownAddress::Alice, None, vec![], true, false);
 
-        let space = searching::narrow_search_space(&store, &criteria, MAX_SEARCH_SPACE_SIZE)
+        let space = searching::narrow_search_space(&store, &criteria)
             .await
             .unwrap();
 
@@ -464,7 +463,7 @@ mod tests {
             false,
         );
 
-        let space = searching::narrow_search_space(&store, &criteria, MAX_SEARCH_SPACE_SIZE)
+        let space = searching::narrow_search_space(&store, &criteria)
             .await
             .unwrap();
 
@@ -506,7 +505,7 @@ mod tests {
                 false,
             );
 
-            let space = searching::narrow_search_space(&store, &criteria, MAX_SEARCH_SPACE_SIZE)
+            let space = searching::narrow_search_space(&store, &criteria)
                 .await
                 .unwrap();
 
@@ -525,7 +524,7 @@ mod tests {
                 false,
             );
 
-            let space = searching::narrow_search_space(&store, &criteria, MAX_SEARCH_SPACE_SIZE)
+            let space = searching::narrow_search_space(&store, &criteria)
                 .await
                 .unwrap();
 
@@ -544,7 +543,7 @@ mod tests {
                 false,
             );
 
-            let space = searching::narrow_search_space(&store, &criteria, MAX_SEARCH_SPACE_SIZE)
+            let space = searching::narrow_search_space(&store, &criteria)
                 .await
                 .unwrap();
 
@@ -562,7 +561,7 @@ mod tests {
                 false,
             );
 
-            let space = searching::narrow_search_space(&store, &criteria, MAX_SEARCH_SPACE_SIZE)
+            let space = searching::narrow_search_space(&store, &criteria)
                 .await
                 .unwrap();
 
@@ -580,7 +579,7 @@ mod tests {
                 false,
             );
 
-            let space = searching::narrow_search_space(&store, &criteria, MAX_SEARCH_SPACE_SIZE)
+            let space = searching::narrow_search_space(&store, &criteria)
                 .await
                 .unwrap();
 
@@ -608,7 +607,7 @@ mod tests {
         for address in mock::KnownAddress::everyone() {
             let criteria = new_input_query(&address, Some(1_000_000), vec![], false, true);
 
-            let space = searching::narrow_search_space(&store, &criteria, MAX_SEARCH_SPACE_SIZE)
+            let space = searching::narrow_search_space(&store, &criteria)
                 .await
                 .unwrap();
 
@@ -636,7 +635,7 @@ mod tests {
             // we select the only utxo availabel as an input
             let criteria = new_input_query(&address, Some(1_000_000), vec![], false, false);
 
-            let space = searching::narrow_search_space(&store, &criteria, MAX_SEARCH_SPACE_SIZE)
+            let space = searching::narrow_search_space(&store, &criteria)
                 .await
                 .unwrap();
 
@@ -646,7 +645,7 @@ mod tests {
             // try to select the same utxo as collateral
             let criteria = new_input_query(&address, Some(1_000_000), vec![], false, true);
 
-            let space = searching::narrow_search_space(&store, &criteria, MAX_SEARCH_SPACE_SIZE)
+            let space = searching::narrow_search_space(&store, &criteria)
                 .await
                 .unwrap();
 
@@ -674,7 +673,7 @@ mod tests {
             // we ask for a large amount utxo knowing that we have one of those
             let query1 = new_input_query(&address, Some(1_000), vec![], true, false);
 
-            let space = searching::narrow_search_space(&store, &query1, MAX_SEARCH_SPACE_SIZE)
+            let space = searching::narrow_search_space(&store, &query1)
                 .await
                 .unwrap();
 
@@ -685,7 +684,7 @@ mod tests {
             // those
             let query2 = new_input_query(&address, Some(1_000), vec![], true, false);
 
-            let space = searching::narrow_search_space(&store, &query2, MAX_SEARCH_SPACE_SIZE)
+            let space = searching::narrow_search_space(&store, &query2)
                 .await
                 .unwrap();
 
@@ -695,7 +694,7 @@ mod tests {
             // we ask for a small amount utxo knowing that we have one of those
             let query3 = new_input_query(&address, Some(100), vec![], true, false);
 
-            let space = searching::narrow_search_space(&store, &query3, MAX_SEARCH_SPACE_SIZE)
+            let space = searching::narrow_search_space(&store, &query3)
                 .await
                 .unwrap();
 
@@ -706,7 +705,7 @@ mod tests {
             // those
             let query4 = new_input_query(&address, Some(100), vec![], true, false);
 
-            let space = searching::narrow_search_space(&store, &query4, MAX_SEARCH_SPACE_SIZE)
+            let space = searching::narrow_search_space(&store, &query4)
                 .await
                 .unwrap();
 
