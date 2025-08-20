@@ -905,5 +905,7 @@ mod tests {
 
     test_lowering!(min_utxo);
 
+    test_lowering!(donation);
+
     test_lowering!(list_concat);
 }
