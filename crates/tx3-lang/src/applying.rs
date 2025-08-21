@@ -1950,4 +1950,83 @@ mod tests {
 
         assert!(op == reduced)
     }
+
+    #[test]
+    fn test_address_payment_property_access() {
+        let address_bytes = vec![0u8; 58];
+        let address = ir::Expression::Address(address_bytes.clone());
+
+        let op = ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Property(address.clone(), 0)));
+
+        let reduced = op.reduce().unwrap();
+
+        match reduced {
+            ir::Expression::Bytes(bytes) => {
+                assert_eq!(bytes.len(), 28);
+                assert_eq!(bytes, address_bytes[1..29]);
+            }
+            _ => panic!("Expected bytes for payment part"),
+        };
+    }
+
+    #[test]
+    fn test_address_staking_property_access() {
+        let address_bytes = vec![0u8; 58];
+        let address = ir::Expression::Address(address_bytes.clone());
+
+        let op = ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Property(address.clone(), 1)));
+
+        let reduced = op.reduce().unwrap();
+
+        match reduced {
+            ir::Expression::Bytes(bytes) => {
+                assert_eq!(bytes.len(), 29);
+                assert_eq!(bytes, address_bytes[29..]);
+            }
+            _ => panic!("Expected bytes for staking part"),
+        };
+    }
+
+    #[test]
+    fn test_address_invalid_index_property_access() {
+        let address_bytes = vec![0u8; 58];
+        let address = ir::Expression::Address(address_bytes);
+
+        let op = ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Property(address.clone(), 2)));
+
+        let reduced = op.reduce();
+
+        match reduced {
+            Err(Error::PropertyIndexNotFound(2, _)) => (),
+            _ => panic!("Expected property index not found for invalid address index"),
+        };
+    }
+
+    #[test]
+    fn test_address_property_access_with_short_address() {
+        let address_bytes = vec![0u8; 30];
+        let address = ir::Expression::Address(address_bytes);
+
+        let op = ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Property(address.clone(), 0)));
+
+        let reduced = op.reduce();
+
+        match reduced {
+            Ok(ir::Expression::Bytes(bytes)) => {
+                assert_eq!(bytes.len(), 28);
+            }
+            _ => panic!("Expected successful reduction for payment part"),
+        };
+
+        let op = ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Property(address.clone(), 1)));
+
+        let reduced = op.reduce();
+
+        match reduced {
+            Ok(ir::Expression::Bytes(bytes)) => {
+                assert_eq!(bytes.len(), 1);
+            }
+            _ => panic!("Expected successful reduction for staking part"),
+        };
+    }
 }
