@@ -163,21 +163,33 @@ impl CanonicalAssets {
     }
 
     pub fn contains_some(&self, other: &Self) -> bool {
+        if other.is_empty() {
+            return true;
+        }
+
+        if self.is_empty() {
+            return false;
+        }
+
         for (class, other_amount) in other.iter() {
             if *other_amount == 0 {
                 continue;
             }
 
             let Some(self_amount) = self.get(class) else {
-                return false;
+                continue;
             };
 
-            if *self_amount < 0 {
-                return false;
+            if *self_amount > 0 {
+                return true;
             }
         }
 
-        true
+        false
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.iter().all(|(_, value)| *value == 0)
     }
 
     pub fn is_empty_or_negative(&self) -> bool {
@@ -275,9 +287,21 @@ mod tests {
       fn any_positive_asset() (
         policy in any::<Vec<u8>>(),
         name in any::<Vec<u8>>(),
-        amount in 0..i128::MAX,
+        amount in 1..i128::MAX,
       ) -> CanonicalAssets {
         CanonicalAssets::from_defined_asset(&policy, &name, amount)
+      }
+    }
+
+    prop_compose! {
+      fn any_positive_composite_asset() (
+        naked_amount in 0..i128::MAX,
+        defined1 in any_positive_asset(),
+        defined2 in any_positive_asset(),
+      ) -> CanonicalAssets {
+        let naked = CanonicalAssets::from_naked_amount(naked_amount);
+        let composite = naked + defined1 + defined2;
+        composite
       }
     }
 
@@ -333,11 +357,15 @@ mod tests {
 
     proptest! {
         #[test]
-        fn sub_is_inverse_of_add(original in any_asset(), added in any_asset()) {
-            let x = original.clone();
-            let x = x + added.clone();
-            let x = x - added.clone().clone();
-            assert_eq!(x, original);
+        fn composite_contains_some_naked(composite in any_positive_composite_asset()) {
+            assert!(composite.contains_some(&CanonicalAssets::from_naked_amount(1)));
+        }
+    }
+
+    proptest! {
+        #[test]
+        fn composite_contains_some_composite(composite1 in any_positive_composite_asset(), composite2 in any_positive_composite_asset()) {
+            assert!(composite1.contains_some(&composite2));
         }
     }
 }
