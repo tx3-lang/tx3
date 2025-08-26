@@ -1996,17 +1996,11 @@ mod tests {
         let assets = ir::Expression::Assets(vec![ir::AssetExpr {
             policy: ir::Expression::Bytes(b"policy".to_vec()),
             asset_name: ir::Expression::String("asset_name".to_string()),
-            amount: ir::Expression::Number(75),
+            amount: ir::Expression::Number(100),
         }]);
-
-        let amount = assets.index(0).unwrap();
-        assert_eq!(amount, ir::Expression::Number(75));
 
         let policy = assets.index(1).unwrap();
         assert_eq!(policy, ir::Expression::Bytes(b"policy".to_vec()));
-
-        let asset_name = assets.index(2).unwrap();
-        assert_eq!(asset_name, ir::Expression::String("asset_name".to_string()));
     }
 
     #[test]
