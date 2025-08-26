@@ -59,6 +59,12 @@ impl Indexable for ir::Expression {
                 _ => None,
             },
             ir::Expression::Struct(x) => x.index(index),
+            ir::Expression::Assets(x) => match index {
+                0 => Some(x.get(0)?.amount.clone()),
+                1 => Some(x.get(0)?.policy.clone()),
+                2 => Some(x.get(0)?.asset_name.clone()),
+                _ => None,
+            },
             _ => None,
         }
     }
