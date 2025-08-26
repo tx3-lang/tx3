@@ -24,10 +24,12 @@ primitive_type = {
 
 custom_type = { identifier }
 list_type = { "List<" ~ type ~ ">" }
+tuple_type = { "Tuple<" ~ type ~ "," ~ type ~ ">"}
 
 type = {
     primitive_type |
     list_type |
+    tuple_type |
     custom_type
 }
 
@@ -148,6 +150,7 @@ data_expr = { data_prefix* ~ data_primary ~ data_postfix* ~ (data_infix ~ data_p
         min_utxo |
         struct_constructor |
         list_constructor |
+        tuple_constructor |
         concat_constructor |
         any_asset_constructor |
         static_asset_constructor |
@@ -186,6 +189,10 @@ struct_constructor = {
 
 list_constructor = {
     "[" ~ (data_expr ~ ",")* ~ data_expr? ~ "]"
+}
+
+tuple_constructor = {
+    "(" ~ data_expr ~ "," ~ data_expr ~ ")"
 }
 
 // input block
