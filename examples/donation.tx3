@@ -1,0 +1,19 @@
+party Contributor;
+
+tx mint_from_plutus(
+    quantity: Int
+) {
+    input source {
+        from: Contributor,
+        min_amount: fees + Ada(quantity + 445) + min_utxo(change),
+    }
+
+    output change {
+        to: Contributor,
+        amount: source - Ada(quantity + 445) - fees,
+    }
+
+    cardano::treasury_donation {
+        coin: 445 + quantity,
+    }
+}

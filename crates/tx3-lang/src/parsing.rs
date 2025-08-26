@@ -2226,6 +2226,20 @@ mod tests {
     );
 
     input_to_ast_check!(
+        ChainSpecificBlock,
+        "chain_specific_block_cardano_treasury",
+        "cardano::treasury_donation {
+           coin: 20,
+        }",
+        ChainSpecificBlock::Cardano(crate::cardano::CardanoBlock::TreasuryDonation(
+            crate::cardano::TreasuryDonationBlock {
+                coin: DataExpr::Number(20),
+                span: Span::DUMMY,
+            },
+        ))
+    );
+
+    input_to_ast_check!(
         EnvDef,
         "basic",
         "env {
@@ -2418,6 +2432,8 @@ mod tests {
     test_parsing!(cardano_witness);
 
     test_parsing!(burn);
+
+    test_parsing!(donation);
 
     test_parsing!(list_concat);
 }
