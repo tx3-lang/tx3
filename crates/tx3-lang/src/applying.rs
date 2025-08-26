@@ -1951,4 +1951,90 @@ mod tests {
 
         assert!(op == reduced)
     }
+
+    #[test]
+    fn test_assets_indexing() {
+        let assets = ir::Expression::Assets(vec![ir::AssetExpr {
+            policy: ir::Expression::Bytes(b"policy123".to_vec()),
+            asset_name: ir::Expression::Bytes(b"asset456".to_vec()),
+            amount: ir::Expression::Number(100),
+        }]);
+
+        let amount = assets.index(0).unwrap();
+        assert_eq!(amount, ir::Expression::Number(100));
+
+        let policy = assets.index(1).unwrap();
+        assert_eq!(policy, ir::Expression::Bytes(b"policy123".to_vec()));
+
+        let asset_name = assets.index(2).unwrap();
+        assert_eq!(asset_name, ir::Expression::Bytes(b"asset456".to_vec()));
+
+        assert_eq!(assets.index(3), None);
+        assert_eq!(assets.index(100), None);
+    }
+
+    #[test]
+    fn test_assets_indexing_with_none_values() {
+        let assets = ir::Expression::Assets(vec![ir::AssetExpr {
+            policy: ir::Expression::None,
+            asset_name: ir::Expression::None,
+            amount: ir::Expression::Number(50),
+        }]);
+
+        let amount = assets.index(0).unwrap();
+        assert_eq!(amount, ir::Expression::Number(50));
+
+        let policy = assets.index(1).unwrap();
+        assert_eq!(policy, ir::Expression::None);
+
+        let asset_name = assets.index(2).unwrap();
+        assert_eq!(asset_name, ir::Expression::None);
+    }
+
+    #[test]
+    fn test_assets_indexing_with_string_asset_name() {
+        let assets = ir::Expression::Assets(vec![ir::AssetExpr {
+            policy: ir::Expression::Bytes(b"policy".to_vec()),
+            asset_name: ir::Expression::String("asset_name".to_string()),
+            amount: ir::Expression::Number(75),
+        }]);
+
+        let amount = assets.index(0).unwrap();
+        assert_eq!(amount, ir::Expression::Number(75));
+
+        let policy = assets.index(1).unwrap();
+        assert_eq!(policy, ir::Expression::Bytes(b"policy".to_vec()));
+
+        let asset_name = assets.index(2).unwrap();
+        assert_eq!(asset_name, ir::Expression::String("asset_name".to_string()));
+    }
+
+    #[test]
+    fn test_assets_indexing_empty_vector() {
+        let assets = ir::Expression::Assets(vec![]);
+
+        assert_eq!(assets.index(0), None);
+        assert_eq!(assets.index(1), None);
+        assert_eq!(assets.index(2), None);
+        assert_eq!(assets.index(100), None);
+    }
+
+    #[test]
+    fn test_assets_index_or_err() {
+        let assets = ir::Expression::Assets(vec![ir::AssetExpr {
+            policy: ir::Expression::Bytes(b"policy".to_vec()),
+            asset_name: ir::Expression::Bytes(b"asset".to_vec()),
+            amount: ir::Expression::Number(200),
+        }]);
+
+        let amount = assets.index_or_err(0).unwrap();
+        assert_eq!(amount, ir::Expression::Number(200));
+
+        let result = assets.index_or_err(5);
+        assert!(result.is_err());
+        match result {
+            Err(Error::PropertyIndexNotFound(5, _)) => (),
+            _ => panic!("Expected PropertyIndexNotFound error"),
+        }
+    }
 }
