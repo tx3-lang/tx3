@@ -142,11 +142,11 @@ impl AnalyzeReport {
         if self.errors.is_empty() {
             String::new()
         } else if self.errors.len() == 1 {
-            format!("Failed with 1 error\n{}", self.errors[0])
+            format!("Failed with 1 error:\n{:?}", self.errors[0])
         } else {
-            let mut msg = format!("Failed with {} errors", self.errors.len());
+            let mut msg = format!("Failed with {} errors:", self.errors.len());
             for error in &self.errors {
-                msg.push_str(&format!("\n{}", error));
+                msg.push_str(&format!("\n{:?}", error));
             }
             msg
         }
