@@ -159,11 +159,11 @@ async fn narrow_by_asset_class<T: UtxoStore>(
 ) -> Result<Subset, Error> {
     // skip filtering lovelace since it's not an custom asset
     if matches!(class, AssetClass::Naked) {
-        return Ok(Subset::All);
+        return Ok(parent);
     }
 
     let AssetClass::Defined(policy, name) = class else {
-        return Ok(Subset::All);
+        return Ok(parent);
     };
 
     let utxos = store
