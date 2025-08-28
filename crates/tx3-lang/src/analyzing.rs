@@ -127,7 +127,6 @@ impl Error {
 }
 
 #[derive(Debug, Default, thiserror::Error, Diagnostic)]
-#[error("{}", self.display_message())]
 pub struct AnalyzeReport {
     #[related]
     pub errors: Vec<Error>,
@@ -136,20 +135,6 @@ pub struct AnalyzeReport {
 impl AnalyzeReport {
     pub fn is_empty(&self) -> bool {
         self.errors.is_empty()
-    }
-
-    pub fn display_message(&self) -> String {
-        if self.errors.is_empty() {
-            String::new()
-        } else if self.errors.len() == 1 {
-            format!("Failed with 1 error:\n{:?}", self.errors[0])
-        } else {
-            let mut msg = format!("Failed with {} errors:", self.errors.len());
-            for error in &self.errors {
-                msg.push_str(&format!("\n{:?}", error));
-            }
-            msg
-        }
     }
 
     pub fn ok(self) -> Result<(), Self> {
@@ -169,6 +154,20 @@ impl AnalyzeReport {
             ))
         } else {
             Self::default()
+        }
+    }
+}
+
+impl std::fmt::Display for AnalyzeReport {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.errors.is_empty() {
+            write!(f, "")
+        } else {
+            write!(f, "Failed with {} errors:", self.errors.len())?;
+            for error in &self.errors {
+                write!(f, "\n{:?}", error)?;
+            }
+            Ok(())
         }
     }
 }
