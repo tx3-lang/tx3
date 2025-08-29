@@ -508,3 +508,68 @@ async fn min_utxo_compiler_op_test() {
         assert!(!assets.is_empty());
     }
 }
+
+fn make_input(hash: &str, index: u32) -> ir::Input {
+    ir::Input {
+        name: "".to_string(),
+        utxos: ir::Expression::UtxoSet(HashSet::from([Utxo {
+            r#ref: UtxoRef {
+                txid: hex::decode(hash).unwrap(),
+                index,
+            },
+            address: pallas::ledger::addresses::Address::from_bech32("addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2").unwrap().to_vec(),
+            datum: Some(tx3_lang::ir::Expression::None),
+            assets: tx3_lang::CanonicalAssets::from_naked_amount(500_000_000),
+            script: None,
+        }])),
+        redeemer: ir::Expression::None,
+    }
+}
+
+#[pollster::test]
+async fn inputs_sorted_lexicographically() {
+    let pparams = PParams {
+        network: crate::Network::Testnet,
+        min_fee_coefficient: 1,
+        min_fee_constant: 2,
+        coins_per_utxo_byte: 1,
+        cost_models: HashMap::from([
+            (0, COST_MODEL_PLUTUS_V1.to_vec()),
+            (1, COST_MODEL_PLUTUS_V2.to_vec()),
+            (2, COST_MODEL_PLUTUS_V2.to_vec()),
+        ]),
+    };
+    let input1 = make_input(
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        1,
+    );
+    let input2 = make_input(
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        1,
+    );
+    let input3 = make_input(
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        0,
+    );
+    let input4 = make_input(
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        3,
+    );
+    let tx = ir::Tx {
+        inputs: vec![input1, input2, input3, input4],
+        adhoc: vec![],
+        burns: vec![],
+        collateral: vec![],
+        fees: ir::Expression::Number(1234),
+        metadata: vec![],
+        mints: vec![],
+        outputs: vec![],
+        references: vec![],
+        signers: None,
+        validity: None,
+    };
+
+    let compiled_tx = compile::entry_point(&tx, &pparams);
+    let inputs = &compiled_tx.unwrap().transaction_body.inputs;
+    assert_eq!(inputs.is_sorted(), true);
+}
