@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
-use crate::{backend, ir, ArgValue, CanonicalAssets, Utxo};
 use crate::ir::Expression;
+use crate::{backend, ir, ArgValue, CanonicalAssets, Utxo};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -186,7 +186,7 @@ impl Concatenable for Vec<Expression> {
         match other {
             Expression::List(expressions) => {
                 Ok(Expression::List([&self[..], &expressions[..]].concat()))
-            },
+            }
             _ => Err(Error::InvalidBinaryOp(
                 "concat".to_string(),
                 format!("List({:?})", self),
@@ -565,6 +565,11 @@ impl Composite for ir::AssetExpr {
             amount: f(self.amount)?,
         })
     }
+    fn reduce_self(self) -> Result<Self, Error> {
+        let canonical: CanonicalAssets = self.into();
+        let asset: Vec<ir::AssetExpr> = canonical.into();
+        Ok(asset.get(0).unwrap().clone())
+    }
 }
 
 impl Composite for ir::Coerce {
@@ -594,7 +599,7 @@ impl Composite for ir::Coerce {
             Self::NoOp(x) => Ok(Self::NoOp(x)),
             Self::IntoAssets(x) => Ok(Self::NoOp(x.into_assets()?)),
             Self::IntoDatum(x) => Ok(Self::NoOp(x.into_datum()?)),
-            Self::IntoScript(x) => todo!(),
+            Self::IntoScript(_x) => todo!(),
         }
     }
 }
@@ -661,7 +666,6 @@ impl From<ir::AssetExpr> for CanonicalAssets {
 impl From<Vec<ir::AssetExpr>> for CanonicalAssets {
     fn from(assets: Vec<ir::AssetExpr>) -> Self {
         let mut result = CanonicalAssets::empty();
-
         for asset in assets {
             let asset = asset.into();
             result = result + asset;
@@ -679,7 +683,10 @@ impl From<CanonicalAssets> for Vec<ir::AssetExpr> {
             result.push(ir::AssetExpr {
                 policy: class
                     .policy()
-                    .map(|x| ir::Expression::Bytes(x.to_vec()))
+                    .map(|x| match x.is_empty() {
+                        true => ir::Expression::None,
+                        false => ir::Expression::Bytes(x.to_vec()),
+                    })
                     .unwrap_or(ir::Expression::None),
                 asset_name: class
                     .name()
@@ -688,7 +695,6 @@ impl From<CanonicalAssets> for Vec<ir::AssetExpr> {
                 amount: ir::Expression::Number(amount),
             });
         }
-
         result
     }
 }
@@ -697,7 +703,10 @@ impl ir::AssetExpr {
     fn expect_constant_policy(&self) -> Option<&[u8]> {
         match &self.policy {
             ir::Expression::None => None,
-            ir::Expression::Bytes(x) => Some(x.as_slice()),
+            ir::Expression::Bytes(x) => match x.is_empty() {
+                true => None,
+                false => Some(x.as_slice()),
+            },
             _ => None,
         }
     }
@@ -705,7 +714,10 @@ impl ir::AssetExpr {
     fn expect_constant_name(&self) -> Option<&[u8]> {
         match &self.asset_name {
             ir::Expression::None => None,
-            ir::Expression::Bytes(x) => Some(x.as_slice()),
+            ir::Expression::Bytes(x) => match x.is_empty() {
+                true => None,
+                false => Some(x.as_slice()),
+            },
             ir::Expression::String(x) => Some(x.as_bytes()),
             _ => None,
         }
@@ -1874,8 +1886,9 @@ mod tests {
         let reduced = op.reduce().unwrap();
 
         match reduced {
-            ir::Expression::List(b) => assert_eq!(b, vec![
-                Expression::Number(1), Expression::Number(2)]),
+            ir::Expression::List(b) => {
+                assert_eq!(b, vec![Expression::Number(1), Expression::Number(2)])
+            }
             _ => panic!("Expected List [Number(1), Number(2)"),
         }
     }
@@ -1944,5 +1957,69 @@ mod tests {
         let reduced = op.clone().reduce().unwrap();
 
         assert!(op == reduced)
+    }
+
+    #[test]
+    fn reduce_non_ada_any_asset() {
+        let op = ir::Expression::Assets(vec![ir::AssetExpr {
+            policy: ir::Expression::EvalParam(Box::new(ir::Param::ExpectValue(
+                "pol".to_string(),
+                ir::Type::Bytes,
+            ))),
+            asset_name: ir::Expression::EvalParam(Box::new(ir::Param::ExpectValue(
+                "name".to_string(),
+                ir::Type::Bytes,
+            ))),
+            amount: ir::Expression::Number(1),
+        }]);
+
+        let args = BTreeMap::from([
+            ("pol".to_string(), ArgValue::Bytes(b"abc".to_vec())),
+            ("name".to_string(), ArgValue::Bytes(b"123".to_vec())),
+        ]);
+
+        let after = op.apply_args(&args).unwrap().reduce().unwrap();
+
+        match after {
+            ir::Expression::Assets(assets) => {
+                assert_eq!(assets.len(), 1);
+                assert_eq!(assets[0].policy, ir::Expression::Bytes(b"abc".to_vec()));
+                assert_eq!(assets[0].asset_name, ir::Expression::Bytes(b"123".to_vec()));
+                assert_eq!(assets[0].amount, ir::Expression::Number(1));
+            }
+            _ => panic!("Expected assets"),
+        };
+    }
+
+    #[test]
+    fn reduce_ada_any_asset() {
+        let op = ir::Expression::Assets(vec![ir::AssetExpr {
+            policy: ir::Expression::EvalParam(Box::new(ir::Param::ExpectValue(
+                "pol".to_string(),
+                ir::Type::Bytes,
+            ))),
+            asset_name: ir::Expression::EvalParam(Box::new(ir::Param::ExpectValue(
+                "name".to_string(),
+                ir::Type::Bytes,
+            ))),
+            amount: ir::Expression::Number(1),
+        }]);
+
+        let args = BTreeMap::from([
+            ("pol".to_string(), ArgValue::Bytes(b"".to_vec())),
+            ("name".to_string(), ArgValue::Bytes(b"".to_vec())),
+        ]);
+
+        let after = op.apply_args(&args).unwrap().reduce().unwrap();
+
+        match after {
+            ir::Expression::Assets(assets) => {
+                assert_eq!(assets.len(), 1);
+                assert_eq!(assets[0].policy, ir::Expression::None);
+                assert_eq!(assets[0].asset_name, ir::Expression::None);
+                assert_eq!(assets[0].amount, ir::Expression::Number(1));
+            }
+            _ => panic!("Expected assets"),
+        };
     }
 }
