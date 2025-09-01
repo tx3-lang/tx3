@@ -594,7 +594,7 @@ impl Composite for ir::Coerce {
             Self::NoOp(x) => Ok(Self::NoOp(x)),
             Self::IntoAssets(x) => Ok(Self::NoOp(x.into_assets()?)),
             Self::IntoDatum(x) => Ok(Self::NoOp(x.into_datum()?)),
-            Self::IntoScript(x) => todo!(),
+            Self::IntoScript(_x) => todo!(),
         }
     }
 }

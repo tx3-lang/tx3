@@ -1052,6 +1052,28 @@ impl AstNode for ListConstructor {
     }
 }
 
+impl AstNode for TupleConstructor {
+    const RULE: Rule = Rule::tuple_constructor;
+
+    fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
+        let span = pair.as_span().into();
+        let mut inner = pair.into_inner();
+
+        let fst = DataExpr::parse(inner.next().unwrap())?;
+        let snd = DataExpr::parse(inner.next().unwrap())?;
+
+        Ok(TupleConstructor {
+            fst: Box::new(fst),
+            snd: Box::new(snd),
+            span,
+        })
+    }
+
+    fn span(&self) -> &Span {
+        &self.span
+    }
+}
+
 impl DataExpr {
     fn number_parse(pair: Pair<Rule>) -> Result<Self, Error> {
         Ok(DataExpr::Number(pair.as_str().parse().unwrap()))
@@ -1159,6 +1181,9 @@ impl AstNode for DataExpr {
                 Rule::hex_string => Ok(DataExpr::HexString(HexStringLiteral::parse(x)?)),
                 Rule::struct_constructor => DataExpr::struct_constructor_parse(x),
                 Rule::list_constructor => DataExpr::list_constructor_parse(x),
+                Rule::tuple_constructor => {
+                    Ok(DataExpr::TupleConstructor(TupleConstructor::parse(x)?))
+                }
                 Rule::unit => Ok(DataExpr::Unit),
                 Rule::identifier => DataExpr::identifier_parse(x),
                 Rule::utxo_ref => DataExpr::utxo_ref_parse(x),
@@ -1195,6 +1220,7 @@ impl AstNode for DataExpr {
             DataExpr::HexString(x) => x.span(),
             DataExpr::StructConstructor(x) => x.span(),
             DataExpr::ListConstructor(x) => x.span(),
+            DataExpr::TupleConstructor(x) => x.span(),
             DataExpr::StaticAssetConstructor(x) => x.span(),
             DataExpr::AnyAssetConstructor(x) => x.span(),
             DataExpr::Identifier(x) => x.span(),
@@ -1228,6 +1254,12 @@ impl AstNode for Type {
             Rule::list_type => {
                 let inner = inner.into_inner().next().unwrap();
                 Ok(Type::List(Box::new(Type::parse(inner)?)))
+            }
+            Rule::tuple_type => {
+                let mut inner = inner.into_inner();
+                let fst = Type::parse(inner.next().unwrap())?;
+                let snd = Type::parse(inner.next().unwrap())?;
+                Ok(Type::Tuple(Box::new(fst), Box::new(snd)))
             }
             Rule::custom_type => Ok(Type::Custom(Identifier::new(inner.as_str().to_owned()))),
             x => unreachable!("Unexpected rule in type: {:?}", x),
@@ -1470,6 +1502,13 @@ mod tests {
     input_to_ast_check!(Type, "any_asset", "AnyAsset", Type::AnyAsset);
 
     input_to_ast_check!(Type, "list", "List<Int>", Type::List(Box::new(Type::Int)));
+
+    input_to_ast_check!(
+        Type,
+        "tuple",
+        "Tuple<Int, Bytes>",
+        Type::Tuple(Box::new(Type::Int), Box::new(Type::Bytes))
+    );
 
     input_to_ast_check!(
         Type,
@@ -2431,6 +2470,7 @@ mod tests {
 
     test_parsing!(cardano_witness);
 
+    test_parsing!(tuple);
     test_parsing!(burn);
 
     test_parsing!(donation);
