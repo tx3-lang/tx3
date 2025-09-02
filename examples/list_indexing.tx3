@@ -1,0 +1,24 @@
+party Sender;
+party Receiver;
+
+type Data {
+    numbers: List<Int>,
+}
+
+tx access_list(index: Int) {
+    input source {
+        from: Sender,
+        datum_is: Data,
+    }
+
+    output {
+        to: Receiver,
+        amount: source - fees,
+        datum: Data {
+            numbers: [
+                source.numbers[0],
+                source.numbers[index],
+            ],
+        },
+    }
+}

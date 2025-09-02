@@ -632,7 +632,7 @@ impl NegateOp {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PropertyOp {
     pub operand: Box<DataExpr>,
-    pub property: Box<Identifier>,
+    pub property: Box<DataExpr>,
     pub span: Span,
 
     // analysis
@@ -725,7 +725,10 @@ impl DataExpr {
             DataExpr::String(_) => Some(Type::Bytes),
             DataExpr::HexString(_) => Some(Type::Bytes),
             DataExpr::StructConstructor(x) => x.target_type(),
-            DataExpr::ListConstructor(x) => x.target_type(),
+            DataExpr::ListConstructor(x) => match x.target_type() {
+                Some(inner) => Some(Type::List(Box::new(inner))),
+                None => None,
+            },
             DataExpr::AddOp(x) => x.target_type(),
             DataExpr::SubOp(x) => x.target_type(),
             DataExpr::ConcatOp(x) => x.target_type(),
@@ -820,9 +823,22 @@ impl Type {
         }
     }
 
-    pub fn property_index(&self, property: &str) -> Option<usize> {
-        let properties = Self::properties(self);
-        properties.iter().position(|(name, _)| name == property)
+    pub fn property_index(&self, property: DataExpr) -> Option<DataExpr> {
+        match self {
+            Type::AnyAsset | Type::UtxoRef | Type::Custom(_) => {
+                let identifier = property.as_identifier()?;
+                let properties = Self::properties(self);
+                properties
+                    .iter()
+                    .position(|(name, _)| name == &identifier.value)
+                    .map(|index| DataExpr::Number(index as i64))
+            }
+            Type::List(_) => property
+                .target_type()
+                .filter(|ty| *ty == Type::Int)
+                .map(|_| property),
+            _ => None,
+        }
     }
 }
 
