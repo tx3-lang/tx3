@@ -72,6 +72,7 @@ pub enum BuiltInOp {
 pub enum CompilerOp {
     BuildScriptAddress(Expression),
     ComputeMinUtxo(Expression),
+    ComputeTipSlot,
 }
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -467,6 +468,7 @@ impl Node for CompilerOp {
         let visited = match self {
             CompilerOp::BuildScriptAddress(x) => CompilerOp::BuildScriptAddress(x.apply(visitor)?),
             CompilerOp::ComputeMinUtxo(x) => CompilerOp::ComputeMinUtxo(x.apply(visitor)?),
+            CompilerOp::ComputeTipSlot => CompilerOp::ComputeTipSlot,
         };
 
         Ok(visited)

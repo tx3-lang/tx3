@@ -34,6 +34,24 @@ pub const EXECUTION_UNITS: primitives::ExUnits = primitives::ExUnits {
 const DEFAULT_EXTRA_FEES: u64 = 200_000;
 const MIN_UTXO_BYTES: i128 = 197;
 
+struct SlotConfig {
+    zero_time: i64,
+    zero_slot: i64,
+    slot_length: i64,
+}
+
+const MAINNET_SLOT_CONFIG: SlotConfig = SlotConfig {
+    zero_time: 1596059091000,
+    zero_slot: 4492800,
+    slot_length: 1000,
+};
+
+const TESTNET_SLOT_CONFIG: SlotConfig = SlotConfig {
+    zero_time: 1666656000000,
+    zero_slot: 0,
+    slot_length: 1000,
+};
+
 #[derive(Debug, Clone, Default)]
 pub struct Config {
     pub extra_fees: Option<u64>,
@@ -100,8 +118,31 @@ impl tx3_lang::backend::Compiler for Compiler {
                     amount: ir::Expression::Number(lovelace),
                 }]))
             }
+            ir::CompilerOp::ComputeTipSlot => {
+                let slot = compute_tip_slot(self.pparams.network)?;
+                Ok(ir::Expression::Number(slot as i128))
+            }
         }
     }
+}
+
+fn compute_tip_slot(network: Network) -> Result<i64, tx3_lang::backend::Error> {
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    let current_time_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|_| tx3_lang::backend::Error::CantReduce(ir::CompilerOp::ComputeTipSlot))?
+        .as_millis() as i64;
+
+    let config = match network {
+        Network::Mainnet => &MAINNET_SLOT_CONFIG,
+        Network::Testnet => &TESTNET_SLOT_CONFIG,
+    };
+
+    let elapsed_time = current_time_ms - config.zero_time;
+    let slot = config.zero_slot + (elapsed_time / config.slot_length);
+
+    Ok(slot.max(0))
 }
 
 fn eval_size_fees(tx: &[u8], pparams: &PParams, extra_fees: Option<u64>) -> u64 {

@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
-use crate::{backend, ir, ArgValue, CanonicalAssets, Utxo};
 use crate::ir::Expression;
+use crate::{backend, ir, ArgValue, CanonicalAssets, Utxo};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -186,7 +186,7 @@ impl Concatenable for Vec<Expression> {
         match other {
             Expression::List(expressions) => {
                 Ok(Expression::List([&self[..], &expressions[..]].concat()))
-            },
+            }
             _ => Err(Error::InvalidBinaryOp(
                 "concat".to_string(),
                 format!("List({:?})", self),
@@ -1143,6 +1143,7 @@ impl Composite for ir::CompilerOp {
         match self {
             ir::CompilerOp::BuildScriptAddress(x) => vec![x],
             ir::CompilerOp::ComputeMinUtxo(x) => vec![x],
+            ir::CompilerOp::ComputeTipSlot => vec![],
         }
     }
 
@@ -1153,6 +1154,7 @@ impl Composite for ir::CompilerOp {
         match self {
             ir::CompilerOp::BuildScriptAddress(x) => Ok(ir::CompilerOp::BuildScriptAddress(f(x)?)),
             ir::CompilerOp::ComputeMinUtxo(x) => Ok(ir::CompilerOp::ComputeMinUtxo(f(x)?)),
+            ir::CompilerOp::ComputeTipSlot => Ok(ir::CompilerOp::ComputeTipSlot),
         }
     }
 }
@@ -1874,8 +1876,9 @@ mod tests {
         let reduced = op.reduce().unwrap();
 
         match reduced {
-            ir::Expression::List(b) => assert_eq!(b, vec![
-                Expression::Number(1), Expression::Number(2)]),
+            ir::Expression::List(b) => {
+                assert_eq!(b, vec![Expression::Number(1), Expression::Number(2)])
+            }
             _ => panic!("Expected List [Number(1), Number(2)"),
         }
     }
