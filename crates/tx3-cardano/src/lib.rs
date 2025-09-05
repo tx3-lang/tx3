@@ -34,27 +34,10 @@ pub const EXECUTION_UNITS: primitives::ExUnits = primitives::ExUnits {
 const DEFAULT_EXTRA_FEES: u64 = 200_000;
 const MIN_UTXO_BYTES: i128 = 197;
 
-struct SlotConfig {
-    zero_time: i64,
-    zero_slot: i64,
-    slot_length: i64,
-}
-
-const MAINNET_SLOT_CONFIG: SlotConfig = SlotConfig {
-    zero_time: 1596059091000,
-    zero_slot: 4492800,
-    slot_length: 1000,
-};
-
-const TESTNET_SLOT_CONFIG: SlotConfig = SlotConfig {
-    zero_time: 1666656000000,
-    zero_slot: 0,
-    slot_length: 1000,
-};
-
 #[derive(Debug, Clone, Default)]
 pub struct Config {
     pub extra_fees: Option<u64>,
+    pub tip_slot: Option<u64>,
 }
 
 pub type TxBody =

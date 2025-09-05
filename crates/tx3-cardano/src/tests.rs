@@ -46,7 +46,10 @@ fn test_compiler(config: Option<Config>) -> Compiler {
         ]),
     };
 
-    let config = config.unwrap_or(Config { extra_fees: None });
+    let config = config.unwrap_or(Config {
+        extra_fees: None,
+        tip_slot: None,
+    });
 
     Compiler::new(
         pparams,
@@ -438,6 +441,7 @@ async fn extra_fees_test() {
 
     let mut compiler = test_compiler(Some(Config {
         extra_fees: Some(extra_fees),
+        tip_slot: None,
     }));
 
     let utxos = wildcard_utxos(None);
@@ -461,6 +465,7 @@ async fn extra_fees_test() {
 async fn extra_fees_zero_test() {
     let mut compiler = test_compiler(Some(Config {
         extra_fees: Some(0),
+        tip_slot: None,
     }));
 
     let utxos = wildcard_utxos(None);
