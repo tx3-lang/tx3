@@ -1,0 +1,22 @@
+party Sender;
+
+type TimestampDatum {
+    current_slot: Int,
+    expiry_slot: Int,
+}
+
+tx create_timestamp_tx(validity_period: Int) {
+    input source {
+        from: Sender,
+        min_amount: Ada(2000000),
+    }
+
+    output timestamp_output {
+        to: Sender,
+        amount: source - fees,
+        datum: TimestampDatum {
+            current_slot: tip_slot(),
+            expiry_slot: tip_slot() + validity_period,
+        },
+    }
+}
