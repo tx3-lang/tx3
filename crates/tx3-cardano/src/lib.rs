@@ -37,7 +37,6 @@ const MIN_UTXO_BYTES: i128 = 197;
 #[derive(Debug, Clone, Default)]
 pub struct Config {
     pub extra_fees: Option<u64>,
-    pub tip_slot: Option<u64>,
 }
 
 pub type TxBody =
