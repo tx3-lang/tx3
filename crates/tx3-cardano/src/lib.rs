@@ -37,24 +37,31 @@ const MIN_UTXO_BYTES: i128 = 197;
 #[derive(Debug, Clone, Default)]
 pub struct Config {
     pub extra_fees: Option<u64>,
-    pub tip_slot: Option<u64>,
 }
 
 pub type TxBody =
     pallas::codec::utils::KeepRaw<'static, primitives::conway::TransactionBody<'static>>;
 
+#[derive(Debug, Clone)]
+pub struct ChainTip {
+    pub slot: u64,
+    pub hash: Vec<u8>,
+}
+
 pub struct Compiler {
     pub pparams: PParams,
     pub config: Config,
     pub latest_tx_body: Option<TxBody>,
+    pub cursor: ChainTip,
 }
 
 impl Compiler {
-    pub fn new(pparams: PParams, config: Config) -> Self {
+    pub fn new(pparams: PParams, config: Config, cursor: ChainTip) -> Self {
         Self {
             pparams,
             config,
             latest_tx_body: None,
+            cursor,
         }
     }
 }
@@ -101,16 +108,7 @@ impl tx3_lang::backend::Compiler for Compiler {
                     amount: ir::Expression::Number(lovelace),
                 }]))
             }
-            ir::CompilerOp::ComputeTipSlot => {
-                let slot = self
-                    .config
-                    .tip_slot
-                    .map(|slot| slot as i64)
-                    .ok_or_else(|| {
-                        tx3_lang::backend::Error::CantReduce(ir::CompilerOp::ComputeTipSlot)
-                    })?;
-                Ok(ir::Expression::Number(slot as i128))
-            }
+            ir::CompilerOp::ComputeTipSlot => Ok(ir::Expression::Number(self.cursor.slot as i128)),
         }
     }
 }
