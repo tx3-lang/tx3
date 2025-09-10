@@ -101,6 +101,8 @@ pub enum ArgValue {
     Address(Vec<u8>),
     UtxoSet(UtxoSet),
     UtxoRef(UtxoRef),
+    // ir bytes of a custom type
+    Custom(Vec<u8>),
 }
 
 impl From<Vec<u8>> for ArgValue {
