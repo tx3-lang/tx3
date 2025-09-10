@@ -452,6 +452,12 @@ impl IntoLower for ast::DataExpr {
             ast::DataExpr::ComputeTipSlot => {
                 ir::Expression::EvalCompiler(Box::new(ir::CompilerOp::ComputeTipSlot))
             }
+            ast::DataExpr::SlotsToUnixTime(x) => ir::Expression::EvalCompiler(Box::new(
+                ir::CompilerOp::ComputeSlotsToUnixTime(x.into_lower(ctx)?),
+            )),
+            ast::DataExpr::UnixTimeToSlots(x) => ir::Expression::EvalCompiler(Box::new(
+                ir::CompilerOp::ComputeUnixTimeToSlots(x.into_lower(ctx)?),
+            )),
         };
 
         Ok(out)

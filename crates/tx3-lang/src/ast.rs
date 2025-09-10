@@ -700,6 +700,8 @@ pub enum DataExpr {
     Identifier(Identifier),
     MinUtxo(Identifier),
     ComputeTipSlot,
+    SlotsToUnixTime(Box<DataExpr>),
+    UnixTimeToSlots(Box<DataExpr>),
     AddOp(AddOp),
     SubOp(SubOp),
     ConcatOp(ConcatOp),
@@ -740,6 +742,8 @@ impl DataExpr {
             DataExpr::UtxoRef(_) => Some(Type::UtxoRef),
             DataExpr::MinUtxo(_) => Some(Type::AnyAsset),
             DataExpr::ComputeTipSlot => Some(Type::Int),
+            DataExpr::SlotsToUnixTime(_) => Some(Type::Int),
+            DataExpr::UnixTimeToSlots(_) => Some(Type::Int),
         }
     }
 }
