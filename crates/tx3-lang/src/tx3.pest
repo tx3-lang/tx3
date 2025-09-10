@@ -128,6 +128,10 @@ min_utxo = { "min_utxo" ~ "(" ~ identifier ~ ")" }
 
 tip_slot = { "tip_slot" ~ "(" ~ ")" }
 
+slots_to_unix_time = { "slots_to_unix_time" ~ "(" ~ data_expr ~ ")" }
+
+unix_time_to_slots = { "unix_time_to_slots" ~ "(" ~ data_expr ~ ")" }
+
 data_expr = { data_prefix* ~ data_primary ~ data_postfix* ~ (data_infix ~ data_prefix* ~ data_primary ~ data_postfix* )* }
 
     data_infix = _{ data_add | data_sub }
@@ -150,6 +154,8 @@ data_expr = { data_prefix* ~ data_primary ~ data_postfix* ~ (data_infix ~ data_p
         string |
         min_utxo |
         tip_slot |
+        slots_to_unix_time |
+        unix_time_to_slots |
         struct_constructor |
         list_constructor |
         concat_constructor |

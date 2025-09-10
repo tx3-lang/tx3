@@ -71,6 +71,8 @@ pub enum CompilerOp {
     BuildScriptAddress(Expression),
     ComputeMinUtxo(Expression),
     ComputeTipSlot,
+    ComputeSlotsToUnixTime(Expression),
+    ComputeUnixTimeToSlots(Expression),
 }
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -467,6 +469,12 @@ impl Node for CompilerOp {
             CompilerOp::BuildScriptAddress(x) => CompilerOp::BuildScriptAddress(x.apply(visitor)?),
             CompilerOp::ComputeMinUtxo(x) => CompilerOp::ComputeMinUtxo(x.apply(visitor)?),
             CompilerOp::ComputeTipSlot => CompilerOp::ComputeTipSlot,
+            CompilerOp::ComputeSlotsToUnixTime(x) => {
+                CompilerOp::ComputeSlotsToUnixTime(x.apply(visitor)?)
+            }
+            CompilerOp::ComputeUnixTimeToSlots(x) => {
+                CompilerOp::ComputeUnixTimeToSlots(x.apply(visitor)?)
+            }
         };
 
         Ok(visited)

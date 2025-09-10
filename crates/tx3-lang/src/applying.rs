@@ -1151,6 +1151,8 @@ impl Composite for ir::CompilerOp {
             ir::CompilerOp::BuildScriptAddress(x) => vec![x],
             ir::CompilerOp::ComputeMinUtxo(x) => vec![x],
             ir::CompilerOp::ComputeTipSlot => vec![],
+            ir::CompilerOp::ComputeSlotsToUnixTime(x) => vec![x],
+            ir::CompilerOp::ComputeUnixTimeToSlots(x) => vec![x],
         }
     }
 
@@ -1162,6 +1164,12 @@ impl Composite for ir::CompilerOp {
             ir::CompilerOp::BuildScriptAddress(x) => Ok(ir::CompilerOp::BuildScriptAddress(f(x)?)),
             ir::CompilerOp::ComputeMinUtxo(x) => Ok(ir::CompilerOp::ComputeMinUtxo(f(x)?)),
             ir::CompilerOp::ComputeTipSlot => Ok(ir::CompilerOp::ComputeTipSlot),
+            ir::CompilerOp::ComputeSlotsToUnixTime(x) => {
+                Ok(ir::CompilerOp::ComputeSlotsToUnixTime(f(x)?))
+            }
+            ir::CompilerOp::ComputeUnixTimeToSlots(x) => {
+                Ok(ir::CompilerOp::ComputeUnixTimeToSlots(f(x)?))
+            }
         }
     }
 }
