@@ -1115,7 +1115,21 @@ impl DataExpr {
 
         Ok(DataExpr::PropertyOp(PropertyOp {
             operand: Box::new(left),
-            property: Box::new(Identifier::parse(inner.next().unwrap())?),
+            property: Box::new(DataExpr::Identifier(Identifier::parse(
+                inner.next().unwrap(),
+            )?)),
+            span,
+            scope: None,
+        }))
+    }
+
+    fn index_op_parse(pair: Pair<Rule>, left: DataExpr) -> Result<Self, Error> {
+        let span: Span = pair.as_span().into();
+        let mut inner = pair.into_inner();
+
+        Ok(DataExpr::PropertyOp(PropertyOp {
+            operand: Box::new(left),
+            property: Box::new(DataExpr::parse(inner.next().unwrap())?),
             span,
             scope: None,
         }))
@@ -1146,7 +1160,7 @@ static DATA_EXPR_PRATT_PARSER: LazyLock<PrattParser<Rule>> = LazyLock::new(|| {
     PrattParser::new()
         .op(Op::infix(Rule::data_add, Assoc::Left) | Op::infix(Rule::data_sub, Assoc::Left))
         .op(Op::prefix(Rule::data_negate))
-        .op(Op::postfix(Rule::data_property))
+        .op(Op::postfix(Rule::data_property) | Op::postfix(Rule::data_index))
 });
 
 impl AstNode for DataExpr {
@@ -1180,6 +1194,7 @@ impl AstNode for DataExpr {
             })
             .map_postfix(|left, op| match op.as_rule() {
                 Rule::data_property => DataExpr::property_op_parse(op, left?),
+                Rule::data_index => DataExpr::index_op_parse(op, left?),
                 x => unreachable!("Unexpected rule as data postfix: {:?}", x),
             })
             .map_infix(|left, op, right| match op.as_rule() {
@@ -1771,19 +1786,19 @@ mod tests {
         AnyAssetConstructor {
             policy: Box::new(DataExpr::PropertyOp(PropertyOp {
                 operand: Box::new(DataExpr::Identifier(Identifier::new("input1"))),
-                property: Box::new(Identifier::new("policy")),
+                property: Box::new(DataExpr::Identifier(Identifier::new("policy"))),
                 span: Span::DUMMY,
                 scope: None,
             })),
             asset_name: Box::new(DataExpr::PropertyOp(PropertyOp {
                 operand: Box::new(DataExpr::Identifier(Identifier::new("input1"))),
-                property: Box::new(Identifier::new("asset_name")),
+                property: Box::new(DataExpr::Identifier(Identifier::new("asset_name"))),
                 span: Span::DUMMY,
                 scope: None,
             })),
             amount: Box::new(DataExpr::PropertyOp(PropertyOp {
                 operand: Box::new(DataExpr::Identifier(Identifier::new("input1"))),
-                property: Box::new(Identifier::new("amount")),
+                property: Box::new(DataExpr::Identifier(Identifier::new("amount"))),
                 span: Span::DUMMY,
                 scope: None,
             })),
@@ -1827,7 +1842,7 @@ mod tests {
         "subject.property",
         DataExpr::PropertyOp(PropertyOp {
             operand: Box::new(DataExpr::Identifier(Identifier::new("subject"))),
-            property: Box::new(Identifier::new("property")),
+            property: Box::new(DataExpr::Identifier(Identifier::new("property"))),
             span: Span::DUMMY,
             scope: None,
         })
@@ -1840,11 +1855,11 @@ mod tests {
         DataExpr::PropertyOp(PropertyOp {
             operand: Box::new(DataExpr::PropertyOp(PropertyOp {
                 operand: Box::new(DataExpr::Identifier(Identifier::new("subject"))),
-                property: Box::new(Identifier::new("property")),
+                property: Box::new(DataExpr::Identifier(Identifier::new("property"))),
                 span: Span::DUMMY,
                 scope: None,
             })),
-            property: Box::new(Identifier::new("subproperty")),
+            property: Box::new(DataExpr::Identifier(Identifier::new("subproperty"))),
             span: Span::DUMMY,
             scope: None,
         })
@@ -1890,7 +1905,7 @@ mod tests {
         DataExpr::NegateOp(NegateOp {
             operand: Box::new(DataExpr::PropertyOp(PropertyOp {
                 operand: Box::new(DataExpr::Identifier(Identifier::new("a"))),
-                property: Box::new(Identifier::new("b")),
+                property: Box::new(DataExpr::Identifier(Identifier::new("b"))),
                 span: Span::DUMMY,
                 scope: None,
             })),
@@ -1907,7 +1922,7 @@ mod tests {
                 operand: Box::new(DataExpr::Identifier(Identifier::new("a"))),
                 span: Span::DUMMY,
             })),
-            property: Box::new(Identifier::new("b")),
+            property: Box::new(DataExpr::Identifier(Identifier::new("b"))),
             span: Span::DUMMY,
             scope: None,
         })
@@ -1928,11 +1943,11 @@ mod tests {
                     lhs: Box::new(DataExpr::PropertyOp(PropertyOp {
                         operand: Box::new(DataExpr::PropertyOp(PropertyOp {
                             operand: Box::new(DataExpr::Identifier(Identifier::new("a"))),
-                            property: Box::new(Identifier::new("b")),
+                            property: Box::new(DataExpr::Identifier(Identifier::new("b"))),
                             span: Span::DUMMY,
                             scope: None,
                         })),
-                        property: Box::new(Identifier::new("c")),
+                        property: Box::new(DataExpr::Identifier(Identifier::new("c"))),
                         span: Span::DUMMY,
                         scope: None,
                     })),
@@ -1942,7 +1957,7 @@ mod tests {
                 rhs: Box::new(DataExpr::NegateOp(NegateOp {
                     operand: Box::new(DataExpr::PropertyOp(PropertyOp {
                         operand: Box::new(DataExpr::Identifier(Identifier::new("d"))),
-                        property: Box::new(Identifier::new("f")),
+                        property: Box::new(DataExpr::Identifier(Identifier::new("f"))),
                         span: Span::DUMMY,
                         scope: None,
                     })),
@@ -2162,11 +2177,11 @@ mod tests {
                         lhs: Box::new(DataExpr::PropertyOp(PropertyOp {
                             operand: Box::new(DataExpr::PropertyOp(PropertyOp {
                                 operand: Box::new(DataExpr::Identifier(Identifier::new("a"))),
-                                property: Box::new(Identifier::new("b")),
+                                property: Box::new(DataExpr::Identifier(Identifier::new("b"))),
                                 span: Span::DUMMY,
                                 scope: None,
                             })),
-                            property: Box::new(Identifier::new("c")),
+                            property: Box::new(DataExpr::Identifier(Identifier::new("c"))),
                             span: Span::DUMMY,
                             scope: None,
                         })),
@@ -2384,6 +2399,120 @@ mod tests {
             span: Span::DUMMY,
             scope: None,
         }
+    );
+
+    input_to_ast_check!(
+        DataExpr,
+        "array_index_literal",
+        "my_list[0]",
+        DataExpr::PropertyOp(PropertyOp {
+            operand: Box::new(DataExpr::Identifier(Identifier::new("my_list"))),
+            property: Box::new(DataExpr::Number(0)),
+            span: Span::DUMMY,
+            scope: None,
+        })
+    );
+
+    input_to_ast_check!(
+        DataExpr,
+        "array_index_variable",
+        "my_list[index]",
+        DataExpr::PropertyOp(PropertyOp {
+            operand: Box::new(DataExpr::Identifier(Identifier::new("my_list"))),
+            property: Box::new(DataExpr::Identifier(Identifier::new("index"))),
+            span: Span::DUMMY,
+            scope: None,
+        })
+    );
+
+    input_to_ast_check!(
+        DataExpr,
+        "nested_array_index",
+        "matrix[row][col]",
+        DataExpr::PropertyOp(PropertyOp {
+            operand: Box::new(DataExpr::PropertyOp(PropertyOp {
+                operand: Box::new(DataExpr::Identifier(Identifier::new("matrix"))),
+                property: Box::new(DataExpr::Identifier(Identifier::new("row"))),
+                span: Span::DUMMY,
+                scope: None,
+            })),
+            property: Box::new(DataExpr::Identifier(Identifier::new("col"))),
+            span: Span::DUMMY,
+            scope: None,
+        })
+    );
+
+    input_to_ast_check!(
+        DataExpr,
+        "array_index_with_property_access",
+        "items[index].name",
+        DataExpr::PropertyOp(PropertyOp {
+            operand: Box::new(DataExpr::PropertyOp(PropertyOp {
+                operand: Box::new(DataExpr::Identifier(Identifier::new("items"))),
+                property: Box::new(DataExpr::Identifier(Identifier::new("index"))),
+                span: Span::DUMMY,
+                scope: None,
+            })),
+            property: Box::new(DataExpr::Identifier(Identifier::new("name"))),
+            span: Span::DUMMY,
+            scope: None,
+        })
+    );
+
+    input_to_ast_check!(
+        DataExpr,
+        "property_access_then_array_index",
+        "object.list[0]",
+        DataExpr::PropertyOp(PropertyOp {
+            operand: Box::new(DataExpr::PropertyOp(PropertyOp {
+                operand: Box::new(DataExpr::Identifier(Identifier::new("object"))),
+                property: Box::new(DataExpr::Identifier(Identifier::new("list"))),
+                span: Span::DUMMY,
+                scope: None,
+            })),
+            property: Box::new(DataExpr::Number(0)),
+            span: Span::DUMMY,
+            scope: None,
+        })
+    );
+
+    input_to_ast_check!(
+        DataExpr,
+        "array_index_with_function_call",
+        "values[min_utxo(output)]",
+        DataExpr::PropertyOp(PropertyOp {
+            operand: Box::new(DataExpr::Identifier(Identifier::new("values"))),
+            property: Box::new(DataExpr::MinUtxo(Identifier::new("output"))),
+            span: Span::DUMMY,
+            scope: None,
+        })
+    );
+
+    input_to_ast_check!(
+        DataExpr,
+        "mixed_property_and_index_access",
+        "container.items[index].metadata[\"key\"]",
+        DataExpr::PropertyOp(PropertyOp {
+            operand: Box::new(DataExpr::PropertyOp(PropertyOp {
+                operand: Box::new(DataExpr::PropertyOp(PropertyOp {
+                    operand: Box::new(DataExpr::PropertyOp(PropertyOp {
+                        operand: Box::new(DataExpr::Identifier(Identifier::new("container"))),
+                        property: Box::new(DataExpr::Identifier(Identifier::new("items"))),
+                        span: Span::DUMMY,
+                        scope: None,
+                    })),
+                    property: Box::new(DataExpr::Identifier(Identifier::new("index"))),
+                    span: Span::DUMMY,
+                    scope: None,
+                })),
+                property: Box::new(DataExpr::Identifier(Identifier::new("metadata"))),
+                span: Span::DUMMY,
+                scope: None,
+            })),
+            property: Box::new(DataExpr::String(StringLiteral::new("key".to_string()))),
+            span: Span::DUMMY,
+            scope: None,
+        })
     );
 
     #[test]

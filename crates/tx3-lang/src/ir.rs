@@ -40,8 +40,6 @@ pub enum Coerce {
     IntoScript(Expression),
 }
 
-pub type PropertyIndex = usize;
-
 /// Operations that are executed during the "apply" phase.
 ///
 /// These are operations that are executed during the "apply" phase, as opposed
@@ -57,7 +55,7 @@ pub enum BuiltInOp {
     Sub(Expression, Expression),
     Concat(Expression, Expression),
     Negate(Expression),
-    Property(Expression, PropertyIndex),
+    Property(Expression, Expression),
 }
 
 /// Operations that are performed by the compiler.

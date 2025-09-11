@@ -137,8 +137,9 @@ data_expr = { data_prefix* ~ data_primary ~ data_postfix* ~ (data_infix ~ data_p
     data_prefix = _{ data_negate }
         data_negate = { "!" }
 
-    data_postfix = _{ data_property }
+    data_postfix = _{ data_property | data_index }
         data_property = { "." ~ identifier }
+        data_index = { "[" ~ data_expr ~ "]" }
 
     data_primary = _{
         unit |
