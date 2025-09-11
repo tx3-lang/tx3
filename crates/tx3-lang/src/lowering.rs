@@ -449,6 +449,9 @@ impl IntoLower for ast::DataExpr {
             ast::DataExpr::MinUtxo(x) => ir::Expression::EvalCompiler(Box::new(
                 ir::CompilerOp::ComputeMinUtxo(x.into_lower(ctx)?),
             )),
+            ast::DataExpr::ComputeTipSlot => {
+                ir::Expression::EvalCompiler(Box::new(ir::CompilerOp::ComputeTipSlot))
+            }
         };
 
         Ok(out)

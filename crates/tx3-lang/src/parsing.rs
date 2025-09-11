@@ -1094,6 +1094,10 @@ impl DataExpr {
         Ok(DataExpr::MinUtxo(Identifier::parse(inner)?))
     }
 
+    fn tip_slot_parse(_pair: Pair<Rule>) -> Result<Self, Error> {
+        Ok(DataExpr::ComputeTipSlot)
+    }
+
     fn concat_constructor_parse(pair: Pair<Rule>) -> Result<Self, Error> {
         Ok(DataExpr::ConcatOp(ConcatOp::parse(pair)?))
     }
@@ -1180,6 +1184,7 @@ impl AstNode for DataExpr {
                 Rule::any_asset_constructor => DataExpr::any_asset_constructor_parse(x),
                 Rule::concat_constructor => DataExpr::concat_constructor_parse(x),
                 Rule::min_utxo => DataExpr::min_utxo_parse(x),
+                Rule::tip_slot => DataExpr::tip_slot_parse(x),
                 Rule::data_expr => DataExpr::parse(x),
                 x => unreachable!("unexpected rule as data primary: {:?}", x),
             })
@@ -1220,6 +1225,7 @@ impl AstNode for DataExpr {
             DataExpr::PropertyOp(x) => &x.span,
             DataExpr::UtxoRef(x) => x.span(),
             DataExpr::MinUtxo(x) => x.span(),
+            DataExpr::ComputeTipSlot => &Span::DUMMY, // TODO
         }
     }
 }
@@ -1982,6 +1988,24 @@ mod tests {
                 span: Span::DUMMY,
             })),
             rhs: Box::new(DataExpr::MinUtxo(Identifier::new("my_output"))),
+            span: Span::DUMMY,
+        })
+    );
+
+    input_to_ast_check!(
+        DataExpr,
+        "tip_slot_basic",
+        "tip_slot()",
+        DataExpr::ComputeTipSlot
+    );
+
+    input_to_ast_check!(
+        DataExpr,
+        "tip_slot_in_expression",
+        "1000 + tip_slot()",
+        DataExpr::AddOp(AddOp {
+            lhs: Box::new(DataExpr::Number(1000)),
+            rhs: Box::new(DataExpr::ComputeTipSlot),
             span: Span::DUMMY,
         })
     );

@@ -699,6 +699,7 @@ pub enum DataExpr {
     AnyAssetConstructor(AnyAssetConstructor),
     Identifier(Identifier),
     MinUtxo(Identifier),
+    ComputeTipSlot,
     AddOp(AddOp),
     SubOp(SubOp),
     ConcatOp(ConcatOp),
@@ -738,6 +739,7 @@ impl DataExpr {
             DataExpr::AnyAssetConstructor(x) => x.target_type(),
             DataExpr::UtxoRef(_) => Some(Type::UtxoRef),
             DataExpr::MinUtxo(_) => Some(Type::AnyAsset),
+            DataExpr::ComputeTipSlot => Some(Type::Int),
         }
     }
 }

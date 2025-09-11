@@ -1150,6 +1150,7 @@ impl Composite for ir::CompilerOp {
         match self {
             ir::CompilerOp::BuildScriptAddress(x) => vec![x],
             ir::CompilerOp::ComputeMinUtxo(x) => vec![x],
+            ir::CompilerOp::ComputeTipSlot => vec![],
         }
     }
 
@@ -1160,6 +1161,7 @@ impl Composite for ir::CompilerOp {
         match self {
             ir::CompilerOp::BuildScriptAddress(x) => Ok(ir::CompilerOp::BuildScriptAddress(f(x)?)),
             ir::CompilerOp::ComputeMinUtxo(x) => Ok(ir::CompilerOp::ComputeMinUtxo(f(x)?)),
+            ir::CompilerOp::ComputeTipSlot => Ok(ir::CompilerOp::ComputeTipSlot),
         }
     }
 }

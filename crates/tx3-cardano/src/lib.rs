@@ -42,18 +42,26 @@ pub struct Config {
 pub type TxBody =
     pallas::codec::utils::KeepRaw<'static, primitives::conway::TransactionBody<'static>>;
 
+#[derive(Debug, Clone)]
+pub struct ChainPoint {
+    pub slot: u64,
+    pub hash: Vec<u8>,
+}
+
 pub struct Compiler {
     pub pparams: PParams,
     pub config: Config,
     pub latest_tx_body: Option<TxBody>,
+    pub cursor: ChainPoint,
 }
 
 impl Compiler {
-    pub fn new(pparams: PParams, config: Config) -> Self {
+    pub fn new(pparams: PParams, config: Config, cursor: ChainPoint) -> Self {
         Self {
             pparams,
             config,
             latest_tx_body: None,
+            cursor,
         }
     }
 }
@@ -100,6 +108,7 @@ impl tx3_lang::backend::Compiler for Compiler {
                     amount: ir::Expression::Number(lovelace),
                 }]))
             }
+            ir::CompilerOp::ComputeTipSlot => Ok(ir::Expression::Number(self.cursor.slot as i128)),
         }
     }
 }
