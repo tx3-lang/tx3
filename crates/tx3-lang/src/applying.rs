@@ -59,6 +59,10 @@ impl Indexable for ir::Expression {
     fn index(&self, index: ir::Expression) -> Option<ir::Expression> {
         match self {
             ir::Expression::None => None,
+            ir::Expression::Map(x) => x
+                .iter()
+                .find(|(k, _)| *k == index)
+                .map(|(k, v)| ir::Expression::Tuple(Box::new((k.clone(), v.clone())))),
             ir::Expression::List(x) => x.get(index.as_number()? as usize).cloned(),
             ir::Expression::Tuple(x) => match index.as_number()? {
                 0 => Some(x.0.clone()),
@@ -268,6 +272,7 @@ impl Coerceable for ir::Expression {
                 .and_then(|x| x.datum)
                 .unwrap_or(ir::Expression::None)),
             ir::Expression::List(x) => Ok(ir::Expression::List(x)),
+            ir::Expression::Map(x) => Ok(ir::Expression::Map(x)),
             ir::Expression::Tuple(x) => Ok(ir::Expression::Tuple(x)),
             ir::Expression::Struct(x) => Ok(ir::Expression::Struct(x)),
             ir::Expression::Bytes(x) => Ok(ir::Expression::Bytes(x)),
@@ -857,6 +862,16 @@ impl Apply for ir::Expression {
                 x.0.apply_args(args)?,
                 x.1.apply_args(args)?,
             )))),
+            Self::Map(x) => Ok(Self::Map(
+                x.into_iter()
+                    .map(|(k, v)| {
+                        Ok::<(Expression, Expression), Error>((
+                            k.apply_args(args)?,
+                            v.apply_args(args)?,
+                        ))
+                    })
+                    .collect::<Result<_, _>>()?,
+            )),
             Self::Struct(x) => Ok(Self::Struct(x.apply_args(args)?)),
             Self::Assets(x) => Ok(Self::Assets(
                 x.into_iter()
@@ -889,6 +904,16 @@ impl Apply for ir::Expression {
             Self::List(x) => Ok(Self::List(
                 x.into_iter()
                     .map(|x| x.apply_inputs(args))
+                    .collect::<Result<_, _>>()?,
+            )),
+            Self::Map(x) => Ok(Self::Map(
+                x.into_iter()
+                    .map(|(k, v)| {
+                        Ok::<(Expression, Expression), Error>((
+                            k.apply_inputs(args)?,
+                            v.apply_inputs(args)?,
+                        ))
+                    })
                     .collect::<Result<_, _>>()?,
             )),
             Self::Tuple(x) => Ok(Self::Tuple(Box::new((
@@ -929,6 +954,16 @@ impl Apply for ir::Expression {
                     .map(|x| x.apply_fees(fees))
                     .collect::<Result<_, _>>()?,
             )),
+            Self::Map(x) => Ok(Self::Map(
+                x.into_iter()
+                    .map(|(k, v)| {
+                        Ok::<(Expression, Expression), Error>((
+                            k.apply_fees(fees)?,
+                            v.apply_fees(fees)?,
+                        ))
+                    })
+                    .collect::<Result<_, _>>()?,
+            )),
             Self::Tuple(x) => Ok(Self::Tuple(Box::new((
                 x.0.apply_fees(fees)?,
                 x.1.apply_fees(fees)?,
@@ -963,6 +998,7 @@ impl Apply for ir::Expression {
     fn is_constant(&self) -> bool {
         match self {
             Self::List(x) => x.iter().all(|x| x.is_constant()),
+            Self::Map(x) => x.iter().all(|(k, v)| k.is_constant() && v.is_constant()),
             Self::Tuple(x) => x.0.is_constant() && x.1.is_constant(),
             Self::Struct(x) => x.is_constant(),
             Self::Assets(x) => x.iter().all(|x| x.is_constant()),
@@ -990,6 +1026,10 @@ impl Apply for ir::Expression {
     fn params(&self) -> BTreeMap<String, ir::Type> {
         match self {
             Self::List(x) => x.iter().flat_map(|x| x.params()).collect(),
+            Self::Map(x) => x
+                .iter()
+                .flat_map(|(k, v)| [k.params(), v.params()].into_iter().flatten())
+                .collect(),
             Self::Tuple(x) => [x.0.params(), x.1.params()].into_iter().flatten().collect(),
             Self::Struct(x) => x.params(),
             Self::Assets(x) => x.iter().flat_map(|x| x.params()).collect(),
@@ -1017,6 +1057,10 @@ impl Apply for ir::Expression {
     fn queries(&self) -> BTreeMap<String, ir::InputQuery> {
         match self {
             Self::List(x) => x.iter().flat_map(|x| x.queries()).collect(),
+            Self::Map(x) => x
+                .iter()
+                .flat_map(|(k, v)| [k.queries(), v.queries()].into_iter().flatten())
+                .collect(),
             Self::Tuple(x) => [x.0.queries(), x.1.queries()]
                 .into_iter()
                 .flatten()
@@ -1050,6 +1094,11 @@ impl Apply for ir::Expression {
             ir::Expression::List(x) => Ok(Self::List(
                 x.into_iter()
                     .map(|x| x.reduce())
+                    .collect::<Result<_, _>>()?,
+            )),
+            ir::Expression::Map(x) => Ok(Self::Map(
+                x.into_iter()
+                    .map(|(k, v)| Ok::<(Expression, Expression), Error>((k.reduce()?, v.reduce()?)))
                     .collect::<Result<_, _>>()?,
             )),
             ir::Expression::Tuple(x) => Ok(Self::Tuple(Box::new((x.0.reduce()?, x.1.reduce()?)))),

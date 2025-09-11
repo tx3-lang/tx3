@@ -1,4 +1,5 @@
 pub use pallas::codec::utils::Int;
+use pallas::codec::utils::KeyValuePairs;
 pub use pallas::ledger::primitives::{BigInt, BoundedBytes, Constr, MaybeIndefArray, PlutusData};
 use tx3_lang::ir;
 
@@ -99,6 +100,17 @@ impl TryIntoData for Vec<ir::Expression> {
     }
 }
 
+impl TryIntoData for Vec<(ir::Expression, ir::Expression)> {
+    fn try_as_data(&self) -> Result<PlutusData, super::Error> {
+        let items = self
+            .iter()
+            .map(|(k, v)| Ok((k.try_as_data()?, v.try_as_data()?)))
+            .collect::<Result<Vec<_>, super::Error>>()?;
+
+        Ok(PlutusData::Map(KeyValuePairs::Def(items)))
+    }
+}
+
 impl TryIntoData for ir::StructExpr {
     fn try_as_data(&self) -> Result<PlutusData, super::Error> {
         let fields = self
@@ -135,6 +147,7 @@ impl TryIntoData for ir::Expression {
             ir::Expression::Address(x) => Ok(x.as_data()),
             ir::Expression::Hash(x) => Ok(x.as_data()),
             ir::Expression::List(x) => x.try_as_data(),
+            ir::Expression::Map(x) => x.try_as_data(),
             x => Err(super::Error::CoerceError(
                 format!("{x:?}"),
                 "PlutusData".to_string(),

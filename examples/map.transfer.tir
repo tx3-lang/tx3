@@ -20,33 +20,20 @@
                 }
               },
               "min_amount": {
-                "EvalBuiltIn": {
-                  "Add": [
-                    {
-                      "EvalBuiltIn": {
-                        "Add": [
-                          {
-                            "EvalParam": "ExpectFees"
-                          },
-                          {
-                            "EvalCompiler": {
-                              "ComputeMinUtxo": {
-                                "Number": 0
-                              }
-                            }
-                          }
+                "Assets": [
+                  {
+                    "policy": "None",
+                    "asset_name": "None",
+                    "amount": {
+                      "EvalParam": {
+                        "ExpectValue": [
+                          "quantity",
+                          "Int"
                         ]
                       }
-                    },
-                    {
-                      "EvalCompiler": {
-                        "ComputeMinUtxo": {
-                          "Number": 1
-                        }
-                      }
                     }
-                  ]
-                }
+                  }
+                ]
               },
               "ref": "None",
               "many": false,
@@ -70,11 +57,20 @@
       },
       "datum": "None",
       "amount": {
-        "EvalCompiler": {
-          "ComputeMinUtxo": {
-            "Number": 0
+        "Assets": [
+          {
+            "policy": "None",
+            "asset_name": "None",
+            "amount": {
+              "EvalParam": {
+                "ExpectValue": [
+                  "quantity",
+                  "Int"
+                ]
+              }
+            }
           }
-        }
+        ]
       },
       "ref_script": "None"
     },
@@ -87,7 +83,43 @@
           ]
         }
       },
-      "datum": "None",
+      "datum": {
+        "Struct": {
+          "constructor": 0,
+          "fields": [
+            {
+              "Map": [
+                [
+                  {
+                    "Number": 1
+                  },
+                  {
+                    "EvalParam": {
+                      "ExpectValue": [
+                        "quantity",
+                        "Int"
+                      ]
+                    }
+                  }
+                ],
+                [
+                  {
+                    "Number": 2
+                  },
+                  {
+                    "EvalParam": {
+                      "ExpectValue": [
+                        "quantity",
+                        "Int"
+                      ]
+                    }
+                  }
+                ]
+              ]
+            }
+          ]
+        }
+      },
       "amount": {
         "EvalBuiltIn": {
           "Sub": [
@@ -110,33 +142,20 @@
                                 }
                               },
                               "min_amount": {
-                                "EvalBuiltIn": {
-                                  "Add": [
-                                    {
-                                      "EvalBuiltIn": {
-                                        "Add": [
-                                          {
-                                            "EvalParam": "ExpectFees"
-                                          },
-                                          {
-                                            "EvalCompiler": {
-                                              "ComputeMinUtxo": {
-                                                "Number": 0
-                                              }
-                                            }
-                                          }
+                                "Assets": [
+                                  {
+                                    "policy": "None",
+                                    "asset_name": "None",
+                                    "amount": {
+                                      "EvalParam": {
+                                        "ExpectValue": [
+                                          "quantity",
+                                          "Int"
                                         ]
                                       }
-                                    },
-                                    {
-                                      "EvalCompiler": {
-                                        "ComputeMinUtxo": {
-                                          "Number": 1
-                                        }
-                                      }
                                     }
-                                  ]
-                                }
+                                  }
+                                ]
                               },
                               "ref": "None",
                               "many": false,
@@ -148,17 +167,26 @@
                     }
                   },
                   {
-                    "EvalParam": "ExpectFees"
+                    "Assets": [
+                      {
+                        "policy": "None",
+                        "asset_name": "None",
+                        "amount": {
+                          "EvalParam": {
+                            "ExpectValue": [
+                              "quantity",
+                              "Int"
+                            ]
+                          }
+                        }
+                      }
+                    ]
                   }
                 ]
               }
             },
             {
-              "EvalCompiler": {
-                "ComputeMinUtxo": {
-                  "Number": 0
-                }
-              }
+              "EvalParam": "ExpectFees"
             }
           ]
         }

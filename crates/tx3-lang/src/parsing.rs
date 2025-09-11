@@ -1060,6 +1060,41 @@ impl AstNode for ListConstructor {
     }
 }
 
+impl AstNode for MapField {
+    const RULE: Rule = Rule::map_field;
+
+    fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
+        let span = pair.as_span().into();
+        let mut inner = pair.into_inner();
+
+        let key = DataExpr::parse(inner.next().unwrap())?;
+        let value = DataExpr::parse(inner.next().unwrap())?;
+
+        Ok(MapField { key, value, span })
+    }
+
+    fn span(&self) -> &Span {
+        &self.span
+    }
+}
+
+impl AstNode for MapConstructor {
+    const RULE: Rule = Rule::map_constructor;
+
+    fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
+        let span = pair.as_span().into();
+        let inner = pair.into_inner();
+
+        let fields = inner.map(MapField::parse).collect::<Result<Vec<_>, _>>()?;
+
+        Ok(MapConstructor { fields, span })
+    }
+
+    fn span(&self) -> &Span {
+        &self.span
+    }
+}
+
 impl DataExpr {
     fn number_parse(pair: Pair<Rule>) -> Result<Self, Error> {
         Ok(DataExpr::Number(pair.as_str().parse().unwrap()))
@@ -1079,6 +1114,10 @@ impl DataExpr {
 
     fn list_constructor_parse(pair: Pair<Rule>) -> Result<Self, Error> {
         Ok(DataExpr::ListConstructor(ListConstructor::parse(pair)?))
+    }
+
+    fn map_constructor_parse(pair: Pair<Rule>) -> Result<Self, Error> {
+        Ok(DataExpr::MapConstructor(MapConstructor::parse(pair)?))
     }
 
     fn utxo_ref_parse(pair: Pair<Rule>) -> Result<Self, Error> {
@@ -1185,6 +1224,7 @@ impl AstNode for DataExpr {
                 Rule::hex_string => Ok(DataExpr::HexString(HexStringLiteral::parse(x)?)),
                 Rule::struct_constructor => DataExpr::struct_constructor_parse(x),
                 Rule::list_constructor => DataExpr::list_constructor_parse(x),
+                Rule::map_constructor => DataExpr::map_constructor_parse(x),
                 Rule::unit => Ok(DataExpr::Unit),
                 Rule::identifier => DataExpr::identifier_parse(x),
                 Rule::utxo_ref => DataExpr::utxo_ref_parse(x),
@@ -1223,6 +1263,7 @@ impl AstNode for DataExpr {
             DataExpr::HexString(x) => x.span(),
             DataExpr::StructConstructor(x) => x.span(),
             DataExpr::ListConstructor(x) => x.span(),
+            DataExpr::MapConstructor(x) => x.span(),
             DataExpr::StaticAssetConstructor(x) => x.span(),
             DataExpr::AnyAssetConstructor(x) => x.span(),
             DataExpr::Identifier(x) => x.span(),
@@ -1257,6 +1298,12 @@ impl AstNode for Type {
             Rule::list_type => {
                 let inner = inner.into_inner().next().unwrap();
                 Ok(Type::List(Box::new(Type::parse(inner)?)))
+            }
+            Rule::map_type => {
+                let mut inner = inner.into_inner();
+                let key_type = Type::parse(inner.next().unwrap())?;
+                let value_type = Type::parse(inner.next().unwrap())?;
+                Ok(Type::Map(Box::new(key_type), Box::new(value_type)))
             }
             Rule::custom_type => Ok(Type::Custom(Identifier::new(inner.as_str().to_owned()))),
             x => unreachable!("Unexpected rule in type: {:?}", x),
@@ -1502,7 +1549,6 @@ mod tests {
             span: ast::Span::DUMMY,
         }
     );
-
     input_to_ast_check!(Type, "int", "Int", Type::Int);
 
     input_to_ast_check!(Type, "bool", "Bool", Type::Bool);
@@ -2610,6 +2656,7 @@ mod tests {
     test_parsing!(cardano_witness);
 
     test_parsing!(reference_script);
+    test_parsing!(map);
     test_parsing!(burn);
 
     test_parsing!(donation);
