@@ -14,7 +14,7 @@ pub enum Error {
     #[diagnostic(transparent)]
     Parsing(#[from] parsing::Error),
 
-    #[error("Analyzing error: {0}")]
+    #[error("Analyzing error")]
     Analyzing(#[from] analyzing::AnalyzeReport),
 
     #[error("Invalid environment file: {0}")]
