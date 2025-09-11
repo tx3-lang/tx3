@@ -48,7 +48,14 @@ fn test_compiler(config: Option<Config>) -> Compiler {
 
     let config = config.unwrap_or(Config { extra_fees: None });
 
-    Compiler::new(pparams, config)
+    Compiler::new(
+        pparams,
+        config,
+        ChainPoint {
+            slot: 101674141,
+            hash: vec![],
+        },
+    )
 }
 
 fn load_protocol(example_name: &str) -> Protocol {

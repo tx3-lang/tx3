@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
-use crate::{backend, ir, ArgValue, CanonicalAssets, Utxo};
 use crate::ir::Expression;
+use crate::{backend, ir, ArgValue, CanonicalAssets, Utxo};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -34,31 +34,38 @@ pub enum Error {
 }
 
 pub trait Indexable: std::fmt::Debug {
-    fn index(&self, index: usize) -> Option<ir::Expression>;
+    fn index(&self, index: ir::Expression) -> Option<ir::Expression>;
 
-    fn index_or_err(&self, index: usize) -> Result<ir::Expression, Error> {
-        self.index(index)
-            .ok_or(Error::PropertyIndexNotFound(index, format!("{self:?}")))
+    fn index_or_err(&self, index: ir::Expression) -> Result<ir::Expression, Error> {
+        let index_value = index.as_number().unwrap_or(0) as usize;
+        self.index(index).ok_or(Error::PropertyIndexNotFound(
+            index_value,
+            format!("{self:?}"),
+        ))
     }
 }
 
 impl Indexable for ir::StructExpr {
-    fn index(&self, index: usize) -> Option<ir::Expression> {
-        self.fields.get(index).cloned()
+    fn index(&self, index: ir::Expression) -> Option<ir::Expression> {
+        // numeric indices represent the index of the field of the struct
+        match index {
+            ir::Expression::Number(n) => self.fields.get(n as usize).cloned(),
+            _ => return None,
+        }
     }
 }
 
 impl Indexable for ir::Expression {
-    fn index(&self, index: usize) -> Option<ir::Expression> {
+    fn index(&self, index: ir::Expression) -> Option<ir::Expression> {
         match self {
             ir::Expression::None => None,
-            ir::Expression::List(x) => x.get(index).cloned(),
-            ir::Expression::Tuple(x) => match index {
+            ir::Expression::List(x) => x.get(index.as_number()? as usize).cloned(),
+            ir::Expression::Tuple(x) => match index.as_number()? {
                 0 => Some(x.0.clone()),
                 1 => Some(x.1.clone()),
                 _ => None,
             },
-            ir::Expression::Struct(x) => x.index(index),
+            ir::Expression::Struct(x) => x.index(index.clone()),
             _ => None,
         }
     }
@@ -186,7 +193,7 @@ impl Concatenable for Vec<Expression> {
         match other {
             Expression::List(expressions) => {
                 Ok(Expression::List([&self[..], &expressions[..]].concat()))
-            },
+            }
             _ => Err(Error::InvalidBinaryOp(
                 "concat".to_string(),
                 format!("List({:?})", self),
@@ -642,7 +649,7 @@ impl Composite for ir::BuiltInOp {
             Self::Sub(x, y) => Ok(Self::Sub(x.reduce()?, y.reduce()?)),
             Self::Concat(x, y) => Ok(Self::Concat(x.reduce()?, y.reduce()?)),
             Self::Negate(x) => Ok(Self::Negate(x.reduce()?)),
-            Self::Property(x, y) => Ok(Self::Property(x.reduce()?, y)),
+            Self::Property(x, y) => Ok(Self::Property(x.reduce()?, y.reduce()?)),
             Self::NoOp(x) => Ok(Self::NoOp(x.reduce()?)),
         }
     }
@@ -1144,6 +1151,7 @@ impl Composite for ir::CompilerOp {
         match self {
             ir::CompilerOp::BuildScriptAddress(x) => vec![x],
             ir::CompilerOp::ComputeMinUtxo(x) => vec![x],
+            ir::CompilerOp::ComputeTipSlot => vec![],
         }
     }
 
@@ -1154,6 +1162,7 @@ impl Composite for ir::CompilerOp {
         match self {
             ir::CompilerOp::BuildScriptAddress(x) => Ok(ir::CompilerOp::BuildScriptAddress(f(x)?)),
             ir::CompilerOp::ComputeMinUtxo(x) => Ok(ir::CompilerOp::ComputeMinUtxo(f(x)?)),
+            ir::CompilerOp::ComputeTipSlot => Ok(ir::CompilerOp::ComputeTipSlot),
         }
     }
 }
@@ -1760,7 +1769,10 @@ mod tests {
             ],
         });
 
-        let op = ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Property(object.clone(), 1)));
+        let op = ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Property(
+            object.clone(),
+            Expression::Number(1),
+        )));
 
         let reduced = op.reduce();
 
@@ -1769,8 +1781,10 @@ mod tests {
             _ => panic!("Expected number 2"),
         };
 
-        let op =
-            ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Property(object.clone(), 100)));
+        let op = ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Property(
+            object.clone(),
+            Expression::Number(100),
+        )));
 
         let reduced = op.reduce();
 
@@ -1788,7 +1802,10 @@ mod tests {
             ir::Expression::Number(3),
         ]);
 
-        let op = ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Property(object.clone(), 1)));
+        let op = ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Property(
+            object.clone(),
+            Expression::Number(1),
+        )));
 
         let reduced = op.reduce();
 
@@ -1797,8 +1814,10 @@ mod tests {
             _ => panic!("Expected number 2"),
         };
 
-        let op =
-            ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Property(object.clone(), 100)));
+        let op = ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Property(
+            object.clone(),
+            ir::Expression::Number(100),
+        )));
 
         let reduced = op.reduce();
 
@@ -1815,7 +1834,10 @@ mod tests {
             ir::Expression::Number(2),
         )));
 
-        let op = ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Property(object.clone(), 1)));
+        let op = ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Property(
+            object.clone(),
+            Expression::Number(1),
+        )));
 
         let reduced = op.reduce();
 
@@ -1824,8 +1846,10 @@ mod tests {
             _ => panic!("Expected number 2"),
         };
 
-        let op =
-            ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Property(object.clone(), 100)));
+        let op = ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Property(
+            object.clone(),
+            Expression::Number(100),
+        )));
 
         let reduced = op.reduce();
 
@@ -1875,8 +1899,9 @@ mod tests {
         let reduced = op.reduce().unwrap();
 
         match reduced {
-            ir::Expression::List(b) => assert_eq!(b, vec![
-                Expression::Number(1), Expression::Number(2)]),
+            ir::Expression::List(b) => {
+                assert_eq!(b, vec![Expression::Number(1), Expression::Number(2)])
+            }
             _ => panic!("Expected List [Number(1), Number(2)"),
         }
     }
@@ -1945,5 +1970,181 @@ mod tests {
         let reduced = op.clone().reduce().unwrap();
 
         assert!(op == reduced)
+    }
+
+    #[test]
+    fn test_index_list_with_expression() {
+        let list = ir::Expression::List(vec![
+            ir::Expression::String("first".to_string()),
+            ir::Expression::String("second".to_string()),
+            ir::Expression::String("third".to_string()),
+        ]);
+
+        let index_expr = ir::Expression::Number(1);
+        let op = ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Property(
+            list.clone(),
+            index_expr,
+        )));
+
+        let reduced = op.reduce().unwrap();
+
+        match reduced {
+            ir::Expression::String(s) => assert_eq!(s, "second"),
+            _ => panic!("Expected string 'second'"),
+        }
+    }
+
+    #[test]
+    fn test_index_list_out_of_bounds() {
+        let list = ir::Expression::List(vec![ir::Expression::Number(1), ir::Expression::Number(2)]);
+
+        let index_expr = ir::Expression::Number(5);
+        let op = ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Property(
+            list.clone(),
+            index_expr,
+        )));
+
+        let reduced = op.reduce();
+
+        match reduced {
+            Err(Error::PropertyIndexNotFound(5, _)) => (),
+            _ => panic!("Expected PropertyIndexNotFound error"),
+        }
+    }
+
+    #[test]
+    fn test_index_tuple_with_expression() {
+        let tuple = ir::Expression::Tuple(Box::new((
+            ir::Expression::String("left".to_string()),
+            ir::Expression::String("right".to_string()),
+        )));
+
+        let index_expr = ir::Expression::Number(0);
+        let op = ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Property(
+            tuple.clone(),
+            index_expr,
+        )));
+
+        let reduced = op.reduce().unwrap();
+
+        match reduced {
+            ir::Expression::String(s) => assert_eq!(s, "left"),
+            _ => panic!("Expected string 'left'"),
+        }
+
+        let index_expr = ir::Expression::Number(1);
+        let op = ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Property(
+            tuple.clone(),
+            index_expr,
+        )));
+
+        let reduced = op.reduce().unwrap();
+
+        match reduced {
+            ir::Expression::String(s) => assert_eq!(s, "right"),
+            _ => panic!("Expected string 'right'"),
+        }
+    }
+
+    #[test]
+    fn test_index_struct_with_expression() {
+        let struct_expr = ir::Expression::Struct(ir::StructExpr {
+            constructor: 0,
+            fields: vec![
+                ir::Expression::String("field0".to_string()),
+                ir::Expression::String("field1".to_string()),
+                ir::Expression::String("field2".to_string()),
+            ],
+        });
+
+        let index_expr = ir::Expression::Number(1);
+        let op = ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Property(
+            struct_expr.clone(),
+            index_expr,
+        )));
+
+        let reduced = op.reduce().unwrap();
+
+        match reduced {
+            ir::Expression::String(s) => assert_eq!(s, "field1"),
+            _ => panic!("Expected string 'field1'"),
+        }
+    }
+
+    #[test]
+    fn test_index_none_expression() {
+        let none_expr = ir::Expression::None;
+        let index_expr = ir::Expression::Number(0);
+
+        let op =
+            ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Property(none_expr, index_expr)));
+
+        let reduced = op.reduce();
+
+        match reduced {
+            Err(Error::PropertyIndexNotFound(0, _)) => (),
+            _ => panic!("Expected PropertyIndexNotFound error for None expression"),
+        }
+    }
+
+    #[test]
+    fn test_indexable_trait_on_expression() {
+        let list_expr =
+            ir::Expression::List(vec![ir::Expression::Number(10), ir::Expression::Number(20)]);
+
+        let result = list_expr.index(ir::Expression::Number(0));
+        assert_eq!(result, Some(ir::Expression::Number(10)));
+
+        let result = list_expr.index(ir::Expression::Number(1));
+        assert_eq!(result, Some(ir::Expression::Number(20)));
+
+        let result = list_expr.index(ir::Expression::Number(2));
+        assert_eq!(result, None);
+
+        let tuple_expr = ir::Expression::Tuple(Box::new((
+            ir::Expression::Number(100),
+            ir::Expression::Number(200),
+        )));
+
+        let result = tuple_expr.index(ir::Expression::Number(0));
+        assert_eq!(result, Some(ir::Expression::Number(100)));
+
+        let result = tuple_expr.index(ir::Expression::Number(1));
+        assert_eq!(result, Some(ir::Expression::Number(200)));
+
+        let result = tuple_expr.index(ir::Expression::Number(2));
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_nested_property_access() {
+        let nested_expr = ir::Expression::List(vec![
+            ir::Expression::Tuple(Box::new((
+                ir::Expression::Number(1),
+                ir::Expression::Number(2),
+            ))),
+            ir::Expression::Tuple(Box::new((
+                ir::Expression::Number(3),
+                ir::Expression::Number(4),
+            ))),
+        ]);
+
+        // Access nested_expr[1][0] (should be 3)
+        let first_access = ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Property(
+            nested_expr,
+            ir::Expression::Number(1),
+        )));
+
+        let second_access = ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Property(
+            first_access,
+            ir::Expression::Number(0),
+        )));
+
+        let reduced = second_access.reduce().unwrap();
+
+        match reduced {
+            ir::Expression::Number(n) => assert_eq!(n, 3),
+            _ => panic!("Expected number 3"),
+        }
     }
 }

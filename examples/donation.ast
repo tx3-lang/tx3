@@ -1,0 +1,322 @@
+{
+  "env": null,
+  "txs": [
+    {
+      "name": {
+        "value": "mint_from_plutus",
+        "span": {
+          "dummy": false,
+          "start": 23,
+          "end": 39
+        }
+      },
+      "parameters": {
+        "parameters": [
+          {
+            "name": {
+              "value": "quantity",
+              "span": {
+                "dummy": false,
+                "start": 45,
+                "end": 53
+              }
+            },
+            "type": "Int"
+          }
+        ],
+        "span": {
+          "dummy": false,
+          "start": 39,
+          "end": 60
+        }
+      },
+      "locals": null,
+      "references": [],
+      "inputs": [
+        {
+          "name": "source",
+          "many": false,
+          "fields": [
+            {
+              "From": {
+                "Identifier": {
+                  "value": "Contributor",
+                  "span": {
+                    "dummy": false,
+                    "start": 96,
+                    "end": 107
+                  }
+                }
+              }
+            },
+            {
+              "MinAmount": {
+                "AddOp": {
+                  "lhs": {
+                    "AddOp": {
+                      "lhs": {
+                        "Identifier": {
+                          "value": "fees",
+                          "span": {
+                            "dummy": false,
+                            "start": 129,
+                            "end": 133
+                          }
+                        }
+                      },
+                      "rhs": {
+                        "StaticAssetConstructor": {
+                          "type": {
+                            "value": "Ada",
+                            "span": {
+                              "dummy": false,
+                              "start": 136,
+                              "end": 139
+                            }
+                          },
+                          "amount": {
+                            "AddOp": {
+                              "lhs": {
+                                "Identifier": {
+                                  "value": "quantity",
+                                  "span": {
+                                    "dummy": false,
+                                    "start": 140,
+                                    "end": 148
+                                  }
+                                }
+                              },
+                              "rhs": {
+                                "Number": 445
+                              },
+                              "span": {
+                                "dummy": false,
+                                "start": 149,
+                                "end": 150
+                              }
+                            }
+                          },
+                          "span": {
+                            "dummy": false,
+                            "start": 136,
+                            "end": 155
+                          }
+                        }
+                      },
+                      "span": {
+                        "dummy": false,
+                        "start": 134,
+                        "end": 135
+                      }
+                    }
+                  },
+                  "rhs": {
+                    "MinUtxo": {
+                      "value": "change",
+                      "span": {
+                        "dummy": false,
+                        "start": 167,
+                        "end": 173
+                      }
+                    }
+                  },
+                  "span": {
+                    "dummy": false,
+                    "start": 156,
+                    "end": 157
+                  }
+                }
+              }
+            }
+          ],
+          "span": {
+            "dummy": false,
+            "start": 67,
+            "end": 181
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": {
+            "value": "change",
+            "span": {
+              "dummy": false,
+              "start": 194,
+              "end": 200
+            }
+          },
+          "fields": [
+            {
+              "To": {
+                "Identifier": {
+                  "value": "Contributor",
+                  "span": {
+                    "dummy": false,
+                    "start": 215,
+                    "end": 226
+                  }
+                }
+              }
+            },
+            {
+              "Amount": {
+                "SubOp": {
+                  "lhs": {
+                    "SubOp": {
+                      "lhs": {
+                        "Identifier": {
+                          "value": "source",
+                          "span": {
+                            "dummy": false,
+                            "start": 244,
+                            "end": 250
+                          }
+                        }
+                      },
+                      "rhs": {
+                        "StaticAssetConstructor": {
+                          "type": {
+                            "value": "Ada",
+                            "span": {
+                              "dummy": false,
+                              "start": 253,
+                              "end": 256
+                            }
+                          },
+                          "amount": {
+                            "AddOp": {
+                              "lhs": {
+                                "Identifier": {
+                                  "value": "quantity",
+                                  "span": {
+                                    "dummy": false,
+                                    "start": 257,
+                                    "end": 265
+                                  }
+                                }
+                              },
+                              "rhs": {
+                                "Number": 445
+                              },
+                              "span": {
+                                "dummy": false,
+                                "start": 266,
+                                "end": 267
+                              }
+                            }
+                          },
+                          "span": {
+                            "dummy": false,
+                            "start": 253,
+                            "end": 272
+                          }
+                        }
+                      },
+                      "span": {
+                        "dummy": false,
+                        "start": 251,
+                        "end": 252
+                      }
+                    }
+                  },
+                  "rhs": {
+                    "Identifier": {
+                      "value": "fees",
+                      "span": {
+                        "dummy": false,
+                        "start": 275,
+                        "end": 279
+                      }
+                    }
+                  },
+                  "span": {
+                    "dummy": false,
+                    "start": 273,
+                    "end": 274
+                  }
+                }
+              }
+            }
+          ],
+          "span": {
+            "dummy": false,
+            "start": 187,
+            "end": 286
+          }
+        }
+      ],
+      "validity": null,
+      "mints": [],
+      "burns": [],
+      "signers": null,
+      "adhoc": [
+        {
+          "Cardano": {
+            "TreasuryDonation": {
+              "coin": {
+                "AddOp": {
+                  "lhs": {
+                    "Number": 445
+                  },
+                  "rhs": {
+                    "Identifier": {
+                      "value": "quantity",
+                      "span": {
+                        "dummy": false,
+                        "start": 341,
+                        "end": 349
+                      }
+                    }
+                  },
+                  "span": {
+                    "dummy": false,
+                    "start": 339,
+                    "end": 340
+                  }
+                }
+              },
+              "span": {
+                "dummy": false,
+                "start": 301,
+                "end": 356
+              }
+            }
+          }
+        }
+      ],
+      "span": {
+        "dummy": false,
+        "start": 20,
+        "end": 358
+      },
+      "collateral": [],
+      "metadata": null
+    }
+  ],
+  "types": [],
+  "assets": [],
+  "parties": [
+    {
+      "name": {
+        "value": "Contributor",
+        "span": {
+          "dummy": false,
+          "start": 6,
+          "end": 17
+        }
+      },
+      "span": {
+        "dummy": false,
+        "start": 0,
+        "end": 18
+      }
+    }
+  ],
+  "policies": [],
+  "span": {
+    "dummy": false,
+    "start": 0,
+    "end": 359
+  }
+}
