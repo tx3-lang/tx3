@@ -51,7 +51,7 @@ fn test_compiler(config: Option<Config>) -> Compiler {
     Compiler::new(
         pparams,
         config,
-        ChainTip {
+        ChainPoint {
             slot: 101674141,
             hash: vec![],
         },

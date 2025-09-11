@@ -43,7 +43,7 @@ pub type TxBody =
     pallas::codec::utils::KeepRaw<'static, primitives::conway::TransactionBody<'static>>;
 
 #[derive(Debug, Clone)]
-pub struct ChainTip {
+pub struct ChainPoint {
     pub slot: u64,
     pub hash: Vec<u8>,
 }
@@ -52,11 +52,11 @@ pub struct Compiler {
     pub pparams: PParams,
     pub config: Config,
     pub latest_tx_body: Option<TxBody>,
-    pub cursor: ChainTip,
+    pub cursor: ChainPoint,
 }
 
 impl Compiler {
-    pub fn new(pparams: PParams, config: Config, cursor: ChainTip) -> Self {
+    pub fn new(pparams: PParams, config: Config, cursor: ChainPoint) -> Self {
         Self {
             pparams,
             config,
