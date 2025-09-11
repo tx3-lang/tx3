@@ -212,7 +212,7 @@ fn compile_mint_block(tx: &ir::Tx) -> Result<Option<primitives::Mint>, Error> {
 }
 
 fn compile_inputs(tx: &ir::Tx) -> Result<Vec<primitives::TransactionInput>, Error> {
-    let refs = tx
+    let mut refs: Vec<primitives::TransactionInput> = tx
         .inputs
         .iter()
         .flat_map(|x| coercion::expr_into_utxo_refs(&x.utxos))
@@ -222,6 +222,12 @@ fn compile_inputs(tx: &ir::Tx) -> Result<Vec<primitives::TransactionInput>, Erro
             index: x.index as u64,
         })
         .collect();
+
+    refs.sort_by(|a, b| {
+        a.transaction_id
+            .cmp(&b.transaction_id)
+            .then(a.index.cmp(&b.index))
+    });
 
     Ok(refs)
 }
