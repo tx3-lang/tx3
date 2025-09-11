@@ -716,4 +716,36 @@ mod tests {
             utxos1.is_disjoint(&utxos3);
         }
     }
+
+    #[pollster::test]
+    async fn test_select_by_naked_and_asset_amount() {
+        let store = mock::seed_random_memory_store(
+            |_: &mock::FuzzTxoRef, x: &mock::KnownAddress, sequence: u64| {
+                if sequence % 2 == 0 {
+                    mock::utxo_with_random_amount(x, 4_000_000..5_000_000)
+                } else {
+                    mock::utxo_with_random_asset(x, mock::KnownAsset::Hosky, 500..1000)
+                }
+            },
+            2..3,
+        );
+
+        let mut selector = InputSelector::new(&store);
+
+        let criteria = new_input_query(
+            &mock::KnownAddress::Alice,
+            Some(4_000_000),
+            vec![(mock::KnownAsset::Hosky, 500)],
+            true,
+            false,
+        );
+
+        let space = searching::narrow_search_space(&store, &criteria)
+            .await
+            .unwrap();
+
+        let utxos = selector.select(&space, &criteria).await.unwrap();
+
+        assert!(utxos.len() == 2);
+    }
 }

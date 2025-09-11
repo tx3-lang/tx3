@@ -245,7 +245,7 @@ impl IntoLower for ast::StructConstructor {
                     .into_lower(ctx)?;
 
                 fields.push(ir::Expression::EvalBuiltIn(Box::new(
-                    ir::BuiltInOp::Property(spread_target, index),
+                    ir::BuiltInOp::Property(spread_target, ir::Expression::Number(index as i128)),
                 )));
             }
         }
@@ -398,15 +398,15 @@ impl IntoLower for ast::PropertyOp {
             .target_type()
             .ok_or(Error::MissingAnalyzePhase(format!("{0:?}", self.operand)))?;
 
-        let prop_index = ty
-            .property_index(&self.property.value)
-            .ok_or(Error::InvalidProperty(
-                self.property.value.clone(),
-                ty.to_string(),
-            ))?;
+        let prop_index =
+            ty.property_index(*self.property.clone())
+                .ok_or(Error::InvalidProperty(
+                    format!("{:?}", self.property),
+                    ty.to_string(),
+                ))?;
 
         Ok(ir::Expression::EvalBuiltIn(Box::new(
-            ir::BuiltInOp::Property(object, prop_index),
+            ir::BuiltInOp::Property(object, prop_index.into_lower(ctx)?),
         )))
     }
 }
@@ -469,6 +469,9 @@ impl IntoLower for ast::DataExpr {
             ast::DataExpr::MinUtxo(x) => ir::Expression::EvalCompiler(Box::new(
                 ir::CompilerOp::ComputeMinUtxo(x.into_lower(ctx)?),
             )),
+            ast::DataExpr::ComputeTipSlot => {
+                ir::Expression::EvalCompiler(Box::new(ir::CompilerOp::ComputeTipSlot))
+            }
         };
 
         Ok(out)
@@ -925,6 +928,8 @@ mod tests {
     test_lowering!(burn);
 
     test_lowering!(min_utxo);
+
+    test_lowering!(donation);
 
     test_lowering!(list_concat);
 }
