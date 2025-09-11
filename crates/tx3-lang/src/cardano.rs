@@ -510,12 +510,65 @@ impl IntoLower for NativeWitnessBlock {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct TreasuryDonationBlock {
+    pub coin: DataExpr,
+    pub span: Span,
+}
+
+impl AstNode for TreasuryDonationBlock {
+    const RULE: Rule = Rule::cardano_treasury_donation_block;
+
+    fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
+        let span = pair.as_span().into();
+
+        let mut inner = pair.into_inner();
+        let coin = DataExpr::parse(inner.next().unwrap())?;
+
+        Ok(TreasuryDonationBlock { coin, span })
+    }
+
+    fn span(&self) -> &Span {
+        &self.span
+    }
+}
+
+impl Analyzable for TreasuryDonationBlock {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+        let coin = self.coin.analyze(parent);
+        let coin_type = AnalyzeReport::expect_data_expr_type(&self.coin, &Type::Int);
+
+        coin + coin_type
+    }
+
+    fn is_resolved(&self) -> bool {
+        self.coin.is_resolved()
+    }
+}
+
+impl IntoLower for TreasuryDonationBlock {
+    type Output = ir::AdHocDirective;
+
+    fn into_lower(
+        &self,
+        ctx: &crate::lowering::Context,
+    ) -> Result<Self::Output, crate::lowering::Error> {
+        let coin = self.coin.into_lower(ctx)?;
+
+        Ok(ir::AdHocDirective {
+            name: "treasury_donation".to_string(),
+            data: std::collections::HashMap::from([("coin".to_string(), coin)]),
+        })
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum CardanoBlock {
     VoteDelegationCertificate(VoteDelegationCertificate),
     StakeDelegationCertificate(StakeDelegationCertificate),
     Withdrawal(WithdrawalBlock),
     PlutusWitness(PlutusWitnessBlock),
     NativeWitness(NativeWitnessBlock),
+    TreasuryDonation(TreasuryDonationBlock),
 }
 
 impl AstNode for CardanoBlock {
@@ -541,6 +594,9 @@ impl AstNode for CardanoBlock {
             Rule::cardano_native_witness_block => Ok(CardanoBlock::NativeWitness(
                 NativeWitnessBlock::parse(item)?,
             )),
+            Rule::cardano_treasury_donation_block => Ok(CardanoBlock::TreasuryDonation(
+                TreasuryDonationBlock::parse(item)?,
+            )),
             x => unreachable!("Unexpected rule in cardano_block: {:?}", x),
         }
     }
@@ -552,6 +608,7 @@ impl AstNode for CardanoBlock {
             CardanoBlock::Withdrawal(x) => x.span(),
             CardanoBlock::PlutusWitness(x) => x.span(),
             CardanoBlock::NativeWitness(x) => x.span(),
+            CardanoBlock::TreasuryDonation(x) => x.span(),
         }
     }
 }
@@ -564,6 +621,7 @@ impl Analyzable for CardanoBlock {
             CardanoBlock::Withdrawal(x) => x.analyze(parent),
             CardanoBlock::PlutusWitness(x) => x.analyze(parent),
             CardanoBlock::NativeWitness(x) => x.analyze(parent),
+            CardanoBlock::TreasuryDonation(x) => x.analyze(parent),
         }
     }
 
@@ -574,6 +632,7 @@ impl Analyzable for CardanoBlock {
             CardanoBlock::Withdrawal(x) => x.is_resolved(),
             CardanoBlock::PlutusWitness(x) => x.is_resolved(),
             CardanoBlock::NativeWitness(x) => x.is_resolved(),
+            Self::TreasuryDonation(x) => x.is_resolved(),
         }
     }
 }
@@ -591,6 +650,7 @@ impl IntoLower for CardanoBlock {
             CardanoBlock::Withdrawal(x) => x.into_lower(ctx),
             CardanoBlock::PlutusWitness(x) => x.into_lower(ctx),
             CardanoBlock::NativeWitness(x) => x.into_lower(ctx),
+            CardanoBlock::TreasuryDonation(x) => x.into_lower(ctx),
         }
     }
 }
@@ -598,7 +658,10 @@ impl IntoLower for CardanoBlock {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ast::*;
+    use crate::{
+        analyzing::analyze,
+        ast::{self, *},
+    };
     use pest::Parser;
 
     macro_rules! input_to_ast_check {
@@ -649,4 +712,50 @@ mod tests {
             span: Span::DUMMY,
         }
     );
+
+    input_to_ast_check!(
+        TreasuryDonationBlock,
+        "basic",
+        "treasury_donation {
+            coin: 2020,
+        }",
+        TreasuryDonationBlock {
+            coin: DataExpr::Number(2020),
+            span: Span::DUMMY,
+        }
+    );
+
+    #[test]
+    fn test_treasury_donation_type() {
+        let mut ast = crate::parsing::parse_string(
+            r#"
+            tx test(quantity: Int) {
+                cardano::treasury_donation {
+                  coin: quantity,
+                }
+            }
+            "#,
+        )
+        .unwrap();
+
+        let result = analyze(&mut ast);
+        assert!(result.errors.is_empty());
+    }
+
+    #[test]
+    fn test_treasury_donation_type_not_ok() {
+        let mut ast = crate::parsing::parse_string(
+            r#"
+            tx test(quantity: Bytes) {
+                cardano::treasury_donation {
+                  coin: quantity,
+                }
+            }
+            "#,
+        )
+        .unwrap();
+
+        let result = analyze(&mut ast);
+        assert!(!result.errors.is_empty());
+    }
 }

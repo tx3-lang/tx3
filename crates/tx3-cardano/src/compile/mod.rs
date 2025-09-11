@@ -416,6 +416,24 @@ fn compile_validity(validity: Option<&ir::Validity>) -> Result<(Option<u64>, Opt
     Ok((since, until))
 }
 
+fn compile_donation(tx: &ir::Tx) -> Result<Option<pallas::codec::utils::PositiveCoin>, Error> {
+    tx.adhoc
+        .iter()
+        .find(|x| x.name.as_str() == "treasury_donation")
+        .and_then(|donation| donation.data.get("coin"))
+        .map(coercion::expr_into_number)
+        .transpose()?
+        .map(|amount| {
+            pallas::codec::utils::PositiveCoin::try_from(amount as u64).map_err(|_| {
+                Error::CoerceError(
+                    format!("Invalid donation amount: {}", amount),
+                    "PositiveCoin".to_string(),
+                )
+            })
+        })
+        .transpose()
+}
+
 fn compile_tx_body(
     tx: &ir::Tx,
     network: Network,
@@ -442,7 +460,7 @@ fn compile_tx_body(
         voting_procedures: None,
         proposal_procedures: None,
         treasury_value: None,
-        donation: None,
+        donation: compile_donation(tx)?,
     };
 
     Ok(out)
