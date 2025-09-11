@@ -282,11 +282,13 @@
                                   }
                                 },
                                 "property": {
-                                  "value": "pair_a",
-                                  "span": {
-                                    "dummy": false,
-                                    "start": 557,
-                                    "end": 563
+                                  "Identifier": {
+                                    "value": "pair_a",
+                                    "span": {
+                                      "dummy": false,
+                                      "start": 557,
+                                      "end": 563
+                                    }
                                   }
                                 },
                                 "span": {
@@ -309,11 +311,13 @@
                                   }
                                 },
                                 "property": {
-                                  "value": "amount",
-                                  "span": {
-                                    "dummy": false,
-                                    "start": 570,
-                                    "end": 576
+                                  "Identifier": {
+                                    "value": "amount",
+                                    "span": {
+                                      "dummy": false,
+                                      "start": 570,
+                                      "end": 576
+                                    }
                                   }
                                 },
                                 "span": {
@@ -360,11 +364,13 @@
                                   }
                                 },
                                 "property": {
-                                  "value": "pair_b",
-                                  "span": {
-                                    "dummy": false,
-                                    "start": 603,
-                                    "end": 609
+                                  "Identifier": {
+                                    "value": "pair_b",
+                                    "span": {
+                                      "dummy": false,
+                                      "start": 603,
+                                      "end": 609
+                                    }
                                   }
                                 },
                                 "span": {
@@ -387,11 +393,13 @@
                                   }
                                 },
                                 "property": {
-                                  "value": "amount",
-                                  "span": {
-                                    "dummy": false,
-                                    "start": 616,
-                                    "end": 622
+                                  "Identifier": {
+                                    "value": "amount",
+                                    "span": {
+                                      "dummy": false,
+                                      "start": 616,
+                                      "end": 622
+                                    }
                                   }
                                 },
                                 "span": {

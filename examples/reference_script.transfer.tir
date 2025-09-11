@@ -50,76 +50,12 @@
       "address": {
         "EvalParam": {
           "ExpectValue": [
-            "receiver",
-            "Address"
-          ]
-        }
-      },
-      "datum": "None",
-      "amount": {
-        "Assets": [
-          {
-            "policy": "None",
-            "asset_name": "None",
-            "amount": {
-              "EvalParam": {
-                "ExpectValue": [
-                  "quantity",
-                  "Int"
-                ]
-              }
-            }
-          }
-        ]
-      },
-      "ref_script": "None"
-    },
-    {
-      "address": {
-        "EvalParam": {
-          "ExpectValue": [
             "sender",
             "Address"
           ]
         }
       },
-      "datum": {
-        "Struct": {
-          "constructor": 0,
-          "fields": [
-            {
-              "Map": [
-                [
-                  {
-                    "Number": 1
-                  },
-                  {
-                    "EvalParam": {
-                      "ExpectValue": [
-                        "quantity",
-                        "Int"
-                      ]
-                    }
-                  }
-                ],
-                [
-                  {
-                    "Number": 2
-                  },
-                  {
-                    "EvalParam": {
-                      "ExpectValue": [
-                        "quantity",
-                        "Int"
-                      ]
-                    }
-                  }
-                ]
-              ]
-            }
-          ]
-        }
-      },
+      "datum": "None",
       "amount": {
         "EvalBuiltIn": {
           "Sub": [
@@ -190,14 +126,75 @@
             }
           ]
         }
-      },
-      "ref_script": "None"
+      }
     }
   ],
   "validity": null,
   "mints": [],
   "burns": [],
-  "adhoc": [],
+  "adhoc": [
+    {
+      "name": "cardano_output",
+      "data": {
+        "ref_script": {
+          "AdHocDirective": {
+            "name": "plutus_witness",
+            "data": {
+              "version": {
+                "Number": 3
+              },
+              "script": {
+                "Bytes": [
+                  81,
+                  1,
+                  1,
+                  0,
+                  35,
+                  37,
+                  152,
+                  0,
+                  165,
+                  24,
+                  164,
+                  209,
+                  54,
+                  86,
+                  64,
+                  4,
+                  174,
+                  105
+                ]
+              }
+            }
+          }
+        },
+        "to": {
+          "EvalParam": {
+            "ExpectValue": [
+              "receiver",
+              "Address"
+            ]
+          }
+        },
+        "amount": {
+          "Assets": [
+            {
+              "policy": "None",
+              "asset_name": "None",
+              "amount": {
+                "EvalParam": {
+                  "ExpectValue": [
+                    "quantity",
+                    "Int"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
   "collateral": [],
   "signers": null,
   "metadata": []

@@ -10,19 +10,17 @@ tx transfer(
         min_amount: Ada(quantity),
     }
     
-    output {
+    cardano::output {
         to: Receiver,
         amount: Ada(quantity),
+        ref_script: {
+          version: 3,
+          script: 0x5101010023259800a518a4d136564004ae69,
+        },
     }
 
     output {
         to: Sender,
         amount: source - Ada(quantity) - fees,
-    }
-
-    cardano::withdrawal {
-        from: Sender,
-        amount: 0,
-        redeemer: (),
     }
 }

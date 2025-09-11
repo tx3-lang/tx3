@@ -93,62 +93,11 @@
             {
               "To": {
                 "Identifier": {
-                  "value": "Receiver",
-                  "span": {
-                    "dummy": false,
-                    "start": 179,
-                    "end": 187
-                  }
-                }
-              }
-            },
-            {
-              "Amount": {
-                "StaticAssetConstructor": {
-                  "type": {
-                    "value": "Ada",
-                    "span": {
-                      "dummy": false,
-                      "start": 205,
-                      "end": 208
-                    }
-                  },
-                  "amount": {
-                    "Identifier": {
-                      "value": "quantity",
-                      "span": {
-                        "dummy": false,
-                        "start": 209,
-                        "end": 217
-                      }
-                    }
-                  },
-                  "span": {
-                    "dummy": false,
-                    "start": 205,
-                    "end": 218
-                  }
-                }
-              }
-            }
-          ],
-          "span": {
-            "dummy": false,
-            "start": 158,
-            "end": 225
-          }
-        },
-        {
-          "name": null,
-          "fields": [
-            {
-              "To": {
-                "Identifier": {
                   "value": "Sender",
                   "span": {
                     "dummy": false,
-                    "start": 252,
-                    "end": 258
+                    "start": 374,
+                    "end": 380
                   }
                 }
               }
@@ -163,8 +112,8 @@
                           "value": "source",
                           "span": {
                             "dummy": false,
-                            "start": 276,
-                            "end": 282
+                            "start": 398,
+                            "end": 404
                           }
                         }
                       },
@@ -174,8 +123,8 @@
                             "value": "Ada",
                             "span": {
                               "dummy": false,
-                              "start": 285,
-                              "end": 288
+                              "start": 407,
+                              "end": 410
                             }
                           },
                           "amount": {
@@ -183,22 +132,22 @@
                               "value": "quantity",
                               "span": {
                                 "dummy": false,
-                                "start": 289,
-                                "end": 297
+                                "start": 411,
+                                "end": 419
                               }
                             }
                           },
                           "span": {
                             "dummy": false,
-                            "start": 285,
-                            "end": 298
+                            "start": 407,
+                            "end": 420
                           }
                         }
                       },
                       "span": {
                         "dummy": false,
-                        "start": 283,
-                        "end": 284
+                        "start": 405,
+                        "end": 406
                       }
                     }
                   },
@@ -207,15 +156,15 @@
                       "value": "fees",
                       "span": {
                         "dummy": false,
-                        "start": 301,
-                        "end": 305
+                        "start": 423,
+                        "end": 427
                       }
                     }
                   },
                   "span": {
                     "dummy": false,
-                    "start": 299,
-                    "end": 300
+                    "start": 421,
+                    "end": 422
                   }
                 }
               }
@@ -223,8 +172,8 @@
           ],
           "span": {
             "dummy": false,
-            "start": 231,
-            "end": 312
+            "start": 353,
+            "end": 434
           }
         }
       ],
@@ -235,33 +184,96 @@
       "adhoc": [
         {
           "Cardano": {
-            "Withdrawal": {
+            "Output": {
               "fields": [
                 {
-                  "From": {
+                  "To": {
                     "Identifier": {
-                      "value": "Sender",
+                      "value": "Receiver",
                       "span": {
                         "dummy": false,
-                        "start": 354,
-                        "end": 360
+                        "start": 188,
+                        "end": 196
                       }
                     }
                   }
                 },
                 {
                   "Amount": {
-                    "Number": 0
+                    "StaticAssetConstructor": {
+                      "type": {
+                        "value": "Ada",
+                        "span": {
+                          "dummy": false,
+                          "start": 214,
+                          "end": 217
+                        }
+                      },
+                      "amount": {
+                        "Identifier": {
+                          "value": "quantity",
+                          "span": {
+                            "dummy": false,
+                            "start": 218,
+                            "end": 226
+                          }
+                        }
+                      },
+                      "span": {
+                        "dummy": false,
+                        "start": 214,
+                        "end": 227
+                      }
+                    }
                   }
                 },
                 {
-                  "Redeemer": "Unit"
+                  "ReferenceScript": {
+                    "fields": [
+                      {
+                        "Version": [
+                          {
+                            "Number": 3
+                          },
+                          {
+                            "dummy": false,
+                            "start": 261,
+                            "end": 271
+                          }
+                        ]
+                      },
+                      {
+                        "Script": [
+                          {
+                            "HexString": {
+                              "value": "5101010023259800a518a4d136564004ae69",
+                              "span": {
+                                "dummy": false,
+                                "start": 291,
+                                "end": 329
+                              }
+                            }
+                          },
+                          {
+                            "dummy": false,
+                            "start": 283,
+                            "end": 329
+                          }
+                        ]
+                      }
+                    ],
+                    "span": {
+                      "dummy": false,
+                      "start": 237,
+                      "end": 340
+                    }
+                  }
                 }
               ],
               "span": {
                 "dummy": false,
-                "start": 327,
-                "end": 408
+                "start": 167,
+                "end": 347
               }
             }
           }
@@ -270,7 +282,7 @@
       "span": {
         "dummy": false,
         "start": 32,
-        "end": 410
+        "end": 436
       },
       "collateral": [],
       "metadata": null
@@ -314,6 +326,6 @@
   "span": {
     "dummy": false,
     "start": 0,
-    "end": 410
+    "end": 436
   }
 }

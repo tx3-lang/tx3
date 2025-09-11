@@ -924,6 +924,9 @@ mod tests {
 
     test_lowering!(cardano_witness);
 
+    test_lowering!(reference_script);
+
+    test_lowering!(withdrawal);
     test_lowering!(map);
     test_lowering!(burn);
 

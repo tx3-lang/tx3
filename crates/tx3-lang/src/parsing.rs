@@ -12,8 +12,10 @@ use pest::{
 };
 use pest_derive::Parser;
 
-use crate::ast::*;
-
+use crate::{
+    ast::*,
+    cardano::{PlutusWitnessBlock, PlutusWitnessField},
+};
 #[derive(Parser)]
 #[grammar = "tx3.pest"]
 pub(crate) struct Tx3Grammar;
@@ -1529,10 +1531,10 @@ mod tests {
         ConcatOp,
         "basic",
         r#"concat("hello", "world")"#,
-        ConcatOp {
-            lhs: Box::new(DataExpr::String(StringLiteral {
+        ast::ConcatOp {
+            lhs: Box::new(ast::DataExpr::String(ast::StringLiteral {
                 value: "hello".to_string(),
-                span: Span::DUMMY,
+                span: ast::Span::DUMMY,
             })),
             rhs: Box::new(ast::DataExpr::String(ast::StringLiteral {
                 value: "world".to_string(),
@@ -2647,6 +2649,7 @@ mod tests {
 
     test_parsing!(cardano_witness);
 
+    test_parsing!(reference_script);
     test_parsing!(map);
     test_parsing!(burn);
 
