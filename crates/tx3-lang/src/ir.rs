@@ -320,7 +320,6 @@ pub struct Output {
     pub address: Expression,
     pub datum: Expression,
     pub amount: Expression,
-    pub ref_script: Expression,
 }
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]
@@ -539,7 +538,6 @@ impl Node for Output {
             address: self.address.apply(visitor)?,
             datum: self.datum.apply(visitor)?,
             amount: self.amount.apply(visitor)?,
-            ref_script: self.ref_script.apply(visitor)?,
         };
 
         Ok(visited)

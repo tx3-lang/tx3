@@ -194,16 +194,6 @@ fn compile_output_block(
     let value = asset_math::aggregate_values(values);
 
     let datum_option = ir.datum.as_option().map(compile_data_expr).transpose()?;
-    let adhoc = match &ir.ref_script {
-        ir::Expression::AdHocDirective(adhoc) => Some(adhoc),
-        ir::Expression::None => None,
-        _ => {
-            return Err(Error::CoerceError(
-                format!("{:?}", ir.ref_script),
-                "Reference script".to_string(),
-            ));
-        }
-    };
 
     let output = primitives::TransactionOutput::PostAlonzo(
         primitives::PostAlonzoTransactionOutput {
@@ -212,12 +202,7 @@ fn compile_output_block(
             datum_option: datum_option.map(|x| {
                 primitives::DatumOption::Data(pallas::codec::utils::CborWrap(x.into())).into()
             }),
-            script_ref: if let Some(adhoc) = adhoc {
-                let script = compile_adhoc_script(adhoc)?;
-                Some(pallas::codec::utils::CborWrap(script.into()))
-            } else {
-                None
-            },
+            script_ref: None,
         }
         .into(),
     );
@@ -283,14 +268,77 @@ fn compile_outputs(
     tx: &ir::Tx,
     network: Network,
 ) -> Result<Vec<primitives::TransactionOutput<'static>>, Error> {
-    let resolved = tx
+    let mut resolved = tx
         .outputs
         .iter()
         .map(|x| compile_output_block(x, network))
         .collect::<Result<Vec<_>, _>>()?;
 
+    let cardano_outputs = tx
+        .adhoc
+        .iter()
+        .filter(|x| x.name.as_str() == "cardano_output")
+        .map(|adhoc| compile_cardano_output_directive(adhoc, network))
+        .collect::<Result<Vec<_>, _>>()?;
+
+    resolved.extend(cardano_outputs);
+
     println!("resolved: {:?}", resolved);
     Ok(resolved)
+}
+
+pub fn compile_cardano_output_directive(
+    adhoc: &ir::AdHocDirective,
+    network: Network,
+) -> Result<primitives::TransactionOutput<'static>, Error> {
+    let address = adhoc
+        .data
+        .get("to")
+        .ok_or(Error::MissingExpression("output address".to_string()))?;
+    let address = coercion::expr_into_address(address, network)?;
+
+    let amount = adhoc
+        .data
+        .get("amount")
+        .ok_or(Error::MissingExpression("output amount".to_string()))?;
+    let asset_list = coercion::expr_into_assets(amount)?;
+    let values = asset_list
+        .iter()
+        .map(compile_value)
+        .collect::<Result<Vec<_>, _>>()?;
+    let value = asset_math::aggregate_values(values);
+
+    let datum_option = adhoc
+        .data
+        .get("datum")
+        .map(compile_data_expr)
+        .transpose()?;
+
+    let script_ref = if let Some(ref_script_expr) = adhoc.data.get("ref_script") {
+        match ref_script_expr {
+            ir::Expression::AdHocDirective(ref_adhoc) => {
+                let script = compile_adhoc_script(ref_adhoc)?;
+                Some(pallas::codec::utils::CborWrap(script.into()))
+            }
+            _ => None,
+        }
+    } else {
+        None
+    };
+
+    let output = primitives::TransactionOutput::PostAlonzo(
+        primitives::PostAlonzoTransactionOutput {
+            address: address.to_vec().into(),
+            value,
+            datum_option: datum_option.map(|x| {
+                primitives::DatumOption::Data(pallas::codec::utils::CborWrap(x.into())).into()
+            }),
+            script_ref,
+        }
+        .into(),
+    );
+
+    Ok(output)
 }
 
 pub fn compile_withdrawal_directive(

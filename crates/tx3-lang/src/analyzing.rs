@@ -812,7 +812,6 @@ impl Analyzable for OutputBlockField {
             OutputBlockField::To(x) => x.analyze(parent),
             OutputBlockField::Amount(x) => x.analyze(parent),
             OutputBlockField::Datum(x) => x.analyze(parent),
-            OutputBlockField::ReferenceScript(x) => x.analyze(parent),
         }
     }
 
@@ -821,7 +820,6 @@ impl Analyzable for OutputBlockField {
             OutputBlockField::To(x) => x.is_resolved(),
             OutputBlockField::Amount(x) => x.is_resolved(),
             OutputBlockField::Datum(x) => x.is_resolved(),
-            OutputBlockField::ReferenceScript(x) => x.is_resolved(),
         }
     }
 }

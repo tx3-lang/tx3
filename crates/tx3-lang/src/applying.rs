@@ -1143,7 +1143,7 @@ impl Apply for ir::Expression {
 
 impl Composite for ir::Output {
     fn components(&self) -> Vec<&ir::Expression> {
-        vec![&self.address, &self.datum, &self.amount, &self.ref_script]
+        vec![&self.address, &self.datum, &self.amount]
     }
 
     fn try_map_components<F>(self, f: F) -> Result<Self, Error>
@@ -1154,7 +1154,6 @@ impl Composite for ir::Output {
             address: f(self.address)?,
             datum: f(self.datum)?,
             amount: f(self.amount)?,
-            ref_script: f(self.ref_script)?,
         })
     }
 }
