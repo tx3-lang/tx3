@@ -180,6 +180,7 @@ pub enum Type {
     UtxoRef,
     AnyAsset,
     List,
+    Map,
     Custom(String),
 }
 
@@ -195,6 +196,7 @@ pub enum Param {
 pub enum Expression {
     None,
     List(Vec<Expression>),
+    Map(Vec<(Expression, Expression)>),
     Tuple(Box<(Expression, Expression)>),
     Struct(StructExpr),
     Bytes(Vec<u8>),
@@ -491,6 +493,7 @@ impl Node for Expression {
         // first we visit the nested expressions
         let visited = match self {
             Expression::List(x) => Expression::List(x.apply(visitor)?),
+            Expression::Map(x) => Expression::Map(x.apply(visitor)?),
             Expression::Tuple(x) => Expression::Tuple(x.apply(visitor)?),
             Expression::Struct(x) => Expression::Struct(x.apply(visitor)?),
             Expression::Assets(x) => Expression::Assets(x.apply(visitor)?),

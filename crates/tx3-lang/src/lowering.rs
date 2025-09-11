@@ -330,6 +330,7 @@ impl IntoLower for ast::Type {
             ast::Type::UtxoRef => Ok(ir::Type::UtxoRef),
             ast::Type::AnyAsset => Ok(ir::Type::AnyAsset),
             ast::Type::List(_) => Ok(ir::Type::List),
+            ast::Type::Map(_, _) => Ok(ir::Type::Map),
             ast::Type::Custom(x) => Ok(ir::Type::Custom(x.value.clone())),
         }
     }
@@ -424,6 +425,24 @@ impl IntoLower for ast::ListConstructor {
     }
 }
 
+impl IntoLower for ast::MapConstructor {
+    type Output = ir::Expression;
+
+    fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
+        let pairs = self
+            .fields
+            .iter()
+            .map(|field| {
+                let key = field.key.into_lower(ctx)?;
+                let value = field.value.into_lower(ctx)?;
+                Ok((key, value))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(ir::Expression::Map(pairs))
+    }
+}
+
 impl IntoLower for ast::DataExpr {
     type Output = ir::Expression;
 
@@ -436,6 +455,7 @@ impl IntoLower for ast::DataExpr {
             ast::DataExpr::HexString(x) => ir::Expression::Bytes(hex_decode(&x.value)?),
             ast::DataExpr::StructConstructor(x) => ir::Expression::Struct(x.into_lower(ctx)?),
             ast::DataExpr::ListConstructor(x) => ir::Expression::List(x.into_lower(ctx)?),
+            ast::DataExpr::MapConstructor(x) => x.into_lower(ctx)?,
             ast::DataExpr::StaticAssetConstructor(x) => x.into_lower(ctx)?,
             ast::DataExpr::AnyAssetConstructor(x) => x.into_lower(ctx)?,
             ast::DataExpr::Unit => ir::Expression::Struct(ir::StructExpr::unit()),
@@ -904,6 +924,7 @@ mod tests {
 
     test_lowering!(cardano_witness);
 
+    test_lowering!(map);
     test_lowering!(burn);
 
     test_lowering!(min_utxo);
