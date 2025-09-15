@@ -848,6 +848,149 @@ impl TypeDef {
     pub(crate) fn find_case(&self, case: &str) -> Option<&VariantCase> {
         self.cases.iter().find(|x| x.name.value == case)
     }
+
+    pub fn json_schema(&self) -> serde_json::Value {
+        use serde_json::{json, Map, Value};
+
+        if self.cases.is_empty() {
+            return json!({ "type": "null" });
+        }
+
+        // If there's only one case, treat it as a simple object
+        if self.cases.len() == 1 {
+            let case = &self.cases[0];
+            let mut properties = Map::new();
+            let mut required = Vec::new();
+
+            // Add constructor field (always 0 for single case)
+            properties.insert(
+                "constructor".to_string(),
+                json!({
+                    "type": "integer",
+                    "const": 0,
+                    "description": format!("Constructor index for variant '{}'", case.name.value)
+                })
+            );
+            required.push("constructor".to_string());
+
+            for field in &case.fields {
+                properties.insert(field.name.value.clone(), type_to_json_schema(&field.r#type));
+                required.push(field.name.value.clone());
+            }
+
+            return json!({
+                "type": "object",
+                "properties": properties,
+                "required": required,
+                "additionalProperties": false,
+                "description": format!("Type {} with single constructor '{}' (index 0)", self.name.value, case.name.value)
+            });
+        }
+
+        // Multiple cases - use oneOf with discriminator
+        let mut one_of = Vec::new();
+
+        for (index, case) in self.cases.iter().enumerate() {
+            let mut properties = Map::new();
+            let mut required = vec!["constructor".to_string()];
+
+            // Add discriminator field with constructor index
+            properties.insert(
+                "constructor".to_string(),
+                json!({
+                    "type": "integer",
+                    "const": index,
+                    "description": format!("Constructor {} for variant '{}'", index, case.name.value)
+                }),
+            );
+
+            // Add case fields
+            for field in &case.fields {
+                properties.insert(field.name.value.clone(), type_to_json_schema(&field.r#type));
+                required.push(field.name.value.clone());
+            }
+
+            one_of.push(json!({
+                "type": "object",
+                "properties": properties,
+                "required": required,
+                "additionalProperties": false,
+                "title": format!("Constructor {} ({})", index, case.name.value),
+                "description": format!("Variant '{}' with constructor index {}", case.name.value, index)
+            }));
+        }
+
+        json!({
+            "oneOf": one_of,
+            "discriminator": {
+                "propertyName": "constructor",
+                "mapping": self.cases.iter().enumerate().map(|(i, case)| {
+                    (i.to_string(), serde_json::Value::String(format!("#/oneOf/{}", i)))
+                }).collect::<Map<String, Value>>()
+            },
+            "title": self.name.value.clone(),
+            "description": format!("Type {} with {} constructor variants", self.name.value, self.cases.len())
+        })
+    }
+
+    /// Get the constructor index for a given case name
+    pub fn constructor_index(&self, case_name: &str) -> Option<usize> {
+        self.cases.iter().position(|case| case.name.value == case_name)
+    }
+
+    /// Get the case name for a given constructor index
+    pub fn case_name(&self, constructor_index: usize) -> Option<&str> {
+        self.cases.get(constructor_index).map(|case| case.name.value.as_str())
+    }
+
+    /// Get all constructor indices with their corresponding case names
+    pub fn constructors(&self) -> Vec<(usize, &str)> {
+        self.cases.iter().enumerate().map(|(i, case)| (i, case.name.value.as_str())).collect()
+    }
+}
+
+fn type_to_json_schema(ty: &Type) -> serde_json::Value {
+    use serde_json::json;
+
+    match ty {
+        Type::Undefined => json!({ "type": "null" }),
+        Type::Unit => json!({ "type": "null" }),
+        Type::Int => json!({ "type": "integer" }),
+        Type::Bool => json!({ "type": "boolean" }),
+        Type::Bytes => json!({ "type": "string", "format": "byte" }),
+        Type::Address => json!({ "type": "string", "format": "address" }),
+        Type::Utxo => json!({ "type": "object" }), // Could be more specific
+        Type::UtxoRef => json!({
+            "type": "object",
+            "properties": {
+                "tx_hash": { "type": "string", "format": "byte" },
+                "output_index": { "type": "integer", "minimum": 0 }
+            },
+            "required": ["tx_hash", "output_index"],
+            "additionalProperties": false
+        }),
+        Type::AnyAsset => json!({
+            "type": "object",
+            "properties": {
+                "amount": { "type": "integer", "minimum": 0 },
+                "policy": { "type": "string", "format": "byte" },
+                "asset_name": { "type": "string", "format": "byte" }
+            },
+            "required": ["amount", "policy", "asset_name"],
+            "additionalProperties": false
+        }),
+        Type::List(inner) => json!({
+            "type": "array",
+            "items": type_to_json_schema(inner)
+        }),
+        Type::Custom(identifier) => {
+            // For custom types, we reference them by name
+            // In a full implementation, you'd want to resolve these references
+            json!({
+                "$ref": format!("#/definitions/{}", identifier.value)
+            })
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -855,18 +998,6 @@ pub struct VariantCase {
     pub name: Identifier,
     pub fields: Vec<RecordField>,
     pub span: Span,
-}
-
-impl VariantCase {
-    #[allow(dead_code)]
-    pub(crate) fn find_field_index(&self, field: &str) -> Option<usize> {
-        self.fields.iter().position(|x| x.name.value == field)
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn find_field(&self, field: &str) -> Option<&RecordField> {
-        self.fields.iter().find(|x| x.name.value == field)
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
