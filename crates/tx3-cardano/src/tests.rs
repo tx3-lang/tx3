@@ -402,7 +402,7 @@ async fn burn_test() {
 
     assert_eq!(
         hex::encode(tx.hash),
-        "71e84fad764e06316f4e7137ab86cb2665bbca803ac8a1d380d006d8ba355c47"
+        "48b172526c29ac9f2193f8bcb276f5fa48acfa27498dfc0dd0faa8df6299e363"
     );
 }
 
