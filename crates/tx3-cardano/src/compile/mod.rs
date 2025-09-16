@@ -556,6 +556,20 @@ fn compile_mint_redeemers(
     Ok(redeemers)
 }
 
+fn compile_burn_redeemers(
+    tx: &ir::Tx,
+    compiled_body: &primitives::TransactionBody,
+) -> Result<Vec<primitives::Redeemer>, Error> {
+    let redeemers = tx
+        .burns
+        .iter()
+        .map(|mint| compile_single_mint_redeemer(mint, compiled_body))
+        .filter_map(|x| x.transpose())
+        .collect::<Result<Vec<_>, _>>()?;
+
+    Ok(redeemers)
+}
+
 fn withdrawal_redeemer_index(
     compiled_body: &primitives::TransactionBody,
     adhoc: &ir::AdHocDirective,
@@ -630,12 +644,14 @@ fn compile_redeemers(
 ) -> Result<Option<Redeemers>, Error> {
     let spend_redeemers = compile_spend_redeemers(tx, compiled_body)?;
     let mint_redeemers = compile_mint_redeemers(tx, compiled_body)?;
+    let burn_redeemers = compile_burn_redeemers(tx, compiled_body)?;
     let withdrawal_redeemers = compile_withdrawal_redeemers(tx, compiled_body, network)?;
 
     // TODO: chain other redeemers
     let redeemers: Vec<_> = spend_redeemers
         .into_iter()
         .chain(mint_redeemers)
+        .chain(burn_redeemers)
         .chain(withdrawal_redeemers)
         .collect();
 
