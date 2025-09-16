@@ -8,6 +8,7 @@ use std::{collections::HashMap, rc::Rc};
 use miette::Diagnostic;
 
 use crate::ast::*;
+use crate::parsing::AstNode;
 
 const METADATA_MAX_SIZE_BYTES: usize = 64;
 
@@ -61,7 +62,20 @@ pub struct MetadataSizeLimitError {
     #[source_code]
     src: Option<String>,
 
-    #[label("this value is too large")]
+    #[label("value too large")]
+    span: Span,
+}
+
+#[derive(Debug, thiserror::Error, miette::Diagnostic, PartialEq, Eq)]
+#[error("metadata key must be an integer, got: {key_type}")]
+#[diagnostic(code(tx3::metadata_invalid_key_type))]
+pub struct MetadataInvalidKeyTypeError {
+    pub key_type: String,
+
+    #[source_code]
+    src: Option<String>,
+
+    #[label("expected integer key")]
     span: Span,
 }
 
@@ -91,6 +105,10 @@ pub enum Error {
     #[error(transparent)]
     #[diagnostic(transparent)]
     MetadataSizeLimitExceeded(#[from] MetadataSizeLimitError),
+
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    MetadataInvalidKeyType(#[from] MetadataInvalidKeyTypeError),
 }
 
 impl Error {
@@ -100,6 +118,7 @@ impl Error {
             Self::InvalidSymbol(x) => &x.span,
             Self::InvalidTargetType(x) => &x.span,
             Self::MetadataSizeLimitExceeded(x) => &x.span,
+            Self::MetadataInvalidKeyType(x) => &x.span,
             _ => &Span::DUMMY,
         }
     }
@@ -108,6 +127,7 @@ impl Error {
         match self {
             Self::NotInScope(x) => x.src.as_deref(),
             Self::MetadataSizeLimitExceeded(x) => x.src.as_deref(),
+            Self::MetadataInvalidKeyType(x) => x.src.as_deref(),
             _ => None,
         }
     }
@@ -806,26 +826,59 @@ fn validate_metadata_value_size(expr: &DataExpr) -> Result<(), MetadataSizeLimit
                 });
             }
         }
-        // For other expression types, we can't validate at analysis time
-        // since they might be computed at runtime
         _ => {}
     }
     Ok(())
 }
 
+fn validate_metadata_key_type(expr: &DataExpr) -> Result<(), MetadataInvalidKeyTypeError> {
+    match expr {
+        DataExpr::Number(_) => Ok(()),
+        DataExpr::Identifier(id) => match id.target_type() {
+            Some(Type::Int) => Ok(()),
+            Some(other_type) => Err(MetadataInvalidKeyTypeError {
+                key_type: format!("identifier of type {}", other_type),
+                src: None,
+                span: id.span().clone(),
+            }),
+            None => Err(MetadataInvalidKeyTypeError {
+                key_type: "unresolved identifier".to_string(),
+                src: None,
+                span: id.span().clone(),
+            }),
+        },
+        _ => {
+            let key_type = match expr {
+                DataExpr::String(_) => "string",
+                DataExpr::HexString(_) => "hex string",
+                DataExpr::ListConstructor(_) => "list",
+                DataExpr::MapConstructor(_) => "map",
+                DataExpr::StructConstructor(_) => "struct",
+                _ => "unknown",
+            };
+
+            Err(MetadataInvalidKeyTypeError {
+                key_type: key_type.to_string(),
+                src: None,
+                span: expr.span().clone(),
+            })
+        }
+    }
+}
+
 impl Analyzable for MetadataBlockField {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        // TODO: check keys are actually numbers
         let mut report = self.key.analyze(parent.clone()) + self.value.analyze(parent.clone());
 
-        match validate_metadata_value_size(&self.value) {
-            Ok(()) => {}
-            Err(size_error) => {
-                report
-                    .errors
-                    .push(Error::MetadataSizeLimitExceeded(size_error));
-            }
-        }
+        validate_metadata_key_type(&self.key)
+            .map_err(Error::MetadataInvalidKeyType)
+            .err()
+            .map(|e| report.errors.push(e));
+
+        validate_metadata_value_size(&self.value)
+            .map_err(Error::MetadataSizeLimitExceeded)
+            .err()
+            .map(|e| report.errors.push(e));
 
         report
     }
@@ -1470,5 +1523,84 @@ mod tests {
             metadata_errors.is_empty(),
             "Expected no metadata size errors for non-literal expressions"
         );
+    }
+
+    #[test]
+    fn test_metadata_key_type_validation_string_key() {
+        let mut ast = crate::parsing::parse_string(
+            r#"
+        tx test() {
+            metadata {
+                "invalid_key": "some value",
+            }
+        }
+    "#,
+        )
+        .unwrap();
+
+        let result = analyze(&mut ast);
+        assert_eq!(result.errors.len(), 1);
+
+        match &result.errors[0] {
+            Error::MetadataInvalidKeyType(error) => {
+                assert_eq!(error.key_type, "string");
+            }
+            _ => panic!(
+                "Expected MetadataInvalidKeyType error, got: {:?}",
+                result.errors[0]
+            ),
+        }
+    }
+
+    #[test]
+    fn test_metadata_key_type_validation_identifier_with_int_type() {
+        let mut ast = crate::parsing::parse_string(
+            r#"
+        tx test(my_key: Int) {
+            metadata {
+                my_key: "valid value",
+            }
+        }
+    "#,
+        )
+        .unwrap();
+
+        let result = analyze(&mut ast);
+        let key_type_errors: Vec<_> = result
+            .errors
+            .iter()
+            .filter(|e| matches!(e, Error::MetadataInvalidKeyType(_)))
+            .collect();
+        assert!(
+            key_type_errors.is_empty(),
+            "Expected no key type errors for Int parameter used as key"
+        );
+    }
+
+    #[test]
+    fn test_metadata_key_type_validation_identifier_with_wrong_type() {
+        let mut ast = crate::parsing::parse_string(
+            r#"
+        tx test(my_key: Bytes) {
+            metadata {
+                my_key: "some value",
+            }
+        }
+    "#,
+        )
+        .unwrap();
+
+        let result = analyze(&mut ast);
+        assert_eq!(result.errors.len(), 1);
+
+        match &result.errors[0] {
+            Error::MetadataInvalidKeyType(error) => {
+                assert!(error.key_type.contains("identifier of type Bytes"));
+            }
+            _ => panic!(
+                "Expected MetadataInvalidKeyType error, got: {:?}",
+                result.errors[0]
+            ),
+        }
     }
 }
