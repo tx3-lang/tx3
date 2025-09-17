@@ -96,8 +96,8 @@
                   "value": "Sender",
                   "span": {
                     "dummy": false,
-                    "start": 374,
-                    "end": 380
+                    "start": 338,
+                    "end": 344
                   }
                 }
               }
@@ -112,8 +112,8 @@
                           "value": "source",
                           "span": {
                             "dummy": false,
-                            "start": 398,
-                            "end": 404
+                            "start": 362,
+                            "end": 368
                           }
                         }
                       },
@@ -123,8 +123,8 @@
                             "value": "Ada",
                             "span": {
                               "dummy": false,
-                              "start": 407,
-                              "end": 410
+                              "start": 371,
+                              "end": 374
                             }
                           },
                           "amount": {
@@ -132,22 +132,22 @@
                               "value": "quantity",
                               "span": {
                                 "dummy": false,
-                                "start": 411,
-                                "end": 419
+                                "start": 375,
+                                "end": 383
                               }
                             }
                           },
                           "span": {
                             "dummy": false,
-                            "start": 407,
-                            "end": 420
+                            "start": 371,
+                            "end": 384
                           }
                         }
                       },
                       "span": {
                         "dummy": false,
-                        "start": 405,
-                        "end": 406
+                        "start": 369,
+                        "end": 370
                       }
                     }
                   },
@@ -156,15 +156,15 @@
                       "value": "fees",
                       "span": {
                         "dummy": false,
-                        "start": 423,
-                        "end": 427
+                        "start": 387,
+                        "end": 391
                       }
                     }
                   },
                   "span": {
                     "dummy": false,
-                    "start": 421,
-                    "end": 422
+                    "start": 385,
+                    "end": 386
                   }
                 }
               }
@@ -172,8 +172,8 @@
           ],
           "span": {
             "dummy": false,
-            "start": 353,
-            "end": 434
+            "start": 317,
+            "end": 398
           }
         }
       ],
@@ -184,7 +184,7 @@
       "adhoc": [
         {
           "Cardano": {
-            "Output": {
+            "Publish": {
               "fields": [
                 {
                   "To": {
@@ -192,8 +192,8 @@
                       "value": "Receiver",
                       "span": {
                         "dummy": false,
-                        "start": 188,
-                        "end": 196
+                        "start": 189,
+                        "end": 197
                       }
                     }
                   }
@@ -205,8 +205,8 @@
                         "value": "Ada",
                         "span": {
                           "dummy": false,
-                          "start": 214,
-                          "end": 217
+                          "start": 215,
+                          "end": 218
                         }
                       },
                       "amount": {
@@ -214,58 +214,33 @@
                           "value": "quantity",
                           "span": {
                             "dummy": false,
-                            "start": 218,
-                            "end": 226
+                            "start": 219,
+                            "end": 227
                           }
                         }
                       },
                       "span": {
                         "dummy": false,
-                        "start": 214,
-                        "end": 227
+                        "start": 215,
+                        "end": 228
                       }
                     }
                   }
                 },
                 {
-                  "ReferenceScript": {
-                    "fields": [
-                      {
-                        "Version": [
-                          {
-                            "Number": 3
-                          },
-                          {
-                            "dummy": false,
-                            "start": 261,
-                            "end": 271
-                          }
-                        ]
-                      },
-                      {
-                        "Script": [
-                          {
-                            "HexString": {
-                              "value": "5101010023259800a518a4d136564004ae69",
-                              "span": {
-                                "dummy": false,
-                                "start": 291,
-                                "end": 329
-                              }
-                            }
-                          },
-                          {
-                            "dummy": false,
-                            "start": 283,
-                            "end": 329
-                          }
-                        ]
+                  "Version": {
+                    "Number": 3
+                  }
+                },
+                {
+                  "Script": {
+                    "HexString": {
+                      "value": "5101010023259800a518a4d136564004ae69",
+                      "span": {
+                        "dummy": false,
+                        "start": 266,
+                        "end": 304
                       }
-                    ],
-                    "span": {
-                      "dummy": false,
-                      "start": 237,
-                      "end": 340
                     }
                   }
                 }
@@ -273,7 +248,7 @@
               "span": {
                 "dummy": false,
                 "start": 167,
-                "end": 347
+                "end": 311
               }
             }
           }
@@ -282,7 +257,7 @@
       "span": {
         "dummy": false,
         "start": 32,
-        "end": 436
+        "end": 400
       },
       "collateral": [],
       "metadata": null
@@ -326,6 +301,6 @@
   "span": {
     "dummy": false,
     "start": 0,
-    "end": 436
+    "end": 400
   }
 }

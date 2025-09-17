@@ -134,47 +134,29 @@
   "burns": [],
   "adhoc": [
     {
-      "name": "cardano_output",
+      "name": "cardano_publish",
       "data": {
-        "ref_script": {
-          "AdHocDirective": {
-            "name": "plutus_witness",
-            "data": {
-              "version": {
-                "Number": 3
-              },
-              "script": {
-                "Bytes": [
-                  81,
-                  1,
-                  1,
-                  0,
-                  35,
-                  37,
-                  152,
-                  0,
-                  165,
-                  24,
-                  164,
-                  209,
-                  54,
-                  86,
-                  64,
-                  4,
-                  174,
-                  105
-                ]
-              }
-            }
-          }
-        },
-        "to": {
-          "EvalParam": {
-            "ExpectValue": [
-              "receiver",
-              "Address"
-            ]
-          }
+        "script": {
+          "Bytes": [
+            81,
+            1,
+            1,
+            0,
+            35,
+            37,
+            152,
+            0,
+            165,
+            24,
+            164,
+            209,
+            54,
+            86,
+            64,
+            4,
+            174,
+            105
+          ]
         },
         "amount": {
           "Assets": [
@@ -191,6 +173,17 @@
               }
             }
           ]
+        },
+        "to": {
+          "EvalParam": {
+            "ExpectValue": [
+              "receiver",
+              "Address"
+            ]
+          }
+        },
+        "version": {
+          "Number": 3
         }
       }
     }

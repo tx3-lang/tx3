@@ -277,8 +277,8 @@ fn compile_outputs(
     let cardano_outputs = tx
         .adhoc
         .iter()
-        .filter(|x| x.name.as_str() == "cardano_output")
-        .map(|adhoc| compile_cardano_output_directive(adhoc, network))
+        .filter(|x| x.name.as_str() == "cardano_publish")
+        .map(|adhoc| compile_cardano_publish_directive(adhoc, network))
         .collect::<Result<Vec<_>, _>>()?;
 
     resolved.extend(cardano_outputs);
@@ -287,7 +287,7 @@ fn compile_outputs(
     Ok(resolved)
 }
 
-pub fn compile_cardano_output_directive(
+pub fn compile_cardano_publish_directive(
     adhoc: &ir::AdHocDirective,
     network: Network,
 ) -> Result<primitives::TransactionOutput<'static>, Error> {
@@ -314,14 +314,20 @@ pub fn compile_cardano_output_directive(
         .map(compile_data_expr)
         .transpose()?;
 
-    let script_ref = if let Some(ref_script_expr) = adhoc.data.get("ref_script") {
-        match ref_script_expr {
-            ir::Expression::AdHocDirective(ref_adhoc) => {
-                let script = compile_adhoc_script(ref_adhoc)?;
-                Some(pallas::codec::utils::CborWrap(script.into()))
-            }
-            _ => None,
-        }
+    let script_ref = if let (Some(version_expr), Some(script_expr)) =
+        (adhoc.data.get("version"), adhoc.data.get("script")) {
+        // Create a synthetic adhoc directive that compile_adhoc_script can handle
+        let mut script_data = std::collections::HashMap::new();
+        script_data.insert("version".to_string(), version_expr.clone());
+        script_data.insert("script".to_string(), script_expr.clone());
+
+        let synthetic_adhoc = ir::AdHocDirective {
+            name: "plutus_script".to_string(),
+            data: script_data,
+        };
+
+        let script = compile_adhoc_script(&synthetic_adhoc)?;
+        Some(pallas::codec::utils::CborWrap(script.into()))
     } else {
         None
     };

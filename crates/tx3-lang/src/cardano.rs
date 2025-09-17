@@ -560,67 +560,68 @@ impl IntoLower for TreasuryDonationBlock {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub enum CardanoOutputBlockField {
+pub enum CardanoPublishBlockField {
     To(Box<DataExpr>),
     Amount(Box<DataExpr>),
     Datum(Box<DataExpr>),
-    ReferenceScript(PlutusWitnessBlock),
+    Version(Box<DataExpr>),
+    Script(Box<DataExpr>),
 }
 
-impl CardanoOutputBlockField {
+impl CardanoPublishBlockField {
     fn key(&self) -> &str {
         match self {
-            CardanoOutputBlockField::To(_) => "to",
-            CardanoOutputBlockField::Amount(_) => "amount",
-            CardanoOutputBlockField::Datum(_) => "datum",
-            CardanoOutputBlockField::ReferenceScript(_) => "ref_script",
+            CardanoPublishBlockField::To(_) => "to",
+            CardanoPublishBlockField::Amount(_) => "amount",
+            CardanoPublishBlockField::Datum(_) => "datum",
+            CardanoPublishBlockField::Version(_) => "version",
+            CardanoPublishBlockField::Script(_) => "script",
         }
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct CardanoOutputBlock {
-    pub fields: Vec<CardanoOutputBlockField>,
+pub struct CardanoPublishBlock {
+    pub fields: Vec<CardanoPublishBlockField>,
     pub span: Span,
 }
 
-impl CardanoOutputBlock {
-    pub(crate) fn find(&self, key: &str) -> Option<&CardanoOutputBlockField> {
+impl CardanoPublishBlock {
+    pub(crate) fn find(&self, key: &str) -> Option<&CardanoPublishBlockField> {
         self.fields.iter().find(|x| x.key() == key)
     }
 }
 
-impl AstNode for CardanoOutputBlockField {
-    const RULE: Rule = Rule::cardano_output_block_field;
+impl AstNode for CardanoPublishBlockField {
+    const RULE: Rule = Rule::cardano_publish_block_field;
 
     fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
         match pair.as_rule() {
-            Rule::cardano_output_block_to => {
+            Rule::cardano_publish_block_to => {
                 let pair = pair.into_inner().next().unwrap();
-                Ok(CardanoOutputBlockField::To(DataExpr::parse(pair)?.into()))
+                Ok(CardanoPublishBlockField::To(DataExpr::parse(pair)?.into()))
             }
-            Rule::cardano_output_block_amount => {
+            Rule::cardano_publish_block_amount => {
                 let pair = pair.into_inner().next().unwrap();
-                Ok(CardanoOutputBlockField::Amount(
+                Ok(CardanoPublishBlockField::Amount(
                     DataExpr::parse(pair)?.into(),
                 ))
             }
-            Rule::cardano_output_block_datum => {
+            Rule::cardano_publish_block_datum => {
                 let pair = pair.into_inner().next().unwrap();
-                Ok(CardanoOutputBlockField::Datum(
+                Ok(CardanoPublishBlockField::Datum(
                     DataExpr::parse(pair)?.into(),
                 ))
             }
-            Rule::cardano_output_block_reference_script => {
-                let span = pair.as_span().into();
-                let inner = pair.into_inner();
-                let fields = inner
-                    .map(|x| PlutusWitnessField::parse(x))
-                    .collect::<Result<Vec<_>, _>>()?;
-                let witness_block = PlutusWitnessBlock { fields, span };
-                Ok(CardanoOutputBlockField::ReferenceScript(witness_block))
+            Rule::cardano_publish_block_version => {
+                let pair = pair.into_inner().next().unwrap();
+                Ok(CardanoPublishBlockField::Version(DataExpr::parse(pair)?.into()))
             }
-            x => unreachable!("Unexpected rule in cardano_output_block_field: {:?}", x),
+            Rule::cardano_publish_block_script => {
+                let pair = pair.into_inner().next().unwrap();
+                Ok(CardanoPublishBlockField::Script(DataExpr::parse(pair)?.into()))
+            }
+            x => unreachable!("Unexpected rule in cardano_publish_block_field: {:?}", x),
         }
     }
 
@@ -629,23 +630,24 @@ impl AstNode for CardanoOutputBlockField {
             Self::To(x) => x.span(),
             Self::Amount(x) => x.span(),
             Self::Datum(x) => x.span(),
-            Self::ReferenceScript(x) => x.span(),
+            Self::Version(x) => x.span(),
+            Self::Script(x) => x.span(),
         }
     }
 }
 
-impl AstNode for CardanoOutputBlock {
-    const RULE: Rule = Rule::cardano_output_block;
+impl AstNode for CardanoPublishBlock {
+    const RULE: Rule = Rule::cardano_publish_block;
 
     fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
         let span = pair.as_span().into();
         let inner = pair.into_inner();
 
         let fields = inner
-            .map(|x| CardanoOutputBlockField::parse(x))
+            .map(|x| CardanoPublishBlockField::parse(x))
             .collect::<Result<Vec<_>, _>>()?;
 
-        Ok(CardanoOutputBlock { fields, span })
+        Ok(CardanoPublishBlock { fields, span })
     }
 
     fn span(&self) -> &Span {
@@ -653,27 +655,29 @@ impl AstNode for CardanoOutputBlock {
     }
 }
 
-impl Analyzable for CardanoOutputBlockField {
+impl Analyzable for CardanoPublishBlockField {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
         match self {
-            CardanoOutputBlockField::To(x) => x.analyze(parent),
-            CardanoOutputBlockField::Amount(x) => x.analyze(parent),
-            CardanoOutputBlockField::Datum(x) => x.analyze(parent),
-            CardanoOutputBlockField::ReferenceScript(x) => x.analyze(parent),
+            CardanoPublishBlockField::To(x) => x.analyze(parent),
+            CardanoPublishBlockField::Amount(x) => x.analyze(parent),
+            CardanoPublishBlockField::Datum(x) => x.analyze(parent),
+            CardanoPublishBlockField::Version(x) => x.analyze(parent),
+            CardanoPublishBlockField::Script(x) => x.analyze(parent),
         }
     }
 
     fn is_resolved(&self) -> bool {
         match self {
-            CardanoOutputBlockField::To(x) => x.is_resolved(),
-            CardanoOutputBlockField::Amount(x) => x.is_resolved(),
-            CardanoOutputBlockField::Datum(x) => x.is_resolved(),
-            CardanoOutputBlockField::ReferenceScript(x) => x.is_resolved(),
+            CardanoPublishBlockField::To(x) => x.is_resolved(),
+            CardanoPublishBlockField::Amount(x) => x.is_resolved(),
+            CardanoPublishBlockField::Datum(x) => x.is_resolved(),
+            CardanoPublishBlockField::Version(x) => x.is_resolved(),
+            CardanoPublishBlockField::Script(x) => x.is_resolved(),
         }
     }
 }
 
-impl Analyzable for CardanoOutputBlock {
+impl Analyzable for CardanoPublishBlock {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
         self.fields.analyze(parent)
     }
@@ -683,7 +687,7 @@ impl Analyzable for CardanoOutputBlock {
     }
 }
 
-impl IntoLower for CardanoOutputBlockField {
+impl IntoLower for CardanoPublishBlockField {
     type Output = (String, ir::Expression);
 
     fn into_lower(
@@ -691,21 +695,16 @@ impl IntoLower for CardanoOutputBlockField {
         ctx: &crate::lowering::Context,
     ) -> Result<Self::Output, crate::lowering::Error> {
         match self {
-            CardanoOutputBlockField::To(x) => Ok(("to".to_string(), x.into_lower(ctx)?)),
-            CardanoOutputBlockField::Amount(x) => Ok(("amount".to_string(), x.into_lower(ctx)?)),
-            CardanoOutputBlockField::Datum(x) => Ok(("datum".to_string(), x.into_lower(ctx)?)),
-            CardanoOutputBlockField::ReferenceScript(x) => {
-                let witness_data = x.into_lower(ctx)?;
-                Ok((
-                    "ref_script".to_string(),
-                    ir::Expression::AdHocDirective(Box::new(witness_data)),
-                ))
-            }
+            CardanoPublishBlockField::To(x) => Ok(("to".to_string(), x.into_lower(ctx)?)),
+            CardanoPublishBlockField::Amount(x) => Ok(("amount".to_string(), x.into_lower(ctx)?)),
+            CardanoPublishBlockField::Datum(x) => Ok(("datum".to_string(), x.into_lower(ctx)?)),
+            CardanoPublishBlockField::Version(x) => Ok(("version".to_string(), x.into_lower(ctx)?)),
+            CardanoPublishBlockField::Script(x) => Ok(("script".to_string(), x.into_lower(ctx)?)),
         }
     }
 }
 
-impl IntoLower for CardanoOutputBlock {
+impl IntoLower for CardanoPublishBlock {
     type Output = ir::AdHocDirective;
 
     fn into_lower(
@@ -719,7 +718,7 @@ impl IntoLower for CardanoOutputBlock {
             .collect::<Result<_, _>>()?;
 
         Ok(ir::AdHocDirective {
-            name: "cardano_output".to_string(),
+            name: "cardano_publish".to_string(),
             data,
         })
     }
@@ -733,7 +732,7 @@ pub enum CardanoBlock {
     PlutusWitness(PlutusWitnessBlock),
     NativeWitness(NativeWitnessBlock),
     TreasuryDonation(TreasuryDonationBlock),
-    Output(CardanoOutputBlock),
+    Publish(CardanoPublishBlock),
 }
 
 impl AstNode for CardanoBlock {
@@ -762,8 +761,8 @@ impl AstNode for CardanoBlock {
             Rule::cardano_treasury_donation_block => Ok(CardanoBlock::TreasuryDonation(
                 TreasuryDonationBlock::parse(item)?,
             )),
-            Rule::cardano_output_block => {
-                Ok(CardanoBlock::Output(CardanoOutputBlock::parse(item)?))
+            Rule::cardano_publish_block => {
+                Ok(CardanoBlock::Publish(CardanoPublishBlock::parse(item)?))
             }
             x => unreachable!("Unexpected rule in cardano_block: {:?}", x),
         }
@@ -777,7 +776,7 @@ impl AstNode for CardanoBlock {
             CardanoBlock::PlutusWitness(x) => x.span(),
             CardanoBlock::NativeWitness(x) => x.span(),
             CardanoBlock::TreasuryDonation(x) => x.span(),
-            CardanoBlock::Output(x) => x.span(),
+            CardanoBlock::Publish(x) => x.span(),
         }
     }
 }
@@ -791,7 +790,7 @@ impl Analyzable for CardanoBlock {
             CardanoBlock::PlutusWitness(x) => x.analyze(parent),
             CardanoBlock::NativeWitness(x) => x.analyze(parent),
             CardanoBlock::TreasuryDonation(x) => x.analyze(parent),
-            CardanoBlock::Output(x) => x.analyze(parent),
+            CardanoBlock::Publish(x) => x.analyze(parent),
         }
     }
 
@@ -803,7 +802,7 @@ impl Analyzable for CardanoBlock {
             CardanoBlock::PlutusWitness(x) => x.is_resolved(),
             CardanoBlock::NativeWitness(x) => x.is_resolved(),
             Self::TreasuryDonation(x) => x.is_resolved(),
-            CardanoBlock::Output(x) => x.is_resolved(),
+            CardanoBlock::Publish(x) => x.is_resolved(),
         }
     }
 }
@@ -822,7 +821,7 @@ impl IntoLower for CardanoBlock {
             CardanoBlock::PlutusWitness(x) => x.into_lower(ctx),
             CardanoBlock::NativeWitness(x) => x.into_lower(ctx),
             CardanoBlock::TreasuryDonation(x) => x.into_lower(ctx),
-            CardanoBlock::Output(x) => x.into_lower(ctx),
+            CardanoBlock::Publish(x) => x.into_lower(ctx),
         }
     }
 }
