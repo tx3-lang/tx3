@@ -527,8 +527,15 @@ impl Analyzable for StructConstructor {
             _ => unreachable!(),
         };
 
-        for case in type_def.cases.iter() {
-            scope.track_variant_case(case);
+        match &type_def.def {
+            TypeContent::Variant(cases) => {
+                for case in cases.iter() {
+                    scope.track_variant_case(case);
+                }
+            }
+            TypeContent::Alias(_) => {
+                // REVIEW
+            }
         }
 
         self.scope = Some(Rc::new(scope));
@@ -856,11 +863,17 @@ impl Analyzable for VariantCase {
 
 impl Analyzable for TypeDef {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        self.cases.analyze(parent)
+        match &mut self.def {
+            TypeContent::Variant(cases) => cases.analyze(parent),
+            TypeContent::Alias(alias_type) => alias_type.analyze(parent),
+        }
     }
 
     fn is_resolved(&self) -> bool {
-        self.cases.is_resolved()
+        match &self.def {
+            TypeContent::Variant(cases) => cases.is_resolved(),
+            TypeContent::Alias(alias_type) => alias_type.is_resolved(),
+        }
     }
 }
 
@@ -1234,6 +1247,40 @@ mod tests {
         .unwrap();
 
         let result = analyze(&mut ast);
+        assert!(result.errors.is_empty());
+    }
+
+    #[test]
+    fn test_alias_undefined_type_error() {
+        let mut ast = crate::parsing::parse_string(
+            r#"
+        type MyAlias = UndefinedType;
+    "#,
+        )
+        .unwrap();
+
+        let result = analyze(&mut ast);
+
+        assert!(!result.errors.is_empty());
+        assert!(result
+            .errors
+            .iter()
+            .any(|e| matches!(e, Error::NotInScope(_))));
+    }
+
+    #[test]
+    fn test_alias_valid_type_success() {
+        let mut ast = crate::parsing::parse_string(
+            r#"
+        type Address = Bytes;
+        type Amount = Int;
+        type ValidAlias = Address;
+    "#,
+        )
+        .unwrap();
+
+        let result = analyze(&mut ast);
+
         assert!(result.errors.is_empty());
     }
 
