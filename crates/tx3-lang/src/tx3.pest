@@ -109,8 +109,8 @@ variant_def = {
     "}"
 }
 
-alias_def =  {
-    "type" ~ "=" ~ (primitive_type | identifier)
+alias_def = {
+    "type" ~ identifier ~ "=" ~ type ~ ";"
 }
 
 type_def = _{
