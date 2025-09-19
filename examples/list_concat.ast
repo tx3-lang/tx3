@@ -149,11 +149,13 @@
                                   }
                                 },
                                 "property": {
-                                  "value": "list",
-                                  "span": {
-                                    "dummy": false,
-                                    "start": 275,
-                                    "end": 279
+                                  "Identifier": {
+                                    "value": "list",
+                                    "span": {
+                                      "dummy": false,
+                                      "start": 275,
+                                      "end": 279
+                                    }
                                   }
                                 },
                                 "span": {
@@ -238,43 +240,45 @@
           "end": 13
         }
       },
-      "cases": [
-        {
-          "name": {
-            "value": "Default",
-            "span": {
-              "dummy": true,
-              "start": 0,
-              "end": 0
-            }
-          },
-          "fields": [
-            {
-              "name": {
-                "value": "list",
+      "def": {
+        "Variant": [
+          {
+            "name": {
+              "value": "Default",
+              "span": {
+                "dummy": true,
+                "start": 0,
+                "end": 0
+              }
+            },
+            "fields": [
+              {
+                "name": {
+                  "value": "list",
+                  "span": {
+                    "dummy": false,
+                    "start": 20,
+                    "end": 24
+                  }
+                },
+                "type": {
+                  "List": "Int"
+                },
                 "span": {
                   "dummy": false,
                   "start": 20,
-                  "end": 24
+                  "end": 35
                 }
-              },
-              "type": {
-                "List": "Int"
-              },
-              "span": {
-                "dummy": false,
-                "start": 20,
-                "end": 35
               }
+            ],
+            "span": {
+              "dummy": false,
+              "start": 0,
+              "end": 38
             }
-          ],
-          "span": {
-            "dummy": false,
-            "start": 0,
-            "end": 38
           }
-        }
-      ],
+        ]
+      },
       "span": {
         "dummy": false,
         "start": 0,

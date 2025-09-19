@@ -282,11 +282,13 @@
                                   }
                                 },
                                 "property": {
-                                  "value": "pair_a",
-                                  "span": {
-                                    "dummy": false,
-                                    "start": 557,
-                                    "end": 563
+                                  "Identifier": {
+                                    "value": "pair_a",
+                                    "span": {
+                                      "dummy": false,
+                                      "start": 557,
+                                      "end": 563
+                                    }
                                   }
                                 },
                                 "span": {
@@ -309,11 +311,13 @@
                                   }
                                 },
                                 "property": {
-                                  "value": "amount",
-                                  "span": {
-                                    "dummy": false,
-                                    "start": 570,
-                                    "end": 576
+                                  "Identifier": {
+                                    "value": "amount",
+                                    "span": {
+                                      "dummy": false,
+                                      "start": 570,
+                                      "end": 576
+                                    }
                                   }
                                 },
                                 "span": {
@@ -360,11 +364,13 @@
                                   }
                                 },
                                 "property": {
-                                  "value": "pair_b",
-                                  "span": {
-                                    "dummy": false,
-                                    "start": 603,
-                                    "end": 609
+                                  "Identifier": {
+                                    "value": "pair_b",
+                                    "span": {
+                                      "dummy": false,
+                                      "start": 603,
+                                      "end": 609
+                                    }
                                   }
                                 },
                                 "span": {
@@ -387,11 +393,13 @@
                                   }
                                 },
                                 "property": {
-                                  "value": "amount",
-                                  "span": {
-                                    "dummy": false,
-                                    "start": 616,
-                                    "end": 622
+                                  "Identifier": {
+                                    "value": "amount",
+                                    "span": {
+                                      "dummy": false,
+                                      "start": 616,
+                                      "end": 622
+                                    }
                                   }
                                 },
                                 "span": {
@@ -574,57 +582,59 @@
           "end": 14
         }
       },
-      "cases": [
-        {
-          "name": {
-            "value": "Default",
-            "span": {
-              "dummy": true,
-              "start": 0,
-              "end": 0
-            }
-          },
-          "fields": [
-            {
-              "name": {
-                "value": "pair_a",
+      "def": {
+        "Variant": [
+          {
+            "name": {
+              "value": "Default",
+              "span": {
+                "dummy": true,
+                "start": 0,
+                "end": 0
+              }
+            },
+            "fields": [
+              {
+                "name": {
+                  "value": "pair_a",
+                  "span": {
+                    "dummy": false,
+                    "start": 21,
+                    "end": 27
+                  }
+                },
+                "type": "AnyAsset",
                 "span": {
                   "dummy": false,
                   "start": 21,
-                  "end": 27
+                  "end": 37
                 }
               },
-              "type": "AnyAsset",
-              "span": {
-                "dummy": false,
-                "start": 21,
-                "end": 37
-              }
-            },
-            {
-              "name": {
-                "value": "pair_b",
+              {
+                "name": {
+                  "value": "pair_b",
+                  "span": {
+                    "dummy": false,
+                    "start": 43,
+                    "end": 49
+                  }
+                },
+                "type": "AnyAsset",
                 "span": {
                   "dummy": false,
                   "start": 43,
-                  "end": 49
+                  "end": 59
                 }
-              },
-              "type": "AnyAsset",
-              "span": {
-                "dummy": false,
-                "start": 43,
-                "end": 59
               }
+            ],
+            "span": {
+              "dummy": false,
+              "start": 0,
+              "end": 62
             }
-          ],
-          "span": {
-            "dummy": false,
-            "start": 0,
-            "end": 62
           }
-        }
-      ],
+        ]
+      },
       "span": {
         "dummy": false,
         "start": 0,
@@ -640,57 +650,59 @@
           "end": 79
         }
       },
-      "cases": [
-        {
-          "name": {
-            "value": "Default",
-            "span": {
-              "dummy": true,
-              "start": 0,
-              "end": 0
-            }
-          },
-          "fields": [
-            {
-              "name": {
-                "value": "ask_value",
+      "def": {
+        "Variant": [
+          {
+            "name": {
+              "value": "Default",
+              "span": {
+                "dummy": true,
+                "start": 0,
+                "end": 0
+              }
+            },
+            "fields": [
+              {
+                "name": {
+                  "value": "ask_value",
+                  "span": {
+                    "dummy": false,
+                    "start": 86,
+                    "end": 95
+                  }
+                },
+                "type": "AnyAsset",
                 "span": {
                   "dummy": false,
                   "start": 86,
-                  "end": 95
+                  "end": 105
                 }
               },
-              "type": "AnyAsset",
-              "span": {
-                "dummy": false,
-                "start": 86,
-                "end": 105
-              }
-            },
-            {
-              "name": {
-                "value": "bid_value",
+              {
+                "name": {
+                  "value": "bid_value",
+                  "span": {
+                    "dummy": false,
+                    "start": 111,
+                    "end": 120
+                  }
+                },
+                "type": "AnyAsset",
                 "span": {
                   "dummy": false,
                   "start": 111,
-                  "end": 120
+                  "end": 130
                 }
-              },
-              "type": "AnyAsset",
-              "span": {
-                "dummy": false,
-                "start": 111,
-                "end": 130
               }
+            ],
+            "span": {
+              "dummy": false,
+              "start": 64,
+              "end": 133
             }
-          ],
-          "span": {
-            "dummy": false,
-            "start": 64,
-            "end": 133
           }
-        }
-      ],
+        ]
+      },
       "span": {
         "dummy": false,
         "start": 64,

@@ -450,11 +450,13 @@
                                   }
                                 },
                                 "property": {
-                                  "value": "pos_x",
-                                  "span": {
-                                    "dummy": false,
-                                    "start": 1281,
-                                    "end": 1286
+                                  "Identifier": {
+                                    "value": "pos_x",
+                                    "span": {
+                                      "dummy": false,
+                                      "start": 1281,
+                                      "end": 1286
+                                    }
                                   }
                                 },
                                 "span": {
@@ -511,11 +513,13 @@
                                   }
                                 },
                                 "property": {
-                                  "value": "pos_y",
-                                  "span": {
-                                    "dummy": false,
-                                    "start": 1324,
-                                    "end": 1329
+                                  "Identifier": {
+                                    "value": "pos_y",
+                                    "span": {
+                                      "dummy": false,
+                                      "start": 1324,
+                                      "end": 1329
+                                    }
                                   }
                                 },
                                 "span": {
@@ -697,105 +701,107 @@
           "end": 287
         }
       },
-      "cases": [
-        {
-          "name": {
-            "value": "Default",
-            "span": {
-              "dummy": true,
-              "start": 0,
-              "end": 0
-            }
-          },
-          "fields": [
-            {
-              "name": {
-                "value": "pos_x",
+      "def": {
+        "Variant": [
+          {
+            "name": {
+              "value": "Default",
+              "span": {
+                "dummy": true,
+                "start": 0,
+                "end": 0
+              }
+            },
+            "fields": [
+              {
+                "name": {
+                  "value": "pos_x",
+                  "span": {
+                    "dummy": false,
+                    "start": 294,
+                    "end": 299
+                  }
+                },
+                "type": "Int",
                 "span": {
                   "dummy": false,
                   "start": 294,
-                  "end": 299
+                  "end": 304
                 }
               },
-              "type": "Int",
-              "span": {
-                "dummy": false,
-                "start": 294,
-                "end": 304
-              }
-            },
-            {
-              "name": {
-                "value": "pos_y",
+              {
+                "name": {
+                  "value": "pos_y",
+                  "span": {
+                    "dummy": false,
+                    "start": 310,
+                    "end": 315
+                  }
+                },
+                "type": "Int",
                 "span": {
                   "dummy": false,
                   "start": 310,
-                  "end": 315
+                  "end": 320
                 }
               },
-              "type": "Int",
-              "span": {
-                "dummy": false,
-                "start": 310,
-                "end": 320
-              }
-            },
-            {
-              "name": {
-                "value": "ship_token_name",
+              {
+                "name": {
+                  "value": "ship_token_name",
+                  "span": {
+                    "dummy": false,
+                    "start": 326,
+                    "end": 341
+                  }
+                },
+                "type": "Bytes",
                 "span": {
                   "dummy": false,
                   "start": 326,
-                  "end": 341
+                  "end": 348
                 }
               },
-              "type": "Bytes",
-              "span": {
-                "dummy": false,
-                "start": 326,
-                "end": 348
-              }
-            },
-            {
-              "name": {
-                "value": "pilot_token_name",
+              {
+                "name": {
+                  "value": "pilot_token_name",
+                  "span": {
+                    "dummy": false,
+                    "start": 354,
+                    "end": 370
+                  }
+                },
+                "type": "Bytes",
                 "span": {
                   "dummy": false,
                   "start": 354,
-                  "end": 370
+                  "end": 377
                 }
               },
-              "type": "Bytes",
-              "span": {
-                "dummy": false,
-                "start": 354,
-                "end": 377
-              }
-            },
-            {
-              "name": {
-                "value": "last_move_latest_time",
+              {
+                "name": {
+                  "value": "last_move_latest_time",
+                  "span": {
+                    "dummy": false,
+                    "start": 383,
+                    "end": 404
+                  }
+                },
+                "type": "Int",
                 "span": {
                   "dummy": false,
                   "start": 383,
-                  "end": 404
+                  "end": 409
                 }
-              },
-              "type": "Int",
-              "span": {
-                "dummy": false,
-                "start": 383,
-                "end": 409
               }
+            ],
+            "span": {
+              "dummy": false,
+              "start": 273,
+              "end": 412
             }
-          ],
-          "span": {
-            "dummy": false,
-            "start": 273,
-            "end": 412
           }
-        }
-      ],
+        ]
+      },
       "span": {
         "dummy": false,
         "start": 273,
@@ -811,122 +817,124 @@
           "end": 430
         }
       },
-      "cases": [
-        {
-          "name": {
-            "value": "MoveShip",
-            "span": {
-              "dummy": false,
-              "start": 437,
-              "end": 445
-            }
-          },
-          "fields": [
-            {
-              "name": {
-                "value": "delta_x",
+      "def": {
+        "Variant": [
+          {
+            "name": {
+              "value": "MoveShip",
+              "span": {
+                "dummy": false,
+                "start": 437,
+                "end": 445
+              }
+            },
+            "fields": [
+              {
+                "name": {
+                  "value": "delta_x",
+                  "span": {
+                    "dummy": false,
+                    "start": 457,
+                    "end": 464
+                  }
+                },
+                "type": "Int",
                 "span": {
                   "dummy": false,
                   "start": 457,
-                  "end": 464
+                  "end": 469
                 }
               },
-              "type": "Int",
-              "span": {
-                "dummy": false,
-                "start": 457,
-                "end": 469
-              }
-            },
-            {
-              "name": {
-                "value": "delta_y",
+              {
+                "name": {
+                  "value": "delta_y",
+                  "span": {
+                    "dummy": false,
+                    "start": 479,
+                    "end": 486
+                  }
+                },
+                "type": "Int",
                 "span": {
                   "dummy": false,
                   "start": 479,
-                  "end": 486
+                  "end": 491
                 }
-              },
-              "type": "Int",
-              "span": {
-                "dummy": false,
-                "start": 479,
-                "end": 491
               }
-            }
-          ],
-          "span": {
-            "dummy": false,
-            "start": 437,
-            "end": 498
-          }
-        },
-        {
-          "name": {
-            "value": "GatherFuel",
+            ],
             "span": {
               "dummy": false,
-              "start": 504,
-              "end": 514
+              "start": 437,
+              "end": 498
             }
           },
-          "fields": [
-            {
-              "name": {
-                "value": "amount",
+          {
+            "name": {
+              "value": "GatherFuel",
+              "span": {
+                "dummy": false,
+                "start": 504,
+                "end": 514
+              }
+            },
+            "fields": [
+              {
+                "name": {
+                  "value": "amount",
+                  "span": {
+                    "dummy": false,
+                    "start": 525,
+                    "end": 531
+                  }
+                },
+                "type": "Int",
                 "span": {
                   "dummy": false,
                   "start": 525,
-                  "end": 531
+                  "end": 536
                 }
-              },
-              "type": "Int",
+              }
+            ],
+            "span": {
+              "dummy": false,
+              "start": 504,
+              "end": 543
+            }
+          },
+          {
+            "name": {
+              "value": "MineAsteria",
               "span": {
                 "dummy": false,
-                "start": 525,
-                "end": 536
+                "start": 549,
+                "end": 560
               }
-            }
-          ],
-          "span": {
-            "dummy": false,
-            "start": 504,
-            "end": 543
-          }
-        },
-        {
-          "name": {
-            "value": "MineAsteria",
+            },
+            "fields": [],
             "span": {
               "dummy": false,
               "start": 549,
               "end": 560
             }
           },
-          "fields": [],
-          "span": {
-            "dummy": false,
-            "start": 549,
-            "end": 560
-          }
-        },
-        {
-          "name": {
-            "value": "Quit",
+          {
+            "name": {
+              "value": "Quit",
+              "span": {
+                "dummy": false,
+                "start": 566,
+                "end": 570
+              }
+            },
+            "fields": [],
             "span": {
               "dummy": false,
               "start": 566,
               "end": 570
             }
-          },
-          "fields": [],
-          "span": {
-            "dummy": false,
-            "start": 566,
-            "end": 570
           }
-        }
-      ],
+        ]
+      },
       "span": {
         "dummy": false,
         "start": 414,

@@ -161,11 +161,13 @@
                                   }
                                 },
                                 "property": {
-                                  "value": "counter",
-                                  "span": {
-                                    "dummy": false,
-                                    "start": 323,
-                                    "end": 330
+                                  "Identifier": {
+                                    "value": "counter",
+                                    "span": {
+                                      "dummy": false,
+                                      "start": 323,
+                                      "end": 330
+                                    }
                                   }
                                 },
                                 "span": {
@@ -213,11 +215,13 @@
                               }
                             },
                             "property": {
-                              "value": "other_field",
-                              "span": {
-                                "dummy": false,
-                                "start": 368,
-                                "end": 379
+                              "Identifier": {
+                                "value": "other_field",
+                                "span": {
+                                  "dummy": false,
+                                  "start": 368,
+                                  "end": 379
+                                }
                               }
                             },
                             "span": {
@@ -281,57 +285,59 @@
           "end": 13
         }
       },
-      "cases": [
-        {
-          "name": {
-            "value": "Default",
-            "span": {
-              "dummy": true,
-              "start": 0,
-              "end": 0
-            }
-          },
-          "fields": [
-            {
-              "name": {
-                "value": "counter",
+      "def": {
+        "Variant": [
+          {
+            "name": {
+              "value": "Default",
+              "span": {
+                "dummy": true,
+                "start": 0,
+                "end": 0
+              }
+            },
+            "fields": [
+              {
+                "name": {
+                  "value": "counter",
+                  "span": {
+                    "dummy": false,
+                    "start": 20,
+                    "end": 27
+                  }
+                },
+                "type": "Int",
                 "span": {
                   "dummy": false,
                   "start": 20,
-                  "end": 27
+                  "end": 32
                 }
               },
-              "type": "Int",
-              "span": {
-                "dummy": false,
-                "start": 20,
-                "end": 32
-              }
-            },
-            {
-              "name": {
-                "value": "other_field",
+              {
+                "name": {
+                  "value": "other_field",
+                  "span": {
+                    "dummy": false,
+                    "start": 38,
+                    "end": 49
+                  }
+                },
+                "type": "Bytes",
                 "span": {
                   "dummy": false,
                   "start": 38,
-                  "end": 49
+                  "end": 56
                 }
-              },
-              "type": "Bytes",
-              "span": {
-                "dummy": false,
-                "start": 38,
-                "end": 56
               }
+            ],
+            "span": {
+              "dummy": false,
+              "start": 0,
+              "end": 59
             }
-          ],
-          "span": {
-            "dummy": false,
-            "start": 0,
-            "end": 59
           }
-        }
-      ],
+        ]
+      },
       "span": {
         "dummy": false,
         "start": 0,

@@ -434,11 +434,13 @@
                                     }
                                   },
                                   "property": {
-                                    "value": "field1",
-                                    "span": {
-                                      "dummy": false,
-                                      "start": 1166,
-                                      "end": 1172
+                                    "Identifier": {
+                                      "value": "field1",
+                                      "span": {
+                                        "dummy": false,
+                                        "start": 1166,
+                                        "end": 1172
+                                      }
                                     }
                                   },
                                   "span": {
@@ -507,11 +509,13 @@
                                 }
                               },
                               "property": {
-                                "value": "field3",
-                                "span": {
-                                  "dummy": false,
-                                  "start": 1240,
-                                  "end": 1246
+                                "Identifier": {
+                                  "value": "field3",
+                                  "span": {
+                                    "dummy": false,
+                                    "start": 1240,
+                                    "end": 1246
+                                  }
                                 }
                               },
                               "span": {
@@ -534,11 +538,13 @@
                                 }
                               },
                               "property": {
-                                "value": "field2",
-                                "span": {
-                                  "dummy": false,
-                                  "start": 1255,
-                                  "end": 1261
+                                "Identifier": {
+                                  "value": "field2",
+                                  "span": {
+                                    "dummy": false,
+                                    "start": 1255,
+                                    "end": 1261
+                                  }
                                 }
                               },
                               "span": {
@@ -561,11 +567,13 @@
                                 }
                               },
                               "property": {
-                                "value": "field1",
-                                "span": {
-                                  "dummy": false,
-                                  "start": 1270,
-                                  "end": 1276
+                                "Identifier": {
+                                  "value": "field1",
+                                  "span": {
+                                    "dummy": false,
+                                    "start": 1270,
+                                    "end": 1276
+                                  }
                                 }
                               },
                               "span": {
@@ -821,91 +829,93 @@
           "end": 76
         }
       },
-      "cases": [
-        {
-          "name": {
-            "value": "Default",
-            "span": {
-              "dummy": true,
-              "start": 0,
-              "end": 0
-            }
-          },
-          "fields": [
-            {
-              "name": {
-                "value": "field1",
+      "def": {
+        "Variant": [
+          {
+            "name": {
+              "value": "Default",
+              "span": {
+                "dummy": true,
+                "start": 0,
+                "end": 0
+              }
+            },
+            "fields": [
+              {
+                "name": {
+                  "value": "field1",
+                  "span": {
+                    "dummy": false,
+                    "start": 83,
+                    "end": 89
+                  }
+                },
+                "type": "Int",
                 "span": {
                   "dummy": false,
                   "start": 83,
-                  "end": 89
+                  "end": 94
                 }
               },
-              "type": "Int",
-              "span": {
-                "dummy": false,
-                "start": 83,
-                "end": 94
-              }
-            },
-            {
-              "name": {
-                "value": "field2",
+              {
+                "name": {
+                  "value": "field2",
+                  "span": {
+                    "dummy": false,
+                    "start": 100,
+                    "end": 106
+                  }
+                },
+                "type": "Bytes",
                 "span": {
                   "dummy": false,
                   "start": 100,
-                  "end": 106
+                  "end": 113
                 }
               },
-              "type": "Bytes",
-              "span": {
-                "dummy": false,
-                "start": 100,
-                "end": 113
-              }
-            },
-            {
-              "name": {
-                "value": "field3",
+              {
+                "name": {
+                  "value": "field3",
+                  "span": {
+                    "dummy": false,
+                    "start": 119,
+                    "end": 125
+                  }
+                },
+                "type": "Bytes",
                 "span": {
                   "dummy": false,
                   "start": 119,
-                  "end": 125
+                  "end": 132
                 }
               },
-              "type": "Bytes",
-              "span": {
-                "dummy": false,
-                "start": 119,
-                "end": 132
-              }
-            },
-            {
-              "name": {
-                "value": "field4",
+              {
+                "name": {
+                  "value": "field4",
+                  "span": {
+                    "dummy": false,
+                    "start": 138,
+                    "end": 144
+                  }
+                },
+                "type": {
+                  "List": "Int"
+                },
                 "span": {
                   "dummy": false,
                   "start": 138,
-                  "end": 144
+                  "end": 155
                 }
-              },
-              "type": {
-                "List": "Int"
-              },
-              "span": {
-                "dummy": false,
-                "start": 138,
-                "end": 155
               }
+            ],
+            "span": {
+              "dummy": false,
+              "start": 63,
+              "end": 158
             }
-          ],
-          "span": {
-            "dummy": false,
-            "start": 63,
-            "end": 158
           }
-        }
-      ],
+        ]
+      },
       "span": {
         "dummy": false,
         "start": 63,
@@ -921,89 +931,91 @@
           "end": 174
         }
       },
-      "cases": [
-        {
-          "name": {
-            "value": "Case1",
-            "span": {
-              "dummy": false,
-              "start": 181,
-              "end": 186
-            }
-          },
-          "fields": [
-            {
-              "name": {
-                "value": "field1",
+      "def": {
+        "Variant": [
+          {
+            "name": {
+              "value": "Case1",
+              "span": {
+                "dummy": false,
+                "start": 181,
+                "end": 186
+              }
+            },
+            "fields": [
+              {
+                "name": {
+                  "value": "field1",
+                  "span": {
+                    "dummy": false,
+                    "start": 197,
+                    "end": 203
+                  }
+                },
+                "type": "Int",
                 "span": {
                   "dummy": false,
                   "start": 197,
-                  "end": 203
+                  "end": 208
                 }
               },
-              "type": "Int",
-              "span": {
-                "dummy": false,
-                "start": 197,
-                "end": 208
-              }
-            },
-            {
-              "name": {
-                "value": "field2",
+              {
+                "name": {
+                  "value": "field2",
+                  "span": {
+                    "dummy": false,
+                    "start": 218,
+                    "end": 224
+                  }
+                },
+                "type": "Bytes",
                 "span": {
                   "dummy": false,
                   "start": 218,
-                  "end": 224
+                  "end": 231
                 }
               },
-              "type": "Bytes",
-              "span": {
-                "dummy": false,
-                "start": 218,
-                "end": 231
-              }
-            },
-            {
-              "name": {
-                "value": "field3",
+              {
+                "name": {
+                  "value": "field3",
+                  "span": {
+                    "dummy": false,
+                    "start": 241,
+                    "end": 247
+                  }
+                },
+                "type": "Int",
                 "span": {
                   "dummy": false,
                   "start": 241,
-                  "end": 247
+                  "end": 252
                 }
-              },
-              "type": "Int",
+              }
+            ],
+            "span": {
+              "dummy": false,
+              "start": 181,
+              "end": 259
+            }
+          },
+          {
+            "name": {
+              "value": "Case2",
               "span": {
                 "dummy": false,
-                "start": 241,
-                "end": 252
+                "start": 265,
+                "end": 270
               }
-            }
-          ],
-          "span": {
-            "dummy": false,
-            "start": 181,
-            "end": 259
-          }
-        },
-        {
-          "name": {
-            "value": "Case2",
+            },
+            "fields": [],
             "span": {
               "dummy": false,
               "start": 265,
               "end": 270
             }
-          },
-          "fields": [],
-          "span": {
-            "dummy": false,
-            "start": 265,
-            "end": 270
           }
-        }
-      ],
+        ]
+      },
       "span": {
         "dummy": false,
         "start": 160,
