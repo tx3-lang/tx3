@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashSet};
 
 use pallas::{
-    codec::utils::{KeepRaw, MaybeIndefArray, NonEmptySet},
+    codec::{minicbor, utils::{KeepRaw, MaybeIndefArray, NonEmptySet}},
     ledger::{
         primitives::{
             conway::{self as primitives, Redeemers},
@@ -153,9 +153,13 @@ fn compile_adhoc_script(
         .transpose()?
         .map(|v| v as PlutusVersion)
         .unwrap_or(3);
-    let script_bytes = script.unwrap().to_vec();
+    let script_bytes= script.unwrap().to_vec();
     let script_ref = match version {
-        0 => todo!("Native script"),
+        0 => {
+            let decoded: pallas::codec::utils::KeepRaw<'_, primitives::NativeScript> = minicbor::decode(&script_bytes).unwrap();
+            let owned_script = decoded.to_owned();
+            primitives::ScriptRef::NativeScript(owned_script)
+        },
         1 => {
             let script = primitives::PlutusScript::<1>(script_bytes.into());
             primitives::ScriptRef::PlutusV1Script(script)
