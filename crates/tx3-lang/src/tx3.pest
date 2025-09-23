@@ -369,6 +369,27 @@ cardano_treasury_donation_block = {
     "treasury_donation" ~ "{" ~ "coin" ~ ":" ~ data_expr ~ "," ~ "}"
 }
 
+cardano_publish_block_to = { "to" ~ ":" ~ data_expr }
+cardano_publish_block_amount = { "amount" ~ ":" ~ data_expr }
+cardano_publish_block_datum = { "datum" ~ ":" ~ data_expr }
+cardano_publish_block_version = { "version" ~ ":" ~ data_expr }
+cardano_publish_block_script = { "script" ~ ":" ~ data_expr }
+
+
+cardano_publish_block_field = _{
+    cardano_publish_block_to |
+    cardano_publish_block_amount |
+    cardano_publish_block_datum |
+    cardano_publish_block_version |
+    cardano_publish_block_script
+}
+
+cardano_publish_block = {
+    "publish" ~ identifier? ~ "{" ~
+    (cardano_publish_block_field ~ ",")* ~
+    "}"
+}
+
 cardano_block = {
     "cardano" ~ "::" ~ (
         cardano_stake_delegation_certificate |
@@ -376,7 +397,8 @@ cardano_block = {
         cardano_withdrawal_block |
         cardano_plutus_witness_block |
         cardano_native_witness_block |
-        cardano_treasury_donation_block
+        cardano_treasury_donation_block |
+        cardano_publish_block
     )
 }
 

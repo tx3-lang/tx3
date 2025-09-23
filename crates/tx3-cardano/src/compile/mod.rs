@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashSet};
 
 use pallas::{
-    codec::utils::{KeepRaw, MaybeIndefArray, NonEmptySet},
+    codec::{minicbor, utils::{KeepRaw, MaybeIndefArray, NonEmptySet}},
     ledger::{
         primitives::{
             conway::{self as primitives, Redeemers},
@@ -11,10 +11,11 @@ use pallas::{
     },
 };
 
+use super::*;
 use tx3_lang::{backend::Error, ir};
 
 use crate::{
-    coercion::{self, expr_into_metadatum, expr_into_number},
+    coercion::{self, expr_into_bytes, expr_into_metadatum, expr_into_number},
     Network, PParams, PlutusVersion, EXECUTION_UNITS,
 };
 
@@ -140,6 +141,47 @@ fn compile_value(ir: &ir::AssetExpr) -> Result<primitives::Value, Error> {
     }
 }
 
+fn compile_adhoc_script(
+    adhoc: &ir::AdHocDirective,
+) -> Result<primitives::ScriptRef<'static>, Error> {
+    let script = adhoc.data.get("script").map(expr_into_bytes).transpose()?;
+
+    let version = adhoc
+        .data
+        .get("version")
+        .map(coercion::expr_into_number)
+        .transpose()?
+        .map(|v| v as PlutusVersion)
+        .unwrap_or(3);
+    let script_bytes= script.unwrap().to_vec();
+    let script_ref = match version {
+        0 => {
+            let decoded: pallas::codec::utils::KeepRaw<'_, primitives::NativeScript> = minicbor::decode(&script_bytes).unwrap();
+            let owned_script = decoded.to_owned();
+            primitives::ScriptRef::NativeScript(owned_script)
+        },
+        1 => {
+            let script = primitives::PlutusScript::<1>(script_bytes.into());
+            primitives::ScriptRef::PlutusV1Script(script)
+        }
+        2 => {
+            let script = primitives::PlutusScript::<2>(script_bytes.into());
+            primitives::ScriptRef::PlutusV2Script(script)
+        }
+        3 => {
+            let script = primitives::PlutusScript::<3>(script_bytes.into());
+            primitives::ScriptRef::PlutusV3Script(script)
+        }
+        _ => {
+            return Err(Error::CoerceError(
+                format!("{:?}", adhoc.data.get("version")),
+                "Reference script version".to_string(),
+            ));
+        }
+    };
+    Ok(script_ref)
+}
+
 fn compile_output_block(
     ir: &ir::Output,
     network: Network,
@@ -164,7 +206,7 @@ fn compile_output_block(
             datum_option: datum_option.map(|x| {
                 primitives::DatumOption::Data(pallas::codec::utils::CborWrap(x.into())).into()
             }),
-            script_ref: None, // TODO: add script ref
+            script_ref: None,
         }
         .into(),
     );
@@ -230,13 +272,83 @@ fn compile_outputs(
     tx: &ir::Tx,
     network: Network,
 ) -> Result<Vec<primitives::TransactionOutput<'static>>, Error> {
-    let resolved = tx
+    let mut resolved = tx
         .outputs
         .iter()
         .map(|x| compile_output_block(x, network))
         .collect::<Result<Vec<_>, _>>()?;
 
+    let cardano_outputs = tx
+        .adhoc
+        .iter()
+        .filter(|x| x.name.as_str() == "cardano_publish")
+        .map(|adhoc| compile_cardano_publish_directive(adhoc, network))
+        .collect::<Result<Vec<_>, _>>()?;
+
+    resolved.extend(cardano_outputs);
+
+    println!("resolved: {:?}", resolved);
     Ok(resolved)
+}
+
+pub fn compile_cardano_publish_directive(
+    adhoc: &ir::AdHocDirective,
+    network: Network,
+) -> Result<primitives::TransactionOutput<'static>, Error> {
+    let address = adhoc
+        .data
+        .get("to")
+        .ok_or(Error::MissingExpression("output address".to_string()))?;
+    let address = coercion::expr_into_address(address, network)?;
+
+    let amount = adhoc
+        .data
+        .get("amount")
+        .ok_or(Error::MissingExpression("output amount".to_string()))?;
+    let asset_list = coercion::expr_into_assets(amount)?;
+    let values = asset_list
+        .iter()
+        .map(compile_value)
+        .collect::<Result<Vec<_>, _>>()?;
+    let value = asset_math::aggregate_values(values);
+
+    let datum_option = adhoc
+        .data
+        .get("datum")
+        .map(compile_data_expr)
+        .transpose()?;
+
+    let script_ref = if let (Some(version_expr), Some(script_expr)) =
+        (adhoc.data.get("version"), adhoc.data.get("script")) {
+        // Create a synthetic adhoc directive that compile_adhoc_script can handle
+        let mut script_data = std::collections::HashMap::new();
+        script_data.insert("version".to_string(), version_expr.clone());
+        script_data.insert("script".to_string(), script_expr.clone());
+
+        let synthetic_adhoc = ir::AdHocDirective {
+            name: "plutus_script".to_string(),
+            data: script_data,
+        };
+
+        let script = compile_adhoc_script(&synthetic_adhoc)?;
+        Some(pallas::codec::utils::CborWrap(script.into()))
+    } else {
+        None
+    };
+
+    let output = primitives::TransactionOutput::PostAlonzo(
+        primitives::PostAlonzoTransactionOutput {
+            address: address.to_vec().into(),
+            value,
+            datum_option: datum_option.map(|x| {
+                primitives::DatumOption::Data(pallas::codec::utils::CborWrap(x.into())).into()
+            }),
+            script_ref,
+        }
+        .into(),
+    );
+
+    Ok(output)
 }
 
 pub fn compile_withdrawal_directive(
