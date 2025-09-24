@@ -223,11 +223,36 @@ impl IntoLower for ast::StructConstructor {
     fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
         let type_def = expect_type_def(&self.r#type)?;
 
-        let constructor = type_def
-            .find_case_index(&self.case.name.value)
+        let (concrete_type_def, case_name) = match &type_def.def {
+            ast::TypeContent::Alias(_) => {
+                let resolved = type_def.resolve_alias_chain();
+                let case_name = match &resolved.def {
+                    ast::TypeContent::Variant(cases)
+                        if cases.len() == 1 && cases[0].name.value == "Default" =>
+                    {
+                        "Default"
+                    }
+                    _ => &self.case.name.value,
+                };
+                (resolved, case_name)
+            }
+            ast::TypeContent::Variant(cases) => {
+                let case_name = if cases.len() == 1 && cases[0].name.value == "Default" {
+                    "Default"
+                } else {
+                    &self.case.name.value
+                };
+                (type_def, case_name)
+            }
+        };
+
+        let constructor = concrete_type_def
+            .find_case_index(case_name)
             .ok_or(Error::InvalidAst("case not found".to_string()))?;
 
-        let case_def = expect_case_def(&self.case.name)?;
+        let case_def = concrete_type_def
+            .find_case(case_name)
+            .ok_or(Error::InvalidAst("case definition not found".to_string()))?;
 
         let mut fields = vec![];
 
