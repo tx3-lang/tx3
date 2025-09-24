@@ -511,9 +511,7 @@ impl Analyzable for VariantCaseConstructor {
         let case = match &self.name.symbol {
             Some(Symbol::VariantCase(x)) => x,
             Some(x) => bail_report!(Error::invalid_symbol("VariantCase", x, &self.name)),
-            None => {
-                bail_report!(Error::not_in_scope(self.name.value.clone(), &self.name))
-            }
+            None => bail_report!(Error::not_in_scope(self.name.value.clone(), &self.name)),
         };
 
         for field in case.fields.iter() {
@@ -892,7 +890,6 @@ impl Analyzable for TypeContent {
     }
 }
 
-// REVIEW
 impl Analyzable for TypeDef {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
         self.def.analyze(parent)
