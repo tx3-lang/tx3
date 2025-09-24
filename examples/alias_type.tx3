@@ -17,7 +17,7 @@ type Asset {
 
 type TokenBundle = Asset;
 
-tx send_token(policy: PolicyId, asset_name: AssetName, quantity: Amount) {
+tx send_token(policy: Bytes, asset_name: Bytes, quantity: Int) {
     input source {
         from: Sender,
         min_amount: AnyAsset(policy, asset_name, quantity),
