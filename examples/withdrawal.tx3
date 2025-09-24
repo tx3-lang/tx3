@@ -23,6 +23,6 @@ tx transfer(
     cardano::withdrawal {
         from: Sender,
         amount: 0,
-        redeemer: "redeemer",
+        redeemer: (),
     }
 }

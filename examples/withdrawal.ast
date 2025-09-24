@@ -255,22 +255,13 @@
                   }
                 },
                 {
-                  "Redeemer": {
-                    "String": {
-                      "value": "redeemer",
-                      "span": {
-                        "dummy": false,
-                        "start": 399,
-                        "end": 409
-                      }
-                    }
-                  }
+                  "Redeemer": "Unit"
                 }
               ],
               "span": {
                 "dummy": false,
                 "start": 327,
-                "end": 416
+                "end": 408
               }
             }
           }
@@ -279,7 +270,7 @@
       "span": {
         "dummy": false,
         "start": 32,
-        "end": 418
+        "end": 410
       },
       "collateral": [],
       "metadata": null
@@ -323,6 +314,6 @@
   "span": {
     "dummy": false,
     "start": 0,
-    "end": 418
+    "end": 410
   }
 }

@@ -1,0 +1,194 @@
+{
+  "fees": {
+    "EvalParam": "ExpectFees"
+  },
+  "references": [],
+  "inputs": [
+    {
+      "name": "source",
+      "utxos": {
+        "EvalParam": {
+          "ExpectInput": [
+            "source",
+            {
+              "address": {
+                "EvalParam": {
+                  "ExpectValue": [
+                    "sender",
+                    "Address"
+                  ]
+                }
+              },
+              "min_amount": {
+                "Assets": [
+                  {
+                    "policy": "None",
+                    "asset_name": "None",
+                    "amount": {
+                      "EvalParam": {
+                        "ExpectValue": [
+                          "quantity",
+                          "Int"
+                        ]
+                      }
+                    }
+                  }
+                ]
+              },
+              "ref": "None",
+              "many": false,
+              "collateral": false
+            }
+          ]
+        }
+      },
+      "redeemer": "None"
+    }
+  ],
+  "outputs": [
+    {
+      "address": {
+        "EvalParam": {
+          "ExpectValue": [
+            "sender",
+            "Address"
+          ]
+        }
+      },
+      "datum": "None",
+      "amount": {
+        "EvalBuiltIn": {
+          "Sub": [
+            {
+              "EvalBuiltIn": {
+                "Sub": [
+                  {
+                    "EvalCoerce": {
+                      "IntoAssets": {
+                        "EvalParam": {
+                          "ExpectInput": [
+                            "source",
+                            {
+                              "address": {
+                                "EvalParam": {
+                                  "ExpectValue": [
+                                    "sender",
+                                    "Address"
+                                  ]
+                                }
+                              },
+                              "min_amount": {
+                                "Assets": [
+                                  {
+                                    "policy": "None",
+                                    "asset_name": "None",
+                                    "amount": {
+                                      "EvalParam": {
+                                        "ExpectValue": [
+                                          "quantity",
+                                          "Int"
+                                        ]
+                                      }
+                                    }
+                                  }
+                                ]
+                              },
+                              "ref": "None",
+                              "many": false,
+                              "collateral": false
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "Assets": [
+                      {
+                        "policy": "None",
+                        "asset_name": "None",
+                        "amount": {
+                          "EvalParam": {
+                            "ExpectValue": [
+                              "quantity",
+                              "Int"
+                            ]
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "EvalParam": "ExpectFees"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "validity": null,
+  "mints": [],
+  "burns": [],
+  "adhoc": [
+    {
+      "name": "cardano_publish",
+      "data": {
+        "version": {
+          "Number": 3
+        },
+        "to": {
+          "EvalParam": {
+            "ExpectValue": [
+              "receiver",
+              "Address"
+            ]
+          }
+        },
+        "amount": {
+          "Assets": [
+            {
+              "policy": "None",
+              "asset_name": "None",
+              "amount": {
+                "EvalParam": {
+                  "ExpectValue": [
+                    "quantity",
+                    "Int"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "script": {
+          "Bytes": [
+            81,
+            1,
+            1,
+            0,
+            35,
+            37,
+            152,
+            0,
+            165,
+            24,
+            164,
+            209,
+            54,
+            86,
+            64,
+            4,
+            174,
+            105
+          ]
+        }
+      }
+    }
+  ],
+  "collateral": [],
+  "signers": null,
+  "metadata": []
+}
