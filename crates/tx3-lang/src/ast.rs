@@ -903,7 +903,7 @@ pub struct TypeDef {
 }
 
 impl TypeDef {
-    fn resolve_alias_chain(&self) -> &TypeDef {
+    pub fn resolve_alias_chain(&self) -> &TypeDef {
         match &self.def {
             TypeContent::Variant(_) => self,
             TypeContent::Alias(alias_type) => {
@@ -917,7 +917,7 @@ impl TypeDef {
         }
     }
 
-    fn get_variant_cases(&self) -> Option<&Vec<VariantCase>> {
+    pub fn get_variant_cases(&self) -> Option<&Vec<VariantCase>> {
         let resolved = self.resolve_alias_chain();
         match &resolved.def {
             TypeContent::Variant(cases) => Some(cases),
@@ -932,7 +932,7 @@ impl TypeDef {
     }
 
     #[allow(dead_code)]
-    pub(crate) fn find_case(&self, case: &str) -> Option<&VariantCase> {
+    pub fn find_case(&self, case: &str) -> Option<&VariantCase> {
         self.get_variant_cases()?
             .iter()
             .find(|x| x.name.value == case)

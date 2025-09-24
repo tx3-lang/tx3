@@ -487,14 +487,20 @@ impl Analyzable for RecordConstructorField {
 
 impl Analyzable for VariantCaseConstructor {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        let name = self.name.analyze(parent.clone());
+        let name = if self.name.symbol.is_some() {
+            AnalyzeReport::default()
+        } else {
+            self.name.analyze(parent.clone())
+        };
 
         let mut scope = Scope::new(parent);
 
         let case = match &self.name.symbol {
             Some(Symbol::VariantCase(x)) => x,
             Some(x) => bail_report!(Error::invalid_symbol("VariantCase", x, &self.name)),
-            None => bail_report!(Error::not_in_scope(self.name.value.clone(), &self.name)),
+            None => {
+                bail_report!(Error::not_in_scope(self.name.value.clone(), &self.name))
+            }
         };
 
         for field in case.fields.iter() {
@@ -527,14 +533,11 @@ impl Analyzable for StructConstructor {
             _ => unreachable!(),
         };
 
-        match &type_def.def {
-            TypeContent::Variant(cases) => {
-                for case in cases.iter() {
-                    scope.track_variant_case(case);
-                }
-            }
-            TypeContent::Alias(_) => {
-                // REVIEW
+        let resolved_type_def = type_def.resolve_alias_chain();
+
+        if let TypeContent::Variant(cases) = &resolved_type_def.def {
+            for case in cases.iter() {
+                scope.track_variant_case(case);
             }
         }
 
@@ -861,19 +864,29 @@ impl Analyzable for VariantCase {
     }
 }
 
-impl Analyzable for TypeDef {
+impl Analyzable for TypeContent {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        match &mut self.def {
+        match self {
             TypeContent::Variant(cases) => cases.analyze(parent),
             TypeContent::Alias(alias_type) => alias_type.analyze(parent),
         }
     }
-
     fn is_resolved(&self) -> bool {
-        match &self.def {
+        match self {
             TypeContent::Variant(cases) => cases.is_resolved(),
             TypeContent::Alias(alias_type) => alias_type.is_resolved(),
         }
+    }
+}
+
+// REVIEW
+impl Analyzable for TypeDef {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+        self.def.analyze(parent)
+    }
+
+    fn is_resolved(&self) -> bool {
+        self.def.is_resolved()
     }
 }
 
