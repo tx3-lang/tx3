@@ -50,12 +50,60 @@
       "address": {
         "EvalParam": {
           "ExpectValue": [
-            "sender",
+            "receiver",
             "Address"
           ]
         }
       },
       "datum": "None",
+      "amount": {
+        "Assets": [
+          {
+            "policy": "None",
+            "asset_name": "None",
+            "amount": {
+              "EvalParam": {
+                "ExpectValue": [
+                  "quantity",
+                  "Int"
+                ]
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "address": {
+        "EvalParam": {
+          "ExpectValue": [
+            "sender",
+            "Address"
+          ]
+        }
+      },
+      "datum": {
+        "Struct": {
+          "constructor": 0,
+          "fields": [
+            {
+              "AdHocDirective": {
+                "name": "cardano_payment_part",
+                "data": {
+                  "address": {
+                    "EvalParam": {
+                      "ExpectValue": [
+                        "sender",
+                        "Address"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
       "amount": {
         "EvalBuiltIn": {
           "Sub": [
@@ -132,50 +180,7 @@
   "validity": null,
   "mints": [],
   "burns": [],
-  "adhoc": [
-    {
-      "name": "cardano_publish",
-      "data": {
-        "to": {
-          "EvalParam": {
-            "ExpectValue": [
-              "receiver",
-              "Address"
-            ]
-          }
-        },
-        "script": {
-          "Bytes": [
-            130,
-            1,
-            129,
-            130,
-            4,
-            0
-          ]
-        },
-        "amount": {
-          "Assets": [
-            {
-              "policy": "None",
-              "asset_name": "None",
-              "amount": {
-                "EvalParam": {
-                  "ExpectValue": [
-                    "quantity",
-                    "Int"
-                  ]
-                }
-              }
-            }
-          ]
-        },
-        "version": {
-          "Number": 0
-        }
-      }
-    }
-  ],
+  "adhoc": [],
   "collateral": [],
   "signers": null,
   "metadata": []

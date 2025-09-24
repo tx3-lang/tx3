@@ -601,6 +601,7 @@ impl Analyzable for DataExpr {
             DataExpr::AnyAssetConstructor(x) => x.analyze(parent),
             DataExpr::MinUtxo(x) => x.analyze(parent),
             DataExpr::ConcatOp(x) => x.analyze(parent),
+            DataExpr::CardanoFunctions(x) => x.analyze(parent),
             _ => AnalyzeReport::default(),
         }
     }
@@ -619,6 +620,7 @@ impl Analyzable for DataExpr {
             DataExpr::AnyAssetConstructor(x) => x.is_resolved(),
             DataExpr::MinUtxo(x) => x.is_resolved(),
             DataExpr::ConcatOp(x) => x.is_resolved(),
+            DataExpr::CardanoFunctions(x) => x.is_resolved(),
             _ => true,
         }
     }

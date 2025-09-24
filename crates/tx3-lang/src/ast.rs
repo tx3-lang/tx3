@@ -740,6 +740,7 @@ pub enum DataExpr {
     NegateOp(NegateOp),
     PropertyOp(PropertyOp),
     UtxoRef(UtxoRef),
+    CardanoFunctions(crate::cardano::CardanoFunctions),
 }
 
 impl DataExpr {
@@ -775,6 +776,7 @@ impl DataExpr {
             DataExpr::UtxoRef(_) => Some(Type::UtxoRef),
             DataExpr::MinUtxo(_) => Some(Type::AnyAsset),
             DataExpr::ComputeTipSlot => Some(Type::Int),
+            DataExpr::CardanoFunctions(_) => Some(Type::Bytes), // Payment/staking parts return bytes
         }
     }
 }

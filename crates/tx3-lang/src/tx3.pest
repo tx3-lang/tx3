@@ -152,6 +152,7 @@ data_expr = { data_prefix* ~ data_primary ~ data_postfix* ~ (data_infix ~ data_p
         string |
         min_utxo |
         tip_slot |
+        cardano_functions |
         struct_constructor |
         list_constructor |
         map_constructor |
@@ -393,6 +394,14 @@ cardano_publish_block = {
 cardano_payment_part = { "payment_part" ~ "(" ~ data_expr ~ ")" }
 cardano_staking_part = { "staking_part" ~ "(" ~ data_expr ~ ")" }
 
+cardano_functions = {
+    "cardano" ~ "::" ~ (
+        cardano_payment_part |
+        cardano_staking_part
+    )
+}
+
+
 cardano_block = {
     "cardano" ~ "::" ~ (
         cardano_stake_delegation_certificate |
@@ -401,9 +410,7 @@ cardano_block = {
         cardano_plutus_witness_block |
         cardano_native_witness_block |
         cardano_treasury_donation_block |
-        cardano_publish_block |
-        cardano_payment_part |
-        cardano_staking_part
+        cardano_publish_block
     )
 }
 

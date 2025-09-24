@@ -737,6 +737,12 @@ pub struct CardanoStakingPart {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum CardanoFunctions {
+    PaymentPart(CardanoPaymentPart),
+    StakingPart(CardanoStakingPart),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum CardanoBlock {
     VoteDelegationCertificate(VoteDelegationCertificate),
     StakeDelegationCertificate(StakeDelegationCertificate),
@@ -745,8 +751,6 @@ pub enum CardanoBlock {
     NativeWitness(NativeWitnessBlock),
     TreasuryDonation(TreasuryDonationBlock),
     Publish(CardanoPublishBlock),
-    PaymentPart(CardanoPaymentPart),
-    StakingPart(CardanoStakingPart),
 }
 
 impl AstNode for CardanoPaymentPart {
@@ -810,12 +814,6 @@ impl AstNode for CardanoBlock {
             Rule::cardano_publish_block => {
                 Ok(CardanoBlock::Publish(CardanoPublishBlock::parse(item)?))
             }
-            Rule::cardano_payment_part => {
-                Ok(CardanoBlock::PaymentPart(CardanoPaymentPart::parse(item)?))
-            }
-            Rule::cardano_staking_part => {
-                Ok(CardanoBlock::StakingPart(CardanoStakingPart::parse(item)?))
-            }
             x => unreachable!("Unexpected rule in cardano_block: {:?}", x),
         }
     }
@@ -829,8 +827,6 @@ impl AstNode for CardanoBlock {
             CardanoBlock::NativeWitness(x) => x.span(),
             CardanoBlock::TreasuryDonation(x) => x.span(),
             CardanoBlock::Publish(x) => x.span(),
-            CardanoBlock::PaymentPart(x) => x.span(),
-            CardanoBlock::StakingPart(x) => x.span(),
         }
     }
 }
@@ -865,8 +861,6 @@ impl Analyzable for CardanoBlock {
             CardanoBlock::NativeWitness(x) => x.analyze(parent),
             CardanoBlock::TreasuryDonation(x) => x.analyze(parent),
             CardanoBlock::Publish(x) => x.analyze(parent),
-            CardanoBlock::PaymentPart(x) => x.analyze(parent),
-            CardanoBlock::StakingPart(x) => x.analyze(parent),
         }
     }
 
@@ -879,8 +873,6 @@ impl Analyzable for CardanoBlock {
             CardanoBlock::NativeWitness(x) => x.is_resolved(),
             Self::TreasuryDonation(x) => x.is_resolved(),
             CardanoBlock::Publish(x) => x.is_resolved(),
-            CardanoBlock::PaymentPart(x) => x.is_resolved(),
-            CardanoBlock::StakingPart(x) => x.is_resolved(),
         }
     }
 }
@@ -919,6 +911,62 @@ impl IntoLower for CardanoStakingPart {
     }
 }
 
+impl AstNode for CardanoFunctions {
+    const RULE: Rule = Rule::cardano_functions;
+
+    fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
+        let mut inner = pair.into_inner();
+        let function_pair = inner.next().unwrap();
+
+        match function_pair.as_rule() {
+            Rule::cardano_payment_part => {
+                Ok(CardanoFunctions::PaymentPart(CardanoPaymentPart::parse(function_pair)?))
+            }
+            Rule::cardano_staking_part => {
+                Ok(CardanoFunctions::StakingPart(CardanoStakingPart::parse(function_pair)?))
+            }
+            x => unreachable!("Unexpected rule in cardano_functions: {:?}", x),
+        }
+    }
+
+    fn span(&self) -> &Span {
+        match self {
+            CardanoFunctions::PaymentPart(x) => x.span(),
+            CardanoFunctions::StakingPart(x) => x.span(),
+        }
+    }
+}
+
+impl Analyzable for CardanoFunctions {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+        match self {
+            CardanoFunctions::PaymentPart(x) => x.analyze(parent),
+            CardanoFunctions::StakingPart(x) => x.analyze(parent),
+        }
+    }
+
+    fn is_resolved(&self) -> bool {
+        match self {
+            CardanoFunctions::PaymentPart(x) => x.is_resolved(),
+            CardanoFunctions::StakingPart(x) => x.is_resolved(),
+        }
+    }
+}
+
+impl IntoLower for CardanoFunctions {
+    type Output = ir::AdHocDirective;
+
+    fn into_lower(
+        &self,
+        ctx: &crate::lowering::Context,
+    ) -> Result<Self::Output, crate::lowering::Error> {
+        match self {
+            CardanoFunctions::PaymentPart(x) => x.into_lower(ctx),
+            CardanoFunctions::StakingPart(x) => x.into_lower(ctx),
+        }
+    }
+}
+
 impl IntoLower for CardanoBlock {
     type Output = ir::AdHocDirective;
 
@@ -934,8 +982,6 @@ impl IntoLower for CardanoBlock {
             CardanoBlock::NativeWitness(x) => x.into_lower(ctx),
             CardanoBlock::TreasuryDonation(x) => x.into_lower(ctx),
             CardanoBlock::Publish(x) => x.into_lower(ctx),
-            CardanoBlock::PaymentPart(x) => x.into_lower(ctx),
-            CardanoBlock::StakingPart(x) => x.into_lower(ctx),
         }
     }
 }

@@ -14,7 +14,7 @@ use pest_derive::Parser;
 
 use crate::{
     ast::*,
-    cardano::{PlutusWitnessBlock, PlutusWitnessField},
+    cardano::{CardanoFunctions, PlutusWitnessBlock, PlutusWitnessField},
 };
 #[derive(Parser)]
 #[grammar = "tx3.pest"]
@@ -1227,6 +1227,7 @@ impl AstNode for DataExpr {
                 Rule::concat_constructor => DataExpr::concat_constructor_parse(x),
                 Rule::min_utxo => DataExpr::min_utxo_parse(x),
                 Rule::tip_slot => DataExpr::tip_slot_parse(x),
+                Rule::cardano_functions => Ok(DataExpr::CardanoFunctions(CardanoFunctions::parse(x)?)),
                 Rule::data_expr => DataExpr::parse(x),
                 x => unreachable!("unexpected rule as data primary: {:?}", x),
             })
@@ -1268,7 +1269,8 @@ impl AstNode for DataExpr {
             DataExpr::PropertyOp(x) => &x.span,
             DataExpr::UtxoRef(x) => x.span(),
             DataExpr::MinUtxo(x) => x.span(),
-            DataExpr::ComputeTipSlot => &Span::DUMMY, // TODO
+            DataExpr::ComputeTipSlot => &Span::DUMMY,
+            DataExpr::CardanoFunctions(x) => x.span(),
         }
     }
 }

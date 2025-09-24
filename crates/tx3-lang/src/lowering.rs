@@ -472,6 +472,7 @@ impl IntoLower for ast::DataExpr {
             ast::DataExpr::ComputeTipSlot => {
                 ir::Expression::EvalCompiler(Box::new(ir::CompilerOp::ComputeTipSlot))
             }
+            ast::DataExpr::CardanoFunctions(x) => ir::Expression::AdHocDirective(Box::new(x.into_lower(ctx)?)),
         };
 
         Ok(out)
@@ -935,4 +936,6 @@ mod tests {
     test_lowering!(donation);
 
     test_lowering!(list_concat);
+
+    test_lowering!(party_serialization);
 }
