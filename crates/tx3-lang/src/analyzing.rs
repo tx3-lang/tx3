@@ -1183,6 +1183,13 @@ impl Analyzable for Program {
 
         let types = self.types.analyze(self.scope.clone());
 
+        let scope = Rc::get_mut(self.scope.as_mut().unwrap()).unwrap();
+
+        // Add to the scope aliased types after original types are analyzed
+        for type_def in self.types.iter() {
+            scope.track_type_def(type_def);
+        }
+
         let txs = self.txs.analyze(self.scope.clone());
 
         parties + policies + types + txs + assets
