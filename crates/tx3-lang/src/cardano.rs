@@ -725,6 +725,18 @@ impl IntoLower for CardanoPublishBlock {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CardanoPaymentPart {
+    pub address: Box<DataExpr>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CardanoStakingPart {
+    pub address: Box<DataExpr>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum CardanoBlock {
     VoteDelegationCertificate(VoteDelegationCertificate),
     StakeDelegationCertificate(StakeDelegationCertificate),
@@ -733,6 +745,40 @@ pub enum CardanoBlock {
     NativeWitness(NativeWitnessBlock),
     TreasuryDonation(TreasuryDonationBlock),
     Publish(CardanoPublishBlock),
+    PaymentPart(CardanoPaymentPart),
+    StakingPart(CardanoStakingPart),
+}
+
+impl AstNode for CardanoPaymentPart {
+    const RULE: Rule = Rule::cardano_payment_part;
+
+    fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
+        let span = pair.as_span().into();
+        let mut inner = pair.into_inner();
+        let address = DataExpr::parse(inner.next().unwrap())?.into();
+
+        Ok(CardanoPaymentPart { address, span })
+    }
+
+    fn span(&self) -> &Span {
+        &self.span
+    }
+}
+
+impl AstNode for CardanoStakingPart {
+    const RULE: Rule = Rule::cardano_staking_part;
+
+    fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
+        let span = pair.as_span().into();
+        let mut inner = pair.into_inner();
+        let address = DataExpr::parse(inner.next().unwrap())?.into();
+
+        Ok(CardanoStakingPart { address, span })
+    }
+
+    fn span(&self) -> &Span {
+        &self.span
+    }
 }
 
 impl AstNode for CardanoBlock {
@@ -764,6 +810,12 @@ impl AstNode for CardanoBlock {
             Rule::cardano_publish_block => {
                 Ok(CardanoBlock::Publish(CardanoPublishBlock::parse(item)?))
             }
+            Rule::cardano_payment_part => {
+                Ok(CardanoBlock::PaymentPart(CardanoPaymentPart::parse(item)?))
+            }
+            Rule::cardano_staking_part => {
+                Ok(CardanoBlock::StakingPart(CardanoStakingPart::parse(item)?))
+            }
             x => unreachable!("Unexpected rule in cardano_block: {:?}", x),
         }
     }
@@ -777,7 +829,29 @@ impl AstNode for CardanoBlock {
             CardanoBlock::NativeWitness(x) => x.span(),
             CardanoBlock::TreasuryDonation(x) => x.span(),
             CardanoBlock::Publish(x) => x.span(),
+            CardanoBlock::PaymentPart(x) => x.span(),
+            CardanoBlock::StakingPart(x) => x.span(),
         }
+    }
+}
+
+impl Analyzable for CardanoPaymentPart {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+        self.address.analyze(parent)
+    }
+
+    fn is_resolved(&self) -> bool {
+        self.address.is_resolved()
+    }
+}
+
+impl Analyzable for CardanoStakingPart {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+        self.address.analyze(parent)
+    }
+
+    fn is_resolved(&self) -> bool {
+        self.address.is_resolved()
     }
 }
 
@@ -791,6 +865,8 @@ impl Analyzable for CardanoBlock {
             CardanoBlock::NativeWitness(x) => x.analyze(parent),
             CardanoBlock::TreasuryDonation(x) => x.analyze(parent),
             CardanoBlock::Publish(x) => x.analyze(parent),
+            CardanoBlock::PaymentPart(x) => x.analyze(parent),
+            CardanoBlock::StakingPart(x) => x.analyze(parent),
         }
     }
 
@@ -803,7 +879,43 @@ impl Analyzable for CardanoBlock {
             CardanoBlock::NativeWitness(x) => x.is_resolved(),
             Self::TreasuryDonation(x) => x.is_resolved(),
             CardanoBlock::Publish(x) => x.is_resolved(),
+            CardanoBlock::PaymentPart(x) => x.is_resolved(),
+            CardanoBlock::StakingPart(x) => x.is_resolved(),
         }
+    }
+}
+
+impl IntoLower for CardanoPaymentPart {
+    type Output = ir::AdHocDirective;
+
+    fn into_lower(
+        &self,
+        ctx: &crate::lowering::Context,
+    ) -> Result<Self::Output, crate::lowering::Error> {
+        let address_expr = self.address.into_lower(ctx)?;
+        let mut data = std::collections::HashMap::new();
+        data.insert("address".to_string(), address_expr);
+        Ok(ir::AdHocDirective {
+            name: "cardano_payment_part".to_string(),
+            data,
+        })
+    }
+}
+
+impl IntoLower for CardanoStakingPart {
+    type Output = ir::AdHocDirective;
+
+    fn into_lower(
+        &self,
+        ctx: &crate::lowering::Context,
+    ) -> Result<Self::Output, crate::lowering::Error> {
+        let address_expr = self.address.into_lower(ctx)?;
+        let mut data = std::collections::HashMap::new();
+        data.insert("address".to_string(), address_expr);
+        Ok(ir::AdHocDirective {
+            name: "cardano_staking_part".to_string(),
+            data,
+        })
     }
 }
 
@@ -822,6 +934,8 @@ impl IntoLower for CardanoBlock {
             CardanoBlock::NativeWitness(x) => x.into_lower(ctx),
             CardanoBlock::TreasuryDonation(x) => x.into_lower(ctx),
             CardanoBlock::Publish(x) => x.into_lower(ctx),
+            CardanoBlock::PaymentPart(x) => x.into_lower(ctx),
+            CardanoBlock::StakingPart(x) => x.into_lower(ctx),
         }
     }
 }

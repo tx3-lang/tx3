@@ -2,6 +2,8 @@ pub use pallas::codec::utils::Int;
 use pallas::codec::utils::KeyValuePairs;
 pub use pallas::ledger::primitives::{BigInt, BoundedBytes, Constr, MaybeIndefArray, PlutusData};
 use tx3_lang::ir;
+use std::collections::HashMap;
+
 
 pub trait IntoData {
     fn as_data(&self) -> PlutusData;
@@ -148,10 +150,27 @@ impl TryIntoData for ir::Expression {
             ir::Expression::Hash(x) => Ok(x.as_data()),
             ir::Expression::List(x) => x.try_as_data(),
             ir::Expression::Map(x) => x.try_as_data(),
-            x => Err(super::Error::CoerceError(
-                format!("{x:?}"),
+            ir::Expression::AdHocDirective(x) => match x.name.as_str() {
+                "cardano_payment_part" => Ok(extract_address_part(&x.data, 1..29)),
+                "cardano_staking_part" => Ok(extract_address_part(&x.data, 29..)),
+                _ => Ok(().as_data()),
+            },
+            _ => Err(super::Error::CoerceError(
+                format!("{self:?}"),
                 "PlutusData".to_string(),
             )),
         }
     }
+}
+
+fn extract_address_part<R>(data: &HashMap<String, ir::Expression>, range: R) -> PlutusData
+where
+    R: std::slice::SliceIndex<[u8], Output = [u8]>,
+{
+    data.get("address")
+        .and_then(|expr| match expr {
+            ir::Expression::Address(bytes) => bytes.get(range).map(|part| part.as_data()),
+            _ => None,
+        })
+        .unwrap_or_else(|| ().as_data())
 }
