@@ -919,6 +919,11 @@ impl TypeDef {
         }
     }
 
+    pub fn is_alias_chain_resolved(&self) -> bool {
+        let resolved = self.resolve_alias_chain();
+        matches!(&resolved.def, TypeContent::Variant(_))
+    }
+
     pub fn get_variant_cases(&self) -> Option<&Vec<VariantCase>> {
         let resolved = self.resolve_alias_chain();
         match &resolved.def {

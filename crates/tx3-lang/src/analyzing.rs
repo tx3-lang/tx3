@@ -550,13 +550,18 @@ impl Analyzable for StructConstructor {
             for case in cases.iter() {
                 scope.track_variant_case(case);
             }
+
+            self.scope = Some(Rc::new(scope));
+            let case = self.case.analyze(self.scope.clone());
+
+            return r#type + case;
         }
 
-        self.scope = Some(Rc::new(scope));
-
-        let case = self.case.analyze(self.scope.clone());
-
-        r#type + case
+        bail_report!(Error::NotInScope(NotInScopeError {
+            name: "Default".to_string(),
+            src: None,
+            span: self.span.clone(),
+        }));
     }
 
     fn is_resolved(&self) -> bool {
@@ -736,6 +741,9 @@ impl Analyzable for Type {
         match self {
             Type::Custom(x) => x.analyze(parent),
             Type::List(x) => x.analyze(parent),
+            Type::Map(key_type, value_type) => {
+                key_type.analyze(parent.clone()) + value_type.analyze(parent)
+            }
             _ => AnalyzeReport::default(),
         }
     }
@@ -744,6 +752,7 @@ impl Analyzable for Type {
         match self {
             Type::Custom(x) => x.is_resolved(),
             Type::List(x) => x.is_resolved(),
+            Type::Map(key_type, value_type) => key_type.is_resolved() && value_type.is_resolved(),
             _ => true,
         }
     }
@@ -896,7 +905,10 @@ impl Analyzable for TypeDef {
     }
 
     fn is_resolved(&self) -> bool {
-        self.def.is_resolved()
+        match &self.def {
+            TypeContent::Alias(_) => self.def.is_resolved() && self.is_alias_chain_resolved(),
+            TypeContent::Variant(_) => self.def.is_resolved(),
+        }
     }
 }
 
@@ -1178,13 +1190,22 @@ impl Analyzable for Program {
 
         let assets = self.assets.analyze(self.scope.clone());
 
-        let types = self.types.analyze(self.scope.clone());
+        let mut types = AnalyzeReport::default();
+        let mut pass_count = 0;
+        let max_passes = 100; // Prevent infinite loops
+        let mut all_resolved = false;
 
-        let scope = Rc::get_mut(self.scope.as_mut().unwrap()).unwrap();
+        while pass_count < max_passes && !all_resolved {
+            pass_count += 1;
 
-        // Add to the scope aliased types after original types are analyzed
-        for type_def in self.types.iter() {
-            scope.track_type_def(type_def);
+            let scope = Rc::get_mut(self.scope.as_mut().unwrap()).unwrap();
+            for type_def in self.types.iter() {
+                scope.track_type_def(type_def);
+            }
+
+            types = self.types.analyze(self.scope.clone());
+
+            all_resolved = self.types.is_resolved();
         }
 
         let txs = self.txs.analyze(self.scope.clone());
