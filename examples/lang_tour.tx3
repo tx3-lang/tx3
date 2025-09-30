@@ -1,6 +1,8 @@
 env {
     field_a: Int,
     field_b: Bytes,
+    field_c: Bool,
+    field_d: List<Bytes>,
 }
 
 party MyParty;
@@ -10,6 +12,7 @@ type MyRecord {
     field2: Bytes,
     field3: Bytes,
     field4: List<Int>,
+    field5: Map<Int, Bytes>,
 }
 
 type MyVariant {
@@ -57,12 +60,26 @@ tx my_tx(
         redeemer: (),
     }
 
+    burn {
+        amount: StaticAsset(50),
+        redeemer: (),
+    }
+
+    collateral {
+        ref: 0xABCDEF#1,
+    }
+
+    reference ref_block {
+        ref: 0xABCDEF#2,
+    }
+
     output named_output {
         to: MyParty,
         datum: MyRecord {
             field1: quantity,
             field2: (54 + 10) - (8 + 2),
             field4: [1, 2, 3, source.field1],
+            field5: {1: "Value1", 2: "Value2",},
             ...source
         },
         amount: AnyAsset(source.field3, source.field2, source.field1) + Ada(40) + min_utxo(named_output),
@@ -74,11 +91,40 @@ tx my_tx(
     }
 
     validity {
-        since_slot: 1735700400000,
+        since_slot: tip_slot(),
         until_slot: validUntil,
     }
 
     metadata {
         1: metadata,
+        2: "Additional Metadata",
+    }
+
+    locals {
+        local_var: concat("Lang", "Tour"),
+    }
+
+    cardano::vote_delegation_certificate {
+        drep: 0x12345678,
+        stake: 0x87654321,
+    }
+
+    cardano::withdrawal {
+        from: MyParty,
+        amount: 100,
+        redeemer: (),
+    }
+
+    cardano::plutus_witness {
+        version: 2,
+        script: 0xABCDEF1234,
+    }
+
+    cardano::native_witness {
+        script: 0x12345678,
+    }
+
+    cardano::treasury_donation {
+        coin: 500,
     }
 }
