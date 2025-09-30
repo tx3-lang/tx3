@@ -18,3 +18,12 @@ readme = "README.md"
 thiserror = "2.0.11"
 trait-variant = "0.1.2"
 hex = "0.4.3"
+
+# pallas = { git = "https://github.com/txpipe/pallas.git", rev = "38546da", features = ["phase2"] }
+# pallas = { version = "1.0.0-alpha.2", features = ["phase2"] }
+pallas = { path = "../pallas/pallas", features = ["phase2"] }
+
+# dolos-core = { git = "https://github.com/txpipe/dolos.git" path = "crates/core" }
+# dolos-cardano = { git = "https://github.com/txpipe/dolos.git" path = "crates/cardano" }
+dolos-core = { path = "../dolos/crates/core" }
+dolos-cardano = { path = "../dolos/crates/cardano" }

@@ -2,6 +2,9 @@ use std::collections::HashSet;
 
 use crate::{applying, ir, UtxoRef, UtxoSet};
 
+use pallas::ledger::validate::phase2::EvalReport;
+use pallas::ledger::validate::utils::UtxoMap;
+
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("transient error: {0}")]
@@ -42,18 +45,26 @@ pub enum Error {
 
     #[error("can't reduce {0:?}")]
     CantReduce(ir::CompilerOp),
+
+    #[error("tx evaluation failed: {0}")]
+    EvaluationError(String),
 }
 
 #[derive(Debug, PartialEq)]
-pub struct TxEval {
+pub struct CompiledTx {
     pub payload: Vec<u8>,
     pub hash: Vec<u8>,
+}
+
+#[derive(Debug)]
+pub struct TxEval {
+    pub report: EvalReport,
     pub fee: u64,
-    pub ex_units: u64,
 }
 
 pub trait Compiler {
-    fn compile(&mut self, tx: &ir::Tx) -> Result<TxEval, Error>;
+    fn compile(&mut self, tx: &ir::Tx) -> Result<CompiledTx, Error>;
+    async fn evaluate<S: UtxoStore>(&self, tx: Option<&CompiledTx>, utxos: &S) -> Result<TxEval, Error>;
     fn execute(&self, op: ir::CompilerOp) -> Result<ir::Expression, Error>;
 }
 
@@ -90,4 +101,5 @@ impl<'a> UtxoPattern<'a> {
 pub trait UtxoStore {
     async fn narrow_refs(&self, pattern: UtxoPattern) -> Result<HashSet<UtxoRef>, Error>;
     async fn fetch_utxos(&self, refs: HashSet<UtxoRef>) -> Result<UtxoSet, Error>;
+    async fn fetch_utxos_deps(&self, refs: HashSet<UtxoRef>) -> Result<UtxoMap, Error>;
 }

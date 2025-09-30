@@ -16,8 +16,9 @@ readme.workspace = true
 thiserror = { workspace = true }
 trait-variant = { workspace = true }
 hex = { workspace = true }
+pallas = { workspace = true }
 
-miette = { version = "7.4.0", features = ["fancy"] }
+miette = { version = "7.6.0", features = ["fancy"] }
 pest = { version = "2.7.15", features = ["miette-error", "pretty-print"] }
 pest_derive = "2.7.15"
 serde = { version = "1.0.217", features = ["derive"] }
