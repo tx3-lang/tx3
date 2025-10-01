@@ -391,13 +391,13 @@ cardano_publish_block = {
     "}"
 }
 
-cardano_payment_part = { "payment_part" ~ "(" ~ data_expr ~ ")" }
-cardano_staking_part = { "staking_part" ~ "(" ~ data_expr ~ ")" }
+cardano_address_payment_part = { "payment_part" ~ "(" ~ data_expr ~ ")" }
+cardano_address_staking_part = { "staking_part" ~ "(" ~ data_expr ~ ")" }
 
 cardano_functions = {
     "cardano" ~ "::" ~ (
-        cardano_payment_part |
-        cardano_staking_part
+        cardano_address_payment_part |
+        cardano_address_staking_part
     )
 }
 

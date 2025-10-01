@@ -472,7 +472,8 @@ impl IntoLower for ast::DataExpr {
             ast::DataExpr::ComputeTipSlot => {
                 ir::Expression::EvalCompiler(Box::new(ir::CompilerOp::ComputeTipSlot))
             }
-            ast::DataExpr::CardanoFunctions(x) => ir::Expression::AdHocDirective(Box::new(x.into_lower(ctx)?)),
+            ast::DataExpr::AddressPaymentPart(x) => ir::Expression::AdHocDirective(Box::new(x.into_lower(ctx)?)),
+            ast::DataExpr::AddressStakingPart(x) => ir::Expression::AdHocDirective(Box::new(x.into_lower(ctx)?)),
         };
 
         Ok(out)

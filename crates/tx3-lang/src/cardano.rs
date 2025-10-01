@@ -725,22 +725,32 @@ impl IntoLower for CardanoPublishBlock {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct CardanoPaymentPart {
+pub struct AddressPaymentPart {
     pub address: Box<DataExpr>,
     pub span: Span,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct CardanoStakingPart {
+pub struct AddressStakingPart {
     pub address: Box<DataExpr>,
     pub span: Span,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub enum CardanoFunctions {
-    PaymentPart(CardanoPaymentPart),
-    StakingPart(CardanoStakingPart),
+pub fn parse_cardano_function(pair: Pair<Rule>) -> Result<DataExpr, Error> {
+    let mut inner = pair.into_inner();
+    let function_pair = inner.next().unwrap();
+
+    match function_pair.as_rule() {
+        Rule::cardano_address_payment_part => {
+            Ok(DataExpr::AddressPaymentPart(AddressPaymentPart::parse(function_pair)?))
+        }
+        Rule::cardano_address_staking_part => {
+            Ok(DataExpr::AddressStakingPart(AddressStakingPart::parse(function_pair)?))
+        }
+        x => unreachable!("Unexpected rule in cardano_functions: {:?}", x),
+    }
 }
+
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum CardanoBlock {
@@ -753,15 +763,15 @@ pub enum CardanoBlock {
     Publish(CardanoPublishBlock),
 }
 
-impl AstNode for CardanoPaymentPart {
-    const RULE: Rule = Rule::cardano_payment_part;
+impl AstNode for AddressPaymentPart {
+    const RULE: Rule = Rule::cardano_address_payment_part;
 
     fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
         let span = pair.as_span().into();
         let mut inner = pair.into_inner();
         let address = DataExpr::parse(inner.next().unwrap())?.into();
 
-        Ok(CardanoPaymentPart { address, span })
+        Ok(AddressPaymentPart { address, span })
     }
 
     fn span(&self) -> &Span {
@@ -769,15 +779,15 @@ impl AstNode for CardanoPaymentPart {
     }
 }
 
-impl AstNode for CardanoStakingPart {
-    const RULE: Rule = Rule::cardano_staking_part;
+impl AstNode for AddressStakingPart {
+    const RULE: Rule = Rule::cardano_address_staking_part;
 
     fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
         let span = pair.as_span().into();
         let mut inner = pair.into_inner();
         let address = DataExpr::parse(inner.next().unwrap())?.into();
 
-        Ok(CardanoStakingPart { address, span })
+        Ok(AddressStakingPart { address, span })
     }
 
     fn span(&self) -> &Span {
@@ -831,7 +841,7 @@ impl AstNode for CardanoBlock {
     }
 }
 
-impl Analyzable for CardanoPaymentPart {
+impl Analyzable for AddressPaymentPart {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
         self.address.analyze(parent)
     }
@@ -841,7 +851,7 @@ impl Analyzable for CardanoPaymentPart {
     }
 }
 
-impl Analyzable for CardanoStakingPart {
+impl Analyzable for AddressStakingPart {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
         self.address.analyze(parent)
     }
@@ -877,7 +887,7 @@ impl Analyzable for CardanoBlock {
     }
 }
 
-impl IntoLower for CardanoPaymentPart {
+impl IntoLower for AddressPaymentPart {
     type Output = ir::AdHocDirective;
 
     fn into_lower(
@@ -888,13 +898,13 @@ impl IntoLower for CardanoPaymentPart {
         let mut data = std::collections::HashMap::new();
         data.insert("address".to_string(), address_expr);
         Ok(ir::AdHocDirective {
-            name: "cardano_payment_part".to_string(),
+            name: "cardano_address_payment_part".to_string(),
             data,
         })
     }
 }
 
-impl IntoLower for CardanoStakingPart {
+impl IntoLower for AddressStakingPart {
     type Output = ir::AdHocDirective;
 
     fn into_lower(
@@ -905,65 +915,9 @@ impl IntoLower for CardanoStakingPart {
         let mut data = std::collections::HashMap::new();
         data.insert("address".to_string(), address_expr);
         Ok(ir::AdHocDirective {
-            name: "cardano_staking_part".to_string(),
+            name: "cardano_address_staking_part".to_string(),
             data,
         })
-    }
-}
-
-impl AstNode for CardanoFunctions {
-    const RULE: Rule = Rule::cardano_functions;
-
-    fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
-        let mut inner = pair.into_inner();
-        let function_pair = inner.next().unwrap();
-
-        match function_pair.as_rule() {
-            Rule::cardano_payment_part => {
-                Ok(CardanoFunctions::PaymentPart(CardanoPaymentPart::parse(function_pair)?))
-            }
-            Rule::cardano_staking_part => {
-                Ok(CardanoFunctions::StakingPart(CardanoStakingPart::parse(function_pair)?))
-            }
-            x => unreachable!("Unexpected rule in cardano_functions: {:?}", x),
-        }
-    }
-
-    fn span(&self) -> &Span {
-        match self {
-            CardanoFunctions::PaymentPart(x) => x.span(),
-            CardanoFunctions::StakingPart(x) => x.span(),
-        }
-    }
-}
-
-impl Analyzable for CardanoFunctions {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        match self {
-            CardanoFunctions::PaymentPart(x) => x.analyze(parent),
-            CardanoFunctions::StakingPart(x) => x.analyze(parent),
-        }
-    }
-
-    fn is_resolved(&self) -> bool {
-        match self {
-            CardanoFunctions::PaymentPart(x) => x.is_resolved(),
-            CardanoFunctions::StakingPart(x) => x.is_resolved(),
-        }
-    }
-}
-
-impl IntoLower for CardanoFunctions {
-    type Output = ir::AdHocDirective;
-
-    fn into_lower(
-        &self,
-        ctx: &crate::lowering::Context,
-    ) -> Result<Self::Output, crate::lowering::Error> {
-        match self {
-            CardanoFunctions::PaymentPart(x) => x.into_lower(ctx),
-            CardanoFunctions::StakingPart(x) => x.into_lower(ctx),
-        }
     }
 }
 

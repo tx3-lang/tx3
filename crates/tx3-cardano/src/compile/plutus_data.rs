@@ -151,8 +151,8 @@ impl TryIntoData for ir::Expression {
             ir::Expression::List(x) => x.try_as_data(),
             ir::Expression::Map(x) => x.try_as_data(),
             ir::Expression::AdHocDirective(x) => match x.name.as_str() {
-                "cardano_payment_part" => Ok(extract_address_part(&x.data, 1..29)),
-                "cardano_staking_part" => Ok(extract_address_part(&x.data, 29..)),
+                "cardano_address_payment_part" => Ok(extract_address_part(&x.data, 1..29)),
+                "cardano_address_staking_part" => Ok(extract_address_part(&x.data, 29..)),
                 _ => Ok(().as_data()),
             },
             _ => Err(super::Error::CoerceError(

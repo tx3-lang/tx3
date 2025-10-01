@@ -251,23 +251,21 @@
                           }
                         },
                         "value": {
-                          "CardanoFunctions": {
-                            "PaymentPart": {
-                              "address": {
-                                "Identifier": {
-                                  "value": "Sender",
-                                  "span": {
-                                    "dummy": false,
-                                    "start": 398,
-                                    "end": 404
-                                  }
+                          "AddressPaymentPart": {
+                            "address": {
+                              "Identifier": {
+                                "value": "Sender",
+                                "span": {
+                                  "dummy": false,
+                                  "start": 398,
+                                  "end": 404
                                 }
-                              },
-                              "span": {
-                                "dummy": false,
-                                "start": 385,
-                                "end": 405
                               }
+                            },
+                            "span": {
+                              "dummy": false,
+                              "start": 385,
+                              "end": 405
                             }
                           }
                         },

@@ -88,7 +88,7 @@
           "fields": [
             {
               "AdHocDirective": {
-                "name": "cardano_payment_part",
+                "name": "cardano_address_payment_part",
                 "data": {
                   "address": {
                     "EvalParam": {

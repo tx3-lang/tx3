@@ -12,10 +12,8 @@ use pest::{
 };
 use pest_derive::Parser;
 
-use crate::{
-    ast::*,
-    cardano::{CardanoFunctions, PlutusWitnessBlock, PlutusWitnessField},
-};
+use crate::ast::*;
+
 #[derive(Parser)]
 #[grammar = "tx3.pest"]
 pub(crate) struct Tx3Grammar;
@@ -1227,7 +1225,7 @@ impl AstNode for DataExpr {
                 Rule::concat_constructor => DataExpr::concat_constructor_parse(x),
                 Rule::min_utxo => DataExpr::min_utxo_parse(x),
                 Rule::tip_slot => DataExpr::tip_slot_parse(x),
-                Rule::cardano_functions => Ok(DataExpr::CardanoFunctions(CardanoFunctions::parse(x)?)),
+                Rule::cardano_functions => crate::cardano::parse_cardano_function(x),
                 Rule::data_expr => DataExpr::parse(x),
                 x => unreachable!("unexpected rule as data primary: {:?}", x),
             })
@@ -1270,7 +1268,8 @@ impl AstNode for DataExpr {
             DataExpr::UtxoRef(x) => x.span(),
             DataExpr::MinUtxo(x) => x.span(),
             DataExpr::ComputeTipSlot => &Span::DUMMY,
-            DataExpr::CardanoFunctions(x) => x.span(),
+            DataExpr::AddressPaymentPart(x) => x.span(),
+            DataExpr::AddressStakingPart(x) => x.span(),
         }
     }
 }
