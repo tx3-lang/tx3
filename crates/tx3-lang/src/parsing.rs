@@ -91,6 +91,7 @@ impl AstNode for Program {
             txs: Vec::new(),
             assets: Vec::new(),
             types: Vec::new(),
+            aliases: Vec::new(),
             parties: Vec::new(),
             policies: Vec::new(),
             scope: None,
@@ -104,7 +105,7 @@ impl AstNode for Program {
                 Rule::asset_def => program.assets.push(AssetDef::parse(pair)?),
                 Rule::record_def => program.types.push(TypeDef::parse(pair)?),
                 Rule::variant_def => program.types.push(TypeDef::parse(pair)?),
-                Rule::alias_def => program.types.push(TypeDef::parse(pair)?),
+                Rule::alias_def => program.aliases.push(AliasDef::parse(pair)?),
                 Rule::party_def => program.parties.push(PartyDef::parse(pair)?),
                 Rule::policy_def => program.policies.push(PolicyDef::parse(pair)?),
                 Rule::EOI => break,
@@ -1323,7 +1324,7 @@ impl TypeDef {
 
         Ok(TypeDef {
             name: identifier,
-            def: TypeContent::Variant(cases),
+            cases,
             span,
         })
     }
@@ -1340,25 +1341,11 @@ impl TypeDef {
 
         Ok(TypeDef {
             name: identifier.clone(),
-            def: TypeContent::Variant(vec![VariantCase {
+            cases: vec![VariantCase {
                 name: Identifier::new("Default"),
                 fields,
                 span: span.clone(),
-            }]),
-            span,
-        })
-    }
-
-    fn parse_alias_format(pair: Pair<Rule>) -> Result<Self, Error> {
-        let span = pair.as_span().into();
-        let mut inner = pair.into_inner();
-
-        let identifier = Identifier::parse(inner.next().unwrap())?;
-        let alias_type = Type::parse(inner.next().unwrap())?;
-
-        Ok(TypeDef {
-            name: identifier,
-            def: TypeContent::Alias(alias_type),
+            }],
             span,
         })
     }
@@ -1371,9 +1358,30 @@ impl AstNode for TypeDef {
         match pair.as_rule() {
             Rule::variant_def => Ok(Self::parse_variant_format(pair)?),
             Rule::record_def => Ok(Self::parse_record_format(pair)?),
-            Rule::alias_def => Ok(Self::parse_alias_format(pair)?),
             x => unreachable!("Unexpected rule in type_def: {:?}", x),
         }
+    }
+
+    fn span(&self) -> &Span {
+        &self.span
+    }
+}
+
+impl AstNode for AliasDef {
+    const RULE: Rule = Rule::alias_def;
+
+    fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
+        let span: Span = pair.as_span().into();
+        let mut inner = pair.into_inner();
+
+        let identifier = Identifier::parse(inner.next().unwrap())?;
+        let r#type = Type::parse(inner.next().unwrap())?;
+
+        Ok(AliasDef {
+            name: identifier,
+            alias_type: r#type,
+            span,
+        })
     }
 
     fn span(&self) -> &Span {
@@ -1518,7 +1526,7 @@ pub fn parse_well_known_example(example: &str) -> Program {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ast::{self, TypeContent};
+    use crate::ast;
     use assert_json_diff::assert_json_eq;
     use paste::paste;
     use pest::Parser;
@@ -1603,14 +1611,14 @@ mod tests {
         }",
         TypeDef {
             name: Identifier::new("MyRecord"),
-            def: TypeContent::Variant(vec![VariantCase {
+            cases: vec![VariantCase {
                 name: Identifier::new("Default"),
                 fields: vec![
                     RecordField::new("field1", Type::Int),
                     RecordField::new("field2", Type::Bytes)
                 ],
                 span: Span::DUMMY,
-            }]),
+            }],
             span: Span::DUMMY,
         }
     );
@@ -1627,7 +1635,7 @@ mod tests {
         }",
         TypeDef {
             name: Identifier::new("MyVariant"),
-            def: TypeContent::Variant(vec![
+            cases: vec![
                 VariantCase {
                     name: Identifier::new("Case1"),
                     fields: vec![
@@ -1641,120 +1649,120 @@ mod tests {
                     fields: vec![],
                     span: Span::DUMMY,
                 },
-            ]),
+            ],
             span: Span::DUMMY,
         }
     );
 
     input_to_ast_check!(
-        TypeDef,
+        AliasDef,
         "type_def_alias",
         "type MyAlias = Bytes;",
-        TypeDef {
+        AliasDef {
             name: Identifier::new("MyAlias"),
-            def: TypeContent::Alias(Type::Bytes),
+            alias_type: Type::Bytes,
             span: Span::DUMMY,
         }
     );
 
     input_to_ast_check!(
-        TypeDef,
+        AliasDef,
         "type_alias_custom_type",
         "type UserAlias = UserType;",
-        TypeDef {
+        AliasDef {
             name: Identifier::new("UserAlias"),
-            def: TypeContent::Alias(Type::Custom(Identifier::new("UserType"))),
+            alias_type: Type::Custom(Identifier::new("UserType")),
             span: Span::DUMMY,
         }
     );
 
     input_to_ast_check!(
-        TypeDef,
+        AliasDef,
         "type_alias_list",
         "type StringList = List<Bytes>;",
-        TypeDef {
+        AliasDef {
             name: Identifier::new("StringList"),
-            def: TypeContent::Alias(Type::List(Box::new(Type::Bytes))),
+            alias_type: Type::List(Box::new(Type::Bytes)),
             span: Span::DUMMY,
         }
     );
 
     input_to_ast_check!(
-        TypeDef,
+        AliasDef,
         "type_alias_map",
         "type StringIntMap = Map<Bytes, Int>;",
-        TypeDef {
+        AliasDef {
             name: Identifier::new("StringIntMap"),
-            def: TypeContent::Alias(Type::Map(Box::new(Type::Bytes), Box::new(Type::Int))),
+            alias_type: Type::Map(Box::new(Type::Bytes), Box::new(Type::Int)),
             span: Span::DUMMY,
         }
     );
 
     input_to_ast_check!(
-        TypeDef,
+        AliasDef,
         "type_alias_complex_nested",
         "type ComplexType = List<Map<Bytes, Int>>;",
-        TypeDef {
+        AliasDef {
             name: Identifier::new("ComplexType"),
-            def: TypeContent::Alias(Type::List(Box::new(Type::Map(
+            alias_type: Type::List(Box::new(Type::Map(
                 Box::new(Type::Bytes),
                 Box::new(Type::Int)
-            )))),
+            ))),
             span: Span::DUMMY,
         }
     );
 
     input_to_ast_check!(
-        TypeDef,
+        AliasDef,
         "type_alias_all_primitives",
         "type MyInt = Int;",
-        TypeDef {
+        AliasDef {
             name: Identifier::new("MyInt"),
-            def: TypeContent::Alias(Type::Int),
+            alias_type: Type::Int,
             span: Span::DUMMY,
         }
     );
 
     input_to_ast_check!(
-        TypeDef,
+        AliasDef,
         "type_alias_bool",
         "type MyBool = Bool;",
-        TypeDef {
+        AliasDef {
             name: Identifier::new("MyBool"),
-            def: TypeContent::Alias(Type::Bool),
+            alias_type: Type::Bool,
             span: Span::DUMMY,
         }
     );
 
     input_to_ast_check!(
-        TypeDef,
+        AliasDef,
         "type_alias_address",
         "type MyAddress = Address;",
-        TypeDef {
+        AliasDef {
             name: Identifier::new("MyAddress"),
-            def: TypeContent::Alias(Type::Address),
+            alias_type: Type::Address,
             span: Span::DUMMY,
         }
     );
 
     input_to_ast_check!(
-        TypeDef,
+        AliasDef,
         "type_alias_utxo_ref",
         "type MyUtxoRef = UtxoRef;",
-        TypeDef {
+        AliasDef {
             name: Identifier::new("MyUtxoRef"),
-            def: TypeContent::Alias(Type::UtxoRef),
+            alias_type: Type::UtxoRef,
             span: Span::DUMMY,
         }
     );
 
     input_to_ast_check!(
-        TypeDef,
+        AliasDef,
         "type_alias_any_asset",
         "type MyAsset = AnyAsset;",
-        TypeDef {
+        AliasDef {
             name: Identifier::new("MyAsset"),
-            def: TypeContent::Alias(Type::AnyAsset),
+            alias_type: Type::AnyAsset,
             span: Span::DUMMY,
         }
     );
@@ -2567,6 +2575,7 @@ mod tests {
                 span: Span::DUMMY,
             }],
             types: vec![],
+            aliases: vec![],
             txs: vec![TxDef {
                 name: Identifier::new("my_tx"),
                 parameters: ParameterList {

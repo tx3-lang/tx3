@@ -47,6 +47,17 @@ fn expect_type_def(ident: &ast::Identifier) -> Result<&ast::TypeDef, Error> {
         .ok_or(Error::InvalidSymbol(ident.value.clone(), "TypeDef"))
 }
 
+fn expect_alias_def(ident: &ast::Identifier) -> Result<&ast::AliasDef, Error> {
+    let symbol = ident
+        .symbol
+        .as_ref()
+        .ok_or(Error::MissingAnalyzePhase(ident.value.clone()))?;
+
+    symbol
+        .as_alias_def()
+        .ok_or(Error::InvalidSymbol(ident.value.clone(), "AliasDef"))
+}
+
 fn expect_case_def(ident: &ast::Identifier) -> Result<&ast::VariantCase, Error> {
     let symbol = ident
         .symbol
@@ -221,27 +232,21 @@ impl IntoLower for ast::StructConstructor {
     type Output = ir::StructExpr;
 
     fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
-        let type_def = expect_type_def(&self.r#type)?;
+        let type_def = expect_type_def(&self.r#type)
+            .or_else(|_| {
+                expect_alias_def(&self.r#type).and_then(|alias_def| {
+                    alias_def.resolve_alias_chain().ok_or_else(|| {
+                        Error::InvalidAst("Alias does not resolve to a TypeDef".to_string())
+                    })
+                })
+            })
+            .map_err(|_| Error::InvalidSymbol(self.r#type.value.clone(), "TypeDef or AliasDef"))?;
 
-        let resolved = type_def.resolve_alias_chain();
-        let cases = match &resolved.def {
-            ast::TypeContent::Variant(cases) => cases,
-            _ => return Err(Error::InvalidAst("Expected variant type".to_string())),
-        };
-
-        let case_name = if cases.len() == 1 && cases[0].name.value == "Default" {
-            "Default"
-        } else {
-            &self.case.name.value
-        };
-
-        let constructor = resolved
-            .find_case_index(case_name)
+        let constructor = type_def
+            .find_case_index(&self.case.name.value)
             .ok_or(Error::InvalidAst("case not found".to_string()))?;
 
-        let case_def = resolved
-            .find_case(case_name)
-            .ok_or(Error::InvalidAst("case definition not found".to_string()))?;
+        let case_def = expect_case_def(&self.case.name)?;
 
         let mut fields = vec![];
 

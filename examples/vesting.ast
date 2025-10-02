@@ -616,75 +616,73 @@
           "end": 123
         }
       },
-      "def": {
-        "Variant": [
-          {
-            "name": {
-              "value": "Default",
-              "span": {
-                "dummy": true,
-                "start": 0,
-                "end": 0
-              }
-            },
-            "fields": [
-              {
-                "name": {
-                  "value": "lock_until",
-                  "span": {
-                    "dummy": false,
-                    "start": 128,
-                    "end": 138
-                  }
-                },
-                "type": "Int",
+      "cases": [
+        {
+          "name": {
+            "value": "Default",
+            "span": {
+              "dummy": true,
+              "start": 0,
+              "end": 0
+            }
+          },
+          "fields": [
+            {
+              "name": {
+                "value": "lock_until",
                 "span": {
                   "dummy": false,
                   "start": 128,
-                  "end": 143
+                  "end": 138
                 }
               },
-              {
-                "name": {
-                  "value": "owner",
-                  "span": {
-                    "dummy": false,
-                    "start": 147,
-                    "end": 152
-                  }
-                },
-                "type": "Bytes",
+              "type": "Int",
+              "span": {
+                "dummy": false,
+                "start": 128,
+                "end": 143
+              }
+            },
+            {
+              "name": {
+                "value": "owner",
                 "span": {
                   "dummy": false,
                   "start": 147,
-                  "end": 159
+                  "end": 152
                 }
               },
-              {
-                "name": {
-                  "value": "beneficiary",
-                  "span": {
-                    "dummy": false,
-                    "start": 163,
-                    "end": 174
-                  }
-                },
-                "type": "Bytes",
+              "type": "Bytes",
+              "span": {
+                "dummy": false,
+                "start": 147,
+                "end": 159
+              }
+            },
+            {
+              "name": {
+                "value": "beneficiary",
                 "span": {
                   "dummy": false,
                   "start": 163,
-                  "end": 181
+                  "end": 174
                 }
+              },
+              "type": "Bytes",
+              "span": {
+                "dummy": false,
+                "start": 163,
+                "end": 181
               }
-            ],
-            "span": {
-              "dummy": false,
-              "start": 113,
-              "end": 184
             }
+          ],
+          "span": {
+            "dummy": false,
+            "start": 113,
+            "end": 184
           }
-        ]
-      },
+        }
+      ],
       "span": {
         "dummy": false,
         "start": 113,
@@ -692,6 +690,7 @@
       }
     }
   ],
+  "aliases": [],
   "assets": [],
   "parties": [
     {

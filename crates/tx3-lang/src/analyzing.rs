@@ -99,6 +99,24 @@ impl Error {
         })
     }
 
+    fn symbol_type_name(symbol: &Symbol) -> String {
+        match symbol {
+            Symbol::TypeDef(type_def) => format!("TypeDef({})", type_def.name.value),
+            Symbol::AliasDef(alias_def) => format!("AliasDef({})", alias_def.name.value),
+            Symbol::VariantCase(case) => format!("VariantCase({})", case.name.value),
+            Symbol::RecordField(field) => format!("RecordField({})", field.name.value),
+            Symbol::PartyDef(party) => format!("PartyDef({})", party.name.value),
+            Symbol::PolicyDef(policy) => format!("PolicyDef({})", policy.name.value),
+            Symbol::AssetDef(asset) => format!("AssetDef({})", asset.name.value),
+            Symbol::EnvVar(name, _) => format!("EnvVar({})", name),
+            Symbol::ParamVar(name, _) => format!("ParamVar({})", name),
+            Symbol::LocalExpr(_) => "LocalExpr".to_string(),
+            Symbol::Input(_) => "Input".to_string(),
+            Symbol::Output(_) => "Output".to_string(),
+            Symbol::Fees => "Fees".to_string(),
+        }
+    }
+
     pub fn invalid_symbol(
         expected: &'static str,
         got: &Symbol,
@@ -106,7 +124,7 @@ impl Error {
     ) -> Self {
         Self::InvalidSymbol(InvalidSymbolError {
             expected,
-            got: format!("{got:?}"),
+            got: Self::symbol_type_name(got),
             src: None,
             span: ast.span().clone(),
         })
@@ -245,6 +263,13 @@ impl Scope {
         self.symbols.insert(
             type_.name.value.clone(),
             Symbol::TypeDef(Box::new(type_.clone())),
+        );
+    }
+
+    pub fn track_alias_def(&mut self, alias: &AliasDef) {
+        self.symbols.insert(
+            alias.name.value.clone(),
+            Symbol::AliasDef(Box::new(alias.clone())),
         );
     }
 
@@ -539,29 +564,32 @@ impl Analyzable for StructConstructor {
         let mut scope = Scope::new(parent);
 
         let type_def = match &self.r#type.symbol {
-            Some(Symbol::TypeDef(x)) => x,
-            Some(x) => bail_report!(Error::invalid_symbol("TypeDef", x, &self.r#type)),
+            Some(Symbol::TypeDef(type_def)) => type_def.as_ref(),
+            Some(Symbol::AliasDef(alias_def)) => match alias_def.resolve_alias_chain() {
+                Some(resolved_type_def) => resolved_type_def,
+                None => {
+                    bail_report!(Error::invalid_symbol(
+                        "struct type",
+                        &Symbol::AliasDef(alias_def.clone()),
+                        &self.r#type
+                    ));
+                }
+            },
+            Some(symbol) => {
+                bail_report!(Error::invalid_symbol("struct type", symbol, &self.r#type));
+            }
             _ => unreachable!(),
         };
 
-        let resolved_type_def = type_def.resolve_alias_chain();
-
-        if let TypeContent::Variant(cases) = &resolved_type_def.def {
-            for case in cases.iter() {
-                scope.track_variant_case(case);
-            }
-
-            self.scope = Some(Rc::new(scope));
-            let case = self.case.analyze(self.scope.clone());
-
-            return r#type + case;
+        for case in type_def.cases.iter() {
+            scope.track_variant_case(case);
         }
 
-        bail_report!(Error::NotInScope(NotInScopeError {
-            name: "Default".to_string(),
-            src: None,
-            span: self.span.clone(),
-        }));
+        self.scope = Some(Rc::new(scope));
+
+        let case = self.case.analyze(self.scope.clone());
+
+        r#type + case
     }
 
     fn is_resolved(&self) -> bool {
@@ -884,31 +912,23 @@ impl Analyzable for VariantCase {
     }
 }
 
-impl Analyzable for TypeContent {
+impl Analyzable for AliasDef {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        match self {
-            TypeContent::Variant(cases) => cases.analyze(parent),
-            TypeContent::Alias(alias_type) => alias_type.analyze(parent),
-        }
+        self.alias_type.analyze(parent)
     }
+
     fn is_resolved(&self) -> bool {
-        match self {
-            TypeContent::Variant(cases) => cases.is_resolved(),
-            TypeContent::Alias(alias_type) => alias_type.is_resolved(),
-        }
+        self.alias_type.is_resolved() && self.is_alias_chain_resolved()
     }
 }
 
 impl Analyzable for TypeDef {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        self.def.analyze(parent)
+        self.cases.analyze(parent)
     }
 
     fn is_resolved(&self) -> bool {
-        match &self.def {
-            TypeContent::Alias(_) => self.def.is_resolved() && self.is_alias_chain_resolved(),
-            TypeContent::Variant(_) => self.def.is_resolved(),
-        }
+        self.cases.is_resolved()
     }
 }
 
@@ -1154,6 +1174,36 @@ fn ada_asset_def() -> AssetDef {
     }
 }
 
+fn resolve_types_and_aliases(
+    scope_rc: &mut Rc<Scope>,
+    types: &mut Vec<TypeDef>,
+    aliases: &mut Vec<AliasDef>,
+) -> (AnalyzeReport, AnalyzeReport) {
+    let mut types_report = AnalyzeReport::default();
+    let mut aliases_report = AnalyzeReport::default();
+
+    let mut pass_count = 0usize;
+    let max_passes = 100usize; // prevent infinite loops
+
+    while pass_count < max_passes && !(types.is_resolved() && aliases.is_resolved()) {
+        pass_count += 1;
+
+        let scope = Rc::get_mut(scope_rc).expect("scope should be unique during resolution");
+
+        for type_def in types.iter() {
+            scope.track_type_def(type_def);
+        }
+        for alias_def in aliases.iter() {
+            scope.track_alias_def(alias_def);
+        }
+
+        types_report = types.analyze(Some(scope_rc.clone()));
+        aliases_report = aliases.analyze(Some(scope_rc.clone()));
+    }
+
+    (types_report, aliases_report)
+}
+
 impl Analyzable for Program {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
         let mut scope = Scope::new(parent);
@@ -1182,6 +1232,10 @@ impl Analyzable for Program {
             scope.track_type_def(type_def);
         }
 
+        for alias_def in self.aliases.iter() {
+            scope.track_alias_def(alias_def);
+        }
+
         self.scope = Some(Rc::new(scope));
 
         let parties = self.parties.analyze(self.scope.clone());
@@ -1190,32 +1244,22 @@ impl Analyzable for Program {
 
         let assets = self.assets.analyze(self.scope.clone());
 
-        let mut types = AnalyzeReport::default();
-        let mut pass_count = 0;
-        let max_passes = 100; // Prevent infinite loops
-        let mut all_resolved = false;
+        let mut types = self.types.clone();
+        let mut aliases = self.aliases.clone();
 
-        while pass_count < max_passes && !all_resolved {
-            pass_count += 1;
+        let scope_rc = self.scope.as_mut().unwrap();
 
-            let scope = Rc::get_mut(self.scope.as_mut().unwrap()).unwrap();
-            for type_def in self.types.iter() {
-                scope.track_type_def(type_def);
-            }
-
-            types = self.types.analyze(self.scope.clone());
-
-            all_resolved = self.types.is_resolved();
-        }
+        let (types, aliases) = resolve_types_and_aliases(scope_rc, &mut types, &mut aliases);
 
         let txs = self.txs.analyze(self.scope.clone());
 
-        parties + policies + types + txs + assets
+        parties + policies + types + aliases + txs + assets
     }
 
     fn is_resolved(&self) -> bool {
         self.policies.is_resolved()
             && self.types.is_resolved()
+            && self.aliases.is_resolved()
             && self.txs.is_resolved()
             && self.assets.is_resolved()
     }

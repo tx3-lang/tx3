@@ -163,9 +163,6 @@
     {
       "name": "withdrawal",
       "data": {
-        "amount": {
-          "Number": 0
-        },
         "credential": {
           "EvalParam": {
             "ExpectValue": [
@@ -173,6 +170,9 @@
               "Address"
             ]
           }
+        },
+        "amount": {
+          "Number": 0
         },
         "redeemer": {
           "Struct": {

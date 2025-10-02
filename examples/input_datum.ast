@@ -285,59 +285,57 @@
           "end": 13
         }
       },
-      "def": {
-        "Variant": [
-          {
-            "name": {
-              "value": "Default",
-              "span": {
-                "dummy": true,
-                "start": 0,
-                "end": 0
-              }
-            },
-            "fields": [
-              {
-                "name": {
-                  "value": "counter",
-                  "span": {
-                    "dummy": false,
-                    "start": 20,
-                    "end": 27
-                  }
-                },
-                "type": "Int",
+      "cases": [
+        {
+          "name": {
+            "value": "Default",
+            "span": {
+              "dummy": true,
+              "start": 0,
+              "end": 0
+            }
+          },
+          "fields": [
+            {
+              "name": {
+                "value": "counter",
                 "span": {
                   "dummy": false,
                   "start": 20,
-                  "end": 32
+                  "end": 27
                 }
               },
-              {
-                "name": {
-                  "value": "other_field",
-                  "span": {
-                    "dummy": false,
-                    "start": 38,
-                    "end": 49
-                  }
-                },
-                "type": "Bytes",
+              "type": "Int",
+              "span": {
+                "dummy": false,
+                "start": 20,
+                "end": 32
+              }
+            },
+            {
+              "name": {
+                "value": "other_field",
                 "span": {
                   "dummy": false,
                   "start": 38,
-                  "end": 56
+                  "end": 49
                 }
+              },
+              "type": "Bytes",
+              "span": {
+                "dummy": false,
+                "start": 38,
+                "end": 56
               }
-            ],
-            "span": {
-              "dummy": false,
-              "start": 0,
-              "end": 59
             }
+          ],
+          "span": {
+            "dummy": false,
+            "start": 0,
+            "end": 59
           }
-        ]
-      },
+        }
+      ],
       "span": {
         "dummy": false,
         "start": 0,
@@ -345,6 +343,7 @@
       }
     }
   ],
+  "aliases": [],
   "assets": [],
   "parties": [
     {

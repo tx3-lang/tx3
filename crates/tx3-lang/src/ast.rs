@@ -30,6 +30,7 @@ pub enum Symbol {
     PolicyDef(Box<PolicyDef>),
     AssetDef(Box<AssetDef>),
     TypeDef(Box<TypeDef>),
+    AliasDef(Box<AliasDef>),
     RecordField(Box<RecordField>),
     VariantCase(Box<VariantCase>),
     Fees,
@@ -87,6 +88,13 @@ impl Symbol {
     pub fn as_type_def(&self) -> Option<&TypeDef> {
         match self {
             Symbol::TypeDef(x) => Some(x.as_ref()),
+            _ => None,
+        }
+    }
+
+    pub fn as_alias_def(&self) -> Option<&AliasDef> {
+        match self {
+            Symbol::AliasDef(x) => Some(x.as_ref()),
             _ => None,
         }
     }
@@ -169,6 +177,7 @@ pub struct Program {
     pub env: Option<EnvDef>,
     pub txs: Vec<TxDef>,
     pub types: Vec<TypeDef>,
+    pub aliases: Vec<AliasDef>,
     pub assets: Vec<AssetDef>,
     pub parties: Vec<PartyDef>,
     pub policies: Vec<PolicyDef>,
@@ -850,15 +859,11 @@ impl Type {
                 let def = identifier.symbol.as_ref().and_then(|s| s.as_type_def());
 
                 match def {
-                    Some(ty) => match &ty.def {
-                        TypeContent::Variant(cases) if cases.len() == 1 => cases[0]
-                            .fields
-                            .iter()
-                            .map(|f| (f.name.value.clone(), f.r#type.clone()))
-                            .collect(),
-                        TypeContent::Alias(alias_type) => alias_type.properties(),
-                        _ => vec![],
-                    },
+                    Some(ty) if ty.cases.len() == 1 => ty.cases[0]
+                        .fields
+                        .iter()
+                        .map(|f| (f.name.value.clone(), f.r#type.clone()))
+                        .collect(),
                     _ => vec![],
                 }
             }
@@ -892,57 +897,44 @@ pub struct ParamDef {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub enum TypeContent {
-    Variant(Vec<VariantCase>),
-    Alias(Type),
+pub struct AliasDef {
+    pub name: Identifier,
+    pub alias_type: Type,
+    pub span: Span,
+}
+
+impl AliasDef {
+    pub fn resolve_alias_chain(&self) -> Option<&TypeDef> {
+        match &self.alias_type {
+            Type::Custom(identifier) => match &identifier.symbol {
+                Some(Symbol::TypeDef(type_def)) => Some(type_def),
+                Some(Symbol::AliasDef(next_alias)) => next_alias.resolve_alias_chain(),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
+    pub fn is_alias_chain_resolved(&self) -> bool {
+        self.resolve_alias_chain().is_some()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct TypeDef {
     pub name: Identifier,
-    pub def: TypeContent,
+    pub cases: Vec<VariantCase>,
     pub span: Span,
 }
 
 impl TypeDef {
-    pub fn resolve_alias_chain(&self) -> &TypeDef {
-        match &self.def {
-            TypeContent::Variant(_) => self,
-            TypeContent::Alias(alias_type) => {
-                if let Type::Custom(identifier) = alias_type {
-                    if let Some(Symbol::TypeDef(aliased_def)) = &identifier.symbol {
-                        return aliased_def.resolve_alias_chain();
-                    }
-                }
-                self
-            }
-        }
-    }
-
-    pub fn is_alias_chain_resolved(&self) -> bool {
-        let resolved = self.resolve_alias_chain();
-        matches!(&resolved.def, TypeContent::Variant(_))
-    }
-
-    pub fn get_variant_cases(&self) -> Option<&Vec<VariantCase>> {
-        let resolved = self.resolve_alias_chain();
-        match &resolved.def {
-            TypeContent::Variant(cases) => Some(cases),
-            TypeContent::Alias(_) => None,
-        }
-    }
-
     pub(crate) fn find_case_index(&self, case: &str) -> Option<usize> {
-        self.get_variant_cases()?
-            .iter()
-            .position(|x| x.name.value == case)
+        self.cases.iter().position(|x| x.name.value == case)
     }
 
     #[allow(dead_code)]
-    pub fn find_case(&self, case: &str) -> Option<&VariantCase> {
-        self.get_variant_cases()?
-            .iter()
-            .find(|x| x.name.value == case)
+    pub(crate) fn find_case(&self, case: &str) -> Option<&VariantCase> {
+        self.cases.iter().find(|x| x.name.value == case)
     }
 }
 

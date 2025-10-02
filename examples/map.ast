@@ -355,48 +355,46 @@
           "end": 10
         }
       },
-      "def": {
-        "Variant": [
-          {
-            "name": {
-              "value": "Default",
-              "span": {
-                "dummy": true,
-                "start": 0,
-                "end": 0
-              }
-            },
-            "fields": [
-              {
-                "name": {
-                  "value": "A",
-                  "span": {
-                    "dummy": false,
-                    "start": 15,
-                    "end": 16
-                  }
-                },
-                "type": {
-                  "Map": [
-                    "Int",
-                    "Int"
-                  ]
-                },
+      "cases": [
+        {
+          "name": {
+            "value": "Default",
+            "span": {
+              "dummy": true,
+              "start": 0,
+              "end": 0
+            }
+          },
+          "fields": [
+            {
+              "name": {
+                "value": "A",
                 "span": {
                   "dummy": false,
                   "start": 15,
-                  "end": 31
+                  "end": 16
                 }
+              },
+              "type": {
+                "Map": [
+                  "Int",
+                  "Int"
+                ]
+              },
+              "span": {
+                "dummy": false,
+                "start": 15,
+                "end": 31
               }
-            ],
-            "span": {
-              "dummy": false,
-              "start": 0,
-              "end": 34
             }
+          ],
+          "span": {
+            "dummy": false,
+            "start": 0,
+            "end": 34
           }
-        ]
-      },
+        }
+      ],
       "span": {
         "dummy": false,
         "start": 0,
@@ -404,6 +402,7 @@
       }
     }
   ],
+  "aliases": [],
   "assets": [],
   "parties": [
     {
