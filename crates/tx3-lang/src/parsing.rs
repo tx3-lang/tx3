@@ -587,6 +587,14 @@ impl AstNode for OutputBlock {
         let span = pair.as_span().into();
         let mut inner = pair.into_inner();
 
+        let optional = inner
+            .peek()
+            .map_or(false, |first| first.as_rule() == Rule::output_optional);
+
+        if optional {
+            inner.next();
+        }
+
         let has_name = inner
             .peek()
             .map(|x| x.as_rule() == Rule::identifier)
@@ -602,7 +610,12 @@ impl AstNode for OutputBlock {
             .map(|x| OutputBlockField::parse(x))
             .collect::<Result<Vec<_>, _>>()?;
 
-        Ok(OutputBlock { name, fields, span })
+        Ok(OutputBlock {
+            name,
+            optional,
+            fields,
+            span,
+        })
     }
 
     fn span(&self) -> &Span {
@@ -2297,6 +2310,7 @@ mod tests {
         }"#,
         OutputBlock {
             name: None,
+            optional: false,
             fields: vec![
                 OutputBlockField::To(Box::new(DataExpr::Identifier(Identifier::new(
                     "my_party".to_string(),

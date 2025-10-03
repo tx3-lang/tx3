@@ -393,6 +393,7 @@ impl OutputBlockField {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct OutputBlock {
     pub name: Option<Identifier>,
+    pub optional: bool,
     pub fields: Vec<OutputBlockField>,
     pub span: Span,
 }
