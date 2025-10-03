@@ -1,7 +1,10 @@
 use std::collections::{BTreeMap, HashSet};
 
 use pallas::{
-    codec::{minicbor, utils::{KeepRaw, MaybeIndefArray, NonEmptySet}},
+    codec::{
+        minicbor,
+        utils::{KeepRaw, MaybeIndefArray, NonEmptySet},
+    },
     ledger::{
         primitives::{
             conway::{self as primitives, Redeemers},
@@ -153,13 +156,14 @@ fn compile_adhoc_script(
         .transpose()?
         .map(|v| v as PlutusVersion)
         .unwrap_or(3);
-    let script_bytes= script.unwrap().to_vec();
+    let script_bytes = script.unwrap().to_vec();
     let script_ref = match version {
         0 => {
-            let decoded: pallas::codec::utils::KeepRaw<'_, primitives::NativeScript> = minicbor::decode(&script_bytes).unwrap();
+            let decoded: pallas::codec::utils::KeepRaw<'_, primitives::NativeScript> =
+                minicbor::decode(&script_bytes).unwrap();
             let owned_script = decoded.to_owned();
             primitives::ScriptRef::NativeScript(owned_script)
-        },
+        }
         1 => {
             let script = primitives::PlutusScript::<1>(script_bytes.into());
             primitives::ScriptRef::PlutusV1Script(script)
@@ -272,11 +276,25 @@ fn compile_outputs(
     tx: &ir::Tx,
     network: Network,
 ) -> Result<Vec<primitives::TransactionOutput<'static>>, Error> {
-    let mut resolved = tx
-        .outputs
-        .iter()
-        .map(|x| compile_output_block(x, network))
-        .collect::<Result<Vec<_>, _>>()?;
+    let mut resolved = Vec::new();
+
+    for out in &tx.outputs {
+        let asset_list = coercion::expr_into_assets(&out.amount)?;
+
+        let total: i128 = asset_list
+            .iter()
+            .map(|asset| coercion::expr_into_number(&asset.amount))
+            .collect::<Result<Vec<_>, _>>()?
+            .into_iter()
+            .fold(0i128, |acc, n| acc.saturating_add(n));
+
+        // TODO - what happens when the value is between 0 and min_utxo?
+        if out.optional && total == 0 {
+            continue;
+        }
+
+        resolved.push(compile_output_block(out, network)?);
+    }
 
     let cardano_outputs = tx
         .adhoc
@@ -312,14 +330,11 @@ pub fn compile_cardano_publish_directive(
         .collect::<Result<Vec<_>, _>>()?;
     let value = asset_math::aggregate_values(values);
 
-    let datum_option = adhoc
-        .data
-        .get("datum")
-        .map(compile_data_expr)
-        .transpose()?;
+    let datum_option = adhoc.data.get("datum").map(compile_data_expr).transpose()?;
 
     let script_ref = if let (Some(version_expr), Some(script_expr)) =
-        (adhoc.data.get("version"), adhoc.data.get("script")) {
+        (adhoc.data.get("version"), adhoc.data.get("script"))
+    {
         // Create a synthetic adhoc directive that compile_adhoc_script can handle
         let mut script_data = std::collections::HashMap::new();
         script_data.insert("version".to_string(), version_expr.clone());

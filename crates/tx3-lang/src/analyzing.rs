@@ -50,6 +50,19 @@ pub struct InvalidTargetTypeError {
     span: Span,
 }
 
+#[derive(Debug, thiserror::Error, miette::Diagnostic, PartialEq, Eq)]
+#[error("optional output ({name}) cannot have a datum")]
+#[diagnostic(code(tx3::optional_output_datum))]
+pub struct OptionalOutputError {
+    pub name: String,
+
+    #[source_code]
+    src: Option<String>,
+
+    #[label]
+    span: Span,
+}
+
 #[derive(thiserror::Error, Debug, miette::Diagnostic, PartialEq, Eq)]
 pub enum Error {
     #[error("duplicate definition: {0}")]
@@ -72,6 +85,10 @@ pub enum Error {
     #[error(transparent)]
     #[diagnostic(transparent)]
     InvalidTargetType(#[from] InvalidTargetTypeError),
+
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    InvalidOutputDatum(#[from] OptionalOutputError),
 }
 
 impl Error {
@@ -80,6 +97,7 @@ impl Error {
             Self::NotInScope(x) => &x.span,
             Self::InvalidSymbol(x) => &x.span,
             Self::InvalidTargetType(x) => &x.span,
+            Self::InvalidOutputDatum(x) => &x.span,
             _ => &Span::DUMMY,
         }
     }
@@ -165,7 +183,7 @@ impl std::fmt::Display for AnalyzeReport {
         } else {
             write!(f, "Failed with {} errors:", self.errors.len())?;
             for error in &self.errors {
-                write!(f, "\n{:?}", error)?;
+                write!(f, "\n{} ({:?})", error, error)?;
             }
             Ok(())
         }
@@ -839,6 +857,20 @@ impl Analyzable for OutputBlockField {
 
 impl Analyzable for OutputBlock {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+        if self.optional {
+            if let Some(_field) = self.find("datum") {
+                return AnalyzeReport::from(Error::InvalidOutputDatum(OptionalOutputError {
+                    name: self
+                        .name
+                        .as_ref()
+                        .map(|i| i.value.clone())
+                        .unwrap_or_else(|| "<anonymous>".to_string()),
+                    src: None,
+                    span: self.span.clone(),
+                }));
+            }
+        }
+
         self.fields.analyze(parent)
     }
 
@@ -1267,5 +1299,53 @@ mod tests {
 
         let result = analyze(&mut ast);
         assert!(!result.errors.is_empty());
+    }
+
+    #[test]
+    fn test_optional_output_with_datum_error() {
+        let mut ast = crate::parsing::parse_string(
+            r#"
+        party Alice;
+        type MyDatum {
+            field1: Int,
+        }
+        tx test() {
+            output ? my_output {
+                to: Alice,
+                amount: Ada(1),
+                datum: MyDatum { field1: 1, },
+            }
+        }
+    "#,
+        )
+        .unwrap();
+
+        let report = analyze(&mut ast);
+
+        assert!(!report.errors.is_empty());
+        assert!(report
+            .errors
+            .iter()
+            .any(|e| matches!(e, Error::InvalidOutputDatum(_))));
+    }
+
+    #[test]
+    fn test_optional_output_ok() {
+        let mut ast = crate::parsing::parse_string(
+            r#"
+        party Alice;
+
+        tx test() {
+            output ? my_output {
+                to: Alice,
+                amount: Ada(0),
+            }
+        }
+    "#,
+        )
+        .unwrap();
+
+        let report = analyze(&mut ast);
+        assert!(report.errors.is_empty());
     }
 }
