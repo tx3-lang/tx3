@@ -60,6 +60,7 @@
       "outputs": [
         {
           "name": null,
+          "optional": false,
           "fields": [
             {
               "To": {

@@ -129,7 +129,8 @@
             }
           }
         ]
-      }
+      },
+      "optional": false
     },
     {
       "address": {
@@ -211,7 +212,8 @@
             }
           ]
         }
-      }
+      },
+      "optional": false
     }
   ],
   "validity": null,

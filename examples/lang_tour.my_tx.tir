@@ -500,7 +500,8 @@
             }
           ]
         }
-      }
+      },
+      "optional": false
     }
   ],
   "validity": {
