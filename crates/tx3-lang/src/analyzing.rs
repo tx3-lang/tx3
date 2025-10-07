@@ -823,7 +823,11 @@ impl Analyzable for OutputBlockField {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
         match self {
             OutputBlockField::To(x) => x.analyze(parent),
-            OutputBlockField::Amount(x) => x.analyze(parent),
+            OutputBlockField::Amount(x) => {
+                let expr_report = x.analyze(parent);
+                let type_report = AnalyzeReport::expect_data_expr_type(x, &Type::AnyAsset);
+                expr_report + type_report
+            }
             OutputBlockField::Datum(x) => x.analyze(parent),
         }
     }
@@ -1267,5 +1271,57 @@ mod tests {
 
         let result = analyze(&mut ast);
         assert!(!result.errors.is_empty());
+    }
+
+    #[test]
+    fn test_output_amount_must_be_any_asset_type() {
+        let mut ast = crate::parsing::parse_string(
+            r#"
+        party Alice;
+        tx test() {
+            output my_output {
+                to: Alice,
+                amount: 123,
+            }
+        }
+    "#,
+        )
+        .unwrap();
+
+        let result = analyze(&mut ast);
+        assert!(!result.errors.is_empty());
+
+        assert_eq!(
+            result.errors[0],
+            Error::InvalidTargetType(InvalidTargetTypeError {
+                expected: "AnyAsset".to_string(),
+                got: "Int".to_string(),
+                src: None,
+                span: Span::DUMMY,
+            })
+        );
+    }
+
+    #[test]
+    fn test_output_amount_accepts_any_asset_expressions() {
+        let mut ast = crate::parsing::parse_string(
+            r#"
+        party Alice;
+        tx test(quantity: Int) {
+            output {
+                to: Alice,
+                amount: AnyAsset(0x123, 0x456, 100),
+            }
+            output {
+                to: Alice,
+                amount: Ada(quantity),
+            }
+        }
+    "#,
+        )
+        .unwrap();
+
+        let result = analyze(&mut ast);
+        assert!(result.errors.is_empty());
     }
 }
