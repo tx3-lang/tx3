@@ -161,9 +161,6 @@
             ]
           }
         },
-        "version": {
-          "Number": 0
-        },
         "script": {
           "Bytes": [
             130,
