@@ -288,7 +288,6 @@ fn compile_outputs(
             .into_iter()
             .fold(0i128, |acc, n| acc.saturating_add(n));
 
-        // TODO - what happens when the value is between 0 and min_utxo?
         if out.optional && total == 0 {
             continue;
         }
