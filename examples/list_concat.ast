@@ -149,11 +149,13 @@
                                   }
                                 },
                                 "property": {
-                                  "value": "list",
-                                  "span": {
-                                    "dummy": false,
-                                    "start": 275,
-                                    "end": 279
+                                  "Identifier": {
+                                    "value": "list",
+                                    "span": {
+                                      "dummy": false,
+                                      "start": 275,
+                                      "end": 279
+                                    }
                                   }
                                 },
                                 "span": {
