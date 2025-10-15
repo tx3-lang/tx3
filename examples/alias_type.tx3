@@ -1,0 +1,40 @@
+party Sender;
+party Receiver;
+
+type AssetName = Bytes;
+type PolicyId = Bytes;
+type Amount = Int;
+
+type TokenId = PolicyId;
+type TokenName = AssetName;
+type Balance = Amount;
+
+type Asset {
+    token_id: TokenId,
+    token_name: TokenName,
+    amount: Balance,
+}
+
+type TokenBundle = Asset;
+
+tx send_token(policy: Bytes, asset_name: Bytes, quantity: Int) {
+    input source {
+        from: Sender,
+        min_amount: AnyAsset(policy, asset_name, quantity),
+    }
+
+    output {
+        to: Receiver,
+        amount: AnyAsset(policy, asset_name, quantity),
+        datum: TokenBundle {
+            token_id: policy,
+            token_name: asset_name,
+            amount: quantity,
+        },
+    }
+
+    output {
+        to: Sender,
+        amount: source - AnyAsset(policy, asset_name, quantity) - fees,
+    }
+}
