@@ -179,9 +179,6 @@
             "constructor": 0,
             "fields": []
           }
-        },
-        "amount": {
-          "Number": 0
         }
       }
     }

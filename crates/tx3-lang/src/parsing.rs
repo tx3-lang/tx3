@@ -2722,11 +2722,11 @@ mod tests {
     #[test]
     fn test_spans_are_respected() {
         let program = parse_well_known_example("lang_tour");
-        assert_eq!(program.span, Span::new(0, 1560));
+        assert_eq!(program.span, Span::new(0, 2370));
 
-        assert_eq!(program.parties[0].span, Span::new(47, 61));
+        assert_eq!(program.parties[0].span, Span::new(92, 106));
 
-        assert_eq!(program.types[0].span, Span::new(63, 158));
+        assert_eq!(program.types[0].span, Span::new(108, 232));
     }
 
     fn make_snapshot_if_missing(example: &str, program: &Program) {

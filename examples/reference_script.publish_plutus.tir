@@ -136,6 +136,9 @@
     {
       "name": "cardano_publish",
       "data": {
+        "version": {
+          "Number": 3
+        },
         "to": {
           "EvalParam": {
             "ExpectValue": [
@@ -144,8 +147,21 @@
             ]
           }
         },
-        "version": {
-          "Number": 3
+        "amount": {
+          "Assets": [
+            {
+              "policy": "None",
+              "asset_name": "None",
+              "amount": {
+                "EvalParam": {
+                  "ExpectValue": [
+                    "quantity",
+                    "Int"
+                  ]
+                }
+              }
+            }
+          ]
         },
         "script": {
           "Bytes": [
@@ -167,22 +183,6 @@
             4,
             174,
             105
-          ]
-        },
-        "amount": {
-          "Assets": [
-            {
-              "policy": "None",
-              "asset_name": "None",
-              "amount": {
-                "EvalParam": {
-                  "ExpectValue": [
-                    "quantity",
-                    "Int"
-                  ]
-                }
-              }
-            }
           ]
         }
       }
