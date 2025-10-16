@@ -30,6 +30,7 @@ pub enum Symbol {
     PolicyDef(Box<PolicyDef>),
     AssetDef(Box<AssetDef>),
     TypeDef(Box<TypeDef>),
+    AliasDef(Box<AliasDef>),
     RecordField(Box<RecordField>),
     VariantCase(Box<VariantCase>),
     Fees,
@@ -87,6 +88,13 @@ impl Symbol {
     pub fn as_type_def(&self) -> Option<&TypeDef> {
         match self {
             Symbol::TypeDef(x) => Some(x.as_ref()),
+            _ => None,
+        }
+    }
+
+    pub fn as_alias_def(&self) -> Option<&AliasDef> {
+        match self {
+            Symbol::AliasDef(x) => Some(x.as_ref()),
             _ => None,
         }
     }
@@ -169,6 +177,7 @@ pub struct Program {
     pub env: Option<EnvDef>,
     pub txs: Vec<TxDef>,
     pub types: Vec<TypeDef>,
+    pub aliases: Vec<AliasDef>,
     pub assets: Vec<AssetDef>,
     pub parties: Vec<PartyDef>,
     pub policies: Vec<PolicyDef>,
@@ -889,6 +898,30 @@ impl Type {
 pub struct ParamDef {
     pub name: Identifier,
     pub r#type: Type,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct AliasDef {
+    pub name: Identifier,
+    pub alias_type: Type,
+    pub span: Span,
+}
+
+impl AliasDef {
+    pub fn resolve_alias_chain(&self) -> Option<&TypeDef> {
+        match &self.alias_type {
+            Type::Custom(identifier) => match &identifier.symbol {
+                Some(Symbol::TypeDef(type_def)) => Some(type_def),
+                Some(Symbol::AliasDef(next_alias)) => next_alias.resolve_alias_chain(),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
+    pub fn is_alias_chain_resolved(&self) -> bool {
+        self.resolve_alias_chain().is_some()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

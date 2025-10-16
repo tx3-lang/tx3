@@ -109,9 +109,14 @@ variant_def = {
     "}"
 }
 
+alias_def = {
+    "type" ~ identifier ~ "=" ~ type ~ ";"
+}
+
 type_def = _{
     record_def |
-    variant_def
+    variant_def |
+    alias_def
 }
 
 static_asset_constructor = {

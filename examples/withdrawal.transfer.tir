@@ -171,6 +171,9 @@
             ]
           }
         },
+        "amount": {
+          "Number": 0
+        },
         "redeemer": {
           "Struct": {
             "constructor": 0,
