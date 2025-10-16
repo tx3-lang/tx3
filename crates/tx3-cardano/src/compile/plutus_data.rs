@@ -188,14 +188,10 @@ fn address_payment_part(data: &HashMap<String, ir::Expression>) -> Result<Plutus
 
     match addr {
         addresses::Address::Shelley(shelley_addr) => {
-            // Extract the payment credential from the Shelley address
-            let payment_bytes = shelley_addr.payment().to_vec();
-            Ok(payment_bytes.as_data())
+            Ok(shelley_addr.payment().to_vec().as_data())
         }
         addresses::Address::Byron(byron_addr) => {
-            // Extract the payload from the Byron address
-            let payload_bytes = byron_addr.to_vec();
-            Ok(payload_bytes.as_data())
+            Ok(byron_addr.to_vec().as_data())
         }
         _ => Err(super::Error::CoerceError(
             "Address type does not support payment parts".to_string(),
