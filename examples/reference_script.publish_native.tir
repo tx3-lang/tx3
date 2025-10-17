@@ -136,21 +136,8 @@
     {
       "name": "cardano_publish",
       "data": {
-        "amount": {
-          "Assets": [
-            {
-              "policy": "None",
-              "asset_name": "None",
-              "amount": {
-                "EvalParam": {
-                  "ExpectValue": [
-                    "quantity",
-                    "Int"
-                  ]
-                }
-              }
-            }
-          ]
+        "version": {
+          "Number": 0
         },
         "to": {
           "EvalParam": {
@@ -170,8 +157,21 @@
             0
           ]
         },
-        "version": {
-          "Number": 0
+        "amount": {
+          "Assets": [
+            {
+              "policy": "None",
+              "asset_name": "None",
+              "amount": {
+                "EvalParam": {
+                  "ExpectValue": [
+                    "quantity",
+                    "Int"
+                  ]
+                }
+              }
+            }
+          ]
         }
       }
     }

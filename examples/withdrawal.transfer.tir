@@ -163,14 +163,6 @@
     {
       "name": "withdrawal",
       "data": {
-        "credential": {
-          "EvalParam": {
-            "ExpectValue": [
-              "sender",
-              "Address"
-            ]
-          }
-        },
         "amount": {
           "Number": 0
         },
@@ -178,6 +170,14 @@
           "Struct": {
             "constructor": 0,
             "fields": []
+          }
+        },
+        "credential": {
+          "EvalParam": {
+            "ExpectValue": [
+              "sender",
+              "Address"
+            ]
           }
         }
       }
