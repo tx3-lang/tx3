@@ -1453,4 +1453,36 @@ mod tests {
         let result = analyze(&mut ast);
         assert!(result.errors.is_empty());
     }
+    #[test]
+    fn test_output_mixed_amount_expressions() {
+        let mut ast = crate::parsing::parse_string(
+            r#"
+        party Alice;
+        tx test() {
+            input source {
+                from: Alice,
+                min_amount: Ada(100),
+            }
+            output {
+                to: Alice,
+                amount: source - 50,
+            }
+        }
+    "#,
+        )
+        .unwrap();
+
+        let result = analyze(&mut ast);
+        assert!(!result.errors.is_empty());
+
+        assert_eq!(
+            result.errors[0],
+            Error::InvalidTargetType(InvalidTargetTypeError {
+                expected: "AnyAsset".to_string(),
+                got: "Int".to_string(),
+                src: None,
+                span: Span::DUMMY,
+            })
+        );
+    }
 }
