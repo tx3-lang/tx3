@@ -140,6 +140,24 @@ impl Error {
         })
     }
 
+    fn symbol_type_name(symbol: &Symbol) -> String {
+        match symbol {
+            Symbol::TypeDef(type_def) => format!("TypeDef({})", type_def.name.value),
+            Symbol::AliasDef(alias_def) => format!("AliasDef({})", alias_def.name.value),
+            Symbol::VariantCase(case) => format!("VariantCase({})", case.name.value),
+            Symbol::RecordField(field) => format!("RecordField({})", field.name.value),
+            Symbol::PartyDef(party) => format!("PartyDef({})", party.name.value),
+            Symbol::PolicyDef(policy) => format!("PolicyDef({})", policy.name.value),
+            Symbol::AssetDef(asset) => format!("AssetDef({})", asset.name.value),
+            Symbol::EnvVar(name, _) => format!("EnvVar({})", name),
+            Symbol::ParamVar(name, _) => format!("ParamVar({})", name),
+            Symbol::LocalExpr(_) => "LocalExpr".to_string(),
+            Symbol::Input(_) => "Input".to_string(),
+            Symbol::Output(_) => "Output".to_string(),
+            Symbol::Fees => "Fees".to_string(),
+        }
+    }
+
     pub fn invalid_symbol(
         expected: &'static str,
         got: &Symbol,
@@ -147,7 +165,7 @@ impl Error {
     ) -> Self {
         Self::InvalidSymbol(InvalidSymbolError {
             expected,
-            got: format!("{got:?}"),
+            got: Self::symbol_type_name(got),
             src: None,
             span: ast.span().clone(),
         })
@@ -168,7 +186,6 @@ impl Error {
 }
 
 #[derive(Debug, Default, thiserror::Error, Diagnostic)]
-#[error("analyze report")]
 pub struct AnalyzeReport {
     #[related]
     pub errors: Vec<Error>,
@@ -196,6 +213,20 @@ impl AnalyzeReport {
             ))
         } else {
             Self::default()
+        }
+    }
+}
+
+impl std::fmt::Display for AnalyzeReport {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.errors.is_empty() {
+            write!(f, "")
+        } else {
+            write!(f, "Failed with {} errors:", self.errors.len())?;
+            for error in &self.errors {
+                write!(f, "\n{:?}", error)?;
+            }
+            Ok(())
         }
     }
 }
@@ -273,6 +304,13 @@ impl Scope {
         self.symbols.insert(
             type_.name.value.clone(),
             Symbol::TypeDef(Box::new(type_.clone())),
+        );
+    }
+
+    pub fn track_alias_def(&mut self, alias: &AliasDef) {
+        self.symbols.insert(
+            alias.name.value.clone(),
+            Symbol::AliasDef(Box::new(alias.clone())),
         );
     }
 
@@ -528,7 +566,11 @@ impl Analyzable for RecordConstructorField {
 
 impl Analyzable for VariantCaseConstructor {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        let name = self.name.analyze(parent.clone());
+        let name = if self.name.symbol.is_some() {
+            AnalyzeReport::default()
+        } else {
+            self.name.analyze(parent.clone())
+        };
 
         let mut scope = Scope::new(parent);
 
@@ -563,8 +605,20 @@ impl Analyzable for StructConstructor {
         let mut scope = Scope::new(parent);
 
         let type_def = match &self.r#type.symbol {
-            Some(Symbol::TypeDef(x)) => x,
-            Some(x) => bail_report!(Error::invalid_symbol("TypeDef", x, &self.r#type)),
+            Some(Symbol::TypeDef(type_def)) => type_def.as_ref(),
+            Some(Symbol::AliasDef(alias_def)) => match alias_def.resolve_alias_chain() {
+                Some(resolved_type_def) => resolved_type_def,
+                None => {
+                    bail_report!(Error::invalid_symbol(
+                        "struct type",
+                        &Symbol::AliasDef(alias_def.clone()),
+                        &self.r#type
+                    ));
+                }
+            },
+            Some(symbol) => {
+                bail_report!(Error::invalid_symbol("struct type", symbol, &self.r#type));
+            }
             _ => unreachable!(),
         };
 
@@ -628,6 +682,8 @@ impl Analyzable for DataExpr {
             DataExpr::StaticAssetConstructor(x) => x.analyze(parent),
             DataExpr::AnyAssetConstructor(x) => x.analyze(parent),
             DataExpr::MinUtxo(x) => x.analyze(parent),
+            DataExpr::SlotToTime(x) => x.analyze(parent),
+            DataExpr::TimeToSlot(x) => x.analyze(parent),
             DataExpr::ConcatOp(x) => x.analyze(parent),
             _ => AnalyzeReport::default(),
         }
@@ -646,6 +702,8 @@ impl Analyzable for DataExpr {
             DataExpr::StaticAssetConstructor(x) => x.is_resolved(),
             DataExpr::AnyAssetConstructor(x) => x.is_resolved(),
             DataExpr::MinUtxo(x) => x.is_resolved(),
+            DataExpr::SlotToTime(x) => x.is_resolved(),
+            DataExpr::TimeToSlot(x) => x.is_resolved(),
             DataExpr::ConcatOp(x) => x.is_resolved(),
             _ => true,
         }
@@ -756,6 +814,9 @@ impl Analyzable for Type {
         match self {
             Type::Custom(x) => x.analyze(parent),
             Type::List(x) => x.analyze(parent),
+            Type::Map(key_type, value_type) => {
+                key_type.analyze(parent.clone()) + value_type.analyze(parent)
+            }
             _ => AnalyzeReport::default(),
         }
     }
@@ -764,6 +825,7 @@ impl Analyzable for Type {
         match self {
             Type::Custom(x) => x.is_resolved(),
             Type::List(x) => x.is_resolved(),
+            Type::Map(key_type, value_type) => key_type.is_resolved() && value_type.is_resolved(),
             _ => true,
         }
     }
@@ -968,6 +1030,16 @@ impl Analyzable for VariantCase {
 
     fn is_resolved(&self) -> bool {
         self.fields.is_resolved()
+    }
+}
+
+impl Analyzable for AliasDef {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+        self.alias_type.analyze(parent)
+    }
+
+    fn is_resolved(&self) -> bool {
+        self.alias_type.is_resolved() && self.is_alias_chain_resolved()
     }
 }
 
@@ -1223,6 +1295,36 @@ fn ada_asset_def() -> AssetDef {
     }
 }
 
+fn resolve_types_and_aliases(
+    scope_rc: &mut Rc<Scope>,
+    types: &mut Vec<TypeDef>,
+    aliases: &mut Vec<AliasDef>,
+) -> (AnalyzeReport, AnalyzeReport) {
+    let mut types_report = AnalyzeReport::default();
+    let mut aliases_report = AnalyzeReport::default();
+
+    let mut pass_count = 0usize;
+    let max_passes = 100usize; // prevent infinite loops
+
+    while pass_count < max_passes && !(types.is_resolved() && aliases.is_resolved()) {
+        pass_count += 1;
+
+        let scope = Rc::get_mut(scope_rc).expect("scope should be unique during resolution");
+
+        for type_def in types.iter() {
+            scope.track_type_def(type_def);
+        }
+        for alias_def in aliases.iter() {
+            scope.track_alias_def(alias_def);
+        }
+
+        types_report = types.analyze(Some(scope_rc.clone()));
+        aliases_report = aliases.analyze(Some(scope_rc.clone()));
+    }
+
+    (types_report, aliases_report)
+}
+
 impl Analyzable for Program {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
         let mut scope = Scope::new(parent);
@@ -1251,6 +1353,10 @@ impl Analyzable for Program {
             scope.track_type_def(type_def);
         }
 
+        for alias_def in self.aliases.iter() {
+            scope.track_alias_def(alias_def);
+        }
+
         self.scope = Some(Rc::new(scope));
 
         let parties = self.parties.analyze(self.scope.clone());
@@ -1259,16 +1365,22 @@ impl Analyzable for Program {
 
         let assets = self.assets.analyze(self.scope.clone());
 
-        let types = self.types.analyze(self.scope.clone());
+        let mut types = self.types.clone();
+        let mut aliases = self.aliases.clone();
+
+        let scope_rc = self.scope.as_mut().unwrap();
+
+        let (types, aliases) = resolve_types_and_aliases(scope_rc, &mut types, &mut aliases);
 
         let txs = self.txs.analyze(self.scope.clone());
 
-        parties + policies + types + txs + assets
+        parties + policies + types + aliases + txs + assets
     }
 
     fn is_resolved(&self) -> bool {
         self.policies.is_resolved()
             && self.types.is_resolved()
+            && self.aliases.is_resolved()
             && self.txs.is_resolved()
             && self.assets.is_resolved()
     }
@@ -1355,6 +1467,40 @@ mod tests {
     }
 
     #[test]
+    fn test_alias_undefined_type_error() {
+        let mut ast = crate::parsing::parse_string(
+            r#"
+        type MyAlias = UndefinedType;
+    "#,
+        )
+        .unwrap();
+
+        let result = analyze(&mut ast);
+
+        assert!(!result.errors.is_empty());
+        assert!(result
+            .errors
+            .iter()
+            .any(|e| matches!(e, Error::NotInScope(_))));
+    }
+
+    #[test]
+    fn test_alias_valid_type_success() {
+        let mut ast = crate::parsing::parse_string(
+            r#"
+        type Address = Bytes;
+        type Amount = Int;
+        type ValidAlias = Address;
+    "#,
+        )
+        .unwrap();
+
+        let result = analyze(&mut ast);
+
+        assert!(result.errors.is_empty());
+    }
+
+    #[test]
     fn test_min_utxo_undefined_output_error() {
         let mut ast = crate::parsing::parse_string(
             r#"
@@ -1387,6 +1533,7 @@ mod tests {
         .unwrap();
 
         let result = analyze(&mut ast);
+
         assert!(
             result.errors.is_empty(),
             "Expected no errors for string within limit, but got: {:?}",
@@ -1602,5 +1749,39 @@ mod tests {
                 result.errors[0]
             ),
         }
+    }
+
+    #[test]
+    fn test_time_and_slot_conversion() {
+        let mut ast = crate::parsing::parse_string(
+            r#"
+        party Sender;
+
+        type TimestampDatum {
+            slot_time: Int,
+            time: Int,
+        }
+
+        tx create_timestamp_tx() {
+            input source {
+                from: Sender,
+                min_amount: Ada(2000000),
+            }
+
+            output timestamp_output {
+                to: Sender,
+                amount: source - fees,
+                datum: TimestampDatum {
+                    slot_time: time_to_slot(1666716638000),
+                    time: slot_to_time(60638),
+                },
+            }
+        }
+        "#,
+        )
+        .unwrap();
+
+        let result = analyze(&mut ast);
+        assert!(result.errors.is_empty());
     }
 }

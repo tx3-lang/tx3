@@ -450,11 +450,13 @@
                                   }
                                 },
                                 "property": {
-                                  "value": "pos_x",
-                                  "span": {
-                                    "dummy": false,
-                                    "start": 1281,
-                                    "end": 1286
+                                  "Identifier": {
+                                    "value": "pos_x",
+                                    "span": {
+                                      "dummy": false,
+                                      "start": 1281,
+                                      "end": 1286
+                                    }
                                   }
                                 },
                                 "span": {
@@ -511,11 +513,13 @@
                                   }
                                 },
                                 "property": {
-                                  "value": "pos_y",
-                                  "span": {
-                                    "dummy": false,
-                                    "start": 1324,
-                                    "end": 1329
+                                  "Identifier": {
+                                    "value": "pos_y",
+                                    "span": {
+                                      "dummy": false,
+                                      "start": 1324,
+                                      "end": 1329
+                                    }
                                   }
                                 },
                                 "span": {
@@ -934,6 +938,7 @@
       }
     }
   ],
+  "aliases": [],
   "assets": [
     {
       "name": {

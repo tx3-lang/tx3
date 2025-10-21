@@ -161,11 +161,13 @@
                                   }
                                 },
                                 "property": {
-                                  "value": "counter",
-                                  "span": {
-                                    "dummy": false,
-                                    "start": 323,
-                                    "end": 330
+                                  "Identifier": {
+                                    "value": "counter",
+                                    "span": {
+                                      "dummy": false,
+                                      "start": 323,
+                                      "end": 330
+                                    }
                                   }
                                 },
                                 "span": {
@@ -213,11 +215,13 @@
                               }
                             },
                             "property": {
-                              "value": "other_field",
-                              "span": {
-                                "dummy": false,
-                                "start": 368,
-                                "end": 379
+                              "Identifier": {
+                                "value": "other_field",
+                                "span": {
+                                  "dummy": false,
+                                  "start": 368,
+                                  "end": 379
+                                }
                               }
                             },
                             "span": {
@@ -339,6 +343,7 @@
       }
     }
   ],
+  "aliases": [],
   "assets": [],
   "parties": [
     {
