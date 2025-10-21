@@ -145,19 +145,10 @@
                     }
                   },
                   {
-                    "EvalBuiltIn": {
-                      "Property": [
-                        {
-                          "EvalParam": {
-                            "ExpectValue": [
-                              "bid",
-                              "AnyAsset"
-                            ]
-                          }
-                        },
-                        {
-                          "Number": 0
-                        }
+                    "EvalParam": {
+                      "ExpectValue": [
+                        "bid",
+                        "AnyAsset"
                       ]
                     }
                   }
@@ -202,19 +193,10 @@
                     }
                   },
                   {
-                    "EvalBuiltIn": {
-                      "Property": [
-                        {
-                          "EvalParam": {
-                            "ExpectValue": [
-                              "ask",
-                              "AnyAsset"
-                            ]
-                          }
-                        },
-                        {
-                          "Number": 0
-                        }
+                    "EvalParam": {
+                      "ExpectValue": [
+                        "ask",
+                        "AnyAsset"
                       ]
                     }
                   }
