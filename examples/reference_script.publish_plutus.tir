@@ -139,14 +139,6 @@
         "version": {
           "Number": 3
         },
-        "to": {
-          "EvalParam": {
-            "ExpectValue": [
-              "receiver",
-              "Address"
-            ]
-          }
-        },
         "amount": {
           "Assets": [
             {
@@ -162,6 +154,14 @@
               }
             }
           ]
+        },
+        "to": {
+          "EvalParam": {
+            "ExpectValue": [
+              "receiver",
+              "Address"
+            ]
+          }
         },
         "script": {
           "Bytes": [

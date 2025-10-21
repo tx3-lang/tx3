@@ -46,6 +46,7 @@ pub type TxBody =
 pub struct ChainPoint {
     pub slot: u64,
     pub hash: Vec<u8>,
+    pub timestamp: u128,
 }
 
 pub struct Compiler {
@@ -109,6 +110,28 @@ impl tx3_lang::backend::Compiler for Compiler {
                 }]))
             }
             ir::CompilerOp::ComputeTipSlot => Ok(ir::Expression::Number(self.cursor.slot as i128)),
+            ir::CompilerOp::ComputeSlotToTime(x) => {
+                let slot = coercion::expr_into_number(&x)?;
+                if slot < 0 {
+                    return Err(tx3_lang::backend::Error::CoerceError(
+                        format!("{}", slot),
+                        "positive slot number".to_string(),
+                    ));
+                }
+
+                Ok(ir::Expression::Number(slot_to_time(slot, &self.cursor)))
+            }
+            ir::CompilerOp::ComputeTimeToSlot(x) => {
+                let time = coercion::expr_into_number(&x)?;
+                if time < 0 {
+                    return Err(tx3_lang::backend::Error::CoerceError(
+                        format!("{}", time),
+                        "positive timestamp".to_string(),
+                    ));
+                }
+
+                Ok(ir::Expression::Number(time_to_slot(time, &self.cursor)))
+            }
         }
     }
 }
@@ -117,4 +140,17 @@ fn eval_size_fees(tx: &[u8], pparams: &PParams, extra_fees: Option<u64>) -> u64 
     tx.len() as u64 * pparams.min_fee_coefficient
         + pparams.min_fee_constant
         + extra_fees.unwrap_or(DEFAULT_EXTRA_FEES)
+}
+
+fn slot_to_time(slot: i128, cursor: &ChainPoint) -> i128 {
+    let current_time = cursor.timestamp as i128;
+    let time_diff = slot - cursor.slot as i128;
+    current_time + (time_diff * 1000)
+}
+
+fn time_to_slot(time: i128, cursor: &ChainPoint) -> i128 {
+    let current_slot = cursor.slot as i128;
+    let current_time = cursor.timestamp as i128;
+    let time_diff = time - current_time;
+    current_slot + (time_diff / 1000)
 }

@@ -171,14 +171,14 @@
             ]
           }
         },
-        "amount": {
-          "Number": 0
-        },
         "redeemer": {
           "Struct": {
             "constructor": 0,
             "fields": []
           }
+        },
+        "amount": {
+          "Number": 0
         }
       }
     }

@@ -135,6 +135,10 @@ min_utxo = { "min_utxo" ~ "(" ~ identifier ~ ")" }
 
 tip_slot = { "tip_slot" ~ "(" ~ ")" }
 
+slot_to_time = { "slot_to_time" ~ "(" ~ data_expr ~ ")" }
+
+time_to_slot = { "time_to_slot" ~ "(" ~ data_expr ~ ")" }
+
 data_expr = { data_prefix* ~ data_primary ~ data_postfix* ~ (data_infix ~ data_prefix* ~ data_primary ~ data_postfix* )* }
 
     data_infix = _{ data_add | data_sub }
@@ -158,6 +162,8 @@ data_expr = { data_prefix* ~ data_primary ~ data_postfix* ~ (data_infix ~ data_p
         min_utxo |
         tip_slot |
         cardano_functions |
+        slot_to_time |
+        time_to_slot |
         struct_constructor |
         list_constructor |
         map_constructor |
