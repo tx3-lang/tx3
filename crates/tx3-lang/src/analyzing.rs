@@ -641,6 +641,8 @@ impl Analyzable for DataExpr {
             DataExpr::StaticAssetConstructor(x) => x.analyze(parent),
             DataExpr::AnyAssetConstructor(x) => x.analyze(parent),
             DataExpr::MinUtxo(x) => x.analyze(parent),
+            DataExpr::SlotToTime(x) => x.analyze(parent),
+            DataExpr::TimeToSlot(x) => x.analyze(parent),
             DataExpr::ConcatOp(x) => x.analyze(parent),
             _ => AnalyzeReport::default(),
         }
@@ -659,6 +661,8 @@ impl Analyzable for DataExpr {
             DataExpr::StaticAssetConstructor(x) => x.is_resolved(),
             DataExpr::AnyAssetConstructor(x) => x.is_resolved(),
             DataExpr::MinUtxo(x) => x.is_resolved(),
+            DataExpr::SlotToTime(x) => x.is_resolved(),
+            DataExpr::TimeToSlot(x) => x.is_resolved(),
             DataExpr::ConcatOp(x) => x.is_resolved(),
             _ => true,
         }
@@ -1396,5 +1400,39 @@ mod tests {
 
         let result = analyze(&mut ast);
         assert!(!result.errors.is_empty());
+    }
+
+    #[test]
+    fn test_time_and_slot_conversion() {
+        let mut ast = crate::parsing::parse_string(
+            r#"
+        party Sender;
+
+        type TimestampDatum {
+            slot_time: Int,
+            time: Int,
+        }
+
+        tx create_timestamp_tx() {
+            input source {
+                from: Sender,
+                min_amount: Ada(2000000),
+            }
+
+            output timestamp_output {
+                to: Sender,
+                amount: source - fees,
+                datum: TimestampDatum {
+                    slot_time: time_to_slot(1666716638000),
+                    time: slot_to_time(60638),
+                },
+            }
+        }
+        "#,
+        )
+        .unwrap();
+
+        let result = analyze(&mut ast);
+        assert!(result.errors.is_empty());
     }
 }
