@@ -82,7 +82,28 @@
           ]
         }
       },
-      "datum": "None",
+      "datum": {
+        "Struct": {
+          "constructor": 0,
+          "fields": [
+            {
+              "AdHocDirective": {
+                "name": "cardano_address_payment_part",
+                "data": {
+                  "address": {
+                    "EvalParam": {
+                      "ExpectValue": [
+                        "sender",
+                        "Address"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
       "amount": {
         "EvalBuiltIn": {
           "Sub": [
@@ -159,30 +180,7 @@
   "validity": null,
   "mints": [],
   "burns": [],
-  "adhoc": [
-    {
-      "name": "withdrawal",
-      "data": {
-        "credential": {
-          "EvalParam": {
-            "ExpectValue": [
-              "sender",
-              "Address"
-            ]
-          }
-        },
-        "redeemer": {
-          "Struct": {
-            "constructor": 0,
-            "fields": []
-          }
-        },
-        "amount": {
-          "Number": 0
-        }
-      }
-    }
-  ],
+  "adhoc": [],
   "collateral": [],
   "signers": null,
   "metadata": []

@@ -725,6 +725,34 @@ impl IntoLower for CardanoPublishBlock {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct AddressPaymentPart {
+    pub address: Box<DataExpr>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct AddressStakingPart {
+    pub address: Box<DataExpr>,
+    pub span: Span,
+}
+
+pub fn parse_cardano_function(pair: Pair<Rule>) -> Result<DataExpr, Error> {
+    let mut inner = pair.into_inner();
+    let function_pair = inner.next().unwrap();
+
+    match function_pair.as_rule() {
+        Rule::cardano_address_payment_part => {
+            Ok(DataExpr::AddressPaymentPart(AddressPaymentPart::parse(function_pair)?))
+        }
+        Rule::cardano_address_staking_part => {
+            Ok(DataExpr::AddressStakingPart(AddressStakingPart::parse(function_pair)?))
+        }
+        x => unreachable!("Unexpected rule in cardano_functions: {:?}", x),
+    }
+}
+
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum CardanoBlock {
     VoteDelegationCertificate(VoteDelegationCertificate),
     StakeDelegationCertificate(StakeDelegationCertificate),
@@ -733,6 +761,38 @@ pub enum CardanoBlock {
     NativeWitness(NativeWitnessBlock),
     TreasuryDonation(TreasuryDonationBlock),
     Publish(CardanoPublishBlock),
+}
+
+impl AstNode for AddressPaymentPart {
+    const RULE: Rule = Rule::cardano_address_payment_part;
+
+    fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
+        let span = pair.as_span().into();
+        let mut inner = pair.into_inner();
+        let address = DataExpr::parse(inner.next().unwrap())?.into();
+
+        Ok(AddressPaymentPart { address, span })
+    }
+
+    fn span(&self) -> &Span {
+        &self.span
+    }
+}
+
+impl AstNode for AddressStakingPart {
+    const RULE: Rule = Rule::cardano_address_staking_part;
+
+    fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
+        let span = pair.as_span().into();
+        let mut inner = pair.into_inner();
+        let address = DataExpr::parse(inner.next().unwrap())?.into();
+
+        Ok(AddressStakingPart { address, span })
+    }
+
+    fn span(&self) -> &Span {
+        &self.span
+    }
 }
 
 impl AstNode for CardanoBlock {
@@ -781,6 +841,26 @@ impl AstNode for CardanoBlock {
     }
 }
 
+impl Analyzable for AddressPaymentPart {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+        self.address.analyze(parent)
+    }
+
+    fn is_resolved(&self) -> bool {
+        self.address.is_resolved()
+    }
+}
+
+impl Analyzable for AddressStakingPart {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+        self.address.analyze(parent)
+    }
+
+    fn is_resolved(&self) -> bool {
+        self.address.is_resolved()
+    }
+}
+
 impl Analyzable for CardanoBlock {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
         match self {
@@ -804,6 +884,40 @@ impl Analyzable for CardanoBlock {
             Self::TreasuryDonation(x) => x.is_resolved(),
             CardanoBlock::Publish(x) => x.is_resolved(),
         }
+    }
+}
+
+impl IntoLower for AddressPaymentPart {
+    type Output = ir::AdHocDirective;
+
+    fn into_lower(
+        &self,
+        ctx: &crate::lowering::Context,
+    ) -> Result<Self::Output, crate::lowering::Error> {
+        let address_expr = self.address.into_lower(ctx)?;
+        let mut data = std::collections::HashMap::new();
+        data.insert("address".to_string(), address_expr);
+        Ok(ir::AdHocDirective {
+            name: "cardano_address_payment_part".to_string(),
+            data,
+        })
+    }
+}
+
+impl IntoLower for AddressStakingPart {
+    type Output = ir::AdHocDirective;
+
+    fn into_lower(
+        &self,
+        ctx: &crate::lowering::Context,
+    ) -> Result<Self::Output, crate::lowering::Error> {
+        let address_expr = self.address.into_lower(ctx)?;
+        let mut data = std::collections::HashMap::new();
+        data.insert("address".to_string(), address_expr);
+        Ok(ir::AdHocDirective {
+            name: "cardano_address_staking_part".to_string(),
+            data,
+        })
     }
 }
 

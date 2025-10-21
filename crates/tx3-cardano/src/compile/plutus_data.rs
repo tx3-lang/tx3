@@ -1,7 +1,8 @@
 pub use pallas::codec::utils::Int;
-use pallas::codec::utils::KeyValuePairs;
+use pallas::{codec::utils::KeyValuePairs, ledger::addresses};
 pub use pallas::ledger::primitives::{BigInt, BoundedBytes, Constr, MaybeIndefArray, PlutusData};
 use tx3_lang::ir;
+use std::collections::HashMap;
 
 pub trait IntoData {
     fn as_data(&self) -> PlutusData;
@@ -148,10 +149,70 @@ impl TryIntoData for ir::Expression {
             ir::Expression::Hash(x) => Ok(x.as_data()),
             ir::Expression::List(x) => x.try_as_data(),
             ir::Expression::Map(x) => x.try_as_data(),
-            x => Err(super::Error::CoerceError(
-                format!("{x:?}"),
+            ir::Expression::AdHocDirective(x) => match x.name.as_str() {
+                "cardano_address_payment_part" => address_payment_part(&x.data),
+                "cardano_address_staking_part" => address_staking_part(&x.data),
+                _ => Ok(().as_data()),
+            },
+            _ => Err(super::Error::CoerceError(
+                format!("{self:?}"),
                 "PlutusData".to_string(),
             )),
         }
+    }
+}
+
+fn extract_address(data: &HashMap<String, ir::Expression>) -> Result<addresses::Address, super::Error> {
+    data.get("address")
+        .ok_or_else(|| super::Error::CoerceError(
+            "Address field not found in data".to_string(),
+            "Address".to_string(),
+        ))
+        .and_then(|expr| match expr {
+            ir::Expression::Address(bytes) => {
+                addresses::Address::from_bytes(bytes)
+                    .map_err(|_| super::Error::CoerceError(
+                        "Invalid address bytes".to_string(),
+                        "Address".to_string(),
+                    ))
+            }
+            _ => Err(super::Error::CoerceError(
+                format!("Expected Address expression, found {:?}", expr),
+                "Address".to_string(),
+            )),
+        })
+}
+
+fn address_payment_part(data: &HashMap<String, ir::Expression>) -> Result<PlutusData, super::Error> {
+    let addr = extract_address(data)?;
+
+    match addr {
+        addresses::Address::Shelley(shelley_addr) => {
+            Ok(shelley_addr.payment().to_vec().as_data())
+        }
+        addresses::Address::Byron(byron_addr) => {
+            Ok(byron_addr.to_vec().as_data())
+        }
+        _ => Err(super::Error::CoerceError(
+            "Address type does not support payment parts".to_string(),
+            "Payment credential".to_string(),
+        )),
+    }
+}
+
+fn address_staking_part(data: &HashMap<String, ir::Expression>) -> Result<PlutusData, super::Error> {
+    let addr = extract_address(data)?;
+
+    match addr {
+        addresses::Address::Shelley(shelley_addr) => {
+            Ok(shelley_addr.delegation().to_vec().as_data())
+        }
+        addresses::Address::Stake(stake_addr) => {
+            Ok(stake_addr.to_vec().as_data())
+        }
+        _ => Err(super::Error::CoerceError(
+            "Address type does not support staking parts".to_string(),
+            "Staking credential".to_string(),
+        )),
     }
 }
