@@ -2,7 +2,20 @@
   "fees": {
     "EvalParam": "ExpectFees"
   },
-  "references": [],
+  "references": [
+    {
+      "UtxoRefs": [
+        {
+          "txid": [
+            171,
+            205,
+            239
+          ],
+          "index": 2
+        }
+      ]
+    }
+  ],
   "inputs": [
     {
       "name": "source",
@@ -275,6 +288,26 @@
                   }
                 }
               ]
+            },
+            {
+              "Map": [
+                [
+                  {
+                    "Number": 1
+                  },
+                  {
+                    "String": "Value1"
+                  }
+                ],
+                [
+                  {
+                    "Number": 2
+                  },
+                  {
+                    "String": "Value2"
+                  }
+                ]
+              ]
             }
           ]
         }
@@ -505,7 +538,7 @@
   ],
   "validity": {
     "since": {
-      "Number": 1735700400000
+      "EvalCompiler": "ComputeTipSlot"
     },
     "until": {
       "EvalParam": {
@@ -576,9 +609,149 @@
       }
     }
   ],
-  "burns": [],
-  "adhoc": [],
-  "collateral": [],
+  "burns": [
+    {
+      "amount": {
+        "Assets": [
+          {
+            "policy": {
+              "Bytes": [
+                171,
+                205,
+                239,
+                18,
+                52
+              ]
+            },
+            "asset_name": {
+              "String": "MYTOKEN"
+            },
+            "amount": {
+              "Number": 50
+            }
+          }
+        ]
+      },
+      "redeemer": {
+        "Struct": {
+          "constructor": 0,
+          "fields": []
+        }
+      }
+    }
+  ],
+  "adhoc": [
+    {
+      "name": "vote_delegation_certificate",
+      "data": {
+        "stake": {
+          "Bytes": [
+            135,
+            101,
+            67,
+            33
+          ]
+        },
+        "drep": {
+          "Bytes": [
+            18,
+            52,
+            86,
+            120
+          ]
+        }
+      }
+    },
+    {
+      "name": "withdrawal",
+      "data": {
+        "credential": {
+          "EvalParam": {
+            "ExpectValue": [
+              "myparty",
+              "Address"
+            ]
+          }
+        },
+        "amount": {
+          "Number": 100
+        },
+        "redeemer": {
+          "Struct": {
+            "constructor": 0,
+            "fields": []
+          }
+        }
+      }
+    },
+    {
+      "name": "plutus_witness",
+      "data": {
+        "version": {
+          "Number": 2
+        },
+        "script": {
+          "Bytes": [
+            171,
+            205,
+            239,
+            18,
+            52
+          ]
+        }
+      }
+    },
+    {
+      "name": "native_witness",
+      "data": {
+        "script": {
+          "Bytes": [
+            18,
+            52,
+            86,
+            120
+          ]
+        }
+      }
+    },
+    {
+      "name": "treasury_donation",
+      "data": {
+        "coin": {
+          "Number": 500
+        }
+      }
+    }
+  ],
+  "collateral": [
+    {
+      "utxos": {
+        "EvalParam": {
+          "ExpectInput": [
+            "collateral",
+            {
+              "address": "None",
+              "min_amount": "None",
+              "ref": {
+                "UtxoRefs": [
+                  {
+                    "txid": [
+                      171,
+                      205,
+                      239
+                    ],
+                    "index": 1
+                  }
+                ]
+              },
+              "many": false,
+              "collateral": true
+            }
+          ]
+        }
+      }
+    }
+  ],
   "signers": {
     "signers": [
       {
@@ -635,6 +808,14 @@
             "Bytes"
           ]
         }
+      }
+    },
+    {
+      "key": {
+        "Number": 2
+      },
+      "value": {
+        "String": "Additional Metadata"
       }
     }
   ]
