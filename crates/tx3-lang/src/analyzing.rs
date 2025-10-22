@@ -906,26 +906,33 @@ impl Analyzable for OutputBlockField {
 
 impl Analyzable for OutputBlock {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        if self.optional {
-            if let Some(_field) = self.find("datum") {
-                return AnalyzeReport::from(Error::InvalidOptionalOutput(OptionalOutputError {
-                    name: self
-                        .name
-                        .as_ref()
-                        .map(|i| i.value.clone())
-                        .unwrap_or_else(|| "<anonymous>".to_string()),
-                    src: None,
-                    span: self.span.clone(),
-                }));
-            }
-        }
-
-        self.fields.analyze(parent)
+        validate_optional_output(self)
+            .map(AnalyzeReport::from)
+            .unwrap_or_else(|| AnalyzeReport::default())
+            + self.fields.analyze(parent)
     }
 
     fn is_resolved(&self) -> bool {
         self.fields.is_resolved()
     }
+}
+
+fn validate_optional_output(output: &OutputBlock) -> Option<Error> {
+    if output.optional {
+        if let Some(_field) = output.find("datum") {
+            return Some(Error::InvalidOptionalOutput(OptionalOutputError {
+                name: output
+                    .name
+                    .as_ref()
+                    .map(|i| i.value.clone())
+                    .unwrap_or_else(|| "<anonymous>".to_string()),
+                src: None,
+                span: output.span.clone(),
+            }));
+        }
+    }
+
+    None
 }
 
 impl Analyzable for RecordField {

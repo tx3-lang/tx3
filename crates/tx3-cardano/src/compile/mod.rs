@@ -272,28 +272,27 @@ fn compile_inputs(tx: &ir::Tx) -> Result<Vec<primitives::TransactionInput>, Erro
     Ok(refs)
 }
 
+fn output_has_assets(output: &Result<primitives::TransactionOutput<'static>, Error>) -> bool {
+    match output {
+        Ok(primitives::TransactionOutput::PostAlonzo(post_alonzo)) => match &post_alonzo.value {
+            primitives::Value::Coin(amount) => *amount > 0,
+            primitives::Value::Multiasset(coin, multiasset) => *coin > 0 || !multiasset.is_empty(),
+        },
+        _ => true,
+    }
+}
+
 fn compile_outputs(
     tx: &ir::Tx,
     network: Network,
 ) -> Result<Vec<primitives::TransactionOutput<'static>>, Error> {
-    let mut resolved = Vec::new();
-
-    for out in &tx.outputs {
-        let asset_list = coercion::expr_into_assets(&out.amount)?;
-
-        let total: i128 = asset_list
-            .iter()
-            .map(|asset| coercion::expr_into_number(&asset.amount))
-            .collect::<Result<Vec<_>, _>>()?
-            .into_iter()
-            .fold(0i128, |acc, n| acc.saturating_add(n));
-
-        if out.optional && total == 0 {
-            continue;
-        }
-
-        resolved.push(compile_output_block(out, network)?);
-    }
+    let mut resolved: Vec<_> = tx
+        .outputs
+        .iter()
+        .map(|out| (out.optional, compile_output_block(out, network)))
+        .filter(|(optional, output)| !optional || output_has_assets(output))
+        .map(|(_, output)| output)
+        .collect::<Result<Vec<_>, _>>()?;
 
     let cardano_outputs = tx
         .adhoc
