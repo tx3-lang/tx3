@@ -88,7 +88,7 @@ pub enum Error {
 
     #[error(transparent)]
     #[diagnostic(transparent)]
-    InvalidOutputDatum(#[from] OptionalOutputError),
+    InvalidOptionalOutput(#[from] OptionalOutputError),
 }
 
 impl Error {
@@ -97,7 +97,7 @@ impl Error {
             Self::NotInScope(x) => &x.span,
             Self::InvalidSymbol(x) => &x.span,
             Self::InvalidTargetType(x) => &x.span,
-            Self::InvalidOutputDatum(x) => &x.span,
+            Self::InvalidOptionalOutput(x) => &x.span,
             _ => &Span::DUMMY,
         }
     }
@@ -908,7 +908,7 @@ impl Analyzable for OutputBlock {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
         if self.optional {
             if let Some(_field) = self.find("datum") {
-                return AnalyzeReport::from(Error::InvalidOutputDatum(OptionalOutputError {
+                return AnalyzeReport::from(Error::InvalidOptionalOutput(OptionalOutputError {
                     name: self
                         .name
                         .as_ref()
@@ -1459,7 +1459,7 @@ mod tests {
         assert!(report
             .errors
             .iter()
-            .any(|e| matches!(e, Error::InvalidOutputDatum(_))));
+            .any(|e| matches!(e, Error::InvalidOptionalOutput(_))));
     }
 
     #[test]
