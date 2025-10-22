@@ -54,6 +54,7 @@ fn test_compiler(config: Option<Config>) -> Compiler {
         ChainPoint {
             slot: 101674141,
             hash: vec![],
+            timestamp: 1757611408,
         },
     )
 }
