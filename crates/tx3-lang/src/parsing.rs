@@ -1141,6 +1141,16 @@ impl DataExpr {
         Ok(DataExpr::ComputeTipSlot)
     }
 
+    fn slot_to_time_parse(pair: Pair<Rule>) -> Result<Self, Error> {
+        let inner = pair.into_inner().next().unwrap();
+        Ok(DataExpr::SlotToTime(Box::new(DataExpr::parse(inner)?)))
+    }
+
+    fn time_to_slot_parse(pair: Pair<Rule>) -> Result<Self, Error> {
+        let inner = pair.into_inner().next().unwrap();
+        Ok(DataExpr::TimeToSlot(Box::new(DataExpr::parse(inner)?)))
+    }
+
     fn concat_constructor_parse(pair: Pair<Rule>) -> Result<Self, Error> {
         Ok(DataExpr::ConcatOp(ConcatOp::parse(pair)?))
     }
@@ -1229,6 +1239,8 @@ impl AstNode for DataExpr {
                 Rule::concat_constructor => DataExpr::concat_constructor_parse(x),
                 Rule::min_utxo => DataExpr::min_utxo_parse(x),
                 Rule::tip_slot => DataExpr::tip_slot_parse(x),
+                Rule::slot_to_time => DataExpr::slot_to_time_parse(x),
+                Rule::time_to_slot => DataExpr::time_to_slot_parse(x),
                 Rule::data_expr => DataExpr::parse(x),
                 x => unreachable!("unexpected rule as data primary: {:?}", x),
             })
@@ -1270,6 +1282,8 @@ impl AstNode for DataExpr {
             DataExpr::PropertyOp(x) => &x.span,
             DataExpr::UtxoRef(x) => x.span(),
             DataExpr::MinUtxo(x) => x.span(),
+            DataExpr::SlotToTime(x) => x.span(),
+            DataExpr::TimeToSlot(x) => x.span(),
             DataExpr::ComputeTipSlot => &Span::DUMMY, // TODO
         }
     }
