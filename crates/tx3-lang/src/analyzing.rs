@@ -728,18 +728,18 @@ impl Analyzable for AnyAssetConstructor {
 }
 
 impl Analyzable for PropertyOp {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        let object = self.operand.analyze(parent.clone());
+    fn analyze(&mut self, parent: Option<Rc<Scope>>, ctx: &mut Context) -> AnalyzeReport {
+        let object = self.operand.analyze(parent.clone(), ctx);
 
         let mut scope = Scope::new(parent);
 
-        if let Some(ty) = self.operand.target_type() {
+        if let Some(ty) = self.operand.target_type(None) {
             scope.track_record_fields_for_type(&ty);
         }
 
         self.scope = Some(Rc::new(scope));
 
-        let path = self.property.analyze(self.scope.clone());
+        let path = self.property.analyze(self.scope.clone(), ctx);
 
         object + path
     }
@@ -901,15 +901,28 @@ impl Analyzable for ValidityBlock {
 }
 
 impl Analyzable for OutputBlockField {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>, ctx: &mut Context) -> AnalyzeReport {
         match self {
-            OutputBlockField::To(x) => x.analyze(parent),
+            OutputBlockField::To(x) => x.analyze(parent, ctx),
             OutputBlockField::Amount(x) => {
-                let expr_report = x.analyze(parent);
-                let type_report = AnalyzeReport::expect_data_expr_type(x, &Type::AnyAsset);
+                ctx.target_type.push(Type::AnyAsset);
+
+                let expr_report = x.analyze(parent, ctx);
+                let ty = x.target_type(Some(ctx));
+
+                let type_report = if !matches!(ty.as_ref(), Some(&Type::AnyAsset)) {
+                    AnalyzeReport::from(Error::invalid_target_type(
+                        &Type::AnyAsset,
+                        ty.as_ref().unwrap_or(&Type::Undefined),
+                        x.as_ref(),
+                    ))
+                } else {
+                    AnalyzeReport::default()
+                };
+
                 expr_report + type_report
             }
-            OutputBlockField::Datum(x) => x.analyze(parent),
+            OutputBlockField::Datum(x) => x.analyze(parent, ctx),
         }
     }
 

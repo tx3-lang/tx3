@@ -120,11 +120,22 @@ impl Symbol {
         }
     }
 
-    pub fn target_type(&self) -> Option<Type> {
+    pub fn target_type(&self, ctx: Option<&Context>) -> Option<Type> {
         match self {
             Symbol::ParamVar(_, ty) => Some(ty.as_ref().clone()),
             Symbol::RecordField(x) => Some(x.r#type.clone()),
-            Symbol::Input(x) => x.datum_is().cloned(),
+            Symbol::Input(x) => {
+                let datum_type = x.datum_is().cloned();
+
+                match ctx {
+                    Some(ctx) if ctx.target_type.last() == Some(&Type::AnyAsset) => {
+                        Some(Type::AnyAsset)
+                    }
+                    _ => datum_type,
+                }
+            }
+            Symbol::LocalExpr(expr) => expr.target_type(ctx),
+            Symbol::Fees => Some(Type::AnyAsset),
             x => {
                 dbg!(x);
                 None
@@ -763,7 +774,16 @@ impl DataExpr {
         let default_ctx = Context::default();
         let ctx = ctx.unwrap_or(&default_ctx);
         match self {
-            DataExpr::Identifier(x) => x.target_type(),
+            DataExpr::Identifier(x) => match &x.symbol {
+                Some(Symbol::Input(def)) => {
+                    if ctx.target_type.last() == Some(&Type::AnyAsset) {
+                        Some(Type::AnyAsset)
+                    } else {
+                        def.datum_is().cloned()
+                    }
+                }
+                _ => x.target_type(Some(ctx)),
+            },
             DataExpr::None => Some(Type::Undefined),
             DataExpr::Unit => Some(Type::Unit),
             DataExpr::Number(_) => Some(Type::Int),
@@ -884,7 +904,7 @@ impl Type {
                     .map(|index| DataExpr::Number(index as i64))
             }
             Type::List(_) => property
-                .target_type()
+                .target_type(None)
                 .filter(|ty| *ty == Type::Int)
                 .map(|_| property),
             _ => None,
