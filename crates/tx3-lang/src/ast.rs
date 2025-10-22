@@ -128,9 +128,7 @@ impl Symbol {
                 let datum_type = x.datum_is().cloned();
 
                 match ctx {
-                    Some(ctx) if ctx.target_type.last() == Some(&Type::AnyAsset) => {
-                        Some(Type::AnyAsset)
-                    }
+                    Some(ctx) if ctx.target_type == Type::AnyAsset => Some(Type::AnyAsset),
                     _ => datum_type,
                 }
             }
@@ -776,7 +774,7 @@ impl DataExpr {
         match self {
             DataExpr::Identifier(x) => match &x.symbol {
                 Some(Symbol::Input(def)) => {
-                    if ctx.target_type.last() == Some(&Type::AnyAsset) {
+                    if ctx.target_type == Type::AnyAsset {
                         Some(Type::AnyAsset)
                     } else {
                         def.datum_is().cloned()

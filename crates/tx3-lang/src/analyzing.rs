@@ -11,13 +11,13 @@ use crate::ast::*;
 
 #[derive(Debug, Clone)]
 pub struct Context {
-    pub target_type: Vec<Type>,
+    pub target_type: Type,
 }
 
 impl Default for Context {
     fn default() -> Self {
         Self {
-            target_type: vec![],
+            target_type: Type::Undefined,
         }
     }
 }
@@ -905,7 +905,7 @@ impl Analyzable for OutputBlockField {
         match self {
             OutputBlockField::To(x) => x.analyze(parent, ctx),
             OutputBlockField::Amount(x) => {
-                ctx.target_type.push(Type::AnyAsset);
+                ctx.target_type = Type::AnyAsset;
 
                 let expr_report = x.analyze(parent, ctx);
                 let ty = x.target_type(Some(ctx));
