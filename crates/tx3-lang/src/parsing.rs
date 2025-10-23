@@ -91,6 +91,7 @@ impl AstNode for Program {
             txs: Vec::new(),
             assets: Vec::new(),
             types: Vec::new(),
+            aliases: Vec::new(),
             parties: Vec::new(),
             policies: Vec::new(),
             scope: None,
@@ -104,6 +105,7 @@ impl AstNode for Program {
                 Rule::asset_def => program.assets.push(AssetDef::parse(pair)?),
                 Rule::record_def => program.types.push(TypeDef::parse(pair)?),
                 Rule::variant_def => program.types.push(TypeDef::parse(pair)?),
+                Rule::alias_def => program.aliases.push(AliasDef::parse(pair)?),
                 Rule::party_def => program.parties.push(PartyDef::parse(pair)?),
                 Rule::policy_def => program.policies.push(PolicyDef::parse(pair)?),
                 Rule::EOI => break,
@@ -1139,6 +1141,16 @@ impl DataExpr {
         Ok(DataExpr::ComputeTipSlot)
     }
 
+    fn slot_to_time_parse(pair: Pair<Rule>) -> Result<Self, Error> {
+        let inner = pair.into_inner().next().unwrap();
+        Ok(DataExpr::SlotToTime(Box::new(DataExpr::parse(inner)?)))
+    }
+
+    fn time_to_slot_parse(pair: Pair<Rule>) -> Result<Self, Error> {
+        let inner = pair.into_inner().next().unwrap();
+        Ok(DataExpr::TimeToSlot(Box::new(DataExpr::parse(inner)?)))
+    }
+
     fn concat_constructor_parse(pair: Pair<Rule>) -> Result<Self, Error> {
         Ok(DataExpr::ConcatOp(ConcatOp::parse(pair)?))
     }
@@ -1227,6 +1239,8 @@ impl AstNode for DataExpr {
                 Rule::concat_constructor => DataExpr::concat_constructor_parse(x),
                 Rule::min_utxo => DataExpr::min_utxo_parse(x),
                 Rule::tip_slot => DataExpr::tip_slot_parse(x),
+                Rule::slot_to_time => DataExpr::slot_to_time_parse(x),
+                Rule::time_to_slot => DataExpr::time_to_slot_parse(x),
                 Rule::data_expr => DataExpr::parse(x),
                 x => unreachable!("unexpected rule as data primary: {:?}", x),
             })
@@ -1268,6 +1282,8 @@ impl AstNode for DataExpr {
             DataExpr::PropertyOp(x) => &x.span,
             DataExpr::UtxoRef(x) => x.span(),
             DataExpr::MinUtxo(x) => x.span(),
+            DataExpr::SlotToTime(x) => x.span(),
+            DataExpr::TimeToSlot(x) => x.span(),
             DataExpr::ComputeTipSlot => &Span::DUMMY, // TODO
         }
     }
@@ -1358,6 +1374,28 @@ impl AstNode for TypeDef {
             Rule::record_def => Ok(Self::parse_record_format(pair)?),
             x => unreachable!("Unexpected rule in type_def: {:?}", x),
         }
+    }
+
+    fn span(&self) -> &Span {
+        &self.span
+    }
+}
+
+impl AstNode for AliasDef {
+    const RULE: Rule = Rule::alias_def;
+
+    fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
+        let span: Span = pair.as_span().into();
+        let mut inner = pair.into_inner();
+
+        let identifier = Identifier::parse(inner.next().unwrap())?;
+        let r#type = Type::parse(inner.next().unwrap())?;
+
+        Ok(AliasDef {
+            name: identifier,
+            alias_type: r#type,
+            span,
+        })
     }
 
     fn span(&self) -> &Span {
@@ -1626,6 +1664,119 @@ mod tests {
                     span: Span::DUMMY,
                 },
             ],
+            span: Span::DUMMY,
+        }
+    );
+
+    input_to_ast_check!(
+        AliasDef,
+        "type_def_alias",
+        "type MyAlias = Bytes;",
+        AliasDef {
+            name: Identifier::new("MyAlias"),
+            alias_type: Type::Bytes,
+            span: Span::DUMMY,
+        }
+    );
+
+    input_to_ast_check!(
+        AliasDef,
+        "type_alias_custom_type",
+        "type UserAlias = UserType;",
+        AliasDef {
+            name: Identifier::new("UserAlias"),
+            alias_type: Type::Custom(Identifier::new("UserType")),
+            span: Span::DUMMY,
+        }
+    );
+
+    input_to_ast_check!(
+        AliasDef,
+        "type_alias_list",
+        "type StringList = List<Bytes>;",
+        AliasDef {
+            name: Identifier::new("StringList"),
+            alias_type: Type::List(Box::new(Type::Bytes)),
+            span: Span::DUMMY,
+        }
+    );
+
+    input_to_ast_check!(
+        AliasDef,
+        "type_alias_map",
+        "type StringIntMap = Map<Bytes, Int>;",
+        AliasDef {
+            name: Identifier::new("StringIntMap"),
+            alias_type: Type::Map(Box::new(Type::Bytes), Box::new(Type::Int)),
+            span: Span::DUMMY,
+        }
+    );
+
+    input_to_ast_check!(
+        AliasDef,
+        "type_alias_complex_nested",
+        "type ComplexType = List<Map<Bytes, Int>>;",
+        AliasDef {
+            name: Identifier::new("ComplexType"),
+            alias_type: Type::List(Box::new(Type::Map(
+                Box::new(Type::Bytes),
+                Box::new(Type::Int)
+            ))),
+            span: Span::DUMMY,
+        }
+    );
+
+    input_to_ast_check!(
+        AliasDef,
+        "type_alias_all_primitives",
+        "type MyInt = Int;",
+        AliasDef {
+            name: Identifier::new("MyInt"),
+            alias_type: Type::Int,
+            span: Span::DUMMY,
+        }
+    );
+
+    input_to_ast_check!(
+        AliasDef,
+        "type_alias_bool",
+        "type MyBool = Bool;",
+        AliasDef {
+            name: Identifier::new("MyBool"),
+            alias_type: Type::Bool,
+            span: Span::DUMMY,
+        }
+    );
+
+    input_to_ast_check!(
+        AliasDef,
+        "type_alias_address",
+        "type MyAddress = Address;",
+        AliasDef {
+            name: Identifier::new("MyAddress"),
+            alias_type: Type::Address,
+            span: Span::DUMMY,
+        }
+    );
+
+    input_to_ast_check!(
+        AliasDef,
+        "type_alias_utxo_ref",
+        "type MyUtxoRef = UtxoRef;",
+        AliasDef {
+            name: Identifier::new("MyUtxoRef"),
+            alias_type: Type::UtxoRef,
+            span: Span::DUMMY,
+        }
+    );
+
+    input_to_ast_check!(
+        AliasDef,
+        "type_alias_any_asset",
+        "type MyAsset = AnyAsset;",
+        AliasDef {
+            name: Identifier::new("MyAsset"),
+            alias_type: Type::AnyAsset,
             span: Span::DUMMY,
         }
     );
@@ -2438,6 +2589,7 @@ mod tests {
                 span: Span::DUMMY,
             }],
             types: vec![],
+            aliases: vec![],
             txs: vec![TxDef {
                 name: Identifier::new("my_tx"),
                 parameters: ParameterList {

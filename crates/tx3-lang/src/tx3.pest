@@ -109,9 +109,14 @@ variant_def = {
     "}"
 }
 
+alias_def = {
+    "type" ~ identifier ~ "=" ~ type ~ ";"
+}
+
 type_def = _{
     record_def |
-    variant_def
+    variant_def |
+    alias_def
 }
 
 static_asset_constructor = {
@@ -129,6 +134,10 @@ concat_constructor = {
 min_utxo = { "min_utxo" ~ "(" ~ identifier ~ ")" }
 
 tip_slot = { "tip_slot" ~ "(" ~ ")" }
+
+slot_to_time = { "slot_to_time" ~ "(" ~ data_expr ~ ")" }
+
+time_to_slot = { "time_to_slot" ~ "(" ~ data_expr ~ ")" }
 
 data_expr = { data_prefix* ~ data_primary ~ data_postfix* ~ (data_infix ~ data_prefix* ~ data_primary ~ data_postfix* )* }
 
@@ -152,6 +161,8 @@ data_expr = { data_prefix* ~ data_primary ~ data_postfix* ~ (data_infix ~ data_p
         string |
         min_utxo |
         tip_slot |
+        slot_to_time |
+        time_to_slot |
         struct_constructor |
         list_constructor |
         map_constructor |

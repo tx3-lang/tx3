@@ -47,6 +47,17 @@ fn expect_type_def(ident: &ast::Identifier) -> Result<&ast::TypeDef, Error> {
         .ok_or(Error::InvalidSymbol(ident.value.clone(), "TypeDef"))
 }
 
+fn expect_alias_def(ident: &ast::Identifier) -> Result<&ast::AliasDef, Error> {
+    let symbol = ident
+        .symbol
+        .as_ref()
+        .ok_or(Error::MissingAnalyzePhase(ident.value.clone()))?;
+
+    symbol
+        .as_alias_def()
+        .ok_or(Error::InvalidSymbol(ident.value.clone(), "AliasDef"))
+}
+
 fn expect_case_def(ident: &ast::Identifier) -> Result<&ast::VariantCase, Error> {
     let symbol = ident
         .symbol
@@ -221,7 +232,15 @@ impl IntoLower for ast::StructConstructor {
     type Output = ir::StructExpr;
 
     fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
-        let type_def = expect_type_def(&self.r#type)?;
+        let type_def = expect_type_def(&self.r#type)
+            .or_else(|_| {
+                expect_alias_def(&self.r#type).and_then(|alias_def| {
+                    alias_def.resolve_alias_chain().ok_or_else(|| {
+                        Error::InvalidAst("Alias does not resolve to a TypeDef".to_string())
+                    })
+                })
+            })
+            .map_err(|_| Error::InvalidSymbol(self.r#type.value.clone(), "TypeDef or AliasDef"))?;
 
         let constructor = type_def
             .find_case_index(&self.case.name.value)
@@ -472,6 +491,12 @@ impl IntoLower for ast::DataExpr {
             ast::DataExpr::ComputeTipSlot => {
                 ir::Expression::EvalCompiler(Box::new(ir::CompilerOp::ComputeTipSlot))
             }
+            ast::DataExpr::SlotToTime(x) => ir::Expression::EvalCompiler(Box::new(
+                ir::CompilerOp::ComputeSlotToTime(x.into_lower(ctx)?),
+            )),
+            ast::DataExpr::TimeToSlot(x) => ir::Expression::EvalCompiler(Box::new(
+                ir::CompilerOp::ComputeTimeToSlot(x.into_lower(ctx)?),
+            )),
         };
 
         Ok(out)
