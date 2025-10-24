@@ -165,21 +165,21 @@
     {
       "name": "withdrawal",
       "data": {
-        "redeemer": {
-          "Struct": {
-            "constructor": 0,
-            "fields": []
-          }
-        },
-        "amount": {
-          "Number": 0
-        },
         "credential": {
           "EvalParam": {
             "ExpectValue": [
               "sender",
               "Address"
             ]
+          }
+        },
+        "amount": {
+          "Number": 0
+        },
+        "redeemer": {
+          "Struct": {
+            "constructor": 0,
+            "fields": []
           }
         }
       }
