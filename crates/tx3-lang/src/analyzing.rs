@@ -8,7 +8,9 @@ use std::{collections::HashMap, rc::Rc};
 use miette::Diagnostic;
 
 use crate::ast::*;
-use crate::rules::validate_optional_output;
+use crate::rules::{
+    validate_metadata_key_type, validate_metadata_value_size, validate_optional_output,
+};
 
 #[derive(Debug, Clone)]
 pub struct Context {
@@ -23,8 +25,6 @@ impl Default for Context {
     }
 }
 use crate::parsing::AstNode;
-
-const METADATA_MAX_SIZE_BYTES: usize = 64;
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic, PartialEq, Eq)]
 #[error("not in scope: {name}")]
@@ -86,10 +86,10 @@ pub struct MetadataSizeLimitError {
     pub size: usize,
 
     #[source_code]
-    src: Option<String>,
+    pub src: Option<String>,
 
     #[label("value too large")]
-    span: Span,
+    pub span: Span,
 }
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic, PartialEq, Eq)]
@@ -99,10 +99,10 @@ pub struct MetadataInvalidKeyTypeError {
     pub key_type: String,
 
     #[source_code]
-    src: Option<String>,
+    pub src: Option<String>,
 
     #[label("expected integer key")]
-    span: Span,
+    pub span: Span,
 }
 
 #[derive(thiserror::Error, Debug, miette::Diagnostic, PartialEq, Eq)]
@@ -915,80 +915,13 @@ impl Analyzable for InputBlock {
     }
 }
 
-fn validate_metadata_value_size(expr: &DataExpr) -> Result<(), MetadataSizeLimitError> {
-    match expr {
-        DataExpr::String(string_literal) => {
-            let utf8_bytes = string_literal.value.as_bytes();
-            if utf8_bytes.len() > METADATA_MAX_SIZE_BYTES {
-                return Err(MetadataSizeLimitError {
-                    size: utf8_bytes.len(),
-                    src: None,
-                    span: string_literal.span.clone(),
-                });
-            }
-        }
-        DataExpr::HexString(hex_literal) => {
-            let hex_str = &hex_literal.value;
-            let hex_str = hex_str.strip_prefix("0x").unwrap_or(hex_str);
-            let byte_length = hex_str.len() / 2;
-
-            if byte_length > METADATA_MAX_SIZE_BYTES {
-                return Err(MetadataSizeLimitError {
-                    size: byte_length,
-                    src: None,
-                    span: hex_literal.span.clone(),
-                });
-            }
-        }
-        _ => {}
-    }
-    Ok(())
-}
-
-fn validate_metadata_key_type(
-    expr: &DataExpr,
-    ctx: &mut Context,
-) -> Result<(), MetadataInvalidKeyTypeError> {
-    match expr {
-        DataExpr::Number(_) => Ok(()),
-        DataExpr::Identifier(id) => match id.target_type(Some(ctx)) {
-            Some(Type::Int) => Ok(()),
-            Some(other_type) => Err(MetadataInvalidKeyTypeError {
-                key_type: format!("identifier of type {}", other_type),
-                src: None,
-                span: id.span().clone(),
-            }),
-            None => Err(MetadataInvalidKeyTypeError {
-                key_type: "unresolved identifier".to_string(),
-                src: None,
-                span: id.span().clone(),
-            }),
-        },
-        _ => {
-            let key_type = match expr {
-                DataExpr::String(_) => "string",
-                DataExpr::HexString(_) => "hex string",
-                DataExpr::ListConstructor(_) => "list",
-                DataExpr::MapConstructor(_) => "map",
-                DataExpr::StructConstructor(_) => "struct",
-                _ => "unknown",
-            };
-
-            Err(MetadataInvalidKeyTypeError {
-                key_type: key_type.to_string(),
-                src: None,
-                span: expr.span().clone(),
-            })
-        }
-    }
-}
-
 impl Analyzable for MetadataBlockField {
     fn analyze(&mut self, parent: Option<Rc<Scope>>, ctx: &mut Context) -> AnalyzeReport {
         let mut report =
             self.key.analyze(parent.clone(), ctx) + self.value.analyze(parent.clone(), ctx);
 
-        validate_metadata_key_type(&self.key, ctx)
+        let key_type = self.key.target_type(Some(ctx));
+        validate_metadata_key_type(&self.key, key_type.as_ref())
             .map_err(Error::MetadataInvalidKeyType)
             .err()
             .map(|e| report.errors.push(e));
