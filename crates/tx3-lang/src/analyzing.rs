@@ -8,6 +8,7 @@ use std::{collections::HashMap, rc::Rc};
 use miette::Diagnostic;
 
 use crate::ast::*;
+use crate::rules::validate_optional_output;
 
 #[derive(Debug, Clone)]
 pub struct Context {
@@ -70,10 +71,10 @@ pub struct OptionalOutputError {
     pub name: String,
 
     #[source_code]
-    src: Option<String>,
+    pub src: Option<String>,
 
     #[label]
-    span: Span,
+    pub span: Span,
 }
 
 #[derive(thiserror::Error, Debug, miette::Diagnostic, PartialEq, Eq)]
@@ -966,24 +967,6 @@ impl Analyzable for OutputBlock {
     fn is_resolved(&self) -> bool {
         self.fields.is_resolved()
     }
-}
-
-fn validate_optional_output(output: &OutputBlock) -> Option<Error> {
-    if output.optional {
-        if let Some(_field) = output.find("datum") {
-            return Some(Error::InvalidOptionalOutput(OptionalOutputError {
-                name: output
-                    .name
-                    .as_ref()
-                    .map(|i| i.value.clone())
-                    .unwrap_or_else(|| "<anonymous>".to_string()),
-                src: None,
-                span: output.span.clone(),
-            }));
-        }
-    }
-
-    None
 }
 
 impl Analyzable for RecordField {
