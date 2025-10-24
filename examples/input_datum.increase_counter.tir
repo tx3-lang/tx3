@@ -165,7 +165,8 @@
             }
           ]
         }
-      }
+      },
+      "optional": false
     }
   ],
   "validity": null,

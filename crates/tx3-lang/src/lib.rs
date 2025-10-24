@@ -33,6 +33,7 @@ pub mod ir;
 pub mod loading;
 pub mod lowering;
 pub mod parsing;
+pub mod rules;
 
 // chain specific
 pub mod cardano;

@@ -134,6 +134,7 @@
       "outputs": [
         {
           "name": null,
+          "optional": false,
           "fields": [
             {
               "To": {
@@ -455,6 +456,7 @@
       "outputs": [
         {
           "name": null,
+          "optional": false,
           "fields": [
             {
               "To": {
