@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::collections::HashMap;
 
 pub mod coercion;
@@ -7,7 +8,7 @@ pub mod compile;
 pub use pallas;
 
 use pallas::ledger::{
-    primitives::{self, RationalNumber},
+    primitives::{self, RationalNumber, conway::Redeemers, conway::RedeemersKey},
     traverse::{ComputeHash, MultiEraTx},
     validate::phase2::{
         evaluate_tx,
@@ -18,7 +19,7 @@ use pallas::ledger::{
 
 use tx3_lang::ir;
 use tx3_lang::UtxoRef;
-use tx3_lang::backend::{UtxoStore, TxEval, CompiledTx};
+use tx3_lang::backend::{UtxoStore, TxEval};
 use dolos_cardano::{PParamsSet, utils::pparams_to_pallas};
 
 #[cfg(test)]
@@ -84,36 +85,12 @@ impl Compiler {
 }
 
 impl tx3_lang::backend::Compiler for Compiler {
-    fn compile(&mut self, tx: &tx3_lang::ir::Tx) -> Result<CompiledTx, tx3_lang::backend::Error> {
-        let compiled_tx = compile::entry_point(tx, &self.network, &self.cost_models)?;
-
-        // evaluate redeemers and apply exunits here
-
-        let hash = compiled_tx.transaction_body.compute_hash();
-        let payload = pallas::codec::minicbor::to_vec(&compiled_tx).unwrap();
-
-        self.latest_tx_body = Some(compiled_tx.transaction_body);
-
-        Ok(CompiledTx {
-            payload,
-            hash: hash.to_vec()
-        })
-    }
-
-    async fn evaluate<S: UtxoStore>(&self, tx: Option<&CompiledTx>, utxos: &S) -> Result<TxEval, tx3_lang::backend::Error> {
+    async fn compile<S: UtxoStore>(&mut self, tx: &tx3_lang::ir::Tx, utxos: &S) -> Result<TxEval, tx3_lang::backend::Error> {
+        let mut compiled_tx = compile::entry_point(tx, &self.network, &self.cost_models)?;
         
-        if tx.is_none() {
-            return Ok(TxEval {
-                report: vec![],
-                fee: 0,
-            });
-        }
+        let multi_era_tx = MultiEraTx::Conway(Box::new(Cow::Owned(compiled_tx.clone())));
 
-        let payload  = &tx.unwrap().payload;
-
-        let multi_era_tx = MultiEraTx::decode(payload)
-            .map_err(|e| tx3_lang::backend::Error::EvaluationError(e.to_string()))?;
-
+        // Fetch UTxO dependencies
         let utxo_deps = utxos.fetch_utxos_deps(
             multi_era_tx
                 .requires()
@@ -125,15 +102,45 @@ impl tx3_lang::backend::Compiler for Compiler {
                 .collect(),
         ).await?;
 
-        let report =
+        // Evaluate the transaction to get the execution units for the redeemers
+        let reports =
             evaluate_tx(&multi_era_tx, &pparams_to_pallas(&self.pparams), &utxo_deps, &self.slot_config)
                 .map_err(|e| tx3_lang::backend::Error::EvaluationError(e.to_string()))?;
 
-        let size_fees = eval_size_fees(payload, &self.pparams, self.config.extra_fees);
-        let redeemers_fees = eval_redeemers_fees(&report, &self.pparams);
+        // Update the compiled transaction with the evaluated execution units
+        for report in &reports {
+            if let Some(redeemers) = &compiled_tx.transaction_witness_set.redeemer {
+                match redeemers.clone().unwrap() {
+                    Redeemers::List(mut list) => {
+                        let redeemer = list.iter_mut().find(|r| r.tag == report.tag && r.index == report.index);
+                        if let Some(redeemer) = redeemer {
+                            redeemer.ex_units = report.units.clone();
+                        }
+                        compiled_tx.transaction_witness_set.redeemer = Some(Redeemers::List(list).into());
+                    }
+                    Redeemers::Map(mut map) => {
+                        let key = RedeemersKey { tag: report.tag.clone(), index: report.index };
+                        if let Some(redeemer) = map.get_mut(&key) {
+                            redeemer.ex_units = report.units.clone();
+                        }
+                        compiled_tx.transaction_witness_set.redeemer = Some(Redeemers::Map(map).into());
+                    }
+                }
+            }
+        }
+            
+        let hash = compiled_tx.transaction_body.compute_hash();
+        let payload = pallas::codec::minicbor::to_vec(&compiled_tx).unwrap();
+        
+        // Calculate fees
+        let size_fees = eval_size_fees(&payload, &self.pparams, self.config.extra_fees);
+        let redeemers_fees = eval_redeemers_fees(&reports, &self.pparams);
+
+        self.latest_tx_body = Some(compiled_tx.transaction_body);
 
         Ok(TxEval {
-            report,
+            payload,
+            hash: hash.to_vec(),
             fee: size_fees + redeemers_fees,
         })
     }

@@ -2,7 +2,6 @@ use std::collections::HashSet;
 
 use crate::{applying, ir, UtxoRef, UtxoSet};
 
-use pallas::ledger::validate::phase2::EvalReport;
 use pallas::ledger::validate::utils::UtxoMap;
 
 #[derive(Debug, thiserror::Error)]
@@ -51,20 +50,14 @@ pub enum Error {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct CompiledTx {
-    pub payload: Vec<u8>,
-    pub hash: Vec<u8>,
-}
-
-#[derive(Debug)]
 pub struct TxEval {
-    pub report: EvalReport,
+    pub hash: Vec<u8>,
+    pub payload: Vec<u8>,
     pub fee: u64,
 }
 
 pub trait Compiler {
-    fn compile(&mut self, tx: &ir::Tx) -> Result<CompiledTx, Error>;
-    async fn evaluate<S: UtxoStore>(&self, tx: Option<&CompiledTx>, utxos: &S) -> Result<TxEval, Error>;
+    async fn compile<S: UtxoStore>(&mut self, tx: &ir::Tx, utxos: &S) -> Result<TxEval, Error>;
     fn execute(&self, op: ir::CompilerOp) -> Result<ir::Expression, Error>;
 }
 

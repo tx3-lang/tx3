@@ -1,6 +1,6 @@
 use tx3_lang::{
     applying::{self, Apply as _},
-    backend::{self, Compiler, UtxoStore, CompiledTx},
+    backend::{self, Compiler, UtxoStore, TxEval},
     ir::{self, Node},
 };
 
@@ -28,13 +28,13 @@ async fn eval_pass<C: Compiler, S: UtxoStore>(
     tx: &ir::Tx,
     compiler: &mut C,
     utxos: &S,
-    last_eval: Option<&CompiledTx>,
-) -> Result<Option<CompiledTx>, Error> {
+    last_eval: Option<&TxEval>,
+) -> Result<Option<TxEval>, Error> {
     let attempt = tx.clone();
 
-    let eval = compiler.evaluate(last_eval, utxos).await?;
+    let fees = last_eval.as_ref().map(|e| e.fee).unwrap_or(0);
 
-    let attempt = applying::apply_fees(attempt, eval.fee)?;
+    let attempt = applying::apply_fees(attempt, fees)?;
 
     let attempt = attempt.apply(compiler)?;
 
@@ -50,7 +50,7 @@ async fn eval_pass<C: Compiler, S: UtxoStore>(
         return Err(Error::CantCompileNonConstantTir);
     }
 
-    let eval = compiler.compile(attempt.as_ref())?;
+    let eval = compiler.compile(attempt.as_ref(), utxos).await?;
 
     let Some(last_eval) = last_eval else {
         return Ok(Some(eval));
@@ -68,7 +68,7 @@ pub async fn resolve_tx<C: Compiler, S: UtxoStore>(
     compiler: &mut C,
     utxos: &S,
     max_optimize_rounds: usize,
-) -> Result<CompiledTx, Error> {
+) -> Result<TxEval, Error> {
     let max_optimize_rounds = max_optimize_rounds.max(3);
 
     let mut last_eval = None;

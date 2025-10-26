@@ -945,7 +945,7 @@ pub fn entry_point(tx: &ir::Tx, network: &Network, cost_models: &CostModels) -> 
 
     transaction_body.auxiliary_data_hash = auxiliary_data
         .as_ref()
-        .map(|x| primitives::Bytes::from(x.compute_hash().to_vec()));
+        .map(|x| x.compute_hash());
 
     Ok(primitives::Tx {
         transaction_body: transaction_body.into(),
