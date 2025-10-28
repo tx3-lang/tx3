@@ -282,11 +282,7 @@ fn arg_value_into_expr(arg: ArgValue) -> ir::Expression {
         ArgValue::Bytes(x) => ir::Expression::Bytes(x),
         ArgValue::UtxoSet(x) => ir::Expression::UtxoSet(x),
         ArgValue::UtxoRef(x) => ir::Expression::UtxoRefs(vec![x]),
-        ArgValue::Custom(x) => {
-            let config = bincode::config::standard();
-            let (ir, _) = bincode::decode_from_slice::<ir::Expression, _>(&x, config).unwrap();
-            ir
-        }
+        ArgValue::Custom(x) => ir::Expression::Struct(x),
     }
 }
 

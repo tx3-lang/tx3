@@ -102,7 +102,7 @@ pub enum ArgValue {
     UtxoSet(UtxoSet),
     UtxoRef(UtxoRef),
     // ir bytes of a custom type
-    Custom(Vec<u8>),
+    Custom(crate::ir::StructExpr),
 }
 
 impl From<Vec<u8>> for ArgValue {
