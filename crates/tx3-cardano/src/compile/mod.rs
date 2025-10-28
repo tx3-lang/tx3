@@ -19,7 +19,7 @@ use tx3_lang::{backend::Error, ir};
 
 use crate::{
     coercion::{self, expr_into_bytes, expr_into_metadatum, expr_into_number},
-    Network, PParams, PlutusVersion, EXECUTION_UNITS,
+    Network, PlutusVersion, EXECUTION_UNITS,
 };
 
 pub(crate) mod asset_math;
@@ -915,11 +915,11 @@ fn infer_plutus_version(witness_set: &primitives::WitnessSet) -> PlutusVersion {
 
 fn compute_script_data_hash(
     witness_set: &primitives::WitnessSet,
-    pparams: &PParams,
+    cost_models: &CostModels,
 ) -> Option<primitives::Hash<32>> {
     let version = infer_plutus_version(witness_set);
 
-    let cost_model = pparams.cost_models.get(&version).unwrap();
+    let cost_model = cost_models.get(&version).unwrap();
 
     let language_view = primitives::LanguageView(version, cost_model.clone());
 
@@ -949,16 +949,16 @@ pub fn compute_min_utxo(
     Ok(total_bytes * coins_per_byte)
 }
 
-pub fn entry_point(tx: &ir::Tx, pparams: &PParams) -> Result<primitives::Tx<'static>, Error> {
-    let mut transaction_body = compile_tx_body(tx, pparams.network)?;
-    let transaction_witness_set = compile_witness_set(tx, &transaction_body, pparams.network)?;
+pub fn entry_point(tx: &ir::Tx, network: &Network, cost_models: &CostModels) -> Result<primitives::Tx<'static>, Error> {
+    let mut transaction_body = compile_tx_body(tx, *network)?;
+    let transaction_witness_set = compile_witness_set(tx, &transaction_body, *network)?;
     let auxiliary_data = compile_auxiliary_data(tx)?;
 
-    transaction_body.script_data_hash = compute_script_data_hash(&transaction_witness_set, pparams);
+    transaction_body.script_data_hash = compute_script_data_hash(&transaction_witness_set, cost_models);
 
     transaction_body.auxiliary_data_hash = auxiliary_data
         .as_ref()
-        .map(|x| primitives::Bytes::from(x.compute_hash().to_vec()));
+        .map(|x| x.compute_hash());
 
     Ok(primitives::Tx {
         transaction_body: transaction_body.into(),

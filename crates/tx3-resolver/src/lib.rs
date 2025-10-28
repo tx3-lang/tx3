@@ -1,6 +1,6 @@
 use tx3_lang::{
     applying::{self, Apply as _},
-    backend::{self, Compiler, TxEval, UtxoStore},
+    backend::{self, Compiler, UtxoStore, TxEval},
     ir::{self, Node},
 };
 
@@ -50,7 +50,7 @@ async fn eval_pass<C: Compiler, S: UtxoStore>(
         return Err(Error::CantCompileNonConstantTir);
     }
 
-    let eval = compiler.compile(attempt.as_ref())?;
+    let eval = compiler.compile(attempt.as_ref(), utxos).await?;
 
     let Some(last_eval) = last_eval else {
         return Ok(Some(eval));

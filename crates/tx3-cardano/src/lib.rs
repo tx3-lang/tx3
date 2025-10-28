@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::collections::HashMap;
 
 pub mod coercion;
@@ -6,10 +7,20 @@ pub mod compile;
 // Re-export pallas for upstream users
 pub use pallas;
 
-use pallas::ledger::primitives;
-use pallas::ledger::traverse::ComputeHash;
-use tx3_lang::backend::TxEval;
+use pallas::ledger::{
+    primitives::{self, RationalNumber, conway::Redeemers, conway::RedeemersKey},
+    traverse::{ComputeHash, MultiEraTx},
+    validate::phase2::{
+        evaluate_tx,
+        EvalReport,
+        script_context::SlotConfig,
+    },
+};
+
 use tx3_lang::ir;
+use tx3_lang::UtxoRef;
+use tx3_lang::backend::{UtxoStore, TxEval};
+use dolos_cardano::{PParamsSet, utils::pparams_to_pallas};
 
 #[cfg(test)]
 pub mod tests;
@@ -17,14 +28,7 @@ pub mod tests;
 pub type Network = pallas::ledger::primitives::NetworkId;
 pub type PlutusVersion = u8;
 pub type CostModel = Vec<i64>;
-
-pub struct PParams {
-    pub network: Network,
-    pub min_fee_coefficient: u64,
-    pub min_fee_constant: u64,
-    pub coins_per_utxo_byte: u64,
-    pub cost_models: HashMap<PlutusVersion, CostModel>,
-}
+pub type CostModels = HashMap<PlutusVersion, CostModel>;
 
 pub const EXECUTION_UNITS: primitives::ExUnits = primitives::ExUnits {
     mem: 2000000,
@@ -50,58 +54,109 @@ pub struct ChainPoint {
 }
 
 pub struct Compiler {
-    pub pparams: PParams,
     pub config: Config,
-    pub latest_tx_body: Option<TxBody>,
+    pub network: Network,
     pub cursor: ChainPoint,
+    pub pparams: PParamsSet,
+    pub cost_models: CostModels,
+    pub slot_config: SlotConfig,
+    pub latest_tx_body: Option<TxBody>,
 }
 
 impl Compiler {
-    pub fn new(pparams: PParams, config: Config, cursor: ChainPoint) -> Self {
+    pub fn new(
+        config: Config,
+        network: Network,
+        cursor: ChainPoint,
+        pparams: PParamsSet,
+        cost_models: CostModels,
+        slot_config: SlotConfig,
+    ) -> Self {
         Self {
-            pparams,
             config,
-            latest_tx_body: None,
+            network,
             cursor,
+            pparams,
+            cost_models,
+            slot_config,
+            latest_tx_body: None,
         }
     }
 }
 
 impl tx3_lang::backend::Compiler for Compiler {
-    fn compile(&mut self, tx: &tx3_lang::ir::Tx) -> Result<TxEval, tx3_lang::backend::Error> {
-        let compiled_tx = compile::entry_point(tx, &self.pparams)?;
+    async fn compile<S: UtxoStore>(&mut self, tx: &tx3_lang::ir::Tx, utxos: &S) -> Result<TxEval, tx3_lang::backend::Error> {
+        let mut compiled_tx = compile::entry_point(tx, &self.network, &self.cost_models)?;
+        
+        let multi_era_tx = MultiEraTx::Conway(Box::new(Cow::Owned(compiled_tx.clone())));
 
+        // Fetch UTxO dependencies
+        let utxo_deps = utxos.fetch_utxos_deps(
+            multi_era_tx
+                .requires()
+                .iter()
+                .map(|r| UtxoRef {
+                    txid: r.hash().to_vec(),
+                    index: r.index() as u32
+                })
+                .collect(),
+        ).await?;
+
+        // Evaluate the transaction to get the execution units for the redeemers
+        let reports =
+            evaluate_tx(&multi_era_tx, &pparams_to_pallas(&self.pparams), &utxo_deps, &self.slot_config)
+                .map_err(|e| tx3_lang::backend::Error::EvaluationError(e.to_string()))?;
+
+        // Update the compiled transaction with the evaluated execution units
+        for report in &reports {
+            if let Some(redeemers) = &compiled_tx.transaction_witness_set.redeemer {
+                match redeemers.clone().unwrap() {
+                    Redeemers::List(mut list) => {
+                        let redeemer = list.iter_mut().find(|r| r.tag == report.tag && r.index == report.index);
+                        if let Some(redeemer) = redeemer {
+                            redeemer.ex_units = report.units.clone();
+                        }
+                        compiled_tx.transaction_witness_set.redeemer = Some(Redeemers::List(list).into());
+                    }
+                    Redeemers::Map(mut map) => {
+                        let key = RedeemersKey { tag: report.tag.clone(), index: report.index };
+                        if let Some(redeemer) = map.get_mut(&key) {
+                            redeemer.ex_units = report.units.clone();
+                        }
+                        compiled_tx.transaction_witness_set.redeemer = Some(Redeemers::Map(map).into());
+                    }
+                }
+            }
+        }
+            
         let hash = compiled_tx.transaction_body.compute_hash();
         let payload = pallas::codec::minicbor::to_vec(&compiled_tx).unwrap();
+        
+        // Calculate fees
+        let size_fees = eval_size_fees(&payload, &self.pparams, self.config.extra_fees);
+        let redeemers_fees = eval_redeemers_fees(&reports, &self.pparams);
 
         self.latest_tx_body = Some(compiled_tx.transaction_body);
 
-        let size_fees = eval_size_fees(&payload, &self.pparams, self.config.extra_fees);
-
-        //let redeemer_fees = eval_redeemer_fees(tx, pparams)?;
-
-        let eval = TxEval {
+        Ok(TxEval {
             payload,
             hash: hash.to_vec(),
-            fee: size_fees, // TODO: add redeemer fees
-            ex_units: 0,
-        };
-
-        Ok(eval)
+            fee: size_fees + redeemers_fees,
+        })
     }
 
     fn execute(&self, op: ir::CompilerOp) -> Result<ir::Expression, tx3_lang::backend::Error> {
         match op {
             ir::CompilerOp::BuildScriptAddress(x) => {
                 let hash: primitives::Hash<28> = coercion::expr_into_hash(&x)?;
-                let address = coercion::policy_into_address(hash.as_ref(), self.pparams.network)?;
+                let address = coercion::policy_into_address(hash.as_ref(), self.network)?;
                 Ok(ir::Expression::Address(address.to_vec()))
             }
             ir::CompilerOp::ComputeMinUtxo(x) => {
                 let lovelace = compile::compute_min_utxo(
                     x,
                     &self.latest_tx_body,
-                    self.pparams.coins_per_utxo_byte as i128,
+                    self.pparams.ada_per_utxo_byte_or_default() as i128,
                 )?;
                 Ok(ir::Expression::Assets(vec![ir::AssetExpr {
                     policy: ir::Expression::None,
@@ -136,10 +191,28 @@ impl tx3_lang::backend::Compiler for Compiler {
     }
 }
 
-fn eval_size_fees(tx: &[u8], pparams: &PParams, extra_fees: Option<u64>) -> u64 {
-    tx.len() as u64 * pparams.min_fee_coefficient
-        + pparams.min_fee_constant
+fn eval_size_fees(tx: &[u8], pparams: &PParamsSet, extra_fees: Option<u64>) -> u64 {
+    tx.len() as u64 * pparams.min_fee_a_or_default() as u64
+        + pparams.min_fee_b_or_default() as u64
         + extra_fees.unwrap_or(DEFAULT_EXTRA_FEES)
+}
+
+fn eval_redeemers_fees(report: &EvalReport, pparams: &PParamsSet) -> u64 {
+    let primitives::ExUnitPrices { mem_price, step_price } = pparams.execution_costs()
+        .unwrap_or(primitives::ExUnitPrices {
+            mem_price: RationalNumber { numerator: 0, denominator: 1 },
+            step_price: RationalNumber { numerator: 0, denominator: 1 },
+        });
+
+    let mut fees = 0;
+
+    for r in report {
+        fees += (r.units.mem * mem_price.numerator * step_price.denominator
+            + r.units.steps * step_price.numerator * mem_price.denominator)
+            / (mem_price.denominator * step_price.denominator);
+    }
+
+    fees
 }
 
 fn slot_to_time(slot: i128, cursor: &ChainPoint) -> i128 {
