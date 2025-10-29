@@ -224,6 +224,7 @@
       "outputs": [
         {
           "name": null,
+          "optional": false,
           "fields": [
             {
               "To": {
@@ -430,6 +431,7 @@
         },
         {
           "name": null,
+          "optional": false,
           "fields": [
             {
               "To": {

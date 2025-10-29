@@ -126,7 +126,8 @@
             }
           ]
         }
-      }
+      },
+      "optional": false
     }
   ],
   "validity": null,
@@ -136,6 +137,9 @@
     {
       "name": "cardano_publish",
       "data": {
+        "version": {
+          "Number": 3
+        },
         "amount": {
           "Assets": [
             {
@@ -181,9 +185,6 @@
               "Address"
             ]
           }
-        },
-        "version": {
-          "Number": 3
         }
       }
     }
