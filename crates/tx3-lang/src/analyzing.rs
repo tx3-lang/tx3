@@ -54,6 +54,19 @@ pub struct InvalidTargetTypeError {
 }
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic, PartialEq, Eq)]
+#[error("optional output ({name}) cannot have a datum")]
+#[diagnostic(code(tx3::optional_output_datum))]
+pub struct OptionalOutputError {
+    pub name: String,
+
+    #[source_code]
+    src: Option<String>,
+
+    #[label]
+    span: Span,
+}
+
+#[derive(Debug, thiserror::Error, miette::Diagnostic, PartialEq, Eq)]
 #[error("metadata value exceeds 64 bytes: {size} bytes found")]
 #[diagnostic(code(tx3::metadata_size_limit_exceeded))]
 pub struct MetadataSizeLimitError {
@@ -109,6 +122,10 @@ pub enum Error {
     #[error(transparent)]
     #[diagnostic(transparent)]
     MetadataInvalidKeyType(#[from] MetadataInvalidKeyTypeError),
+
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    InvalidOptionalOutput(#[from] OptionalOutputError),
 }
 
 impl Error {
@@ -119,6 +136,7 @@ impl Error {
             Self::InvalidTargetType(x) => &x.span,
             Self::MetadataSizeLimitExceeded(x) => &x.span,
             Self::MetadataInvalidKeyType(x) => &x.span,
+            Self::InvalidOptionalOutput(x) => &x.span,
             _ => &Span::DUMMY,
         }
     }
@@ -224,7 +242,7 @@ impl std::fmt::Display for AnalyzeReport {
         } else {
             write!(f, "Failed with {} errors:", self.errors.len())?;
             for error in &self.errors {
-                write!(f, "\n{:?}", error)?;
+                write!(f, "\n{} ({:?})", error, error)?;
             }
             Ok(())
         }
@@ -1005,12 +1023,33 @@ impl Analyzable for OutputBlockField {
 
 impl Analyzable for OutputBlock {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        self.fields.analyze(parent)
+        validate_optional_output(self)
+            .map(AnalyzeReport::from)
+            .unwrap_or_else(|| AnalyzeReport::default())
+            + self.fields.analyze(parent)
     }
 
     fn is_resolved(&self) -> bool {
         self.fields.is_resolved()
     }
+}
+
+fn validate_optional_output(output: &OutputBlock) -> Option<Error> {
+    if output.optional {
+        if let Some(_field) = output.find("datum") {
+            return Some(Error::InvalidOptionalOutput(OptionalOutputError {
+                name: output
+                    .name
+                    .as_ref()
+                    .map(|i| i.value.clone())
+                    .unwrap_or_else(|| "<anonymous>".to_string()),
+                src: None,
+                span: output.span.clone(),
+            }));
+        }
+    }
+
+    None
 }
 
 impl Analyzable for RecordField {
@@ -1520,6 +1559,88 @@ mod tests {
     }
 
     #[test]
+    fn test_time_and_slot_conversion() {
+        let mut ast = crate::parsing::parse_string(
+            r#"
+        party Sender;
+
+        type TimestampDatum {
+            slot_time: Int,
+            time: Int,
+        }
+
+        tx create_timestamp_tx() {
+            input source {
+                from: Sender,
+                min_amount: Ada(2000000),
+            }
+
+            output timestamp_output {
+                to: Sender,
+                amount: source - fees,
+                datum: TimestampDatum {
+                    slot_time: time_to_slot(1666716638000),
+                    time: slot_to_time(60638),
+                },
+            }
+        }
+        "#,
+        )
+        .unwrap();
+
+        let result = analyze(&mut ast);
+        assert!(result.errors.is_empty());
+    }
+
+    #[test]
+    fn test_optional_output_with_datum_error() {
+        let mut ast = crate::parsing::parse_string(
+            r#"
+        party Alice;
+        type MyDatum {
+            field1: Int,
+        }
+        tx test() {
+            output ? my_output {
+                to: Alice,
+                amount: Ada(1),
+                datum: MyDatum { field1: 1, },
+            }
+        }
+    "#,
+        )
+        .unwrap();
+
+        let report = analyze(&mut ast);
+
+        assert!(!report.errors.is_empty());
+        assert!(report
+            .errors
+            .iter()
+            .any(|e| matches!(e, Error::InvalidOptionalOutput(_))));
+    }
+
+    #[test]
+    fn test_optional_output_ok() {
+        let mut ast = crate::parsing::parse_string(
+            r#"
+        party Alice;
+
+        tx test() {
+            output ? my_output {
+                to: Alice,
+                amount: Ada(0),
+            }
+        }
+    "#,
+        )
+        .unwrap();
+
+        let report = analyze(&mut ast);
+        assert!(report.errors.is_empty());
+    }
+
+    #[test]
     fn test_metadata_value_size_validation_string_within_limit() {
         let mut ast = crate::parsing::parse_string(
             r#"
@@ -1749,39 +1870,5 @@ mod tests {
                 result.errors[0]
             ),
         }
-    }
-
-    #[test]
-    fn test_time_and_slot_conversion() {
-        let mut ast = crate::parsing::parse_string(
-            r#"
-        party Sender;
-
-        type TimestampDatum {
-            slot_time: Int,
-            time: Int,
-        }
-
-        tx create_timestamp_tx() {
-            input source {
-                from: Sender,
-                min_amount: Ada(2000000),
-            }
-
-            output timestamp_output {
-                to: Sender,
-                amount: source - fees,
-                datum: TimestampDatum {
-                    slot_time: time_to_slot(1666716638000),
-                    time: slot_to_time(60638),
-                },
-            }
-        }
-        "#,
-        )
-        .unwrap();
-
-        let result = analyze(&mut ast);
-        assert!(result.errors.is_empty());
     }
 }

@@ -635,6 +635,7 @@ impl IntoLower for ast::OutputBlock {
             address,
             datum,
             amount,
+            optional: self.optional,
         })
     }
 }

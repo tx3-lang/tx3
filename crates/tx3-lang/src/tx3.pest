@@ -217,6 +217,7 @@ map_constructor = {
 // input block
 
 input_many = { "*" }
+output_optional = { "?" }
 input_block_from = { "from" ~ ":" ~ data_expr }
 input_block_datum_is = { "datum_is" ~ ":" ~ type }
 input_block_min_amount = { "min_amount" ~ ":" ~ data_expr }
@@ -266,7 +267,7 @@ output_block_field = _{
 }
 
 output_block = {
-    "output" ~ identifier? ~ "{" ~
+    "output" ~ output_optional? ~ identifier? ~ "{" ~
     (output_block_field ~ ",")* ~
     "}"
 }

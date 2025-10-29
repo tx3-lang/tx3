@@ -533,7 +533,8 @@
             }
           ]
         }
-      }
+      },
+      "optional": false
     }
   ],
   "validity": {
@@ -644,14 +645,6 @@
     {
       "name": "vote_delegation_certificate",
       "data": {
-        "stake": {
-          "Bytes": [
-            135,
-            101,
-            67,
-            33
-          ]
-        },
         "drep": {
           "Bytes": [
             18,
@@ -659,27 +652,35 @@
             86,
             120
           ]
+        },
+        "stake": {
+          "Bytes": [
+            135,
+            101,
+            67,
+            33
+          ]
         }
       }
     },
     {
       "name": "withdrawal",
       "data": {
+        "redeemer": {
+          "Struct": {
+            "constructor": 0,
+            "fields": []
+          }
+        },
+        "amount": {
+          "Number": 100
+        },
         "credential": {
           "EvalParam": {
             "ExpectValue": [
               "myparty",
               "Address"
             ]
-          }
-        },
-        "amount": {
-          "Number": 100
-        },
-        "redeemer": {
-          "Struct": {
-            "constructor": 0,
-            "fields": []
           }
         }
       }

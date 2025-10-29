@@ -1154,6 +1154,7 @@ impl Composite for ir::Output {
             address: f(self.address)?,
             datum: f(self.datum)?,
             amount: f(self.amount)?,
+            optional: self.optional,
         })
     }
 }
