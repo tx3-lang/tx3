@@ -8,6 +8,9 @@ use std::{collections::HashMap, rc::Rc};
 use miette::Diagnostic;
 
 use crate::ast::*;
+use crate::parsing::AstNode;
+
+const METADATA_MAX_SIZE_BYTES: usize = 64;
 
 #[derive(Debug, Clone)]
 pub struct Context {
@@ -76,6 +79,32 @@ pub struct OptionalOutputError {
     span: Span,
 }
 
+#[derive(Debug, thiserror::Error, miette::Diagnostic, PartialEq, Eq)]
+#[error("metadata value exceeds 64 bytes: {size} bytes found")]
+#[diagnostic(code(tx3::metadata_size_limit_exceeded))]
+pub struct MetadataSizeLimitError {
+    pub size: usize,
+
+    #[source_code]
+    src: Option<String>,
+
+    #[label("value too large")]
+    span: Span,
+}
+
+#[derive(Debug, thiserror::Error, miette::Diagnostic, PartialEq, Eq)]
+#[error("metadata key must be an integer, got: {key_type}")]
+#[diagnostic(code(tx3::metadata_invalid_key_type))]
+pub struct MetadataInvalidKeyTypeError {
+    pub key_type: String,
+
+    #[source_code]
+    src: Option<String>,
+
+    #[label("expected integer key")]
+    span: Span,
+}
+
 #[derive(thiserror::Error, Debug, miette::Diagnostic, PartialEq, Eq)]
 pub enum Error {
     #[error("duplicate definition: {0}")]
@@ -101,6 +130,14 @@ pub enum Error {
 
     #[error(transparent)]
     #[diagnostic(transparent)]
+    MetadataSizeLimitExceeded(#[from] MetadataSizeLimitError),
+
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    MetadataInvalidKeyType(#[from] MetadataInvalidKeyTypeError),
+
+    #[error(transparent)]
+    #[diagnostic(transparent)]
     InvalidOptionalOutput(#[from] OptionalOutputError),
 }
 
@@ -110,6 +147,8 @@ impl Error {
             Self::NotInScope(x) => &x.span,
             Self::InvalidSymbol(x) => &x.span,
             Self::InvalidTargetType(x) => &x.span,
+            Self::MetadataSizeLimitExceeded(x) => &x.span,
+            Self::MetadataInvalidKeyType(x) => &x.span,
             Self::InvalidOptionalOutput(x) => &x.span,
             _ => &Span::DUMMY,
         }
@@ -118,6 +157,8 @@ impl Error {
     pub fn src(&self) -> Option<&str> {
         match self {
             Self::NotInScope(x) => x.src.as_deref(),
+            Self::MetadataSizeLimitExceeded(x) => x.src.as_deref(),
+            Self::MetadataInvalidKeyType(x) => x.src.as_deref(),
             _ => None,
         }
     }
@@ -874,10 +915,91 @@ impl Analyzable for InputBlock {
     }
 }
 
+fn validate_metadata_value_size(expr: &DataExpr) -> Result<(), MetadataSizeLimitError> {
+    match expr {
+        DataExpr::String(string_literal) => {
+            let utf8_bytes = string_literal.value.as_bytes();
+            if utf8_bytes.len() > METADATA_MAX_SIZE_BYTES {
+                return Err(MetadataSizeLimitError {
+                    size: utf8_bytes.len(),
+                    src: None,
+                    span: string_literal.span.clone(),
+                });
+            }
+        }
+        DataExpr::HexString(hex_literal) => {
+            let hex_str = &hex_literal.value;
+            let hex_str = hex_str.strip_prefix("0x").unwrap_or(hex_str);
+            let byte_length = hex_str.len() / 2;
+
+            if byte_length > METADATA_MAX_SIZE_BYTES {
+                return Err(MetadataSizeLimitError {
+                    size: byte_length,
+                    src: None,
+                    span: hex_literal.span.clone(),
+                });
+            }
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+pub fn validate_metadata_key_type(
+    expr: &DataExpr,
+    target_type: Option<&Type>,
+) -> Result<(), MetadataInvalidKeyTypeError> {
+    match expr {
+        DataExpr::Number(_) => Ok(()),
+        DataExpr::Identifier(id) => match target_type {
+            Some(Type::Int) => Ok(()),
+            Some(other_type) => Err(MetadataInvalidKeyTypeError {
+                key_type: format!("identifier of type {}", other_type),
+                src: None,
+                span: id.span().clone(),
+            }),
+            None => Err(MetadataInvalidKeyTypeError {
+                key_type: "unresolved identifier".to_string(),
+                src: None,
+                span: id.span().clone(),
+            }),
+        },
+        _ => {
+            let key_type = match expr {
+                DataExpr::String(_) => "string",
+                DataExpr::HexString(_) => "hex string",
+                DataExpr::ListConstructor(_) => "list",
+                DataExpr::MapConstructor(_) => "map",
+                DataExpr::StructConstructor(_) => "struct",
+                _ => "unknown",
+            };
+
+            Err(MetadataInvalidKeyTypeError {
+                key_type: key_type.to_string(),
+                src: None,
+                span: expr.span().clone(),
+            })
+        }
+    }
+}
+
 impl Analyzable for MetadataBlockField {
     fn analyze(&mut self, parent: Option<Rc<Scope>>, ctx: &mut Context) -> AnalyzeReport {
-        // TODO: check keys are actually numbers
-        self.key.analyze(parent.clone(), ctx) + self.value.analyze(parent.clone(), ctx)
+        let mut report =
+            self.key.analyze(parent.clone(), ctx) + self.value.analyze(parent.clone(), ctx);
+
+        let key_type = self.key.target_type(Some(ctx));
+        validate_metadata_key_type(&self.key, key_type.as_ref())
+            .map_err(Error::MetadataInvalidKeyType)
+            .err()
+            .map(|e| report.errors.push(e));
+
+        validate_metadata_value_size(&self.value)
+            .map_err(Error::MetadataSizeLimitExceeded)
+            .err()
+            .map(|e| report.errors.push(e));
+
+        report
     }
 
     fn is_resolved(&self) -> bool {
@@ -1525,6 +1647,238 @@ mod tests {
 
         let result = analyze(&mut ast);
         assert!(result.errors.is_empty());
+    }
+
+    #[test]
+    fn test_metadata_value_size_validation_string_within_limit() {
+        let mut ast = crate::parsing::parse_string(
+            r#"
+        tx test() {
+            metadata {
+                123: "This is a short string that is within the 64-byte limit",
+            }
+        }
+    "#,
+        )
+        .unwrap();
+
+        let result = analyze(&mut ast);
+
+        assert!(
+            result.errors.is_empty(),
+            "Expected no errors for string within limit, but got: {:?}",
+            result.errors
+        );
+    }
+
+    #[test]
+    fn test_metadata_value_size_validation_string_exceeds_limit() {
+        let mut ast = crate::parsing::parse_string(
+            r#"
+        tx test() {
+            metadata {
+                123: "This is a very long string that definitely exceeds the 64-byte limit here",
+            }
+        }
+    "#,
+        )
+        .unwrap();
+
+        let result = analyze(&mut ast);
+        assert_eq!(result.errors.len(), 1);
+
+        match &result.errors[0] {
+            Error::MetadataSizeLimitExceeded(error) => {
+                assert_eq!(error.size, 73);
+            }
+            _ => panic!(
+                "Expected MetadataSizeLimitExceeded error, got: {:?}",
+                result.errors[0]
+            ),
+        }
+    }
+
+    #[test]
+    fn test_metadata_value_size_validation_hex_string_within_limit() {
+        let mut ast = crate::parsing::parse_string(
+            r#"
+        tx test() {
+            metadata {
+                123: 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef,
+            }
+        }
+    "#,
+        )
+        .unwrap();
+
+        let result = analyze(&mut ast);
+        assert!(
+            result.errors.is_empty(),
+            "Expected no errors for hex string within limit, but got: {:?}",
+            result.errors
+        );
+    }
+
+    #[test]
+    fn test_metadata_value_size_validation_hex_string_exceeds_limit() {
+        let mut ast = crate::parsing::parse_string(
+            r#"
+        tx test() {
+            metadata {
+                123: 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef12,
+            }
+        }
+    "#,
+        )
+        .unwrap();
+
+        let result = analyze(&mut ast);
+        assert_eq!(result.errors.len(), 1);
+
+        match &result.errors[0] {
+            Error::MetadataSizeLimitExceeded(error) => {
+                assert_eq!(error.size, 65);
+            }
+            _ => panic!(
+                "Expected MetadataSizeLimitExceeded error, got: {:?}",
+                result.errors[0]
+            ),
+        }
+    }
+
+    #[test]
+    fn test_metadata_value_size_validation_multiple_fields() {
+        let mut ast = crate::parsing::parse_string(
+            r#"
+        tx test() {
+            metadata {
+                123: "Short string",
+                456: "This is a very long string that definitely exceeds the 64-byte limit here",
+                789: "Another short one",
+            }
+        }
+    "#,
+        )
+        .unwrap();
+
+        let result = analyze(&mut ast);
+        assert_eq!(result.errors.len(), 1);
+
+        match &result.errors[0] {
+            Error::MetadataSizeLimitExceeded(error) => {
+                assert_eq!(error.size, 73);
+            }
+            _ => panic!(
+                "Expected MetadataSizeLimitExceeded error, got: {:?}",
+                result.errors[0]
+            ),
+        }
+    }
+
+    #[test]
+    fn test_metadata_value_size_validation_non_literal_expression() {
+        let mut ast = crate::parsing::parse_string(
+            r#"
+        party Alice;
+
+        tx test(my_param: Bytes) {
+            metadata {
+                123: my_param,
+            }
+        }
+    "#,
+        )
+        .unwrap();
+
+        let result = analyze(&mut ast);
+        let metadata_errors: Vec<_> = result
+            .errors
+            .iter()
+            .filter(|e| matches!(e, Error::MetadataSizeLimitExceeded(_)))
+            .collect();
+        assert!(
+            metadata_errors.is_empty(),
+            "Expected no metadata size errors for non-literal expressions"
+        );
+    }
+
+    #[test]
+    fn test_metadata_key_type_validation_string_key() {
+        let mut ast = crate::parsing::parse_string(
+            r#"
+        tx test() {
+            metadata {
+                "invalid_key": "some value",
+            }
+        }
+    "#,
+        )
+        .unwrap();
+
+        let result = analyze(&mut ast);
+        assert_eq!(result.errors.len(), 1);
+
+        match &result.errors[0] {
+            Error::MetadataInvalidKeyType(error) => {
+                assert_eq!(error.key_type, "string");
+            }
+            _ => panic!(
+                "Expected MetadataInvalidKeyType error, got: {:?}",
+                result.errors[0]
+            ),
+        }
+    }
+
+    #[test]
+    fn test_metadata_key_type_validation_identifier_with_int_type() {
+        let mut ast = crate::parsing::parse_string(
+            r#"
+        tx test(my_key: Int) {
+            metadata {
+                my_key: "valid value",
+            }
+        }
+    "#,
+        )
+        .unwrap();
+
+        let result = analyze(&mut ast);
+        let key_type_errors: Vec<_> = result
+            .errors
+            .iter()
+            .filter(|e| matches!(e, Error::MetadataInvalidKeyType(_)))
+            .collect();
+        assert!(
+            key_type_errors.is_empty(),
+            "Expected no key type errors for Int parameter used as key"
+        );
+    }
+
+    #[test]
+    fn test_metadata_key_type_validation_identifier_with_wrong_type() {
+        let mut ast = crate::parsing::parse_string(
+            r#"
+        tx test(my_key: Bytes) {
+            metadata {
+                my_key: "some value",
+            }
+        }
+    "#,
+        )
+        .unwrap();
+
+        let result = analyze(&mut ast);
+        assert_eq!(result.errors.len(), 1);
+
+        match &result.errors[0] {
+            Error::MetadataInvalidKeyType(error) => {
+                assert!(error.key_type.contains("identifier of type Bytes"));
+            }
+            _ => panic!(
+                "Expected MetadataInvalidKeyType error, got: {:?}",
+                result.errors[0]
+            ),
+        }
     }
 
     #[test]
