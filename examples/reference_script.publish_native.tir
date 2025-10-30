@@ -163,6 +163,9 @@
             }
           ]
         },
+        "version": {
+          "Number": 0
+        },
         "to": {
           "EvalParam": {
             "ExpectValue": [
@@ -170,9 +173,6 @@
               "Address"
             ]
           }
-        },
-        "version": {
-          "Number": 0
         }
       }
     }
