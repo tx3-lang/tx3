@@ -137,14 +137,6 @@
     {
       "name": "cardano_publish",
       "data": {
-        "to": {
-          "EvalParam": {
-            "ExpectValue": [
-              "receiver",
-              "Address"
-            ]
-          }
-        },
         "script": {
           "Bytes": [
             130,
@@ -170,6 +162,14 @@
               }
             }
           ]
+        },
+        "to": {
+          "EvalParam": {
+            "ExpectValue": [
+              "receiver",
+              "Address"
+            ]
+          }
         },
         "version": {
           "Number": 0
