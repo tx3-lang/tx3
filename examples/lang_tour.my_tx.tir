@@ -666,21 +666,21 @@
     {
       "name": "withdrawal",
       "data": {
-        "redeemer": {
-          "Struct": {
-            "constructor": 0,
-            "fields": []
-          }
-        },
-        "amount": {
-          "Number": 100
-        },
         "credential": {
           "EvalParam": {
             "ExpectValue": [
               "myparty",
               "Address"
             ]
+          }
+        },
+        "amount": {
+          "Number": 100
+        },
+        "redeemer": {
+          "Struct": {
+            "constructor": 0,
+            "fields": []
           }
         }
       }

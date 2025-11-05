@@ -50,12 +50,61 @@
       "address": {
         "EvalParam": {
           "ExpectValue": [
-            "sender",
+            "receiver",
             "Address"
           ]
         }
       },
       "datum": "None",
+      "amount": {
+        "Assets": [
+          {
+            "policy": "None",
+            "asset_name": "None",
+            "amount": {
+              "EvalParam": {
+                "ExpectValue": [
+                  "quantity",
+                  "Int"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "optional": false
+    },
+    {
+      "address": {
+        "EvalParam": {
+          "ExpectValue": [
+            "sender",
+            "Address"
+          ]
+        }
+      },
+      "datum": {
+        "Struct": {
+          "constructor": 0,
+          "fields": [
+            {
+              "AdHocDirective": {
+                "name": "cardano_address_payment_part",
+                "data": {
+                  "address": {
+                    "EvalParam": {
+                      "ExpectValue": [
+                        "sender",
+                        "Address"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
       "amount": {
         "EvalBuiltIn": {
           "Sub": [
@@ -133,62 +182,7 @@
   "validity": null,
   "mints": [],
   "burns": [],
-  "adhoc": [
-    {
-      "name": "cardano_publish",
-      "data": {
-        "amount": {
-          "Assets": [
-            {
-              "policy": "None",
-              "asset_name": "None",
-              "amount": {
-                "EvalParam": {
-                  "ExpectValue": [
-                    "quantity",
-                    "Int"
-                  ]
-                }
-              }
-            }
-          ]
-        },
-        "version": {
-          "Number": 3
-        },
-        "script": {
-          "Bytes": [
-            81,
-            1,
-            1,
-            0,
-            35,
-            37,
-            152,
-            0,
-            165,
-            24,
-            164,
-            209,
-            54,
-            86,
-            64,
-            4,
-            174,
-            105
-          ]
-        },
-        "to": {
-          "EvalParam": {
-            "ExpectValue": [
-              "receiver",
-              "Address"
-            ]
-          }
-        }
-      }
-    }
-  ],
+  "adhoc": [],
   "collateral": [],
   "signers": null,
   "metadata": []

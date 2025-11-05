@@ -491,6 +491,12 @@ impl IntoLower for ast::DataExpr {
             ast::DataExpr::ComputeTipSlot => {
                 ir::Expression::EvalCompiler(Box::new(ir::CompilerOp::ComputeTipSlot))
             }
+            ast::DataExpr::AddressPaymentPart(x) => {
+                ir::Expression::AdHocDirective(Box::new(x.into_lower(ctx)?))
+            }
+            ast::DataExpr::AddressStakingPart(x) => {
+                ir::Expression::AdHocDirective(Box::new(x.into_lower(ctx)?))
+            }
             ast::DataExpr::SlotToTime(x) => ir::Expression::EvalCompiler(Box::new(
                 ir::CompilerOp::ComputeSlotToTime(x.into_lower(ctx)?),
             )),
@@ -961,4 +967,6 @@ mod tests {
     test_lowering!(donation);
 
     test_lowering!(list_concat);
+
+    test_lowering!(party_serialization);
 }

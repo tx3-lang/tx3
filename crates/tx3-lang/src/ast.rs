@@ -752,6 +752,8 @@ pub enum DataExpr {
     NegateOp(NegateOp),
     PropertyOp(PropertyOp),
     UtxoRef(UtxoRef),
+    AddressPaymentPart(crate::cardano::AddressPaymentPart),
+    AddressStakingPart(crate::cardano::AddressStakingPart),
 }
 
 impl DataExpr {
@@ -787,6 +789,8 @@ impl DataExpr {
             DataExpr::UtxoRef(_) => Some(Type::UtxoRef),
             DataExpr::MinUtxo(_) => Some(Type::AnyAsset),
             DataExpr::ComputeTipSlot => Some(Type::Int),
+            DataExpr::AddressPaymentPart(_) => Some(Type::Bytes),
+            DataExpr::AddressStakingPart(_) => Some(Type::Bytes),
             DataExpr::SlotToTime(_) => Some(Type::Int),
             DataExpr::TimeToSlot(_) => Some(Type::Int),
         }

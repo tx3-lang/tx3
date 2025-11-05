@@ -161,6 +161,7 @@ data_expr = { data_prefix* ~ data_primary ~ data_postfix* ~ (data_infix ~ data_p
         string |
         min_utxo |
         tip_slot |
+        cardano_functions |
         slot_to_time |
         time_to_slot |
         struct_constructor |
@@ -401,6 +402,17 @@ cardano_publish_block = {
     (cardano_publish_block_field ~ ",")* ~
     "}"
 }
+
+cardano_address_payment_part = { "payment_part" ~ "(" ~ data_expr ~ ")" }
+cardano_address_staking_part = { "staking_part" ~ "(" ~ data_expr ~ ")" }
+
+cardano_functions = {
+    "cardano" ~ "::" ~ (
+        cardano_address_payment_part |
+        cardano_address_staking_part
+    )
+}
+
 
 cardano_block = {
     "cardano" ~ "::" ~ (

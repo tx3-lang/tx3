@@ -703,6 +703,8 @@ impl Analyzable for DataExpr {
             DataExpr::SlotToTime(x) => x.analyze(parent),
             DataExpr::TimeToSlot(x) => x.analyze(parent),
             DataExpr::ConcatOp(x) => x.analyze(parent),
+            DataExpr::AddressPaymentPart(x) => x.analyze(parent),
+            DataExpr::AddressStakingPart(x) => x.analyze(parent),
             _ => AnalyzeReport::default(),
         }
     }
@@ -723,6 +725,8 @@ impl Analyzable for DataExpr {
             DataExpr::SlotToTime(x) => x.is_resolved(),
             DataExpr::TimeToSlot(x) => x.is_resolved(),
             DataExpr::ConcatOp(x) => x.is_resolved(),
+            DataExpr::AddressPaymentPart(x) => x.is_resolved(),
+            DataExpr::AddressStakingPart(x) => x.is_resolved(),
             _ => true,
         }
     }

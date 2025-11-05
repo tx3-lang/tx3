@@ -12,10 +12,8 @@ use pest::{
 };
 use pest_derive::Parser;
 
-use crate::{
-    ast::*,
-    cardano::{PlutusWitnessBlock, PlutusWitnessField},
-};
+use crate::ast::*;
+
 #[derive(Parser)]
 #[grammar = "tx3.pest"]
 pub(crate) struct Tx3Grammar;
@@ -1252,6 +1250,7 @@ impl AstNode for DataExpr {
                 Rule::concat_constructor => DataExpr::concat_constructor_parse(x),
                 Rule::min_utxo => DataExpr::min_utxo_parse(x),
                 Rule::tip_slot => DataExpr::tip_slot_parse(x),
+                Rule::cardano_functions => crate::cardano::parse_cardano_function(x),
                 Rule::slot_to_time => DataExpr::slot_to_time_parse(x),
                 Rule::time_to_slot => DataExpr::time_to_slot_parse(x),
                 Rule::data_expr => DataExpr::parse(x),
@@ -1295,6 +1294,8 @@ impl AstNode for DataExpr {
             DataExpr::PropertyOp(x) => &x.span,
             DataExpr::UtxoRef(x) => x.span(),
             DataExpr::MinUtxo(x) => x.span(),
+            DataExpr::AddressPaymentPart(x) => x.span(),
+            DataExpr::AddressStakingPart(x) => x.span(),
             DataExpr::SlotToTime(x) => x.span(),
             DataExpr::TimeToSlot(x) => x.span(),
             DataExpr::ComputeTipSlot => &Span::DUMMY, // TODO
@@ -2749,11 +2750,11 @@ mod tests {
     #[test]
     fn test_spans_are_respected() {
         let program = parse_well_known_example("lang_tour");
-        assert_eq!(program.span, Span::new(0, 1560));
+        assert_eq!(program.span, Span::new(0, 2370));
 
-        assert_eq!(program.parties[0].span, Span::new(47, 61));
+        assert_eq!(program.parties[0].span, Span::new(92, 106));
 
-        assert_eq!(program.types[0].span, Span::new(63, 158));
+        assert_eq!(program.types[0].span, Span::new(108, 232));
     }
 
     fn make_snapshot_if_missing(example: &str, program: &Program) {
@@ -2822,4 +2823,6 @@ mod tests {
     test_parsing!(donation);
 
     test_parsing!(list_concat);
+
+    test_parsing!(party_serialization);
 }

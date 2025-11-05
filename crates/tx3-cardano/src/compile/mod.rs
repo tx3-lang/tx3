@@ -76,20 +76,7 @@ fn compile_struct(ir: &ir::StructExpr) -> Result<primitives::PlutusData, Error> 
 }
 
 fn compile_data_expr(ir: &ir::Expression) -> Result<primitives::PlutusData, Error> {
-    match ir {
-        ir::Expression::Bytes(x) => Ok(x.as_data()),
-        ir::Expression::Number(x) => Ok(x.as_data()),
-        ir::Expression::Bool(x) => Ok(x.as_data()),
-        ir::Expression::String(x) => Ok(x.as_str().as_data()),
-        ir::Expression::Struct(x) => compile_struct(x),
-        ir::Expression::Map(x) => x.try_as_data(),
-        ir::Expression::Address(x) => Ok(x.as_data()),
-        ir::Expression::List(x) => x.try_as_data(),
-        _ => Err(Error::CoerceError(
-            format!("{ir:?}"),
-            "DataExpr".to_string(),
-        )),
-    }
+    ir.try_as_data()
 }
 
 fn compile_native_asset_for_output(
