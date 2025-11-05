@@ -71,7 +71,8 @@
             }
           }
         ]
-      }
+      },
+      "optional": false
     },
     {
       "address": {
@@ -153,7 +154,8 @@
             }
           ]
         }
-      }
+      },
+      "optional": false
     }
   ],
   "validity": null,
@@ -163,6 +165,9 @@
     {
       "name": "withdrawal",
       "data": {
+        "amount": {
+          "Number": 0
+        },
         "credential": {
           "EvalParam": {
             "ExpectValue": [
@@ -176,9 +181,6 @@
             "constructor": 0,
             "fields": []
           }
-        },
-        "amount": {
-          "Number": 0
         }
       }
     }

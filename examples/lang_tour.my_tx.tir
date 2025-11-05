@@ -533,7 +533,8 @@
             }
           ]
         }
-      }
+      },
+      "optional": false
     }
   ],
   "validity": {
@@ -665,9 +666,6 @@
     {
       "name": "withdrawal",
       "data": {
-        "amount": {
-          "Number": 100
-        },
         "credential": {
           "EvalParam": {
             "ExpectValue": [
@@ -675,6 +673,9 @@
               "Address"
             ]
           }
+        },
+        "amount": {
+          "Number": 100
         },
         "redeemer": {
           "Struct": {

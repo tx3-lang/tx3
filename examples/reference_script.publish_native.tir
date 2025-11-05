@@ -126,7 +126,8 @@
             }
           ]
         }
-      }
+      },
+      "optional": false
     }
   ],
   "validity": null,
@@ -136,6 +137,19 @@
     {
       "name": "cardano_publish",
       "data": {
+        "version": {
+          "Number": 0
+        },
+        "script": {
+          "Bytes": [
+            130,
+            1,
+            129,
+            130,
+            4,
+            0
+          ]
+        },
         "to": {
           "EvalParam": {
             "ExpectValue": [
@@ -159,19 +173,6 @@
               }
             }
           ]
-        },
-        "script": {
-          "Bytes": [
-            130,
-            1,
-            129,
-            130,
-            4,
-            0
-          ]
-        },
-        "version": {
-          "Number": 0
         }
       }
     }

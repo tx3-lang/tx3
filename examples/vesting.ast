@@ -107,6 +107,7 @@
               "end": 336
             }
           },
+          "optional": false,
           "fields": [
             {
               "To": {
@@ -270,6 +271,7 @@
         },
         {
           "name": null,
+          "optional": false,
           "fields": [
             {
               "To": {
@@ -487,6 +489,7 @@
               "end": 924
             }
           },
+          "optional": false,
           "fields": [
             {
               "To": {

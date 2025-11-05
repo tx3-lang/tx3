@@ -75,7 +75,8 @@
             "Number": 0
           }
         }
-      }
+      },
+      "optional": false
     },
     {
       "address": {
@@ -161,7 +162,8 @@
             }
           ]
         }
-      }
+      },
+      "optional": false
     }
   ],
   "validity": null,
