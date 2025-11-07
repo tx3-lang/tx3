@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     analyzing::{Analyzable, AnalyzeReport},
-    ast::{DataExpr, Scope, Span, Type},
+    ast::{DataExpr, Identifier, Scope, Span, Type},
     ir,
     lowering::IntoLower,
     parsing::{AstNode, Error, Rule},
@@ -582,6 +582,7 @@ impl CardanoPublishBlockField {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CardanoPublishBlock {
+    pub name: Option<Identifier>,
     pub fields: Vec<CardanoPublishBlockField>,
     pub span: Span,
 }
@@ -615,11 +616,15 @@ impl AstNode for CardanoPublishBlockField {
             }
             Rule::cardano_publish_block_version => {
                 let pair = pair.into_inner().next().unwrap();
-                Ok(CardanoPublishBlockField::Version(DataExpr::parse(pair)?.into()))
+                Ok(CardanoPublishBlockField::Version(
+                    DataExpr::parse(pair)?.into(),
+                ))
             }
             Rule::cardano_publish_block_script => {
                 let pair = pair.into_inner().next().unwrap();
-                Ok(CardanoPublishBlockField::Script(DataExpr::parse(pair)?.into()))
+                Ok(CardanoPublishBlockField::Script(
+                    DataExpr::parse(pair)?.into(),
+                ))
             }
             x => unreachable!("Unexpected rule in cardano_publish_block_field: {:?}", x),
         }
@@ -641,13 +646,23 @@ impl AstNode for CardanoPublishBlock {
 
     fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
         let span = pair.as_span().into();
-        let inner = pair.into_inner();
+        let mut inner = pair.into_inner();
+        let has_name = inner
+            .peek()
+            .map(|x| x.as_rule() == Rule::identifier)
+            .unwrap_or_default();
+
+        let name = if has_name {
+            Some(Identifier::parse(inner.next().unwrap())?)
+        } else {
+            None
+        };
 
         let fields = inner
             .map(|x| CardanoPublishBlockField::parse(x))
             .collect::<Result<Vec<_>, _>>()?;
 
-        Ok(CardanoPublishBlock { fields, span })
+        Ok(CardanoPublishBlock { name, fields, span })
     }
 
     fn span(&self) -> &Span {
