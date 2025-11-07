@@ -8,16 +8,14 @@
 //! [`lower`](crate::lower) for lowering an AST to the intermediate
 //! representation.
 
-use std::collections::{HashMap, HashSet};
-
-use bincode::{Decode, Encode};
 use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
 
 use crate::{Utxo, UtxoRef};
 
 pub const IR_VERSION: &str = "v1alpha8";
 
-#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct StructExpr {
     pub constructor: usize,
     pub fields: Vec<Expression>,
@@ -32,7 +30,7 @@ impl StructExpr {
     }
 }
 
-#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum Coerce {
     NoOp(Expression),
     IntoAssets(Expression),
@@ -48,7 +46,7 @@ pub enum Coerce {
 /// These ops can be executed (aka "reduced") very early in the process. As long
 /// as they underlying expressions are "constant" (aka: don't rely on external
 /// data), the will be simplified directly during the "apply" phase.
-#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum BuiltInOp {
     NoOp(Expression),
     Add(Expression, Expression),
@@ -66,7 +64,7 @@ pub enum BuiltInOp {
 ///
 /// These ops can't be executed earlier because they are either: chain-specific
 /// or rely on data that is only available to the compiler.
-#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum CompilerOp {
     BuildScriptAddress(Expression),
     ComputeMinUtxo(Expression),
@@ -75,7 +73,7 @@ pub enum CompilerOp {
     ComputeTimeToSlot(Expression),
 }
 
-#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct AssetExpr {
     pub policy: Expression,
     pub asset_name: Expression,
@@ -95,13 +93,13 @@ impl AssetExpr {
 /// compiler can use to compile custom structures. Tx3 won't attempt to process
 /// this IR structure for anything other than trying to apply / reduce its
 /// expressions.
-#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct AdHocDirective {
     pub name: String,
     pub data: HashMap<String, Expression>,
 }
 
-#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum ScriptSource {
     Embedded(Expression),
     UtxoRef {
@@ -163,14 +161,14 @@ impl ScriptSource {
     }
 }
 
-#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct PolicyExpr {
     pub name: String,
     pub hash: Expression,
     pub script: ScriptSource,
 }
 
-#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum Type {
     Undefined,
     Unit,
@@ -186,7 +184,7 @@ pub enum Type {
     Custom(String),
 }
 
-#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum Param {
     Set(Expression),
     ExpectValue(String, Type),
@@ -194,7 +192,7 @@ pub enum Param {
     ExpectFees,
 }
 
-#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum Expression {
     None,
     List(Vec<Expression>),
@@ -301,7 +299,7 @@ impl From<Param> for Expression {
     }
 }
 
-#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct InputQuery {
     pub address: Expression,
     pub min_amount: Expression,
@@ -310,14 +308,14 @@ pub struct InputQuery {
     pub collateral: bool,
 }
 
-#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Input {
     pub name: String,
     pub utxos: Expression,
     pub redeemer: Expression,
 }
 
-#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Output {
     pub address: Expression,
     pub datum: Expression,
@@ -325,35 +323,35 @@ pub struct Output {
     pub optional: bool,
 }
 
-#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Validity {
     pub since: Expression,
     pub until: Expression,
 }
 
-#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Mint {
     pub amount: Expression,
     pub redeemer: Expression,
 }
 
-#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Collateral {
     pub utxos: Expression,
 }
 
-#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Metadata {
     pub key: Expression,
     pub value: Expression,
 }
 
-#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Signers {
     pub signers: Vec<Expression>,
 }
 
-#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Tx {
     pub fees: Expression,
     pub references: Vec<Expression>,
