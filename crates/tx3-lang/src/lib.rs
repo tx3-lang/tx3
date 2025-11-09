@@ -44,7 +44,7 @@ macro_rules! include_tx3_build {
     };
 }
 
-#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct UtxoRef {
     pub txid: Vec<u8>,
     pub index: u32,
@@ -67,7 +67,7 @@ impl std::fmt::Display for UtxoRef {
 
 pub use assets::{AssetClass, AssetName, AssetPolicy, CanonicalAssets};
 
-#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Utxo {
     pub r#ref: UtxoRef,
     pub address: Vec<u8>,
@@ -180,11 +180,9 @@ impl Protocol {
     }
 }
 
-use std::collections::{HashMap, HashSet};
-
 pub use applying::{apply_args, apply_fees, apply_inputs, find_params, find_queries, reduce};
-use bincode::{Decode, Encode};
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ProtoTx {
@@ -254,13 +252,11 @@ impl ProtoTx {
     }
 
     pub fn ir_bytes(&self) -> Vec<u8> {
-        let config = bincode::config::standard();
-        bincode::encode_to_vec(&self.ir, config).unwrap()
+        ir::to_vec(&self.ir)
     }
 
-    pub fn from_ir_bytes(bytes: &[u8]) -> Result<Self, bincode::error::DecodeError> {
-        let config = bincode::config::standard();
-        let (ir, _) = bincode::decode_from_slice::<ir::Tx, _>(bytes, config)?;
+    pub fn from_ir_bytes(bytes: &[u8]) -> Result<Self, ir::Error> {
+        let ir: ir::Tx = ir::from_bytes(bytes)?;
         Ok(Self::from(ir))
     }
 }
