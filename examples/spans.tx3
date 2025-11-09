@@ -1,0 +1,47 @@
+env {
+    field_a: Int,
+}
+
+party MyParty;
+
+type MyRecord {
+    field1: Int,
+}
+
+type MyVariant {
+    Case1 {
+        field1: Int,
+        field2: Bytes,
+        field3: Int,
+    },
+    Case2,
+}
+
+policy OnlyHashPolicy = 0xABCDEF1234;
+
+asset StaticAsset = 0xABCDEF1234."MYTOKEN";
+
+policy FullyDefinedPolicy {
+    hash: 0xABCDEF1234,
+    script: 0xABCDEF1234,
+    ref: 0xABCDEF1234,
+}
+
+tx my_tx(
+    quantity: Int,
+) {
+    input source {
+        from: MyParty,
+        min_amount: Ada(quantity) + min_utxo(named_output),
+    }
+
+    mint {
+        amount: StaticAsset(100),
+        redeemer: (),
+    }
+
+    output named_output {
+        to: MyParty,
+        amount: AnyAsset(source.field3, source.field2, source.field1) + Ada(40) + min_utxo(named_output),
+    }
+}
