@@ -911,13 +911,44 @@ mod tests {
         }
     );
 
+    input_to_ast_check!(
+        CardanoPublishBlock,
+        "basic",
+        "publish {
+            to: Receiver,
+            amount: Ada(quantity),
+            version: 3,
+            script: 0xABCDEF,
+        }",
+        CardanoPublishBlock {
+            name: None,
+            fields: vec![
+                CardanoPublishBlockField::To(Box::new(DataExpr::Identifier(Identifier::new(
+                    "Receiver"
+                )))),
+                CardanoPublishBlockField::Amount(Box::new(DataExpr::StaticAssetConstructor(
+                    StaticAssetConstructor {
+                        r#type: Identifier::new("Ada"),
+                        amount: Box::new(DataExpr::Identifier(Identifier::new("quantity"))),
+                        span: Span::DUMMY,
+                    }
+                ))),
+                CardanoPublishBlockField::Version(Box::new(DataExpr::Number(3))),
+                CardanoPublishBlockField::Script(Box::new(DataExpr::HexString(
+                    HexStringLiteral::new("ABCDEF".to_string())
+                ))),
+            ],
+            span: Span::DUMMY,
+        }
+    );
+
     #[test]
     fn test_treasury_donation_type() {
         let mut ast = crate::parsing::parse_string(
             r#"
             tx test(quantity: Int) {
-                cardano::treasury_donation {
-                  coin: quantity,
+                treasury_donation {
+                    coin: quantity,
                 }
             }
             "#,
@@ -934,7 +965,7 @@ mod tests {
             r#"
             tx test(quantity: Bytes) {
                 cardano::treasury_donation {
-                  coin: quantity,
+                    coin: quantity,
                 }
             }
             "#,
@@ -943,5 +974,27 @@ mod tests {
 
         let result = analyze(&mut ast);
         assert!(!result.errors.is_empty());
+    }
+
+    #[test]
+    fn test_publish_type_ok() {
+        let mut ast = crate::parsing::parse_string(
+            r#"
+            party Receiver;
+
+            tx test(quantity: Int) {
+                cardano::publish {
+                    to: Receiver,
+                    amount: Ada(quantity),
+                    version: 3,
+                    script: 0xABCDEF,
+                }
+            }
+            "#,
+        )
+        .unwrap();
+
+        let result = analyze(&mut ast);
+        assert!(result.errors.is_empty());
     }
 }
