@@ -252,13 +252,11 @@ impl ProtoTx {
     }
 
     pub fn ir_bytes(&self) -> Vec<u8> {
-        let mut buffer = Vec::new();
-        ciborium::into_writer(&self.ir, &mut buffer).unwrap();
-        buffer
+        ir::to_vec(&self.ir)
     }
 
-    pub fn from_ir_bytes(bytes: &[u8]) -> Result<Self, ciborium::de::Error<std::io::Error>> {
-        let ir: ir::Tx = ciborium::from_reader(bytes)?;
+    pub fn from_ir_bytes(bytes: &[u8]) -> Result<Self, ir::Error> {
+        let ir: ir::Tx = ir::from_bytes(bytes)?;
         Ok(Self::from(ir))
     }
 }
