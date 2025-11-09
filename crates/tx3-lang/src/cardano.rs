@@ -942,12 +942,43 @@ mod tests {
         }
     );
 
+    input_to_ast_check!(
+        CardanoPublishBlock,
+        "basic_with_name",
+        "publish test_publish {
+            to: Receiver,
+            amount: Ada(quantity),
+            version: 3,
+            script: 0xABCDEF,
+        }",
+        CardanoPublishBlock {
+            name: Some(Identifier::new("test_publish")),
+            fields: vec![
+                CardanoPublishBlockField::To(Box::new(DataExpr::Identifier(Identifier::new(
+                    "Receiver"
+                )))),
+                CardanoPublishBlockField::Amount(Box::new(DataExpr::StaticAssetConstructor(
+                    StaticAssetConstructor {
+                        r#type: Identifier::new("Ada"),
+                        amount: Box::new(DataExpr::Identifier(Identifier::new("quantity"))),
+                        span: Span::DUMMY,
+                    }
+                ))),
+                CardanoPublishBlockField::Version(Box::new(DataExpr::Number(3))),
+                CardanoPublishBlockField::Script(Box::new(DataExpr::HexString(
+                    HexStringLiteral::new("ABCDEF".to_string())
+                ))),
+            ],
+            span: Span::DUMMY,
+        }
+    );
+
     #[test]
     fn test_treasury_donation_type() {
         let mut ast = crate::parsing::parse_string(
             r#"
             tx test(quantity: Int) {
-                treasury_donation {
+                cardano::treasury_donation {
                     coin: quantity,
                 }
             }
@@ -984,6 +1015,28 @@ mod tests {
 
             tx test(quantity: Int) {
                 cardano::publish {
+                    to: Receiver,
+                    amount: Ada(quantity),
+                    version: 3,
+                    script: 0xABCDEF,
+                }
+            }
+            "#,
+        )
+        .unwrap();
+
+        let result = analyze(&mut ast);
+        assert!(result.errors.is_empty());
+    }
+
+    #[test]
+    fn test_publish_type_with_name_ok() {
+        let mut ast = crate::parsing::parse_string(
+            r#"
+            party Receiver;
+
+            tx test(quantity: Int) {
+                cardano::publish deploy {
                     to: Receiver,
                     amount: Ada(quantity),
                     version: 3,
