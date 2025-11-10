@@ -11,7 +11,7 @@
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, rc::Rc};
 
-use crate::cardano::PlutusWitnessBlock;
+use crate::analyzing::Context;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Scope {
@@ -120,11 +120,20 @@ impl Symbol {
         }
     }
 
-    pub fn target_type(&self) -> Option<Type> {
+    pub fn target_type(&self, ctx: Option<&Context>) -> Option<Type> {
         match self {
             Symbol::ParamVar(_, ty) => Some(ty.as_ref().clone()),
             Symbol::RecordField(x) => Some(x.r#type.clone()),
-            Symbol::Input(x) => x.datum_is().cloned(),
+            Symbol::Input(x) => {
+                let datum_type = x.datum_is().cloned();
+
+                match ctx {
+                    Some(ctx) if ctx.target_type == Type::AnyAsset => Some(Type::AnyAsset),
+                    _ => datum_type,
+                }
+            }
+            Symbol::LocalExpr(expr) => expr.target_type(ctx),
+            Symbol::Fees => Some(Type::AnyAsset),
             x => {
                 dbg!(x);
                 None
@@ -161,8 +170,8 @@ impl Identifier {
         }
     }
 
-    pub fn target_type(&self) -> Option<Type> {
-        self.symbol.as_ref().and_then(|x| x.target_type())
+    pub fn target_type(&self, ctx: Option<&Context>) -> Option<Type> {
+        self.symbol.as_ref().and_then(|x| x.target_type(ctx))
     }
 }
 
@@ -546,7 +555,7 @@ pub struct StaticAssetConstructor {
 }
 
 impl StaticAssetConstructor {
-    pub fn target_type(&self) -> Option<Type> {
+    pub fn target_type(&self, _ctx: Option<&Context>) -> Option<Type> {
         Some(Type::AnyAsset)
     }
 }
@@ -560,7 +569,7 @@ pub struct AnyAssetConstructor {
 }
 
 impl AnyAssetConstructor {
-    pub fn target_type(&self) -> Option<Type> {
+    pub fn target_type(&self, _ctx: Option<&Context>) -> Option<Type> {
         Some(Type::AnyAsset)
     }
 }
@@ -584,8 +593,8 @@ pub struct StructConstructor {
 }
 
 impl StructConstructor {
-    pub fn target_type(&self) -> Option<Type> {
-        self.r#type.symbol.as_ref().and_then(|x| x.target_type())
+    pub fn target_type(&self, ctx: Option<&Context>) -> Option<Type> {
+        self.r#type.symbol.as_ref().and_then(|x| x.target_type(ctx))
     }
 }
 
@@ -617,8 +626,8 @@ pub struct ListConstructor {
 }
 
 impl ListConstructor {
-    pub fn target_type(&self) -> Option<Type> {
-        self.elements.first().and_then(|x| x.target_type())
+    pub fn target_type(&self, ctx: Option<&Context>) -> Option<Type> {
+        self.elements.first().and_then(|x| x.target_type(ctx))
     }
 }
 
@@ -630,8 +639,8 @@ pub struct MapField {
 }
 
 impl MapField {
-    pub fn target_type(&self) -> Option<Type> {
-        self.key.target_type()
+    pub fn target_type(&self, ctx: Option<&Context>) -> Option<Type> {
+        self.key.target_type(ctx)
     }
 }
 
@@ -642,10 +651,10 @@ pub struct MapConstructor {
 }
 
 impl MapConstructor {
-    pub fn target_type(&self) -> Option<Type> {
+    pub fn target_type(&self, ctx: Option<&Context>) -> Option<Type> {
         if let Some(first_field) = self.fields.first() {
-            let key_type = first_field.key.target_type()?;
-            let value_type = first_field.value.target_type()?;
+            let key_type = first_field.key.target_type(ctx)?;
+            let value_type = first_field.value.target_type(ctx)?;
             Some(Type::Map(Box::new(key_type), Box::new(value_type)))
         } else {
             None
@@ -667,8 +676,8 @@ pub struct NegateOp {
 }
 
 impl NegateOp {
-    pub fn target_type(&self) -> Option<Type> {
-        self.operand.target_type()
+    pub fn target_type(&self, ctx: Option<&Context>) -> Option<Type> {
+        self.operand.target_type(ctx)
     }
 }
 
@@ -684,8 +693,8 @@ pub struct PropertyOp {
 }
 
 impl PropertyOp {
-    pub fn target_type(&self) -> Option<Type> {
-        self.property.target_type()
+    pub fn target_type(&self, ctx: Option<&Context>) -> Option<Type> {
+        self.property.target_type(ctx)
     }
 }
 
@@ -697,8 +706,8 @@ pub struct AddOp {
 }
 
 impl AddOp {
-    pub fn target_type(&self) -> Option<Type> {
-        self.lhs.target_type()
+    pub fn target_type(&self, ctx: Option<&Context>) -> Option<Type> {
+        self.lhs.target_type(ctx)
     }
 }
 
@@ -710,8 +719,8 @@ pub struct SubOp {
 }
 
 impl SubOp {
-    pub fn target_type(&self) -> Option<Type> {
-        self.lhs.target_type()
+    pub fn target_type(&self, ctx: Option<&Context>) -> Option<Type> {
+        self.lhs.target_type(ctx)
     }
 }
 
@@ -723,8 +732,8 @@ pub struct ConcatOp {
 }
 
 impl ConcatOp {
-    pub fn target_type(&self) -> Option<Type> {
-        self.lhs.target_type()
+    pub fn target_type(&self, ctx: Option<&Context>) -> Option<Type> {
+        self.lhs.target_type(ctx)
     }
 }
 
@@ -762,28 +771,39 @@ impl DataExpr {
         }
     }
 
-    pub fn target_type(&self) -> Option<Type> {
+    pub fn target_type(&self, ctx: Option<&Context>) -> Option<Type> {
+        let default_ctx = Context::default();
+        let ctx = ctx.unwrap_or(&default_ctx);
         match self {
-            DataExpr::Identifier(x) => x.target_type(),
+            DataExpr::Identifier(x) => match &x.symbol {
+                Some(Symbol::Input(def)) => {
+                    if ctx.target_type == Type::AnyAsset {
+                        Some(Type::AnyAsset)
+                    } else {
+                        def.datum_is().cloned()
+                    }
+                }
+                _ => x.target_type(Some(ctx)),
+            },
             DataExpr::None => Some(Type::Undefined),
             DataExpr::Unit => Some(Type::Unit),
             DataExpr::Number(_) => Some(Type::Int),
             DataExpr::Bool(_) => Some(Type::Bool),
             DataExpr::String(_) => Some(Type::Bytes),
             DataExpr::HexString(_) => Some(Type::Bytes),
-            DataExpr::StructConstructor(x) => x.target_type(),
-            DataExpr::MapConstructor(x) => x.target_type(),
-            DataExpr::ListConstructor(x) => match x.target_type() {
+            DataExpr::StructConstructor(x) => x.target_type(Some(ctx)),
+            DataExpr::MapConstructor(x) => x.target_type(Some(ctx)),
+            DataExpr::ListConstructor(x) => match x.target_type(Some(ctx)) {
                 Some(inner) => Some(Type::List(Box::new(inner))),
                 None => None,
             },
-            DataExpr::AddOp(x) => x.target_type(),
-            DataExpr::SubOp(x) => x.target_type(),
-            DataExpr::ConcatOp(x) => x.target_type(),
-            DataExpr::NegateOp(x) => x.target_type(),
-            DataExpr::PropertyOp(x) => x.target_type(),
-            DataExpr::StaticAssetConstructor(x) => x.target_type(),
-            DataExpr::AnyAssetConstructor(x) => x.target_type(),
+            DataExpr::AddOp(x) => x.target_type(Some(ctx)),
+            DataExpr::SubOp(x) => x.target_type(Some(ctx)),
+            DataExpr::ConcatOp(x) => x.target_type(Some(ctx)),
+            DataExpr::NegateOp(x) => x.target_type(Some(ctx)),
+            DataExpr::PropertyOp(x) => x.target_type(Some(ctx)),
+            DataExpr::StaticAssetConstructor(x) => x.target_type(Some(ctx)),
+            DataExpr::AnyAssetConstructor(x) => x.target_type(Some(ctx)),
             DataExpr::UtxoRef(_) => Some(Type::UtxoRef),
             DataExpr::MinUtxo(_) => Some(Type::AnyAsset),
             DataExpr::ComputeTipSlot => Some(Type::Int),
@@ -887,7 +907,7 @@ impl Type {
                     .map(|index| DataExpr::Number(index as i64))
             }
             Type::List(_) => property
-                .target_type()
+                .target_type(None)
                 .filter(|ty| *ty == Type::Int)
                 .map(|_| property),
             _ => None,

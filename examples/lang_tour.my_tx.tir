@@ -666,14 +666,14 @@
     {
       "name": "withdrawal",
       "data": {
+        "amount": {
+          "Number": 100
+        },
         "redeemer": {
           "Struct": {
             "constructor": 0,
             "fields": []
           }
-        },
-        "amount": {
-          "Number": 100
         },
         "credential": {
           "EvalParam": {
