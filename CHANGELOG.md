@@ -2,6 +2,129 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.12.0] - 2025-11-10
+
+### 🚀 Features
+
+- *(cardano)* Implement treasury donation block (#222)
+- Support accessing list elements via expressions (#234)
+- Add tip slot compiler op (#236)
+- Support maps as new type / expression (#204)
+- *(cardano)* Support publish of reference scripts (#208)
+- *(lang)* Support type aliases (#240)
+- Introduce time / slot conversion functions (#241)
+- *(lang)* Introduce optional outputs (#244)
+- *(lang)* Add metadata validation to enforce 64-byte limit (#238)
+
+### 🐛 Bug Fixes
+
+- *(resolver)* Use correct subset for naked utxo search space (#232)
+- *(cardano)* Add missing burn redeemers to tx compilation (#237)
+- *(lang)* Show descriptive errors for analysis report (#231)
+
+### 🚜 Refactor
+
+- *(lang)* Switch to cbor encoding for IR bytes (#247)
+
+### 🧪 Testing
+
+- *(lang)* Fix flaky span test (#250)
+
+### ⚙️ Miscellaneous Tasks
+
+- Implement code coverage report (#235)
+- Update lang tour with recent updates (#243)
+
+## [0.11.4] - 2025-08-19
+
+### 🐛 Bug Fixes
+
+- *(resolver)* Compute search space intersection correctly (#227)
+
+## [0.11.3] - 2025-08-15
+
+### 🐛 Bug Fixes
+
+- *(resolver)* Have more flexibility in the naive accumulator (#226)
+
+### 🧪 Testing
+
+- Fix outdated tx hashes
+
+## [0.11.2] - 2025-08-13
+
+### 🚀 Features
+
+- Support concat op on lists (#223)
+
+### 🐛 Bug Fixes
+
+- *(resolver)* Support querying for 0 assets
+- *(resolver)* Allow collateral selection overlap (#221)
+- Default to plutus v3 (#224)
+
+### 🚜 Refactor
+
+- *(resolver)* Make search space struct public
+
+## [0.11.0] - 2025-07-29
+
+### 🚀 Features
+
+- Support min utxo calculation as a language feature (#216)
+
+### 🐛 Bug Fixes
+
+- Fix edge cases in canonical asset math (#217)
+- *(resolver)* Don't repeat utxos during input selection (#172)
+
+### 🚜 Refactor
+
+- *(resolver)* Split search space from selection (#219)
+
+## [0.10.1] - 2025-07-22
+
+### 🐛 Bug Fixes
+
+- *(resolver)* Return silently on max rounds
+
+## [0.10.0] - 2025-07-22
+
+### 🚀 Features
+
+- Support selection of many utxos per input (#213)
+- Finish implementation for asset burns (#214)
+
+### 🐛 Bug Fixes
+
+- *(parsing)* Make concat expression precede less specific rules (#210)
+- Use special coin selection for collateral (#215)
+
+### 🚜 Refactor
+
+- Introduce backend abstraction (#211)
+- Introduce visitor pattern for compiler ops (#212)
+- Rename backend module
+
+### ⚙️ Miscellaneous Tasks
+
+- Remove legacy tx3-test crate
+- Fix lint warnings
+- Bump TIR version to v1alpha8
+
+## [0.9.0] - 2025-07-18
+
+### 🚀 Features
+
+- Implement concat operation (#203)
+- *(cardano)* Support native script witnesses (#209)
+
+## [0.8.2] - 2025-07-11
+
+### 🐛 Bug Fixes
+
+- *(cardano)* Improve coercion of signers (#201)
+
 ## [0.8.1] - 2025-07-10
 
 ### 🐛 Bug Fixes
