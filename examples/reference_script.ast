@@ -186,6 +186,7 @@
         {
           "Cardano": {
             "Publish": {
+              "name": null,
               "fields": [
                 {
                   "To": {
@@ -448,6 +449,7 @@
         {
           "Cardano": {
             "Publish": {
+              "name": null,
               "fields": [
                 {
                   "To": {

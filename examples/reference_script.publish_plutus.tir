@@ -156,14 +156,6 @@
             }
           ]
         },
-        "to": {
-          "EvalParam": {
-            "ExpectValue": [
-              "receiver",
-              "Address"
-            ]
-          }
-        },
         "script": {
           "Bytes": [
             81,
@@ -185,6 +177,14 @@
             174,
             105
           ]
+        },
+        "to": {
+          "EvalParam": {
+            "ExpectValue": [
+              "receiver",
+              "Address"
+            ]
+          }
         }
       }
     }
