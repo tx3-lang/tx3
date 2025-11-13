@@ -92,6 +92,7 @@ fn coerce_identifier_into_asset_def(identifier: &ast::Identifier) -> Result<ast:
 pub(crate) struct Context {
     is_asset_expr: bool,
     is_datum_expr: bool,
+    is_hashed_datum_expr: bool,
     is_address_expr: bool,
 }
 
@@ -100,6 +101,7 @@ impl Context {
         Self {
             is_asset_expr: true,
             is_datum_expr: false,
+            is_hashed_datum_expr: false,
             is_address_expr: false,
         }
     }
@@ -108,6 +110,16 @@ impl Context {
         Self {
             is_asset_expr: false,
             is_datum_expr: true,
+            is_hashed_datum_expr: false,
+            is_address_expr: false,
+        }
+    }
+
+    pub fn enter_hashed_datum_expr(&self) -> Self {
+        Self {
+            is_asset_expr: false,
+            is_datum_expr: false,
+            is_hashed_datum_expr: true,
             is_address_expr: false,
         }
     }
@@ -116,6 +128,7 @@ impl Context {
         Self {
             is_asset_expr: false,
             is_datum_expr: false,
+            is_hashed_datum_expr: false,
             is_address_expr: true,
         }
     }
@@ -130,6 +143,10 @@ impl Context {
 
     pub fn is_datum_expr(&self) -> bool {
         self.is_datum_expr
+    }
+
+    pub fn is_hashed_datum_expr(&self) -> bool {
+        self.is_hashed_datum_expr
     }
 }
 
@@ -619,6 +636,10 @@ impl IntoLower for ast::OutputBlockField {
                 let ctx = ctx.enter_datum_expr();
                 x.into_lower(&ctx)
             }
+            ast::OutputBlockField::HashedDatum(x) => {
+                let ctx = ctx.enter_hashed_datum_expr();
+                x.into_lower(&ctx)
+            }
         }
     }
 }
@@ -628,12 +649,25 @@ impl IntoLower for ast::OutputBlock {
 
     fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
         let address = self.find("to").into_lower(ctx)?.unwrap_or_default();
-        let datum = self.find("datum").into_lower(ctx)?.unwrap_or_default();
+        let datum = self.find("datum").into_lower(ctx)?;
+        let hashed_datum = self.find("hashed_datum").into_lower(ctx)?;
         let amount = self.find("amount").into_lower(ctx)?.unwrap_or_default();
+
+        let (datum, datum_hash_mode) = match (datum, hashed_datum) {
+            (Some(_), Some(_)) => {
+                return Err(Error::InvalidAst(
+                    "Both datum and hashed_datum cannot be set simultaneously".to_string(),
+                ))
+            },
+            (Some(datum), None) => (datum, false),
+            (None, Some(hashed_datum)) => (hashed_datum, true),
+            (None, None) => (ir::Expression::default(), false),
+        };
 
         Ok(ir::Output {
             address,
             datum,
+            datum_hash_mode,
             amount,
             optional: self.optional,
         })

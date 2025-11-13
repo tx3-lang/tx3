@@ -259,11 +259,13 @@ reference_block = {
 output_block_to = { "to" ~ ":" ~ data_expr }
 output_block_amount = { "amount" ~ ":" ~ data_expr }
 output_block_datum = { "datum" ~ ":" ~ data_expr }
+output_block_hashed_datum = { "hashed_datum" ~ ":" ~ data_expr }
 
 output_block_field = _{
     output_block_to |
     output_block_amount |
-    output_block_datum
+    output_block_datum |
+    output_block_hashed_datum
 }
 
 output_block = {

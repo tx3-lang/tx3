@@ -13,9 +13,9 @@ homepage.workspace = true
 readme.workspace = true
 
 [dependencies]
-pallas = { version = ">=1.0.0-alpha, <2.0.0" }
+# pallas = { version = ">=1.0.0-alpha, <2.0.0" }
 # pallas = { version = ">=1.0.0-alpha, <2.0.0", path = "../../../../txpipe/pallas/pallas" }
-# pallas = { git = "https://github.com/txpipe/pallas.git" }
+pallas = { git = "https://github.com/txpipe/pallas.git", rev = "065df6542e376761d7b4bc90449493c8880f24c6" }
 
 hex = "0.4.3"
 thiserror = "2.0.11"
