@@ -1153,6 +1153,7 @@ impl Composite for ir::Output {
         Ok(Self {
             address: f(self.address)?,
             datum: f(self.datum)?,
+            datum_hash_mode: self.datum_hash_mode,
             amount: f(self.amount)?,
             optional: self.optional,
         })

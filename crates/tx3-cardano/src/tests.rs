@@ -299,6 +299,42 @@ async fn input_datum_test() {
 }
 
 #[pollster::test]
+async fn input_hashed_datum_test() {
+    let mut compiler = test_compiler(None);
+
+    let utxos = wildcard_utxos(Some(tx3_lang::ir::Expression::Struct(
+        tx3_lang::ir::StructExpr {
+            constructor: 0,
+            fields: vec![
+                tx3_lang::ir::Expression::Number(1),
+                tx3_lang::ir::Expression::Bytes(b"abc".to_vec()),
+            ],
+        },
+    )));
+
+    let protocol = load_protocol("input_hashed_datum");
+
+    let mut tx = protocol
+        .new_tx("increase_counter")
+        .unwrap()
+        .apply()
+        .unwrap();
+
+    tx.set_arg("myparty", address_to_bytes("addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"));
+
+    let tx = tx.apply().unwrap();
+
+    let tx = test_compile(tx.into(), &mut compiler, utxos);
+
+    println!("{}", hex::encode(tx.payload));
+
+    assert_eq!(
+        hex::encode(tx.hash),
+        "2a9ae249a6be7be3c5e5fc2da72bdb760ca1d507c706fc453a384b0792efecb4"
+    );
+}
+
+#[pollster::test]
 async fn env_vars_test() {
     let mut compiler = test_compiler(None);
     let utxos = wildcard_utxos(None);

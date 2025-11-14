@@ -315,6 +315,7 @@ pub struct Input {
 pub struct Output {
     pub address: Expression,
     pub datum: Expression,
+    pub datum_hash_mode: bool,
     pub amount: Expression,
     pub optional: bool,
 }
@@ -536,6 +537,7 @@ impl Node for Output {
         let visited = Self {
             address: self.address.apply(visitor)?,
             datum: self.datum.apply(visitor)?,
+            datum_hash_mode: self.datum_hash_mode,
             amount: self.amount.apply(visitor)?,
             optional: self.optional,
         };

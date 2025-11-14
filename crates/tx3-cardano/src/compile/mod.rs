@@ -203,13 +203,19 @@ fn compile_output_block(
 
     let datum_option = ir.datum.as_option().map(compile_data_expr).transpose()?;
 
+    let datum_option = datum_option.map(|datum| {
+        if ir.datum_hash_mode {
+            primitives::DatumOption::Hash(datum.compute_hash()).into()
+        } else {
+            primitives::DatumOption::Data(pallas::codec::utils::CborWrap(datum.into())).into()
+        }
+    });
+
     let output = primitives::TransactionOutput::PostAlonzo(
         primitives::PostAlonzoTransactionOutput {
             address: address.to_vec().into(),
             value,
-            datum_option: datum_option.map(|x| {
-                primitives::DatumOption::Data(pallas::codec::utils::CborWrap(x.into())).into()
-            }),
+            datum_option,
             script_ref: None,
         }
         .into(),
@@ -868,6 +874,19 @@ fn compile_adhoc_native_witness(tx: &ir::Tx) -> Result<Vec<NativeWitness>, Error
         .collect::<Result<Vec<_>, _>>()
 }
 
+pub type DatumWitness = KeepRaw<'static, primitives::PlutusData>;
+
+fn compile_datum_witnesses(tx: &ir::Tx) -> Result<Vec<DatumWitness>, Error> {
+    // TODO: also lookup and include datum witnesses from inputs that have datum hashes
+
+    tx.outputs
+        .iter()
+        .filter(|x| x.datum_hash_mode)
+        .filter_map(|output| output.datum.as_option().map(compile_data_expr))
+        .map(|result| result.map(KeepRaw::from))
+        .collect::<Result<Vec<_>, _>>()
+}
+
 fn compile_witness_set(
     tx: &ir::Tx,
     compiled_body: &primitives::TransactionBody,
@@ -888,7 +907,7 @@ fn compile_witness_set(
         vkeywitness: None,
         native_script: NonEmptySet::from_vec(compile_adhoc_native_witness(tx)?),
         bootstrap_witness: None,
-        plutus_data: None,
+        plutus_data: NonEmptySet::from_vec(compile_datum_witnesses(tx)?).map(KeepRaw::from),
         plutus_v1_script: NonEmptySet::from_vec(compile_adhoc_plutus_witness::<1>(tx)),
         plutus_v2_script: NonEmptySet::from_vec(compile_adhoc_plutus_witness::<2>(tx)),
         plutus_v3_script: NonEmptySet::from_vec(compile_adhoc_plutus_witness::<3>(tx)),
@@ -897,19 +916,17 @@ fn compile_witness_set(
     Ok(witness_set)
 }
 
-fn infer_plutus_version(witness_set: &primitives::WitnessSet) -> PlutusVersion {
+fn infer_plutus_version(witness_set: &primitives::WitnessSet) -> Option<PlutusVersion> {
     // TODO: how do we handle this for reference scripts?
 
     if witness_set.plutus_v1_script.is_some() {
-        0
+        Some(0)
     } else if witness_set.plutus_v2_script.is_some() {
-        1
+        Some(1)
     } else if witness_set.plutus_v3_script.is_some() {
-        2
+        Some(2)
     } else {
-        // TODO: should we error here?
-        // Defaulting to Plutus V3 for now
-        2
+        None
     }
 }
 
@@ -919,11 +936,12 @@ fn compute_script_data_hash(
 ) -> Option<primitives::Hash<32>> {
     let version = infer_plutus_version(witness_set);
 
-    let cost_model = pparams.cost_models.get(&version).unwrap();
+    let language_view = version.map(|v|{
+        let cost_model = pparams.cost_models.get(&v).unwrap();
+        primitives::LanguageView(v, cost_model.clone())
+    });
 
-    let language_view = primitives::LanguageView(version, cost_model.clone());
-
-    let data = primitives::ScriptData::build_for(witness_set, language_view);
+    let data = primitives::ScriptData::build_for(witness_set, &language_view);
 
     data.map(|x| x.hash())
 }
@@ -957,8 +975,7 @@ pub fn entry_point(tx: &ir::Tx, pparams: &PParams) -> Result<primitives::Tx<'sta
     transaction_body.script_data_hash = compute_script_data_hash(&transaction_witness_set, pparams);
 
     transaction_body.auxiliary_data_hash = auxiliary_data
-        .as_ref()
-        .map(|x| primitives::Bytes::from(x.compute_hash().to_vec()));
+        .as_ref().map(|a| a.compute_hash());
 
     Ok(primitives::Tx {
         transaction_body: transaction_body.into(),
