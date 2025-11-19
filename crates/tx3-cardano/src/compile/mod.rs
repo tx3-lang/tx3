@@ -763,7 +763,7 @@ fn compute_script_data_hash(
 
     let language_view = primitives::LanguageView(version, cost_model.clone());
 
-    let data = primitives::ScriptData::build_for(witness_set, language_view);
+    let data = primitives::ScriptData::build_for(witness_set, &Some(language_view));
 
     data.map(|x| x.hash())
 }
@@ -795,10 +795,7 @@ pub fn entry_point(tx: &ir::Tx, pparams: &PParams) -> Result<primitives::Tx<'sta
     let auxiliary_data = compile_auxiliary_data(tx)?;
 
     transaction_body.script_data_hash = compute_script_data_hash(&transaction_witness_set, pparams);
-
-    transaction_body.auxiliary_data_hash = auxiliary_data
-        .as_ref()
-        .map(|x| primitives::Bytes::from(x.compute_hash().to_vec()));
+    transaction_body.auxiliary_data_hash = auxiliary_data.as_ref().map(|x| x.compute_hash());
 
     Ok(primitives::Tx {
         transaction_body: transaction_body.into(),
