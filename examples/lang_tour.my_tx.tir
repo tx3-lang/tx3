@@ -645,20 +645,20 @@
     {
       "name": "vote_delegation_certificate",
       "data": {
-        "drep": {
-          "Bytes": [
-            18,
-            52,
-            86,
-            120
-          ]
-        },
         "stake": {
           "Bytes": [
             135,
             101,
             67,
             33
+          ]
+        },
+        "drep": {
+          "Bytes": [
+            18,
+            52,
+            86,
+            120
           ]
         }
       }
@@ -672,9 +672,6 @@
             "fields": []
           }
         },
-        "amount": {
-          "Number": 100
-        },
         "credential": {
           "EvalParam": {
             "ExpectValue": [
@@ -682,6 +679,9 @@
               "Address"
             ]
           }
+        },
+        "amount": {
+          "Number": 100
         }
       }
     },

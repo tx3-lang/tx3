@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     analyzing::{Analyzable, AnalyzeReport},
-    ast::{DataExpr, Scope, Span, Type},
+    ast::{DataExpr, Identifier, Scope, Span, Type},
     ir,
     lowering::IntoLower,
     parsing::{AstNode, Error, Rule},
@@ -582,6 +582,7 @@ impl CardanoPublishBlockField {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CardanoPublishBlock {
+    pub name: Option<Identifier>,
     pub fields: Vec<CardanoPublishBlockField>,
     pub span: Span,
 }
@@ -615,11 +616,15 @@ impl AstNode for CardanoPublishBlockField {
             }
             Rule::cardano_publish_block_version => {
                 let pair = pair.into_inner().next().unwrap();
-                Ok(CardanoPublishBlockField::Version(DataExpr::parse(pair)?.into()))
+                Ok(CardanoPublishBlockField::Version(
+                    DataExpr::parse(pair)?.into(),
+                ))
             }
             Rule::cardano_publish_block_script => {
                 let pair = pair.into_inner().next().unwrap();
-                Ok(CardanoPublishBlockField::Script(DataExpr::parse(pair)?.into()))
+                Ok(CardanoPublishBlockField::Script(
+                    DataExpr::parse(pair)?.into(),
+                ))
             }
             x => unreachable!("Unexpected rule in cardano_publish_block_field: {:?}", x),
         }
@@ -641,13 +646,23 @@ impl AstNode for CardanoPublishBlock {
 
     fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
         let span = pair.as_span().into();
-        let inner = pair.into_inner();
+        let mut inner = pair.into_inner();
+        let has_name = inner
+            .peek()
+            .map(|x| x.as_rule() == Rule::identifier)
+            .unwrap_or_default();
+
+        let name = if has_name {
+            Some(Identifier::parse(inner.next().unwrap())?)
+        } else {
+            None
+        };
 
         let fields = inner
             .map(|x| CardanoPublishBlockField::parse(x))
             .collect::<Result<Vec<_>, _>>()?;
 
-        Ok(CardanoPublishBlock { fields, span })
+        Ok(CardanoPublishBlock { name, fields, span })
     }
 
     fn span(&self) -> &Span {
@@ -896,13 +911,75 @@ mod tests {
         }
     );
 
+    input_to_ast_check!(
+        CardanoPublishBlock,
+        "basic",
+        "publish {
+            to: Receiver,
+            amount: Ada(quantity),
+            version: 3,
+            script: 0xABCDEF,
+        }",
+        CardanoPublishBlock {
+            name: None,
+            fields: vec![
+                CardanoPublishBlockField::To(Box::new(DataExpr::Identifier(Identifier::new(
+                    "Receiver"
+                )))),
+                CardanoPublishBlockField::Amount(Box::new(DataExpr::StaticAssetConstructor(
+                    StaticAssetConstructor {
+                        r#type: Identifier::new("Ada"),
+                        amount: Box::new(DataExpr::Identifier(Identifier::new("quantity"))),
+                        span: Span::DUMMY,
+                    }
+                ))),
+                CardanoPublishBlockField::Version(Box::new(DataExpr::Number(3))),
+                CardanoPublishBlockField::Script(Box::new(DataExpr::HexString(
+                    HexStringLiteral::new("ABCDEF".to_string())
+                ))),
+            ],
+            span: Span::DUMMY,
+        }
+    );
+
+    input_to_ast_check!(
+        CardanoPublishBlock,
+        "basic_with_name",
+        "publish test_publish {
+            to: Receiver,
+            amount: Ada(quantity),
+            version: 3,
+            script: 0xABCDEF,
+        }",
+        CardanoPublishBlock {
+            name: Some(Identifier::new("test_publish")),
+            fields: vec![
+                CardanoPublishBlockField::To(Box::new(DataExpr::Identifier(Identifier::new(
+                    "Receiver"
+                )))),
+                CardanoPublishBlockField::Amount(Box::new(DataExpr::StaticAssetConstructor(
+                    StaticAssetConstructor {
+                        r#type: Identifier::new("Ada"),
+                        amount: Box::new(DataExpr::Identifier(Identifier::new("quantity"))),
+                        span: Span::DUMMY,
+                    }
+                ))),
+                CardanoPublishBlockField::Version(Box::new(DataExpr::Number(3))),
+                CardanoPublishBlockField::Script(Box::new(DataExpr::HexString(
+                    HexStringLiteral::new("ABCDEF".to_string())
+                ))),
+            ],
+            span: Span::DUMMY,
+        }
+    );
+
     #[test]
     fn test_treasury_donation_type() {
         let mut ast = crate::parsing::parse_string(
             r#"
             tx test(quantity: Int) {
                 cardano::treasury_donation {
-                  coin: quantity,
+                    coin: quantity,
                 }
             }
             "#,
@@ -919,7 +996,7 @@ mod tests {
             r#"
             tx test(quantity: Bytes) {
                 cardano::treasury_donation {
-                  coin: quantity,
+                    coin: quantity,
                 }
             }
             "#,
@@ -928,5 +1005,49 @@ mod tests {
 
         let result = analyze(&mut ast);
         assert!(!result.errors.is_empty());
+    }
+
+    #[test]
+    fn test_publish_type_ok() {
+        let mut ast = crate::parsing::parse_string(
+            r#"
+            party Receiver;
+
+            tx test(quantity: Int) {
+                cardano::publish {
+                    to: Receiver,
+                    amount: Ada(quantity),
+                    version: 3,
+                    script: 0xABCDEF,
+                }
+            }
+            "#,
+        )
+        .unwrap();
+
+        let result = analyze(&mut ast);
+        assert!(result.errors.is_empty());
+    }
+
+    #[test]
+    fn test_publish_type_with_name_ok() {
+        let mut ast = crate::parsing::parse_string(
+            r#"
+            party Receiver;
+
+            tx test(quantity: Int) {
+                cardano::publish deploy {
+                    to: Receiver,
+                    amount: Ada(quantity),
+                    version: 3,
+                    script: 0xABCDEF,
+                }
+            }
+            "#,
+        )
+        .unwrap();
+
+        let result = analyze(&mut ast);
+        assert!(result.errors.is_empty());
     }
 }
