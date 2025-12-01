@@ -414,7 +414,7 @@ impl IntoLower for ast::PropertyOp {
 
         let ty = self
             .operand
-            .target_type()
+            .target_type(None)
             .ok_or(Error::MissingAnalyzePhase(format!("{0:?}", self.operand)))?;
 
         let prop_index =
