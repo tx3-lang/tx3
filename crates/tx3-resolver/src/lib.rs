@@ -1,13 +1,20 @@
+use std::collections::HashSet;
 use tx3_lang::{
     applying::{self, Apply as _},
     backend::{self, Compiler, TxEval, UtxoStore},
     ir::{self, Node},
+    UtxoRef,
 };
 
 pub mod inputs;
 
 #[cfg(test)]
 pub mod mock;
+
+pub trait UtxoMempool {
+    fn lock(&self, refs: &[UtxoRef]);
+    fn register_outputs(&self, tx_bytes: &[u8]);
+}
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -29,7 +36,7 @@ async fn eval_pass<C: Compiler, S: UtxoStore>(
     compiler: &mut C,
     utxos: &S,
     last_eval: Option<&TxEval>,
-) -> Result<Option<TxEval>, Error> {
+) -> Result<Option<(TxEval, HashSet<UtxoRef>)>, Error> {
     let attempt = tx.clone();
 
     let fees = last_eval.as_ref().map(|e| e.fee).unwrap_or(0);
@@ -40,7 +47,7 @@ async fn eval_pass<C: Compiler, S: UtxoStore>(
 
     let attempt = applying::reduce(attempt)?;
 
-    let attempt = crate::inputs::resolve(attempt, utxos).await?;
+    let (attempt, refs) = crate::inputs::resolve(attempt, utxos).await?;
 
     let attempt = tx3_lang::ProtoTx::from(attempt);
 
@@ -53,20 +60,21 @@ async fn eval_pass<C: Compiler, S: UtxoStore>(
     let eval = compiler.compile(attempt.as_ref())?;
 
     let Some(last_eval) = last_eval else {
-        return Ok(Some(eval));
+        return Ok(Some((eval, refs)));
     };
 
     if eval != *last_eval {
-        return Ok(Some(eval));
+        return Ok(Some((eval, refs)));
     }
 
     Ok(None)
 }
 
-pub async fn resolve_tx<C: Compiler, S: UtxoStore>(
+pub async fn resolve_tx<C: Compiler, S: UtxoStore, M: UtxoMempool>(
     tx: tx3_lang::ProtoTx,
     compiler: &mut C,
     utxos: &S,
+    mempool: &M,
     max_optimize_rounds: usize,
 ) -> Result<TxEval, Error> {
     let max_optimize_rounds = max_optimize_rounds.max(3);
@@ -80,8 +88,10 @@ pub async fn resolve_tx<C: Compiler, S: UtxoStore>(
     // reduce compiler ops
     let tx = ir::Tx::from(tx);
 
-    while let Some(better) = eval_pass(&tx, compiler, utxos, last_eval.as_ref()).await? {
-        last_eval = Some(better);
+    while let Some((better, refs)) =
+        eval_pass(&tx, compiler, utxos, last_eval.as_ref().map(|(e, _)| e)).await?
+    {
+        last_eval = Some((better, refs));
 
         if rounds > max_optimize_rounds {
             break;
@@ -90,5 +100,11 @@ pub async fn resolve_tx<C: Compiler, S: UtxoStore>(
         rounds += 1;
     }
 
-    Ok(last_eval.unwrap())
+    let (eval, refs) = last_eval.unwrap();
+
+    let refs_vec: Vec<_> = refs.into_iter().collect();
+    mempool.lock(&refs_vec);
+    mempool.register_outputs(&eval.payload);
+
+    Ok(eval)
 }
