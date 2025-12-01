@@ -1,12 +1,10 @@
-use std::collections::HashMap;
-
-use bincode::{Decode, Encode};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 pub type AssetPolicy = Vec<u8>;
 pub type AssetName = Vec<u8>;
 
-#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
 pub enum AssetClass {
     Naked,
     Named(AssetName),
@@ -56,7 +54,7 @@ impl std::fmt::Display for AssetClass {
     }
 }
 
-#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct CanonicalAssets(HashMap<AssetClass, i128>);
 
 impl std::fmt::Display for CanonicalAssets {

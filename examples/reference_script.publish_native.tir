@@ -152,15 +152,12 @@
         },
         "to": {
           "EvalParam": {
-            "ExpectValue": [
               "receiver",
               "Address"
             ]
           }
         },
         "amount": {
-          "Assets": [
-            {
               "policy": "None",
               "asset_name": "None",
               "amount": {
