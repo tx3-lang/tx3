@@ -1,6 +1,7 @@
 //! Tx input selection algorithms
 
 use std::collections::{BTreeMap, HashSet};
+use std::hash::{Hash, Hasher};
 use tx3_lang::{
     applying,
     backend::{self, UtxoStore},
@@ -139,6 +140,114 @@ impl CoinSelection for NaiveAccumulator {
     }
 }
 
+struct VectorAccumulator;
+
+impl CoinSelection for VectorAccumulator {
+    fn pick(search_space: UtxoSet, target: &CanonicalAssets) -> HashSet<Utxo> {
+        let mut candidates: Vec<Utxo> = search_space.iter().cloned().collect();
+        let mut matched = HashSet::new();
+        let mut pending = target.clone();
+        let vec_target = to_vector(&pending);
+
+        candidates.sort_by(|a, b| {
+            // 1. Prefer candidates that cover more of the required asset classes.
+            // We count how many asset classes from the target are missing in the candidate.
+            // Lower is better.
+            let missing_a = count_missing(&a.assets, &pending);
+            let missing_b = count_missing(&b.assets, &pending);
+            if missing_a != missing_b {
+                return missing_a.cmp(&missing_b);
+            }
+
+            // 2. Prefer candidates that have fewer unrequested asset classes.
+            // We count how many asset classes in the candidate are not in the target.
+            // Lower is better (cleaner match).
+            let unreq_a = count_unrequested(&a.assets, &pending);
+            let unreq_b = count_unrequested(&b.assets, &pending);
+            if unreq_a != unreq_b {
+                return unreq_a.cmp(&unreq_b);
+            }
+
+            // 3. Prefer candidates that are closer to the target amount vector.
+            // We calculate a vector distance (e.g. Euclidean) to find the best fit in terms of quantities.
+            let vec_a = to_vector(&a.assets);
+            let vec_b = to_vector(&b.assets);
+
+            let dist_a = vector_distance(&vec_a, &vec_target);
+            let dist_b = vector_distance(&vec_b, &vec_target);
+            dist_a.cmp(&dist_b)
+        });
+
+        for candidate in candidates {
+            if candidate.assets.contains_some(&pending) {
+                matched.insert(candidate.clone());
+                let to_include = candidate.assets.clone();
+                pending = pending - to_include;
+            }
+
+            if pending.is_empty_or_negative() {
+                break;
+            }
+        }
+
+        if !pending.is_empty_or_negative() {
+            // if we didn't accumulate enough by the end of the search space,
+            // then we didn't find a match
+            return HashSet::new();
+        }
+
+        while let Some(utxo) = find_first_excess_utxo(&matched, target) {
+            matched.remove(&utxo);
+        }
+
+        matched
+    }
+}
+
+fn to_vector(assets: &CanonicalAssets) -> [i128; 8] {
+    let mut vec = [0; 8];
+    for (class, amount) in assets.iter() {
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        class.hash(&mut hasher);
+        let idx = (hasher.finish() % 8) as usize;
+        vec[idx] += amount;
+    }
+    vec
+}
+
+fn vector_distance(a: &[i128; 8], b: &[i128; 8]) -> i128 {
+    a.iter().zip(b.iter()).map(|(x, y)| (x - y).pow(2)).sum()
+}
+
+fn get_amount(assets: &CanonicalAssets, class: &tx3_lang::AssetClass) -> i128 {
+    for (c, a) in assets.iter() {
+        if c == class {
+            return *a;
+        }
+    }
+    0
+}
+
+fn count_unrequested(assets: &CanonicalAssets, target: &CanonicalAssets) -> usize {
+    let mut count = 0;
+    for (class, _) in assets.iter() {
+        if get_amount(target, class) == 0 {
+            count += 1;
+        }
+    }
+    count
+}
+
+fn count_missing(assets: &CanonicalAssets, target: &CanonicalAssets) -> usize {
+    let mut count = 0;
+    for (class, _) in target.iter() {
+        if get_amount(assets, class) == 0 {
+            count += 1;
+        }
+    }
+    count
+}
+
 const MAX_SEARCH_SPACE_SIZE: usize = 50;
 
 struct InputSelector<'a, S: UtxoStore> {
@@ -163,7 +272,14 @@ impl<'a, S: UtxoStore> InputSelector<'a, S> {
             .unwrap_or(CanonicalAssets::empty());
 
         if criteria.support_many {
-            NaiveAccumulator::pick(utxos, &target)
+            #[cfg(feature = "naive_accumulator")]
+            {
+                NaiveAccumulator::pick(utxos, &target)
+            }
+            #[cfg(not(feature = "naive_accumulator"))]
+            {
+                VectorAccumulator::pick(utxos, &target)
+            }
         } else {
             FirstFullMatch::pick(utxos, &target)
         }

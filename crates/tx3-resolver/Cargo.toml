@@ -22,3 +22,6 @@ hex = { workspace = true }
 [dev-dependencies]
 pollster = { version = "0.4.0", features = ["macro"] }
 chainfuzz = { version = "0.2.0" }
+
+[features]
+naive_accumulator = []

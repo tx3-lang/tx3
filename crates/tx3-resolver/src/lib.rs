@@ -12,7 +12,8 @@ pub mod inputs;
 pub mod mock;
 
 pub trait UtxoMempool {
-    fn lock(&self, refs: &[UtxoRef]);
+    fn lock(&self, refs: &[UtxoRef]) -> bool;
+    fn unlock(&self, refs: &[UtxoRef]);
     fn register_outputs(&self, tx_bytes: &[u8]);
 }
 
@@ -81,6 +82,9 @@ pub async fn resolve_tx<C: Compiler, S: UtxoStore, M: UtxoMempool>(
 
     let mut last_eval = None;
     let mut rounds = 0;
+    let mut locked_refs: Vec<UtxoRef> = vec![];
+    let mut lock_retries = 0;
+    const MAX_LOCK_RETRIES: usize = 20;
 
     // one initial pass to reduce any available params;
     let tx = tx.apply()?;
@@ -88,22 +92,72 @@ pub async fn resolve_tx<C: Compiler, S: UtxoStore, M: UtxoMempool>(
     // reduce compiler ops
     let tx = ir::Tx::from(tx);
 
-    while let Some((better, refs)) =
-        eval_pass(&tx, compiler, utxos, last_eval.as_ref().map(|(e, _)| e)).await?
-    {
-        last_eval = Some((better, refs));
+    loop {
+        let current_eval = last_eval.as_ref().map(|(e, _)| e);
 
-        if rounds > max_optimize_rounds {
-            break;
+        match eval_pass(&tx, compiler, utxos, current_eval).await? {
+            Some((better, refs)) => {
+                let new_refs_vec: Vec<_> = refs.iter().cloned().collect();
+
+                // We need to filter out UTXOs that we already locked.
+                let new_refs_set: HashSet<_> = refs.iter().collect();
+                let current_locked_set: HashSet<_> = locked_refs.iter().collect();
+                
+                let to_lock: Vec<_> = refs.iter()
+                    .filter(|r| !current_locked_set.contains(r))
+                    .cloned().collect();
+                    
+                let to_unlock: Vec<_> = locked_refs.iter()
+                    .filter(|r| !new_refs_set.contains(r))
+                    .cloned().collect();
+
+                let lock_success = if to_lock.is_empty() {
+                    true
+                } else {
+                    mempool.lock(&to_lock)
+                };
+
+                if lock_success {
+                    if !to_unlock.is_empty() {
+                        mempool.unlock(&to_unlock);
+                    }
+                    
+                    locked_refs = new_refs_vec;
+                    last_eval = Some((better, refs));
+                    lock_retries = 0;
+
+                    if rounds > max_optimize_rounds {
+                        break;
+                    }
+
+                    rounds += 1;
+                } else {
+                    // If we failed to lock, it means someone else took the new candidates.
+                    // We can't use this solution.
+                    // We should retry.
+                    lock_retries += 1;
+                    if lock_retries > MAX_LOCK_RETRIES {
+                        if last_eval.is_some() {
+                            break;
+                        } else {
+                            return Err(Error::BackendError(tx3_lang::backend::Error::StoreError(
+                                "High contention: failed to lock UTXOs".into(),
+                            )));
+                        }
+                    }
+                }
+            }
+            None => {
+                // Optimization finished.
+                // We might have some unused locks if the last pass didn't use all of them?
+                // No, locked_refs tracks exactly what was used in last_eval.
+                break;
+            }
         }
-
-        rounds += 1;
     }
 
-    let (eval, refs) = last_eval.unwrap();
+    let (eval, _) = last_eval.unwrap();
 
-    let refs_vec: Vec<_> = refs.into_iter().collect();
-    mempool.lock(&refs_vec);
     mempool.register_outputs(&eval.payload);
 
     Ok(eval)
