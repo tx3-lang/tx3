@@ -93,6 +93,12 @@ impl Eq for Utxo {}
 pub type UtxoSet = HashSet<Utxo>;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct CustomValue {
+    pub constructor: usize,
+    pub fields: Vec<ArgValue>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum ArgValue {
     Int(i128),
     Bool(bool),
@@ -101,6 +107,7 @@ pub enum ArgValue {
     Address(Vec<u8>),
     UtxoSet(UtxoSet),
     UtxoRef(UtxoRef),
+    Custom(CustomValue),
 }
 
 impl From<Vec<u8>> for ArgValue {
