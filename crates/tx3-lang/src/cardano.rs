@@ -841,6 +841,58 @@ impl IntoLower for CardanoBlock {
     }
 }
 
+pub fn load_externals(path: &str) -> Vec<crate::ast::TypeDef> {
+    use crate::ast::{Identifier, RecordField, Span, Type, TypeDef, VariantCase};
+
+    vec![TypeDef {
+        name: Identifier {
+            value: "PlutusData".to_string(),
+            span: Span::DUMMY,
+            symbol: None,
+        },
+        cases: vec![
+            VariantCase {
+                name: Identifier::new("Constr"),
+                fields: vec![
+                    RecordField::new("constructor", Type::Int),
+                    RecordField::new(
+                        "fields",
+                        Type::List(Box::new(Type::Custom(Identifier::new("PlutusData")))),
+                    ),
+                ],
+                span: Span::DUMMY,
+            },
+            VariantCase {
+                name: Identifier::new("Map"),
+                fields: vec![RecordField::new(
+                    "entries",
+                    Type::List(Box::new(Type::Custom(Identifier::new("PlutusData")))),
+                )],
+                span: Span::DUMMY,
+            },
+            VariantCase {
+                name: Identifier::new("List"),
+                fields: vec![RecordField::new(
+                    "items",
+                    Type::List(Box::new(Type::Custom(Identifier::new("PlutusData")))),
+                )],
+                span: Span::DUMMY,
+            },
+            VariantCase {
+                name: Identifier::new("Integer"),
+                fields: vec![RecordField::new("value", Type::Int)],
+                span: Span::DUMMY,
+            },
+            VariantCase {
+                name: Identifier::new("Bytes"),
+                fields: vec![RecordField::new("value", Type::Bytes)],
+                span: Span::DUMMY,
+            },
+        ],
+        span: Span::DUMMY,
+    }]
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

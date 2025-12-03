@@ -14,7 +14,7 @@ use pest_derive::Parser;
 
 use crate::{
     ast::*,
-    cardano::{PlutusWitnessBlock, PlutusWitnessField},
+    cardano::{load_externals, PlutusWitnessBlock, PlutusWitnessField},
 };
 #[derive(Parser)]
 #[grammar = "tx3.pest"]
@@ -108,6 +108,11 @@ impl AstNode for Program {
                 Rule::alias_def => program.aliases.push(AliasDef::parse(pair)?),
                 Rule::party_def => program.parties.push(PartyDef::parse(pair)?),
                 Rule::policy_def => program.policies.push(PolicyDef::parse(pair)?),
+                Rule::cardano_import => {
+                    let import_path = pair.into_inner().as_str();
+                    let external_types = load_externals(import_path);
+                    program.types.extend(external_types);
+                }
                 Rule::EOI => break,
                 x => unreachable!("Unexpected rule in program: {:?}", x),
             }
