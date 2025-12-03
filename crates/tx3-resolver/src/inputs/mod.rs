@@ -869,4 +869,113 @@ mod tests {
 
         assert!(utxos.len() == 2);
     }
+
+    fn create_utxo(id: u8, ada: u64, assets: Vec<(&str, u64)>) -> Utxo {
+        let mut canonical_assets = CanonicalAssets::from_naked_amount(ada as i128 * 1_000_000);
+
+        for (name, amount) in assets {
+            let policy = vec![1u8; 28]; 
+            let asset_name = name.as_bytes().to_vec();
+            
+            canonical_assets = canonical_assets + CanonicalAssets::from_asset(
+                Some(&policy),
+                Some(&asset_name),
+                amount as i128,
+            );
+        }
+
+        Utxo {
+            address: vec![0u8; 32], // Dummy address
+            assets: canonical_assets,
+            r#ref: UtxoRef {
+                txid: vec![id; 32], // Unique ID based on input
+                index: 0,
+            },
+            datum: None,
+            script: None,
+        }
+    }
+
+    fn create_target(ada: u64, assets: Vec<(&str, u64)>) -> CanonicalAssets {
+        let mut canonical_assets = CanonicalAssets::from_naked_amount(ada as i128 * 1_000_000);
+
+        for (name, amount) in assets {
+            let policy = vec![1u8; 28];
+            let asset_name = name.as_bytes().to_vec();
+            
+            canonical_assets = canonical_assets + CanonicalAssets::from_asset(
+                Some(&policy),
+                Some(&asset_name),
+                amount as i128,
+            );
+        }
+        canonical_assets
+    }
+
+    #[test]
+    fn test_vector_accumulator() {
+        // Setup UTXOs
+        let u1 = create_utxo(1, 12, vec![]);
+        let u2 = create_utxo(2, 8, vec![]);
+        let u3 = create_utxo(3, 2, vec![("NFT1", 1)]);
+        let u4 = create_utxo(4, 2, vec![("NFT2", 1), ("NFT3", 1)]);
+
+        let search_space: UtxoSet = vec![u1.clone(), u2.clone(), u3.clone(), u4.clone()]
+            .into_iter()
+            .collect();
+
+        // Case 1: (5 ADA, 1 NFT1)
+        let target = create_target(5, vec![("NFT1", 1)]);
+        let selected = VectorAccumulator::pick(search_space.clone(), &target);
+
+        assert!(selected.contains(&u3), "Case 1: Should contain U3 for NFT1");
+        assert!(
+            !selected.contains(&u4),
+            "Case 1: Should not contain U4 (unrequested assets)"
+        );
+        assert!(
+            selected.contains(&u2) || selected.contains(&u1),
+            "Case 1: Should contain a pure ADA utxo"
+        );
+
+        // Case 2: (10 ADA, 1 NFT3)
+        let target = create_target(10, vec![("NFT3", 1)]);
+        let selected = VectorAccumulator::pick(search_space.clone(), &target);
+        assert!(selected.contains(&u4), "Case 2: Should contain U4 for NFT3");
+        assert!(
+            !selected.contains(&u3),
+            "Case 2: Should not contain U3 (unrequested NFT1)"
+        );
+        assert!(
+            selected.contains(&u2) || selected.contains(&u1),
+            "Case 2: Should contain a pure ADA utxo"
+        );
+
+        // Case 3: (10 ADA, 1 NFT1)
+        let target = create_target(10, vec![("NFT1", 1)]);
+        let selected = VectorAccumulator::pick(search_space.clone(), &target);
+        assert!(selected.contains(&u3), "Case 3: Should contain U3 for NFT1");
+        assert!(
+            selected.contains(&u2) || selected.contains(&u1),
+            "Case 3: Should contain a pure ADA utxo"
+        );
+
+        // Case 4: (12 ADA, 1 NFT1)
+        let target = create_target(12, vec![("NFT1", 1)]);
+        let selected = VectorAccumulator::pick(search_space.clone(), &target);
+        assert!(selected.contains(&u3), "Case 4: Should contain U3");
+        assert!(
+            selected.contains(&u2) || selected.contains(&u1),
+            "Case 4: Should contain a pure ADA utxo"
+        );
+
+        // Case 5: (12 ADA, 1 NFT2)
+        let target = create_target(12, vec![("NFT2", 1)]);
+        let selected = VectorAccumulator::pick(search_space.clone(), &target);
+        assert!(selected.contains(&u4), "Case 5: Should contain U4 for NFT2");
+        assert!(
+            selected.contains(&u2) || selected.contains(&u1),
+            "Case 5: Should contain a pure ADA utxo"
+        );
+    }
 }
