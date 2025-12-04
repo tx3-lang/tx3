@@ -1,5 +1,5 @@
 [package]
-name = "cip57"
+name = "cip-57"
 description = "CIP-57 compatibility (JSON parsing and serialization)"
 publish.workspace = true
 authors.workspace = true
@@ -16,4 +16,3 @@ readme.workspace = true
 [dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-anyhow = "1"

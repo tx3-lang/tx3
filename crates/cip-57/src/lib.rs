@@ -3,9 +3,6 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Number;
 use std::collections::BTreeMap;
-use std::fs;
-use std::path::PathBuf;
-
 /// Represents a blueprint containing preamble, validators, and optional definitions.
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Blueprint {
@@ -160,14 +157,16 @@ pub struct Field {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
+    use std::path::PathBuf;
 
     #[test]
     fn deserialize_plutus_json_into_blueprint() {
         let manifest = env!("CARGO_MANIFEST_DIR");
         let path = PathBuf::from(manifest).join("examples").join("plutus.json");
 
-        let json = fs::read_to_string(&path)
-            .expect(&format!("failed to read example file: {}", path.display()));
+        let failure_msg = format!("failed to read example file: {}", path.display());
+        let json = fs::read_to_string(&path).expect(&failure_msg);
 
         let bp: Blueprint = serde_json::from_str(&json).expect("failed to deserialize blueprint");
 

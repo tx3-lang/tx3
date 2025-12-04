@@ -1,10 +1,10 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/tx3-cardano",
-    "crates/tx3-lang",
-    "crates/tx3-resolver",
-    "crates/CIP-57",
+  "crates/tx3-cardano",
+  "crates/tx3-lang",
+  "crates/tx3-resolver",
+  "crates/cip-57",
 ]
 
 [workspace.package]

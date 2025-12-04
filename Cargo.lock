@@ -314,10 +314,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "cip57"
+name = "cip-57"
 version = "0.13.0"
 dependencies = [
- "anyhow",
  "serde",
  "serde_json",
 ]
