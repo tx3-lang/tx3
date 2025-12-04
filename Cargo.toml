@@ -1,6 +1,11 @@
 [workspace]
 resolver = "2"
-members = ["crates/tx3-cardano", "crates/tx3-lang", "crates/tx3-resolver"]
+members = [
+  "crates/tx3-cardano",
+  "crates/tx3-lang",
+  "crates/tx3-resolver",
+  "crates/cip-57",
+]
 
 [workspace.package]
 publish = true
