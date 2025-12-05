@@ -170,6 +170,8 @@ async fn narrow_by_asset_class<T: UtxoStore>(
         .narrow_refs(UtxoPattern::by_asset(policy, name))
         .await?;
 
+    dbg!(&utxos, hex::encode(policy), hex::encode(name));
+
     Ok(Subset::intersection(parent, Subset::Specific(utxos)))
 }
 

@@ -430,6 +430,8 @@ pub async fn resolve<T: UtxoStore>(
 
         let space = searching::narrow_search_space(utxos, &query).await?;
 
+        dbg!(&name, &query, &space);
+
         let utxos = selector.select(&space, &query).await?;
 
         if utxos.is_empty() {
