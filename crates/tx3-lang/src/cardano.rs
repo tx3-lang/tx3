@@ -1,11 +1,11 @@
-use std::{collections::HashMap, rc::Rc};
+use std::{collections::HashMap, fs, rc::Rc};
 
 use pest::iterators::Pair;
 use serde::{Deserialize, Serialize};
 
 use crate::{
     analyzing::{Analyzable, AnalyzeReport},
-    ast::{DataExpr, Identifier, Scope, Span, Type},
+    ast::{DataExpr, Identifier, RecordField, Scope, Span, Symbol, Type, TypeDef, VariantCase},
     ir,
     lowering::IntoLower,
     parsing::{AstNode, Error, Rule},
@@ -841,65 +841,154 @@ impl IntoLower for CardanoBlock {
     }
 }
 
-pub fn load_externals(path: &str) -> Vec<crate::ast::TypeDef> {
-    use crate::ast::{Identifier, RecordField, Span, Type, TypeDef, VariantCase};
+/// Sanitizes a type name to be a valid tx3 identifier.
+/// Replaces characters like `<`, `>`, `,`, `/`, `$`, `~1` with underscores.
+fn sanitize_type_name(name: &str) -> String {
+    name.replace("~1", "_") // URL-encoded `/` in JSON references
+        .replace('/', "_")
+        .replace('$', "_")
+        .replace('<', "_")
+        .replace('>', "")
+        .replace(',', "_")
+        .replace(' ', "")
+}
 
-    vec![TypeDef {
-        name: Identifier {
-            value: "PlutusData".to_string(),
-            span: Span::DUMMY,
-            symbol: None,
-        },
-        cases: vec![
-            VariantCase {
-                name: Identifier::new("Constr"),
-                fields: vec![
-                    RecordField::new("constructor", Type::Int),
-                    RecordField::new(
-                        "fields",
-                        Type::List(Box::new(Type::Custom(Identifier::new("PlutusData")))),
-                    ),
-                ],
-                span: Span::DUMMY,
+// TODO: add policies, and parameters as well
+pub fn load_externals(
+    path: &str,
+) -> Result<HashMap<String, crate::ast::Symbol>, crate::parsing::Error> {
+    // TODO: add error handling
+    let json = fs::read_to_string(path).unwrap();
+    let bp = serde_json::from_str::<cip_57::Blueprint>(&json).unwrap();
+
+    let ref_to_type = |r: &str| -> Type {
+        let sanitized = sanitize_type_name(r.strip_prefix("#/definitions/").unwrap_or(r));
+        Type::Custom(Identifier::new(&sanitized))
+    };
+
+    let mut symbols = HashMap::new();
+    for (key, def) in bp
+        .definitions
+        .as_ref()
+        .map(|d| d.inner.iter())
+        .into_iter()
+        .flatten()
+    {
+        let name = sanitize_type_name(key);
+
+        let new = match def.data_type {
+            Some(cip_57::DataType::Integer) => Some(Symbol::AliasDef(Box::new(
+                crate::ast::AliasDef::new(&name, Type::Int),
+            ))),
+            Some(cip_57::DataType::Bytes) => Some(Symbol::AliasDef(Box::new(
+                crate::ast::AliasDef::new(&name, Type::Bytes),
+            ))),
+            Some(cip_57::DataType::Map) => {
+                let key_ty = def
+                    .keys
+                    .as_ref()
+                    .and_then(|r| r.reference.as_ref())
+                    .map(|r| ref_to_type(r));
+                let value = def
+                    .values
+                    .as_ref()
+                    .and_then(|r| r.reference.as_ref())
+                    .map(|r| ref_to_type(r));
+
+                if let (Some(key_ty), Some(value)) = (key_ty, value) {
+                    Some(Symbol::AliasDef(Box::new(crate::ast::AliasDef::new(
+                        &name,
+                        Type::Map(Box::new(key_ty), Box::new(value)),
+                    ))))
+                } else {
+                    None
+                }
+            }
+            Some(cip_57::DataType::List) => match &def.items {
+                Some(cip_57::ReferencesArray::Single(r)) => {
+                    let name = name.clone();
+                    r.reference.as_ref().map(|r| {
+                        Symbol::AliasDef(Box::new(crate::ast::AliasDef::new(
+                            &name,
+                            Type::List(Box::new(ref_to_type(r))),
+                        )))
+                    })
+                }
+                _ => None,
             },
-            VariantCase {
-                name: Identifier::new("Map"),
-                fields: vec![RecordField::new(
-                    "entries",
-                    Type::List(Box::new(Type::Custom(Identifier::new("PlutusData")))),
-                )],
-                span: Span::DUMMY,
-            },
-            VariantCase {
-                name: Identifier::new("List"),
-                fields: vec![RecordField::new(
-                    "items",
-                    Type::List(Box::new(Type::Custom(Identifier::new("PlutusData")))),
-                )],
-                span: Span::DUMMY,
-            },
-            VariantCase {
-                name: Identifier::new("Integer"),
-                fields: vec![RecordField::new("value", Type::Int)],
-                span: Span::DUMMY,
-            },
-            VariantCase {
-                name: Identifier::new("Bytes"),
-                fields: vec![RecordField::new("value", Type::Bytes)],
-                span: Span::DUMMY,
-            },
-        ],
-        span: Span::DUMMY,
-    }]
+            Some(cip_57::DataType::Constructor) => {
+                let mut cases = vec![];
+                if let Some(any_of) = &def.any_of {
+                    for schema in any_of {
+                        let case_name = schema
+                            .title
+                            .clone()
+                            .unwrap_or_else(|| format!("Constructor{}", schema.index));
+                        let mut fields = vec![];
+                        for (i, field) in schema.fields.iter().enumerate() {
+                            let field_name = field
+                                .title
+                                .clone()
+                                .unwrap_or_else(|| format!("field_{}", i));
+                            let field_ty = ref_to_type(&field.reference);
+                            fields.push(RecordField::new(&field_name, field_ty));
+                        }
+                        cases.push(VariantCase {
+                            name: Identifier::new(case_name),
+                            fields,
+                            span: Span::default(),
+                        });
+                    }
+                }
+                Some(Symbol::TypeDef(Box::new(TypeDef {
+                    name: Identifier::new(&name),
+                    cases,
+                    span: Span::default(),
+                })))
+            }
+            None if def.any_of.is_some() => {
+                let mut cases = vec![];
+                if let Some(any_of) = &def.any_of {
+                    for schema in any_of {
+                        let case_name = schema
+                            .title
+                            .clone()
+                            .unwrap_or_else(|| format!("Constructor{}", schema.index));
+                        let mut fields = vec![];
+                        for (i, field) in schema.fields.iter().enumerate() {
+                            let field_name = field
+                                .title
+                                .clone()
+                                .unwrap_or_else(|| format!("field_{}", i));
+                            let field_ty = ref_to_type(&field.reference);
+                            fields.push(RecordField::new(&field_name, field_ty));
+                        }
+                        cases.push(VariantCase {
+                            name: Identifier::new(case_name),
+                            fields,
+                            span: Span::default(),
+                        });
+                    }
+                }
+                Some(Symbol::TypeDef(Box::new(TypeDef {
+                    name: Identifier::new(&name),
+                    cases,
+                    span: Span::default(),
+                })))
+            }
+            None => None,
+        };
+        if let Some(symbol) = new {
+            symbols.insert(name, symbol);
+        }
+    }
+    Ok(symbols)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        analyzing::analyze,
-        ast::{self, *},
-    };
+    use crate::{analyzing::analyze, ast::*};
     use pest::Parser;
 
     macro_rules! input_to_ast_check {

@@ -110,8 +110,18 @@ impl AstNode for Program {
                 Rule::policy_def => program.policies.push(PolicyDef::parse(pair)?),
                 Rule::cardano_import => {
                     let import_path = pair.into_inner().as_str();
-                    let external_types = load_externals(import_path);
-                    program.types.extend(external_types);
+                    let external_types = load_externals(import_path)?;
+                    dbg!(&external_types);
+                    if let Some(ref mut scope) = program.scope {
+                        if let Some(scope_mut) = std::rc::Rc::get_mut(scope) {
+                            scope_mut.symbols.extend(external_types);
+                        }
+                    } else {
+                        program.scope = Some(std::rc::Rc::new(Scope {
+                            symbols: external_types,
+                            parent: None,
+                        }));
+                    }
                 }
                 Rule::EOI => break,
                 x => unreachable!("Unexpected rule in program: {:?}", x),
