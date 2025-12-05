@@ -248,7 +248,7 @@ fn count_missing(assets: &CanonicalAssets, target: &CanonicalAssets) -> usize {
     count
 }
 
-const MAX_SEARCH_SPACE_SIZE: usize = 50;
+const MAX_SEARCH_SPACE_SIZE: usize = 1000;
 
 struct InputSelector<'a, S: UtxoStore> {
     store: &'a S,
@@ -416,7 +416,10 @@ impl TryFrom<ir::InputQuery> for CanonicalQuery {
     }
 }
 
-pub async fn resolve<T: UtxoStore>(tx: ir::Tx, utxos: &T) -> Result<(ir::Tx, HashSet<UtxoRef>), Error> {
+pub async fn resolve<T: UtxoStore>(
+    tx: ir::Tx,
+    utxos: &T,
+) -> Result<(ir::Tx, HashSet<UtxoRef>), Error> {
     let mut all_inputs = BTreeMap::new();
     let mut all_refs = HashSet::new();
 
@@ -874,14 +877,11 @@ mod tests {
         let mut canonical_assets = CanonicalAssets::from_naked_amount(ada as i128 * 1_000_000);
 
         for (name, amount) in assets {
-            let policy = vec![1u8; 28]; 
+            let policy = vec![1u8; 28];
             let asset_name = name.as_bytes().to_vec();
-            
-            canonical_assets = canonical_assets + CanonicalAssets::from_asset(
-                Some(&policy),
-                Some(&asset_name),
-                amount as i128,
-            );
+
+            canonical_assets = canonical_assets
+                + CanonicalAssets::from_asset(Some(&policy), Some(&asset_name), amount as i128);
         }
 
         Utxo {
@@ -902,12 +902,9 @@ mod tests {
         for (name, amount) in assets {
             let policy = vec![1u8; 28];
             let asset_name = name.as_bytes().to_vec();
-            
-            canonical_assets = canonical_assets + CanonicalAssets::from_asset(
-                Some(&policy),
-                Some(&asset_name),
-                amount as i128,
-            );
+
+            canonical_assets = canonical_assets
+                + CanonicalAssets::from_asset(Some(&policy), Some(&asset_name), amount as i128);
         }
         canonical_assets
     }
