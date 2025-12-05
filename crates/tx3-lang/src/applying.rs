@@ -294,6 +294,7 @@ fn arg_value_into_expr(arg: ArgValue) -> ir::Expression {
         ArgValue::Bytes(x) => ir::Expression::Bytes(x),
         ArgValue::UtxoSet(x) => ir::Expression::UtxoSet(x),
         ArgValue::UtxoRef(x) => ir::Expression::UtxoRefs(vec![x]),
+        ArgValue::List(x) => ir::Expression::List(x.into_iter().map(arg_value_into_expr).collect()),
         ArgValue::Custom(x) => ir::Expression::Struct(ir::StructExpr {
             constructor: x.constructor,
             fields: x.fields.into_iter().map(arg_value_into_expr).collect(),

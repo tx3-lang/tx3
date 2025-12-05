@@ -107,6 +107,7 @@ pub enum ArgValue {
     Address(Vec<u8>),
     UtxoSet(UtxoSet),
     UtxoRef(UtxoRef),
+    List(Vec<ArgValue>),
     Custom(CustomValue),
 }
 
