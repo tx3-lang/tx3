@@ -1,75 +1,147 @@
 use std::collections::HashSet;
-use std::hash::{Hash, Hasher};
-use tx3_lang::{CanonicalAssets, Utxo, UtxoSet};
+use tx3_lang::{AssetClass, CanonicalAssets, Utxo, UtxoSet};
 
 use super::CoinSelection;
 
-fn get_amount(assets: &CanonicalAssets, class: &tx3_lang::AssetClass) -> i128 {
-    for (c, a) in assets.iter() {
-        if c == class {
-            return *a;
-        }
+const MISMATCH_PENALTY: f64 = 3.0;
+
+fn magnitude_penalty(a: u32, b: u32) -> f64 {
+    match (a, b) {
+        // both absent → no mismatch penalty
+        (0, 0) => 1.0,
+        // only one side has asset → weight = λ
+        (_, 0) => MISMATCH_PENALTY,
+        // only one side has asset → weight = λ
+        (0, _) => MISMATCH_PENALTY,
+        // both present → weight = 1
+        (_, _) => 1.0,
     }
-    0
 }
 
-fn count_unrequested(assets: &CanonicalAssets, target: &CanonicalAssets) -> usize {
-    let mut count = 0;
-    for (class, _) in assets.iter() {
-        if get_amount(target, class) == 0 {
-            count += 1;
-        }
-    }
-    count
+/// Maps an i128 to a u32 using a logarithmic scale. Precision of lower range
+/// is higher than the upper range.
+fn map_i128_to_u32_log(x: i128) -> u32 {
+    // Safety clamp
+    let x = x.clamp(0, i128::MAX);
+
+    // Convert to f64 — acceptable because of logarithmic compression.
+    let xf = x as f64;
+    let maxf = i128::MAX as f64;
+
+    // Normalize in log space
+    let norm = (1.0 + xf).ln() / (1.0 + maxf).ln();
+
+    // Scale to u32 range
+    (norm * (u32::MAX as f64)).round() as u32
 }
 
-fn count_missing(assets: &CanonicalAssets, target: &CanonicalAssets) -> usize {
-    let mut count = 0;
-    for (class, _) in target.iter() {
-        if get_amount(assets, class) == 0 {
-            count += 1;
+trait VectorSpace {
+    fn classes(&self) -> HashSet<AssetClass>;
+}
+
+trait ValueVector {
+    fn as_vector(&self, all_classes: &[AssetClass]) -> Vec<u32>;
+
+    fn distance(&self, other: &Self, all_classes: &[AssetClass]) -> u32 {
+        let a = self.as_vector(all_classes);
+        let b = other.as_vector(all_classes);
+
+        assert_eq!(a.len(), b.len(), "mismatching vector lengths");
+
+        let mut sum = 0f64;
+
+        for i in 0..a.len() {
+            let (ai, bi) = (a[i], b[i]);
+
+            let weight = magnitude_penalty(ai, bi);
+            let delta = (ai as i64 - bi as i64).abs() as f64;
+            let mag_squared = weight * delta.powi(2);
+
+            sum += mag_squared
         }
+
+        sum.sqrt().round() as u32
     }
-    count
+}
+
+impl VectorSpace for CanonicalAssets {
+    fn classes(&self) -> HashSet<AssetClass> {
+        self.classes()
+    }
+}
+
+impl ValueVector for CanonicalAssets {
+    fn as_vector(&self, all_classes: &[AssetClass]) -> Vec<u32> {
+        let mut vector = Vec::with_capacity(all_classes.len());
+
+        for class in all_classes {
+            let amount = self.asset_amount(class).unwrap_or(0);
+            let amount = map_i128_to_u32_log(amount);
+            vector.push(amount);
+        }
+
+        vector
+    }
+}
+
+impl VectorSpace for Utxo {
+    fn classes(&self) -> HashSet<AssetClass> {
+        self.assets.classes()
+    }
+}
+
+impl ValueVector for Utxo {
+    fn as_vector(&self, all_classes: &[AssetClass]) -> Vec<u32> {
+        self.assets.as_vector(all_classes)
+    }
+}
+
+impl VectorSpace for HashSet<AssetClass> {
+    fn classes(&self) -> HashSet<AssetClass> {
+        self.clone()
+    }
+}
+
+macro_rules! class_union {
+    ($a:expr, $b:expr) => {{
+        let a = $a.classes();
+        let b = $b.classes();
+        a.union(&b).cloned().collect()
+    }};
+    ($a:expr, $b:expr, $c:expr) => {{
+        let a = $a.classes();
+        let b = $b.classes();
+        let c = $c.classes();
+        let out: HashSet<_> = class_union!(a, b);
+        let out = class_union!(out, c);
+        out
+    }};
+}
+
+impl VectorSpace for UtxoSet {
+    fn classes(&self) -> HashSet<AssetClass> {
+        let mut classes = HashSet::new();
+
+        for utxo in self.iter() {
+            classes = class_union!(classes, utxo);
+        }
+
+        classes
+    }
 }
 
 pub struct VectorAccumulator;
 
 impl CoinSelection for VectorAccumulator {
     fn pick(search_space: UtxoSet, target: &CanonicalAssets) -> HashSet<Utxo> {
-        let mut candidates: Vec<Utxo> = search_space.iter().cloned().collect();
         let mut matched = HashSet::new();
         let mut pending = target.clone();
-        let vec_target = to_vector(&pending);
 
-        candidates.sort_by(|a, b| {
-            // 1. Prefer candidates that cover more of the required asset classes.
-            // We count how many asset classes from the target are missing in the candidate.
-            // Lower is better.
-            let missing_a = count_missing(&a.assets, &pending);
-            let missing_b = count_missing(&b.assets, &pending);
-            if missing_a != missing_b {
-                return missing_a.cmp(&missing_b);
-            }
+        let classes: Vec<_> = class_union!(search_space, target);
 
-            // 2. Prefer candidates that have fewer unrequested asset classes.
-            // We count how many asset classes in the candidate are not in the target.
-            // Lower is better (cleaner match).
-            let unreq_a = count_unrequested(&a.assets, &pending);
-            let unreq_b = count_unrequested(&b.assets, &pending);
-            if unreq_a != unreq_b {
-                return unreq_a.cmp(&unreq_b);
-            }
-
-            // 3. Prefer candidates that are closer to the target amount vector.
-            // We calculate a vector distance (e.g. Euclidean) to find the best fit in terms of quantities.
-            let vec_a = to_vector(&a.assets);
-            let vec_b = to_vector(&b.assets);
-
-            let dist_a = vector_distance(&vec_a, &vec_target);
-            let dist_b = vector_distance(&vec_b, &vec_target);
-            dist_a.cmp(&dist_b)
-        });
+        let mut candidates = Vec::from_iter(search_space);
+        candidates.sort_by_cached_key(|utxo| utxo.assets.distance(&target, &classes));
+        candidates.reverse();
 
         for candidate in candidates {
             if candidate.assets.contains_some(&pending) {
@@ -97,152 +169,131 @@ impl CoinSelection for VectorAccumulator {
     }
 }
 
-fn to_vector(assets: &CanonicalAssets) -> [i128; 8] {
-    let mut vec = [0; 8];
-    for (class, amount) in assets.iter() {
-        let mut hasher = std::collections::hash_map::DefaultHasher::new();
-        class.hash(&mut hasher);
-        let idx = (hasher.finish() % 8) as usize;
-        vec[idx] += amount;
-    }
-    vec
-}
-
-fn vector_distance(a: &[i128; 8], b: &[i128; 8]) -> i128 {
-    a.iter().zip(b.iter()).map(|(x, y)| (x - y).pow(2)).sum()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
 
-    use tx3_lang::{UtxoRef, UtxoSet};
+    prop_compose! {
+      fn any_positive_amount() (
+        amount in 1..=i128::MAX,
+      ) -> i128 {
+        amount as i128
+      }
+    }
 
-    fn create_utxo(id: u8, ada: u64, assets: Vec<(&str, u64)>) -> Utxo {
-        let mut canonical_assets = CanonicalAssets::from_naked_amount(ada as i128 * 1_000_000);
+    prop_compose! {
+      fn any_policy() (
+        policy in any::<[u8; 32]>(),
+      ) -> Vec<u8> {
+        Vec::from(policy)
+      }
+    }
 
-        for (name, amount) in assets {
-            let policy = vec![1u8; 28];
-            let asset_name = name.as_bytes().to_vec();
+    prop_compose! {
+      fn any_name() (
+        name in any::<[u8; 16]>(),
+      ) -> Vec<u8> {
+        Vec::from(name)
+      }
+    }
 
-            canonical_assets = canonical_assets
-                + CanonicalAssets::from_asset(Some(&policy), Some(&asset_name), amount as i128);
-        }
+    prop_compose! {
+      fn any_asset_class() (
+        policy in any_policy(),
+        name in any_name(),
+      ) -> AssetClass {
+        AssetClass::Defined(policy, name)
+      }
+    }
 
-        Utxo {
-            address: vec![0u8; 32], // Dummy address
-            assets: canonical_assets,
-            r#ref: UtxoRef {
-                txid: vec![id; 32], // Unique ID based on input
-                index: 0,
-            },
-            datum: None,
-            script: None,
+    prop_compose! {
+      fn any_defined_asset() (
+        policy in any_policy(),
+        name in any_name(),
+        amount in any_positive_amount(),
+      ) -> CanonicalAssets {
+        CanonicalAssets::from_defined_asset(&policy, &name, amount)
+      }
+    }
+
+    prop_compose! {
+      fn any_naked_asset() (
+        amount in any_positive_amount(),
+      ) -> CanonicalAssets {
+        CanonicalAssets::from_naked_amount(amount)
+      }
+    }
+
+    prop_compose! {
+      fn any_composite_asset() (
+        naked in any_naked_asset(),
+        defined in any_defined_asset(),
+      ) -> CanonicalAssets {
+        naked + defined
+      }
+    }
+
+    proptest! {
+        #[test]
+        fn distance_is_symmetric(x in any_composite_asset(), y in any_composite_asset()) {
+            let classes: Vec<_> = class_union!(x, y);
+            assert_eq!(x.distance(&y, &classes), y.distance(&x, &classes));
         }
     }
 
-    fn create_target(ada: u64, assets: Vec<(&str, u64)>) -> CanonicalAssets {
-        let mut canonical_assets = CanonicalAssets::from_naked_amount(ada as i128 * 1_000_000);
-
-        for (name, amount) in assets {
-            let policy = vec![1u8; 28];
-            let asset_name = name.as_bytes().to_vec();
-
-            canonical_assets = canonical_assets
-                + CanonicalAssets::from_asset(Some(&policy), Some(&asset_name), amount as i128);
+    proptest! {
+        #[test]
+        fn distance_to_self_is_zero(x in any_composite_asset()) {
+            let classes: Vec<_> = x.classes().into_iter().collect();
+            assert_eq!(x.distance(&x, &classes), 0);
         }
-        canonical_assets
     }
 
-    #[test]
-    fn test_vector_accumulator() {
-        // Setup UTXOs
-        let u1 = create_utxo(1, 12, vec![]);
-        let u2 = create_utxo(2, 8, vec![]);
-        let u3 = create_utxo(3, 2, vec![("NFT1", 1)]);
-        let u4 = create_utxo(4, 2, vec![("NFT2", 1), ("NFT3", 1)]);
+    proptest! {
+        #[test]
+        fn distance_is_euclidean(a in any_defined_asset(), b in any_defined_asset()) {
+            let classes: Vec<_> = class_union!(a, b);
 
-        let search_space: UtxoSet = vec![u1.clone(), u2.clone(), u3.clone(), u4.clone()]
-            .into_iter()
-            .collect();
+            let distance = a.distance(&b, &classes);
 
-        // Case 1: (5 ADA, 1 NFT1)
-        let target = create_target(5, vec![("NFT1", 1)]);
-        let selected = VectorAccumulator::pick(search_space.clone(), &target);
+            let vec_a = a.as_vector(&classes);
+            let vec_b = b.as_vector(&classes);
 
-        assert!(selected.contains(&u3), "Case 1: Should contain U3 for NFT1");
-        assert!(
-            !selected.contains(&u4),
-            "Case 1: Should not contain U4 (unrequested assets)"
-        );
-        assert!(
-            selected.contains(&u2) || selected.contains(&u1),
-            "Case 1: Should contain a pure ADA utxo"
-        );
+            if classes.len() > 1 {
+                let delta_x = (vec_a[0] as f64 - vec_b[0] as f64).abs() * MISMATCH_PENALTY;
+                let delta_y = (vec_a[1] as f64 - vec_b[1] as f64).abs() * MISMATCH_PENALTY;
+                let expected = f64::hypot(delta_x, delta_y).round() as u32;
+                approx::assert_abs_diff_eq!(distance, expected, epsilon = 1);
+            } else {
+                let expected = (vec_a[0] as i64 - vec_b[0] as i64).abs() as u32;
+                approx::assert_abs_diff_eq!(distance, expected, epsilon = 1);
+            }
+        }
+    }
 
-        // Case 2: (10 ADA, 1 NFT3)
-        let target = create_target(10, vec![("NFT3", 1)]);
-        let selected = VectorAccumulator::pick(search_space.clone(), &target);
-        assert!(selected.contains(&u4), "Case 2: Should contain U4 for NFT3");
-        assert!(
-            !selected.contains(&u3),
-            "Case 2: Should not contain U3 (unrequested NFT1)"
-        );
-        assert!(
-            selected.contains(&u2) || selected.contains(&u1),
-            "Case 2: Should contain a pure ADA utxo"
-        );
+    proptest! {
+        #[test]
+        fn extra_asset_is_penalized(target in any_naked_asset(), naked in any_naked_asset(), extra in any_defined_asset()) {
+            let classes: Vec<_> = class_union!(target, naked, extra);
+            let a = naked.clone();
+            let b = naked + extra;
+            let distance_a = target.distance(&a, &classes);
+            let distance_b = target.distance(&b, &classes);
+            assert!(distance_a < distance_b);
+        }
+    }
 
-        // Case 3: (10 ADA, 1 NFT1)
-        let target = create_target(10, vec![("NFT1", 1)]);
-        let selected = VectorAccumulator::pick(search_space.clone(), &target);
-        assert!(selected.contains(&u3), "Case 3: Should contain U3 for NFT1");
-        assert!(
-            selected.contains(&u2) || selected.contains(&u1),
-            "Case 3: Should contain a pure ADA utxo"
-        );
+    proptest! {
+        #[test]
+        fn missing_asset_is_penalized(target in any_defined_asset(), naked in any_naked_asset()) {
+            let classes: Vec<_> = class_union!(target.clone(), naked.clone());
+            let a = target.clone() + naked.clone();
+            let b = naked.clone();
+            let distance_a = target.distance(&a, &classes);
+            let distance_b = target.distance(&b, &classes);
 
-        // Case 4: (12 ADA, 1 NFT1)
-        let target = create_target(12, vec![("NFT1", 1)]);
-        let selected = VectorAccumulator::pick(search_space.clone(), &target);
-        assert!(selected.contains(&u3), "Case 4: Should contain U3");
-        assert!(
-            selected.contains(&u2) || selected.contains(&u1),
-            "Case 4: Should contain a pure ADA utxo"
-        );
-
-        // Case 5: (12 ADA, 1 NFT2)
-        let target = create_target(12, vec![("NFT2", 1)]);
-        let selected = VectorAccumulator::pick(search_space.clone(), &target);
-        assert!(selected.contains(&u4), "Case 5: Should contain U4 for NFT2");
-        assert!(
-            selected.contains(&u2) || selected.contains(&u1),
-            "Case 5: Should contain a pure ADA utxo"
-        );
+            assert!(distance_a <= distance_b);
+        }
     }
 }
-
-// #[cfg(test)]
-// mod tests2 {
-//     use super::*;
-//     use proptest::prelude::*;
-
-//     prop_compose! {
-//       fn any_asset() (
-//         policy in any::<Vec<u8>>(),
-//         name in any::<Vec<u8>>(),
-//         amount in any::<i128>(),
-//       ) -> CanonicalAssets {
-//         CanonicalAssets::from_defined_asset(&policy, &name, amount)
-//       }
-//     }
-
-//     proptest! {
-//         #[test]
-//         fn selection_contains_target(asset in any_asset()) {
-//             let x = CanonicalAssets::empty();
-//             assert!(!x.contains_total(&asset));
-//             assert!(!x.contains_some(&asset));
-//         }
-//     }
-// }

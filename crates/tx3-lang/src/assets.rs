@@ -1,10 +1,10 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 pub type AssetPolicy = Vec<u8>;
 pub type AssetName = Vec<u8>;
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
 pub enum AssetClass {
     Naked,
     Named(AssetName),
@@ -125,13 +125,21 @@ impl CanonicalAssets {
         }
     }
 
+    pub fn classes(&self) -> HashSet<AssetClass> {
+        self.iter().map(|(class, _)| class.clone()).collect()
+    }
+
     pub fn naked_amount(&self) -> Option<i128> {
         self.get(&AssetClass::Naked).cloned()
     }
 
-    pub fn asset_amount(&self, policy: &[u8], name: &[u8]) -> Option<i128> {
+    pub fn asset_amount2(&self, policy: &[u8], name: &[u8]) -> Option<i128> {
         self.get(&AssetClass::Defined(policy.to_vec(), name.to_vec()))
             .cloned()
+    }
+
+    pub fn asset_amount(&self, asset: &AssetClass) -> Option<i128> {
+        self.get(asset).cloned()
     }
 
     pub fn contains_total(&self, other: &Self) -> bool {
@@ -202,6 +210,15 @@ impl CanonicalAssets {
 
     pub fn is_only_naked(&self) -> bool {
         self.iter().all(|(x, _)| x.is_naked())
+    }
+
+    pub fn as_homogenous_asset(&self) -> Option<(AssetClass, i128)> {
+        if self.0.len() != 1 {
+            return None;
+        }
+
+        let (class, amount) = self.0.iter().next().unwrap();
+        Some((class.clone(), *amount))
     }
 }
 
