@@ -90,6 +90,10 @@ impl CanonicalAssets {
         Self(HashMap::new())
     }
 
+    pub fn from_class_and_amount(class: AssetClass, amount: i128) -> Self {
+        Self(HashMap::from([(class, amount)]))
+    }
+
     pub fn from_naked_amount(amount: i128) -> Self {
         Self(HashMap::from([(AssetClass::Naked, amount)]))
     }

@@ -4,10 +4,10 @@ use tx3_lang::{CanonicalAssets, Utxo, UtxoSet};
 
 use super::CoinSelection;
 
-struct NaiveAccumulator;
+pub struct NaiveSelector;
 
-impl CoinSelection for NaiveAccumulator {
-    fn pick(search_space: UtxoSet, target: &CanonicalAssets) -> HashSet<Utxo> {
+impl CoinSelection for NaiveSelector {
+    fn pick_many(search_space: UtxoSet, target: &CanonicalAssets) -> HashSet<Utxo> {
         let mut matched = HashSet::new();
         let mut pending = target.clone();
 
@@ -35,5 +35,15 @@ impl CoinSelection for NaiveAccumulator {
         }
 
         matched
+    }
+
+    fn pick_single(search_space: UtxoSet, target: &CanonicalAssets) -> UtxoSet {
+        for utxo in search_space.iter() {
+            if utxo.assets.contains_total(target) {
+                return HashSet::from_iter(vec![utxo.clone()]);
+            }
+        }
+
+        HashSet::new()
     }
 }

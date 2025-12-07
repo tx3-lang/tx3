@@ -26,4 +26,4 @@ chainfuzz = { version = "0.2.0" }
 proptest = "1.7.0"
 
 [features]
-naive_accumulator = []
+naive_selector = []

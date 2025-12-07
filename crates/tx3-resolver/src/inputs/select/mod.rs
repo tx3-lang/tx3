@@ -8,7 +8,8 @@ pub mod naive;
 pub mod vector;
 
 pub trait CoinSelection {
-    fn pick(search_space: UtxoSet, target: &CanonicalAssets) -> HashSet<Utxo>;
+    fn pick_many(search_space: UtxoSet, target: &CanonicalAssets) -> UtxoSet;
+    fn pick_single(search_space: UtxoSet, target: &CanonicalAssets) -> UtxoSet;
 }
 
 pub fn find_first_excess_utxo(utxos: &HashSet<Utxo>, target: &CanonicalAssets) -> Option<Utxo> {
@@ -37,19 +38,11 @@ pub fn find_first_excess_utxo(utxos: &HashSet<Utxo>, target: &CanonicalAssets) -
     None
 }
 
-struct FirstFullMatch;
+#[cfg(not(feature = "naive_selector"))]
+pub type Strategy = vector::VectorSelector;
 
-impl CoinSelection for FirstFullMatch {
-    fn pick(search_space: UtxoSet, target: &CanonicalAssets) -> HashSet<Utxo> {
-        for utxo in search_space.iter() {
-            if utxo.assets.contains_total(target) {
-                return HashSet::from_iter(vec![utxo.clone()]);
-            }
-        }
-
-        HashSet::new()
-    }
-}
+#[cfg(feature = "naive_selector")]
+pub type Strategy = naive::NaiveSelector;
 
 pub struct InputSelector<'a, S: UtxoStore> {
     store: &'a S,
@@ -73,16 +66,9 @@ impl<'a, S: UtxoStore> InputSelector<'a, S> {
             .unwrap_or(CanonicalAssets::empty());
 
         if criteria.support_many {
-            #[cfg(feature = "naive_accumulator")]
-            {
-                naive::NaiveAccumulator::pick(utxos, &target)
-            }
-            #[cfg(not(feature = "naive_accumulator"))]
-            {
-                vector::VectorAccumulator::pick(utxos, &target)
-            }
+            Strategy::pick_many(utxos, &target)
         } else {
-            FirstFullMatch::pick(utxos, &target)
+            Strategy::pick_single(utxos, &target)
         }
     }
 

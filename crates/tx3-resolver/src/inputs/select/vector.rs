@@ -130,18 +130,26 @@ impl VectorSpace for UtxoSet {
     }
 }
 
-pub struct VectorAccumulator;
+pub struct VectorSelector;
 
-impl CoinSelection for VectorAccumulator {
-    fn pick(search_space: UtxoSet, target: &CanonicalAssets) -> HashSet<Utxo> {
-        let mut matched = HashSet::new();
-        let mut pending = target.clone();
-
+impl VectorSelector {
+    fn sort_candidates(search_space: UtxoSet, target: &CanonicalAssets) -> Vec<Utxo> {
         let classes: Vec<_> = class_union!(search_space, target);
 
         let mut candidates = Vec::from_iter(search_space);
         candidates.sort_by_cached_key(|utxo| utxo.assets.distance(&target, &classes));
         candidates.reverse();
+
+        candidates
+    }
+}
+
+impl CoinSelection for VectorSelector {
+    fn pick_many(search_space: UtxoSet, target: &CanonicalAssets) -> HashSet<Utxo> {
+        let mut matched = HashSet::new();
+        let mut pending = target.clone();
+
+        let candidates = Self::sort_candidates(search_space, target);
 
         for candidate in candidates {
             if candidate.assets.contains_some(&pending) {
@@ -166,6 +174,17 @@ impl CoinSelection for VectorAccumulator {
         }
 
         matched
+    }
+
+    fn pick_single(search_space: UtxoSet, target: &CanonicalAssets) -> UtxoSet {
+        let candidates = Self::sort_candidates(search_space, target);
+
+        let first_match = candidates
+            .iter()
+            .filter(|utxo| utxo.assets.contains_total(target))
+            .next();
+
+        HashSet::from_iter(first_match.into_iter().cloned())
     }
 }
 
@@ -231,6 +250,19 @@ mod tests {
         defined in any_defined_asset(),
       ) -> CanonicalAssets {
         naked + defined
+      }
+    }
+
+    pub struct AssetConstraint {
+        range: std::ops::RangeInclusive<i128>,
+        class: AssetClass,
+    }
+
+    prop_compose! {
+      fn any_constrained_asset(constraint: AssetConstraint) (
+        amount in constraint.range,
+      ) -> CanonicalAssets {
+        CanonicalAssets::from_class_and_amount(constraint.class.clone(), amount)
       }
     }
 
