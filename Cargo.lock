@@ -48,6 +48,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6b964d184e89d9b6b67dd2715bc8e74cf3107fb2b529990c90cf517326150bf4"
 
 [[package]]
+name = "approx"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cab112f0a86d568ea0e627cc1d6be74a1e9cd55214684db5561995f6dad897c6"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
 name = "assert-json-diff"
 version = "2.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2170,9 +2179,11 @@ dependencies = [
 name = "tx3-resolver"
 version = "0.13.0"
 dependencies = [
+ "approx",
  "chainfuzz",
  "hex",
  "pollster",
+ "proptest",
  "thiserror 2.0.11",
  "trait-variant",
  "tx3-lang",
