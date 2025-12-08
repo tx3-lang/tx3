@@ -4,6 +4,7 @@ use tx3_lang::{CanonicalAssets, Utxo, UtxoSet};
 
 use super::CoinSelection;
 
+#[allow(dead_code)]
 pub struct NaiveSelector;
 
 impl CoinSelection for NaiveSelector {

@@ -5,7 +5,7 @@ use std::collections::{BTreeMap, HashSet};
 use tx3_lang::{
     applying,
     backend::{self, UtxoStore},
-    ir, CanonicalAssets, Utxo, UtxoRef, UtxoSet,
+    ir, CanonicalAssets, UtxoRef, UtxoSet,
 };
 
 pub use crate::inputs::narrow::SearchSpace;

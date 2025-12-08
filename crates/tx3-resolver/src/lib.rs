@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use tx3_lang::{
     applying::{self, Apply as _},
     backend::{self, Compiler, TxEval, UtxoStore},

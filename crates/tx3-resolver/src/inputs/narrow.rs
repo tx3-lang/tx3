@@ -50,6 +50,7 @@ impl Subset {
         }
     }
 
+    #[allow(dead_code)]
     fn is_empty(&self) -> bool {
         match self {
             Self::NotSet => true,
