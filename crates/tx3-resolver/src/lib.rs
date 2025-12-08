@@ -2,19 +2,12 @@ use tx3_lang::{
     applying::{self, Apply as _},
     backend::{self, Compiler, TxEval, UtxoStore},
     ir::{self, Node},
-    UtxoRef,
 };
 
 pub mod inputs;
 
 #[cfg(test)]
 pub mod mock;
-
-pub trait UtxoMempool {
-    fn lock(&self, refs: &[UtxoRef]) -> bool;
-    fn unlock(&self, refs: &[UtxoRef]);
-    fn register_outputs(&self, tx_bytes: &[u8]);
-}
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
