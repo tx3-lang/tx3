@@ -1540,9 +1540,8 @@ impl AstNode for ChainSpecificBlock {
 /// let program = parse_string("tx swap() {}").unwrap();
 /// ```
 pub fn parse_string(input: &str) -> Result<Program, Error> {
-    let mut pairs = Tx3Grammar::parse(Rule::program, input)?;
-    let program = Program::parse(pairs.next().unwrap())?;
-    Ok(program)
+    let pairs = Tx3Grammar::parse(Rule::program, input)?;
+    Program::parse(pairs.into_iter().next().unwrap())
 }
 
 #[cfg(test)]
