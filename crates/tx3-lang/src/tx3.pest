@@ -462,10 +462,8 @@ tx_def = {
     "tx" ~ identifier ~ parameter_list ~ "{" ~ tx_body_block* ~ "}"
 }
 
-file_path = @{ (!"\"" ~ ANY)+ }
-
 cardano_import = {
-  "cardano::import " ~ "\"" ~ file_path ~ "\"" ~ ";"
+  "cardano::import " ~ string ~ ";"
 }
 
 // Program

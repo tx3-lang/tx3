@@ -853,13 +853,21 @@ fn sanitize_type_name(name: &str) -> String {
         .replace(' ', "")
 }
 
-// TODO: add policies, and parameters as well
+// TODO: add policies, and script parameters as well
 pub fn load_externals(
     path: &str,
 ) -> Result<HashMap<String, crate::ast::Symbol>, crate::parsing::Error> {
-    // TODO: add error handling
-    let json = fs::read_to_string(path).unwrap();
-    let bp = serde_json::from_str::<cip_57::Blueprint>(&json).unwrap();
+    let json = fs::read_to_string(path).map_err(|e| crate::parsing::Error {
+        message: format!("Failed to read import file: {}", e),
+        src: "".to_string(), // TODO: propagate source?
+        span: crate::ast::Span::DUMMY,
+    })?;
+    let bp =
+        serde_json::from_str::<cip_57::Blueprint>(&json).map_err(|e| crate::parsing::Error {
+            message: format!("Failed to parse blueprint JSON: {}", e),
+            src: "".to_string(), // TODO: should I add path here?
+            span: crate::ast::Span::DUMMY,
+        })?;
 
     let ref_to_type = |r: &str| -> Type {
         let sanitized = sanitize_type_name(r.strip_prefix("#/definitions/").unwrap_or(r));

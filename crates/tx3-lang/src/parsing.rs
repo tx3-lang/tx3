@@ -12,10 +12,7 @@ use pest::{
 };
 use pest_derive::Parser;
 
-use crate::{
-    ast::*,
-    cardano::{load_externals, PlutusWitnessBlock, PlutusWitnessField},
-};
+use crate::{ast::*, cardano::load_externals};
 #[derive(Parser)]
 #[grammar = "tx3.pest"]
 pub(crate) struct Tx3Grammar;
@@ -94,6 +91,7 @@ impl AstNode for Program {
             aliases: Vec::new(),
             parties: Vec::new(),
             policies: Vec::new(),
+            imports: Vec::new(),
             scope: None,
             span,
         };
@@ -109,19 +107,8 @@ impl AstNode for Program {
                 Rule::party_def => program.parties.push(PartyDef::parse(pair)?),
                 Rule::policy_def => program.policies.push(PolicyDef::parse(pair)?),
                 Rule::cardano_import => {
-                    let import_path = pair.into_inner().as_str();
-                    let external_types = load_externals(import_path)?;
-                    dbg!(&external_types);
-                    if let Some(ref mut scope) = program.scope {
-                        if let Some(scope_mut) = std::rc::Rc::get_mut(scope) {
-                            scope_mut.symbols.extend(external_types);
-                        }
-                    } else {
-                        program.scope = Some(std::rc::Rc::new(Scope {
-                            symbols: external_types,
-                            parent: None,
-                        }));
-                    }
+                    let import_path = pair.into_inner().next().unwrap().as_str().trim_matches('"');
+                    program.imports.push(import_path.to_string());
                 }
                 Rule::EOI => break,
                 x => unreachable!("Unexpected rule in program: {:?}", x),
@@ -1553,8 +1540,9 @@ impl AstNode for ChainSpecificBlock {
 /// let program = parse_string("tx swap() {}").unwrap();
 /// ```
 pub fn parse_string(input: &str) -> Result<Program, Error> {
-    let pairs = Tx3Grammar::parse(Rule::program, input)?;
-    Program::parse(pairs.into_iter().next().unwrap())
+    let mut pairs = Tx3Grammar::parse(Rule::program, input)?;
+    let program = Program::parse(pairs.next().unwrap())?;
+    Ok(program)
 }
 
 #[cfg(test)]
@@ -2642,6 +2630,7 @@ mod tests {
             env: None,
             assets: vec![],
             policies: vec![],
+            imports: vec![],
             span: Span::DUMMY,
             scope: None,
         }

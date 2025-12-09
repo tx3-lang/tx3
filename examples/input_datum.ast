@@ -364,6 +364,7 @@
     }
   ],
   "policies": [],
+  "imports": [],
   "span": {
     "dummy": false,
     "start": 0,

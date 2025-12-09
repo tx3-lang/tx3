@@ -179,6 +179,7 @@ pub struct Program {
     pub assets: Vec<AssetDef>,
     pub parties: Vec<PartyDef>,
     pub policies: Vec<PolicyDef>,
+    pub imports: Vec<String>,
     pub span: Span,
 
     // analysis
