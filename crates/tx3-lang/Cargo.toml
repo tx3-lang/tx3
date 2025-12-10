@@ -16,15 +16,16 @@ readme.workspace = true
 thiserror = { workspace = true }
 trait-variant = { workspace = true }
 hex = { workspace = true }
-
+cip-57 = { version = "0.13.0", path = "../cip-57" }
+serde_json = "1.0.137"
 miette = { version = "7.4.0", features = ["fancy"] }
 pest = { version = "2.7.15", features = ["miette-error", "pretty-print"] }
 pest_derive = "2.7.15"
 serde = { version = "1.0.217", features = ["derive"] }
 ciborium = "0.2.2"
 
+
 [dev-dependencies]
 assert-json-diff = "2.0.2"
 paste = "1.0.15"
 proptest = "1.7.0"
-serde_json = "1.0.137"

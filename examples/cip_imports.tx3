@@ -1,0 +1,34 @@
+cardano::import "imports/plutus.json";
+
+party Sender;
+
+party Receiver;
+
+tx transfer_with_imports(
+    quantity: Int
+) {
+    input source {
+        from: Sender,
+        min_amount: Ada(quantity),
+    }
+    
+    output {
+        to: Receiver,
+        amount: Ada(quantity),
+    }
+
+    output {
+        to: Sender,
+        amount: source - Ada(quantity) - fees,
+        datum: types_SettingsDatum::SettingsDatum {
+          githoney_address: cardano_address_Address::Address{
+            payment_credential: cardano_address_PaymentCredential::VerificationKey {
+              field_0: 0x123123,
+            },
+            stake_credential: Option_cardano_address_StakeCredential::None {},
+          },
+          bounty_creation_fee: 0,
+          bounty_reward_fee: 0,
+        },
+    }
+}

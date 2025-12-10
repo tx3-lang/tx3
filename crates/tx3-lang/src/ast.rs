@@ -179,6 +179,7 @@ pub struct Program {
     pub assets: Vec<AssetDef>,
     pub parties: Vec<PartyDef>,
     pub policies: Vec<PolicyDef>,
+    pub imports: Vec<String>,
     pub span: Span,
 
     // analysis
@@ -907,6 +908,13 @@ pub struct AliasDef {
 }
 
 impl AliasDef {
+    pub fn new(name: &str, target: Type) -> Self {
+        Self {
+            name: Identifier::new(name),
+            alias_type: target,
+            span: Span::DUMMY,
+        }
+    }
     pub fn resolve_alias_chain(&self) -> Option<&TypeDef> {
         match &self.alias_type {
             Type::Custom(identifier) => match &identifier.symbol {

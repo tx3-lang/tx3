@@ -137,16 +137,6 @@
     {
       "name": "cardano_publish",
       "data": {
-        "script": {
-          "Bytes": [
-            130,
-            1,
-            129,
-            130,
-            4,
-            0
-          ]
-        },
         "amount": {
           "Assets": [
             {
@@ -163,6 +153,19 @@
             }
           ]
         },
+        "script": {
+          "Bytes": [
+            130,
+            1,
+            129,
+            130,
+            4,
+            0
+          ]
+        },
+        "version": {
+          "Number": 0
+        },
         "to": {
           "EvalParam": {
             "ExpectValue": [
@@ -170,9 +173,6 @@
               "Address"
             ]
           }
-        },
-        "version": {
-          "Number": 0
         }
       }
     }

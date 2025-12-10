@@ -12,10 +12,7 @@ use pest::{
 };
 use pest_derive::Parser;
 
-use crate::{
-    ast::*,
-    cardano::{PlutusWitnessBlock, PlutusWitnessField},
-};
+use crate::{ast::*, cardano::load_externals};
 #[derive(Parser)]
 #[grammar = "tx3.pest"]
 pub(crate) struct Tx3Grammar;
@@ -94,6 +91,7 @@ impl AstNode for Program {
             aliases: Vec::new(),
             parties: Vec::new(),
             policies: Vec::new(),
+            imports: Vec::new(),
             scope: None,
             span,
         };
@@ -108,6 +106,10 @@ impl AstNode for Program {
                 Rule::alias_def => program.aliases.push(AliasDef::parse(pair)?),
                 Rule::party_def => program.parties.push(PartyDef::parse(pair)?),
                 Rule::policy_def => program.policies.push(PolicyDef::parse(pair)?),
+                Rule::cardano_import => {
+                    let import_path = pair.into_inner().next().unwrap().as_str().trim_matches('"');
+                    program.imports.push(import_path.to_string());
+                }
                 Rule::EOI => break,
                 x => unreachable!("Unexpected rule in program: {:?}", x),
             }
@@ -2627,6 +2629,7 @@ mod tests {
             env: None,
             assets: vec![],
             policies: vec![],
+            imports: vec![],
             span: Span::DUMMY,
             scope: None,
         }
