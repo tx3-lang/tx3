@@ -336,8 +336,7 @@ impl IntoLower for ast::PolicyDef {
 
 impl IntoLower for ast::Type {
     type Output = ir::Type;
-
-    fn into_lower(&self, _: &Context) -> Result<Self::Output, Error> {
+    fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
         match self {
             ast::Type::Undefined => Ok(ir::Type::Undefined),
             ast::Type::Unit => Ok(ir::Type::Unit),
@@ -350,7 +349,15 @@ impl IntoLower for ast::Type {
             ast::Type::AnyAsset => Ok(ir::Type::AnyAsset),
             ast::Type::List(_) => Ok(ir::Type::List),
             ast::Type::Map(_, _) => Ok(ir::Type::Map),
-            ast::Type::Custom(x) => Ok(ir::Type::Custom(x.value.clone())),
+            ast::Type::Custom(x) => {
+                // Check if this custom type is actually a type alias
+                if let Some(symbol) = &x.symbol {
+                    if let Some(alias_def) = symbol.as_alias_def() {
+                        return alias_def.alias_type.into_lower(ctx);
+                    }
+                }
+                Ok(ir::Type::Custom(x.value.clone()))
+            }
         }
     }
 }
