@@ -22,9 +22,16 @@ pest = { version = "2.7.15", features = ["miette-error", "pretty-print"] }
 pest_derive = "2.7.15"
 serde = { version = "1.0.217", features = ["derive"] }
 ciborium = "0.2.2"
+serde_json = { version = "1.0.137", optional = true }
+base64 = { version = "0.22.1", optional = true }
+bech32 = { version = "0.11.1", optional = true }
 
 [dev-dependencies]
 assert-json-diff = "2.0.2"
 paste = "1.0.15"
 proptest = "1.7.0"
 serde_json = "1.0.137"
+
+[features]
+interop = ["serde_json", "bech32", "base64"]
+default = ["interop"]
