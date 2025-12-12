@@ -34,6 +34,9 @@ pub mod loading;
 pub mod lowering;
 pub mod parsing;
 
+#[cfg(feature = "interop")]
+pub mod interop;
+
 // chain specific
 pub mod cardano;
 
