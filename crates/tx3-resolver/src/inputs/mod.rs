@@ -416,12 +416,8 @@ impl TryFrom<ir::InputQuery> for CanonicalQuery {
     }
 }
 
-pub async fn resolve<T: UtxoStore>(
-    tx: ir::Tx,
-    utxos: &T,
-) -> Result<(ir::Tx, HashSet<UtxoRef>), Error> {
+pub async fn resolve<T: UtxoStore>(tx: ir::Tx, utxos: &T) -> Result<ir::Tx, Error> {
     let mut all_inputs = BTreeMap::new();
-    let mut all_refs = HashSet::new();
 
     let mut selector = InputSelector::new(utxos);
 
@@ -430,16 +426,10 @@ pub async fn resolve<T: UtxoStore>(
 
         let space = searching::narrow_search_space(utxos, &query).await?;
 
-        dbg!(&name, &query, &space);
-
         let utxos = selector.select(&space, &query).await?;
 
         if utxos.is_empty() {
             return Err(Error::InputNotResolved(name.to_string(), query, space));
-        }
-
-        for utxo in &utxos {
-            all_refs.insert(utxo.r#ref.clone());
         }
 
         all_inputs.insert(name, utxos);
@@ -447,7 +437,7 @@ pub async fn resolve<T: UtxoStore>(
 
     let out = applying::apply_inputs(tx, &all_inputs)?;
 
-    Ok((out, all_refs))
+    Ok(out)
 }
 
 #[cfg(test)]
