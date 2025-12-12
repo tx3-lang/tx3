@@ -1,4 +1,4 @@
-cardano::import "imports/plutus.json";
+cip57::import "imports/plutus.json";
 
 party Sender;
 
@@ -11,7 +11,7 @@ tx transfer_with_imports(
         from: Sender,
         min_amount: Ada(quantity),
     }
-    
+
     output {
         to: Receiver,
         amount: Ada(quantity),

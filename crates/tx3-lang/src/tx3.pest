@@ -462,14 +462,23 @@ tx_def = {
     "tx" ~ identifier ~ parameter_list ~ "{" ~ tx_body_block* ~ "}"
 }
 
-cardano_import = {
-  "cardano::import " ~ string ~ ";"
+cip57_import = {
+  "cip57::import" ~ string ~ ";"
+}
+
+tx3_import = {
+  "tx3::import" ~ string ~ ";"
+}
+
+import = {
+  cip57_import |
+  tx3_import
 }
 
 // Program
 program = {
     SOI ~
-    (cardano_import)* ~
+    import* ~
     (env_def | asset_def | party_def | policy_def | type_def | tx_def)* ~
     EOI
 }

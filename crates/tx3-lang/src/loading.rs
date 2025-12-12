@@ -59,8 +59,8 @@ pub fn parse_file(path: &str) -> Result<ast::Program, Error> {
 }
 
 fn process_imports(program: &mut ast::Program, base_path: &Path) -> Result<(), Error> {
-    for import_path in &program.imports {
-        let full_path = base_path.join(import_path);
+    for import in &program.imports {
+        let full_path = base_path.join(&import.path);
         let path_str = full_path.to_str().ok_or_else(|| {
             Error::Io(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,

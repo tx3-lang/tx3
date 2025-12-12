@@ -76,6 +76,37 @@ pub trait AstNode: Sized {
     fn span(&self) -> &Span;
 }
 
+impl AstNode for Import {
+    const RULE: Rule = Rule::import;
+
+    fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
+        let span = pair.as_span().into();
+        let mut inner = pair.into_inner();
+
+        let import_rule = inner.next().unwrap();
+        match import_rule.as_rule() {
+            Rule::cip57_import => {
+                let path = import_rule
+                    .into_inner()
+                    .as_str()
+                    .trim_matches('"')
+                    .to_string();
+                Ok(Import {
+                    span,
+                    path,
+                    kind: ImportKind::Cip57,
+                })
+            }
+            Rule::tx3_import => todo!(),
+            x => unreachable!("Unexpected rule in import: {:?}", x),
+        }
+    }
+
+    fn span(&self) -> &Span {
+        &self.span
+    }
+}
+
 impl AstNode for Program {
     const RULE: Rule = Rule::program;
 
@@ -106,10 +137,7 @@ impl AstNode for Program {
                 Rule::alias_def => program.aliases.push(AliasDef::parse(pair)?),
                 Rule::party_def => program.parties.push(PartyDef::parse(pair)?),
                 Rule::policy_def => program.policies.push(PolicyDef::parse(pair)?),
-                Rule::cardano_import => {
-                    let import_path = pair.into_inner().next().unwrap().as_str().trim_matches('"');
-                    program.imports.push(import_path.to_string());
-                }
+                Rule::import => program.imports.push(Import::parse(pair)?),
                 Rule::EOI => break,
                 x => unreachable!("Unexpected rule in program: {:?}", x),
             }

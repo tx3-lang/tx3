@@ -170,6 +170,19 @@ impl AsRef<str> for Identifier {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum ImportKind {
+    Cip57,
+    Tx3,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Import {
+    pub span: Span,
+    pub path: String,
+    pub kind: ImportKind,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct Program {
     pub env: Option<EnvDef>,
@@ -179,7 +192,7 @@ pub struct Program {
     pub assets: Vec<AssetDef>,
     pub parties: Vec<PartyDef>,
     pub policies: Vec<PolicyDef>,
-    pub imports: Vec<String>,
+    pub imports: Vec<Import>,
     pub span: Span,
 
     // analysis

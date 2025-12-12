@@ -843,7 +843,7 @@ impl IntoLower for CardanoBlock {
 
 /// Sanitizes a type name to be a valid tx3 identifier.
 /// Replaces characters like `<`, `>`, `,`, `/`, `$`, `~1` with underscores.
-fn sanitize_type_name(name: &str) -> String {
+fn generic_sanitizer(name: &str) -> String {
     name.replace("~1", "_") // URL-encoded `/` in JSON references
         .replace('/', "_")
         .replace('$', "_")
@@ -853,7 +853,21 @@ fn sanitize_type_name(name: &str) -> String {
         .replace(' ', "")
 }
 
-// TODO: add policies, and script parameters as well
+pub enum LoadKind {
+    Cip57,
+}
+
+pub enum Compiler {
+    Aiken,
+    Unknown,
+}
+
+pub struct ExternalLoader {
+    pub path: String,
+    pub kind: LoadKind,
+    pub compiler: Compiler,
+}
+
 pub fn load_externals(
     path: &str,
 ) -> Result<HashMap<String, crate::ast::Symbol>, crate::parsing::Error> {
@@ -870,7 +884,7 @@ pub fn load_externals(
         })?;
 
     let ref_to_type = |r: &str| -> Type {
-        let sanitized = sanitize_type_name(r.strip_prefix("#/definitions/").unwrap_or(r));
+        let sanitized = generic_sanitizer(r.strip_prefix("#/definitions/").unwrap_or(r));
         Type::Custom(Identifier::new(&sanitized))
     };
 
@@ -882,7 +896,7 @@ pub fn load_externals(
         .into_iter()
         .flatten()
     {
-        let name = sanitize_type_name(key);
+        let name = generic_sanitizer(key);
 
         let new = match def.data_type {
             Some(cip_57::DataType::Integer) => Some(Symbol::AliasDef(Box::new(
