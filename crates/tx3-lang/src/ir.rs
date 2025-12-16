@@ -13,7 +13,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::{Utxo, UtxoRef};
 
-pub const IR_VERSION: &str = "v1alpha8";
+pub const IR_VERSION: &str = "v1beta0";
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct StructExpr {
