@@ -79,7 +79,6 @@ fn process_imports(program: &mut ast::Program, base_path: &Path) -> Result<(), E
                 parent: None,
             }));
         }
-        dbg!(&program.scope.clone().unwrap().symbols.clone().into_keys());
     }
     Ok(())
 }

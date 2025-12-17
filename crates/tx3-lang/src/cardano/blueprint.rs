@@ -254,5 +254,9 @@ mod tests {
             generic_sanitizer("some ~1 weird ~0 thing"),
             "some_weird~0thing"
         );
+        assert_eq!(
+            generic_sanitizer("Result<Option<Int>, String>"),
+            "Result_Option_Int_String"
+        );
     }
 }
