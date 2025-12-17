@@ -722,4 +722,43 @@ mod tests {
             panic!("Expected TypeDef for TicketerRedeemer, got {:?}", redeemer);
         }
     }
+    #[test]
+    fn test_load_externals_generic_compiler() {
+        let json = r##"{
+            "preamble": {
+                "title": "Test",
+                "description": "Test",
+                "version": "1.0.0",
+                "plutusVersion": "v1",
+                "compiler": {
+                    "name": "Test",
+                    "version": "0.0.0"
+                },
+                "license": "MIT"
+            },
+            "validators": [],
+            "definitions": {
+                "Option<Int>": {
+                    "dataType": "integer"
+                }
+            }
+        }"##;
+
+        use std::io::Write;
+
+        let mut path = std::env::temp_dir();
+        path.push(format!("tx3_test_generic_{}.json", std::process::id()));
+
+        {
+            let mut file = std::fs::File::create(&path).unwrap();
+            file.write_all(json.as_bytes()).unwrap();
+        }
+
+        let symbols = load_externals(path.to_str().unwrap()).unwrap();
+
+        let _ = std::fs::remove_file(&path);
+
+        assert!(symbols.contains_key("Option_Int"));
+        assert!(!symbols.contains_key("OptionInt"));
+    }
 }

@@ -244,4 +244,15 @@ mod tests {
         );
         assert_eq!(mapping.get("types/Datum").unwrap(), "TypesDatum");
     }
+    #[test]
+    fn test_generic_sanitizer() {
+        assert_eq!(generic_sanitizer("simple"), "simple");
+        assert_eq!(generic_sanitizer("path/to/something"), "path_to_something");
+        assert_eq!(generic_sanitizer("Option<Int>"), "Option_Int");
+        assert_eq!(generic_sanitizer("Map<K, V>"), "Map_K_V");
+        assert_eq!(
+            generic_sanitizer("some ~1 weird ~0 thing"),
+            "some_weird~0thing"
+        );
+    }
 }
