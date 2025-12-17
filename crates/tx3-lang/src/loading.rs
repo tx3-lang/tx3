@@ -79,6 +79,7 @@ fn process_imports(program: &mut ast::Program, base_path: &Path) -> Result<(), E
                 parent: None,
             }));
         }
+        dbg!(&program.scope.clone().unwrap().symbols.clone().into_keys());
     }
     Ok(())
 }
@@ -222,7 +223,7 @@ pub mod tests {
         let scope = program.scope.as_ref().unwrap();
 
         assert!(scope.symbols.contains_key("Int"));
-        assert!(scope.symbols.contains_key("cardano_assets_AssetName"));
-        assert!(scope.symbols.contains_key("cardano_transaction_Datum"));
+        assert!(scope.symbols.contains_key("AssetName"));
+        assert!(scope.symbols.contains_key("Datum"));
     }
 }

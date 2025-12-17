@@ -1,4 +1,4 @@
-cip57::import "imports/plutus.json";
+blueprint::import "imports/plutus.json";
 
 party Sender;
 
@@ -20,12 +20,12 @@ tx transfer_with_imports(
     output {
         to: Sender,
         amount: source - Ada(quantity) - fees,
-        datum: types_SettingsDatum::SettingsDatum {
-          githoney_address: cardano_address_Address::Address{
-            payment_credential: cardano_address_PaymentCredential::VerificationKey {
+        datum: SettingsDatum::SettingsDatum {
+          githoney_address: Address::Address{
+            payment_credential: PaymentCredential::VerificationKey {
               field_0: 0x123123,
             },
-            stake_credential: Option_cardano_address_StakeCredential::None {},
+            stake_credential: OptionStakeCredential::None {},
           },
           bounty_creation_fee: 0,
           bounty_reward_fee: 0,

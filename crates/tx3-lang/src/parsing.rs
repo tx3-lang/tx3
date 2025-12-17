@@ -12,7 +12,7 @@ use pest::{
 };
 use pest_derive::Parser;
 
-use crate::{ast::*, cardano::load_externals};
+use crate::ast::*;
 #[derive(Parser)]
 #[grammar = "tx3.pest"]
 pub(crate) struct Tx3Grammar;
@@ -85,7 +85,7 @@ impl AstNode for Import {
 
         let import_rule = inner.next().unwrap();
         match import_rule.as_rule() {
-            Rule::cip57_import => {
+            Rule::blueprint_import => {
                 let path = import_rule
                     .into_inner()
                     .as_str()
@@ -94,7 +94,7 @@ impl AstNode for Import {
                 Ok(Import {
                     span,
                     path,
-                    kind: ImportKind::Cip57,
+                    kind: ImportKind::Blueprint,
                 })
             }
             Rule::tx3_import => todo!(),

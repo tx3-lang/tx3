@@ -462,8 +462,8 @@ tx_def = {
     "tx" ~ identifier ~ parameter_list ~ "{" ~ tx_body_block* ~ "}"
 }
 
-cip57_import = {
-  "cip57::import" ~ string ~ ";"
+blueprint_import = {
+  "blueprint::import" ~ string ~ ";"
 }
 
 tx3_import = {
@@ -471,7 +471,7 @@ tx3_import = {
 }
 
 import = {
-  cip57_import |
+  blueprint_import |
   tx3_import
 }
 

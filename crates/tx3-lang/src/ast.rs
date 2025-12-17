@@ -182,7 +182,7 @@ impl AsRef<str> for Identifier {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ImportKind {
-    Cip57,
+    Blueprint,
     Tx3,
 }
 
