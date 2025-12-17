@@ -17,6 +17,16 @@ pub struct Scope {
     pub(crate) parent: Option<Rc<Scope>>,
 }
 
+impl Scope {
+    pub fn symbols(&self) -> &HashMap<String, Symbol> {
+        &self.symbols
+    }
+
+    pub fn parent(&self) -> Option<&Rc<Scope>> {
+        self.parent.as_ref()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Symbol {
     EnvVar(String, Box<Type>),
@@ -170,6 +180,19 @@ impl AsRef<str> for Identifier {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum ImportKind {
+    Blueprint,
+    Tx3,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Import {
+    pub span: Span,
+    pub path: String,
+    pub kind: ImportKind,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct Program {
     pub env: Option<EnvDef>,
@@ -179,11 +202,18 @@ pub struct Program {
     pub assets: Vec<AssetDef>,
     pub parties: Vec<PartyDef>,
     pub policies: Vec<PolicyDef>,
+    pub imports: Vec<Import>,
     pub span: Span,
 
     // analysis
     #[serde(skip)]
     pub(crate) scope: Option<Rc<Scope>>,
+}
+
+impl Program {
+    pub fn scope(&self) -> Option<&Rc<Scope>> {
+        self.scope.as_ref()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -907,6 +937,13 @@ pub struct AliasDef {
 }
 
 impl AliasDef {
+    pub fn new(name: &str, target: Type) -> Self {
+        Self {
+            name: Identifier::new(name),
+            alias_type: target,
+            span: Span::DUMMY,
+        }
+    }
     pub fn resolve_alias_chain(&self) -> Option<&TypeDef> {
         match &self.alias_type {
             Type::Custom(identifier) => match &identifier.symbol {

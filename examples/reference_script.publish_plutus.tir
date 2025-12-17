@@ -140,22 +140,6 @@
         "version": {
           "Number": 3
         },
-        "amount": {
-          "Assets": [
-            {
-              "policy": "None",
-              "asset_name": "None",
-              "amount": {
-                "EvalParam": {
-                  "ExpectValue": [
-                    "quantity",
-                    "Int"
-                  ]
-                }
-              }
-            }
-          ]
-        },
         "script": {
           "Bytes": [
             81,
@@ -185,6 +169,22 @@
               "Address"
             ]
           }
+        },
+        "amount": {
+          "Assets": [
+            {
+              "policy": "None",
+              "asset_name": "None",
+              "amount": {
+                "EvalParam": {
+                  "ExpectValue": [
+                    "quantity",
+                    "Int"
+                  ]
+                }
+              }
+            }
+          ]
         }
       }
     }

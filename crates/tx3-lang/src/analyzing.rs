@@ -1439,7 +1439,7 @@ impl Analyzable for Program {
 /// # Returns
 /// * `AnalyzeReport` of the analysis. Empty if no errors are found.
 pub fn analyze(ast: &mut Program) -> AnalyzeReport {
-    ast.analyze(None)
+    ast.analyze(ast.scope.clone())
 }
 
 #[cfg(test)]

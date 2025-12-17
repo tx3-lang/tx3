@@ -21,6 +21,8 @@ pub enum Error {
     InvalidEnvFile(String),
 }
 
+use crate::cardano::load_externals;
+
 /// Parses a Tx3 source file into a Program AST.
 ///
 /// # Arguments
@@ -46,8 +48,39 @@ pub enum Error {
 /// ```
 pub fn parse_file(path: &str) -> Result<ast::Program, Error> {
     let input = std::fs::read_to_string(path)?;
-    let program = parsing::parse_string(&input)?;
+    let mut program = parsing::parse_string(&input)?;
+    // Should it be configurable by trix.toml? A path for imports like "../onchain" and all imports
+    // would be really clean
+    let base_path = std::path::Path::new(path)
+        .parent()
+        .unwrap_or(std::path::Path::new("."));
+    process_imports(&mut program, base_path)?;
     Ok(program)
+}
+
+fn process_imports(program: &mut ast::Program, base_path: &Path) -> Result<(), Error> {
+    for import in &program.imports {
+        let full_path = base_path.join(&import.path);
+        let path_str = full_path.to_str().ok_or_else(|| {
+            Error::Io(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "Invalid path",
+            ))
+        })?;
+        let external_types = load_externals(path_str)?;
+
+        if let Some(ref mut scope) = program.scope {
+            if let Some(scope_mut) = std::rc::Rc::get_mut(scope) {
+                scope_mut.symbols.extend(external_types);
+            }
+        } else {
+            program.scope = Some(std::rc::Rc::new(ast::Scope {
+                symbols: external_types,
+                parent: None,
+            }));
+        }
+    }
+    Ok(())
 }
 
 pub type ArgMap = std::collections::HashMap<String, ArgValue>;
@@ -132,13 +165,18 @@ impl ProtocolLoader {
     }
 
     pub fn load(self) -> Result<Protocol, Error> {
-        let code = match (self.code_file, self.code_string) {
+        let code = match (&self.code_file, &self.code_string) {
             (Some(file), None) => std::fs::read_to_string(file)?,
-            (None, Some(code)) => code,
+            (None, Some(code)) => code.clone(),
             _ => unreachable!(),
         };
 
         let mut ast = parsing::parse_string(&code)?;
+
+        if let Some(file) = &self.code_file {
+            let base_path = file.parent().unwrap_or(std::path::Path::new("."));
+            process_imports(&mut ast, base_path)?;
+        }
 
         if self.analyze {
             analyzing::analyze(&mut ast).ok()?;
@@ -172,5 +210,19 @@ pub mod tests {
     fn smoke_test_parse_file() {
         let manifest_dir = env!("CARGO_MANIFEST_DIR");
         let _ = parse_file(&format!("{}/../..//examples/transfer.tx3", manifest_dir)).unwrap();
+    }
+
+    #[test]
+    fn test_cardano_import() {
+        let manifest_dir = env!("CARGO_MANIFEST_DIR");
+        let path = format!("{}/../../examples/cip_imports.tx3", manifest_dir);
+        let program = parse_file(&path).unwrap();
+
+        assert!(program.scope.is_some());
+        let scope = program.scope.as_ref().unwrap();
+
+        assert!(scope.symbols.contains_key("Int"));
+        assert!(scope.symbols.contains_key("AssetName"));
+        assert!(scope.symbols.contains_key("Datum"));
     }
 }

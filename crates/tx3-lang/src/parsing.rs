@@ -12,10 +12,7 @@ use pest::{
 };
 use pest_derive::Parser;
 
-use crate::{
-    ast::*,
-    cardano::{PlutusWitnessBlock, PlutusWitnessField},
-};
+use crate::ast::*;
 #[derive(Parser)]
 #[grammar = "tx3.pest"]
 pub(crate) struct Tx3Grammar;
@@ -79,6 +76,37 @@ pub trait AstNode: Sized {
     fn span(&self) -> &Span;
 }
 
+impl AstNode for Import {
+    const RULE: Rule = Rule::import;
+
+    fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
+        let span = pair.as_span().into();
+        let mut inner = pair.into_inner();
+
+        let import_rule = inner.next().unwrap();
+        match import_rule.as_rule() {
+            Rule::blueprint_import => {
+                let path = import_rule
+                    .into_inner()
+                    .as_str()
+                    .trim_matches('"')
+                    .to_string();
+                Ok(Import {
+                    span,
+                    path,
+                    kind: ImportKind::Blueprint,
+                })
+            }
+            Rule::tx3_import => todo!(),
+            x => unreachable!("Unexpected rule in import: {:?}", x),
+        }
+    }
+
+    fn span(&self) -> &Span {
+        &self.span
+    }
+}
+
 impl AstNode for Program {
     const RULE: Rule = Rule::program;
 
@@ -94,6 +122,7 @@ impl AstNode for Program {
             aliases: Vec::new(),
             parties: Vec::new(),
             policies: Vec::new(),
+            imports: Vec::new(),
             scope: None,
             span,
         };
@@ -108,6 +137,7 @@ impl AstNode for Program {
                 Rule::alias_def => program.aliases.push(AliasDef::parse(pair)?),
                 Rule::party_def => program.parties.push(PartyDef::parse(pair)?),
                 Rule::policy_def => program.policies.push(PolicyDef::parse(pair)?),
+                Rule::import => program.imports.push(Import::parse(pair)?),
                 Rule::EOI => break,
                 x => unreachable!("Unexpected rule in program: {:?}", x),
             }
@@ -2627,6 +2657,7 @@ mod tests {
             env: None,
             assets: vec![],
             policies: vec![],
+            imports: vec![],
             span: Span::DUMMY,
             scope: None,
         }

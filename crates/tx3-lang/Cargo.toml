@@ -16,7 +16,7 @@ readme.workspace = true
 thiserror = { workspace = true }
 trait-variant = { workspace = true }
 hex = { workspace = true }
-
+cip-57 = { version = "0.13.0", path = "../cip-57" }
 miette = { version = "7.4.0", features = ["fancy"] }
 pest = { version = "2.7.15", features = ["miette-error", "pretty-print"] }
 pest_derive = "2.7.15"
@@ -25,6 +25,7 @@ ciborium = "0.2.2"
 serde_json = { version = "1.0.137", optional = true }
 base64 = { version = "0.22.1", optional = true }
 bech32 = { version = "0.11.1", optional = true }
+
 
 [dev-dependencies]
 assert-json-diff = "2.0.2"

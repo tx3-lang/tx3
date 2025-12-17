@@ -329,6 +329,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "cip-57"
+version = "0.13.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "core-foundation"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2171,6 +2179,7 @@ dependencies = [
  "base64 0.22.1",
  "bech32 0.11.1",
  "ciborium",
+ "cip-57",
  "hex",
  "miette",
  "paste",
