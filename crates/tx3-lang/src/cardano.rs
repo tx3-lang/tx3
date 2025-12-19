@@ -91,15 +91,19 @@ impl AstNode for WithdrawalBlock {
 }
 
 impl Analyzable for WithdrawalField {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+    fn analyze(
+        &mut self,
+        parent: Option<Rc<Scope>>,
+        ctx: &mut crate::analyzing::Context,
+    ) -> AnalyzeReport {
         match self {
-            WithdrawalField::From(x) => x.analyze(parent),
+            WithdrawalField::From(x) => x.analyze(parent, ctx),
             WithdrawalField::Amount(x) => {
-                let amount = x.analyze(parent.clone());
-                let amount_type = AnalyzeReport::expect_data_expr_type(x, &Type::Int);
+                let amount = x.analyze(parent.clone(), ctx);
+                let amount_type = AnalyzeReport::expect_data_expr_type(x, &Type::Int, ctx);
                 amount + amount_type
             }
-            WithdrawalField::Redeemer(x) => x.analyze(parent),
+            WithdrawalField::Redeemer(x) => x.analyze(parent, ctx),
         }
     }
 
@@ -113,8 +117,12 @@ impl Analyzable for WithdrawalField {
 }
 
 impl Analyzable for WithdrawalBlock {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        self.fields.analyze(parent)
+    fn analyze(
+        &mut self,
+        parent: Option<Rc<Scope>>,
+        ctx: &mut crate::analyzing::Context,
+    ) -> AnalyzeReport {
+        self.fields.analyze(parent, ctx)
     }
 
     fn is_resolved(&self) -> bool {
@@ -205,9 +213,13 @@ impl AstNode for VoteDelegationCertificate {
 }
 
 impl Analyzable for VoteDelegationCertificate {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        let drep = self.drep.analyze(parent.clone());
-        let stake = self.stake.analyze(parent.clone());
+    fn analyze(
+        &mut self,
+        parent: Option<Rc<Scope>>,
+        ctx: &mut crate::analyzing::Context,
+    ) -> AnalyzeReport {
+        let drep = self.drep.analyze(parent.clone(), ctx);
+        let stake = self.stake.analyze(parent.clone(), ctx);
 
         drep + stake
     }
@@ -261,9 +273,13 @@ impl AstNode for StakeDelegationCertificate {
 }
 
 impl Analyzable for StakeDelegationCertificate {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        let pool = self.pool.analyze(parent.clone());
-        let stake = self.stake.analyze(parent.clone());
+    fn analyze(
+        &mut self,
+        parent: Option<Rc<Scope>>,
+        ctx: &mut crate::analyzing::Context,
+    ) -> AnalyzeReport {
+        let pool = self.pool.analyze(parent.clone(), ctx);
+        let stake = self.stake.analyze(parent.clone(), ctx);
 
         pool + stake
     }
@@ -330,10 +346,14 @@ impl AstNode for PlutusWitnessField {
 }
 
 impl Analyzable for PlutusWitnessField {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+    fn analyze(
+        &mut self,
+        parent: Option<Rc<Scope>>,
+        ctx: &mut crate::analyzing::Context,
+    ) -> AnalyzeReport {
         match self {
-            PlutusWitnessField::Version(x, _) => x.analyze(parent),
-            PlutusWitnessField::Script(x, _) => x.analyze(parent),
+            PlutusWitnessField::Version(x, _) => x.analyze(parent, ctx),
+            PlutusWitnessField::Script(x, _) => x.analyze(parent, ctx),
         }
     }
 
@@ -371,8 +391,12 @@ impl AstNode for PlutusWitnessBlock {
 }
 
 impl Analyzable for PlutusWitnessBlock {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        self.fields.analyze(parent)
+    fn analyze(
+        &mut self,
+        parent: Option<Rc<Scope>>,
+        ctx: &mut crate::analyzing::Context,
+    ) -> AnalyzeReport {
+        self.fields.analyze(parent, ctx)
     }
 
     fn is_resolved(&self) -> bool {
@@ -440,9 +464,13 @@ impl AstNode for NativeWitnessField {
 }
 
 impl Analyzable for NativeWitnessField {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+    fn analyze(
+        &mut self,
+        parent: Option<Rc<Scope>>,
+        ctx: &mut crate::analyzing::Context,
+    ) -> AnalyzeReport {
         match self {
-            NativeWitnessField::Script(x, _) => x.analyze(parent),
+            NativeWitnessField::Script(x, _) => x.analyze(parent, ctx),
         }
     }
 
@@ -479,8 +507,12 @@ impl AstNode for NativeWitnessBlock {
 }
 
 impl Analyzable for NativeWitnessBlock {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        self.fields.analyze(parent)
+    fn analyze(
+        &mut self,
+        parent: Option<Rc<Scope>>,
+        ctx: &mut crate::analyzing::Context,
+    ) -> AnalyzeReport {
+        self.fields.analyze(parent, ctx)
     }
 
     fn is_resolved(&self) -> bool {
@@ -532,9 +564,13 @@ impl AstNode for TreasuryDonationBlock {
 }
 
 impl Analyzable for TreasuryDonationBlock {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        let coin = self.coin.analyze(parent);
-        let coin_type = AnalyzeReport::expect_data_expr_type(&self.coin, &Type::Int);
+    fn analyze(
+        &mut self,
+        parent: Option<Rc<Scope>>,
+        ctx: &mut crate::analyzing::Context,
+    ) -> AnalyzeReport {
+        let coin = self.coin.analyze(parent, ctx);
+        let coin_type = AnalyzeReport::expect_data_expr_type(&self.coin, &Type::Int, ctx);
 
         coin + coin_type
     }
@@ -672,13 +708,17 @@ impl AstNode for CardanoPublishBlock {
 }
 
 impl Analyzable for CardanoPublishBlockField {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+    fn analyze(
+        &mut self,
+        parent: Option<Rc<Scope>>,
+        ctx: &mut crate::analyzing::Context,
+    ) -> AnalyzeReport {
         match self {
-            CardanoPublishBlockField::To(x) => x.analyze(parent),
-            CardanoPublishBlockField::Amount(x) => x.analyze(parent),
-            CardanoPublishBlockField::Datum(x) => x.analyze(parent),
-            CardanoPublishBlockField::Version(x) => x.analyze(parent),
-            CardanoPublishBlockField::Script(x) => x.analyze(parent),
+            CardanoPublishBlockField::To(x) => x.analyze(parent, ctx),
+            CardanoPublishBlockField::Amount(x) => x.analyze(parent, ctx),
+            CardanoPublishBlockField::Datum(x) => x.analyze(parent, ctx),
+            CardanoPublishBlockField::Version(x) => x.analyze(parent, ctx),
+            CardanoPublishBlockField::Script(x) => x.analyze(parent, ctx),
         }
     }
 
@@ -694,8 +734,12 @@ impl Analyzable for CardanoPublishBlockField {
 }
 
 impl Analyzable for CardanoPublishBlock {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        self.fields.analyze(parent)
+    fn analyze(
+        &mut self,
+        parent: Option<Rc<Scope>>,
+        ctx: &mut crate::analyzing::Context,
+    ) -> AnalyzeReport {
+        self.fields.analyze(parent, ctx)
     }
 
     fn is_resolved(&self) -> bool {
@@ -798,15 +842,19 @@ impl AstNode for CardanoBlock {
 }
 
 impl Analyzable for CardanoBlock {
-    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+    fn analyze(
+        &mut self,
+        parent: Option<Rc<Scope>>,
+        ctx: &mut crate::analyzing::Context,
+    ) -> AnalyzeReport {
         match self {
-            CardanoBlock::VoteDelegationCertificate(x) => x.analyze(parent),
-            CardanoBlock::StakeDelegationCertificate(x) => x.analyze(parent),
-            CardanoBlock::Withdrawal(x) => x.analyze(parent),
-            CardanoBlock::PlutusWitness(x) => x.analyze(parent),
-            CardanoBlock::NativeWitness(x) => x.analyze(parent),
-            CardanoBlock::TreasuryDonation(x) => x.analyze(parent),
-            CardanoBlock::Publish(x) => x.analyze(parent),
+            CardanoBlock::VoteDelegationCertificate(x) => x.analyze(parent, ctx),
+            CardanoBlock::StakeDelegationCertificate(x) => x.analyze(parent, ctx),
+            CardanoBlock::Withdrawal(x) => x.analyze(parent, ctx),
+            CardanoBlock::PlutusWitness(x) => x.analyze(parent, ctx),
+            CardanoBlock::NativeWitness(x) => x.analyze(parent, ctx),
+            CardanoBlock::TreasuryDonation(x) => x.analyze(parent, ctx),
+            CardanoBlock::Publish(x) => x.analyze(parent, ctx),
         }
     }
 

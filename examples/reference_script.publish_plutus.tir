@@ -137,9 +137,6 @@
     {
       "name": "cardano_publish",
       "data": {
-        "version": {
-          "Number": 3
-        },
         "amount": {
           "Assets": [
             {
@@ -155,6 +152,9 @@
               }
             }
           ]
+        },
+        "version": {
+          "Number": 3
         },
         "script": {
           "Bytes": [

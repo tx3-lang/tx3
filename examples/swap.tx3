@@ -25,17 +25,17 @@ tx swap(
             bid_value: bid,
         },
     }
-    
+
     input payment {
-        from: Buyer,    
+        from: Buyer,
         min_amount: fees + bid,
     }
-    
+
     output {
         to: Dex,
         datum: PoolState {
-            pair_a: pool.pair_a - bid.amount,
-            pair_b: pool.pair_b + ask.amount,
+            pair_a: pool.pair_a - bid,
+            pair_b: pool.pair_b + ask,
             ...pool
         },
         amount: pool,
