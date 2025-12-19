@@ -1,8 +1,8 @@
 use std::str::FromStr as _;
 
 use pallas::{codec::utils::Int, ledger::primitives::conway as primitives};
-use tx3_lang::backend::Error;
-use tx3_lang::ir;
+use tx3_tir::compile::Error;
+use tx3_tir::model::v1beta0 as tir;
 
 use crate::Network;
 
@@ -36,10 +36,10 @@ pub fn policy_into_address(
     Ok(address.into())
 }
 
-pub fn expr_into_number(expr: &ir::Expression) -> Result<i128, Error> {
+pub fn expr_into_number(expr: &tir::Expression) -> Result<i128, Error> {
     match expr {
-        ir::Expression::Number(x) => Ok(*x),
-        ir::Expression::Assets(x) if x.len() == 1 => expr_into_number(&x[0].amount),
+        tir::Expression::Number(x) => Ok(*x),
+        tir::Expression::Assets(x) if x.len() == 1 => expr_into_number(&x[0].amount),
         _ => Err(Error::CoerceError(
             format!("{expr:?}"),
             "Number".to_string(),
@@ -48,16 +48,16 @@ pub fn expr_into_number(expr: &ir::Expression) -> Result<i128, Error> {
 }
 
 pub fn expr_into_metadatum(
-    expr: &ir::Expression,
+    expr: &tir::Expression,
 ) -> Result<pallas::ledger::primitives::alonzo::Metadatum, Error> {
     match expr {
-        ir::Expression::Number(x) => Ok(pallas::ledger::primitives::alonzo::Metadatum::Int(
+        tir::Expression::Number(x) => Ok(pallas::ledger::primitives::alonzo::Metadatum::Int(
             Int::from(*x as i64),
         )),
-        ir::Expression::String(x) => Ok(pallas::ledger::primitives::alonzo::Metadatum::Text(
+        tir::Expression::String(x) => Ok(pallas::ledger::primitives::alonzo::Metadatum::Text(
             x.clone(),
         )),
-        ir::Expression::Bytes(x) => Ok(pallas::ledger::primitives::alonzo::Metadatum::Bytes(
+        tir::Expression::Bytes(x) => Ok(pallas::ledger::primitives::alonzo::Metadatum::Bytes(
             primitives::Bytes::from(x.clone()),
         )),
         _ => Err(Error::CoerceError(
@@ -67,13 +67,13 @@ pub fn expr_into_metadatum(
     }
 }
 
-pub fn expr_into_utxo_refs(expr: &ir::Expression) -> Result<Vec<tx3_lang::UtxoRef>, Error> {
+pub fn expr_into_utxo_refs(expr: &tir::Expression) -> Result<Vec<tir::UtxoRef>, Error> {
     match expr {
-        ir::Expression::UtxoRefs(x) => Ok(x.clone()),
-        ir::Expression::UtxoSet(x) => Ok(x.iter().map(|x| x.r#ref.clone()).collect()),
-        ir::Expression::String(x) => {
+        tir::Expression::UtxoRefs(x) => Ok(x.clone()),
+        tir::Expression::UtxoSet(x) => Ok(x.iter().map(|x| x.r#ref.clone()).collect()),
+        tir::Expression::String(x) => {
             let (raw_txid, raw_output_ix) = x.split_once("#").expect("Invalid utxo ref");
-            Ok(vec![tx3_lang::UtxoRef {
+            Ok(vec![tir::UtxoRef {
                 txid: hex::decode(raw_txid).expect("Invalid hex txid"),
                 index: raw_output_ix.parse().expect("Invalid output index"),
             }])
@@ -85,9 +85,9 @@ pub fn expr_into_utxo_refs(expr: &ir::Expression) -> Result<Vec<tx3_lang::UtxoRe
     }
 }
 
-pub fn expr_into_assets(ir: &ir::Expression) -> Result<Vec<ir::AssetExpr>, Error> {
+pub fn expr_into_assets(ir: &tir::Expression) -> Result<Vec<tir::AssetExpr>, Error> {
     match ir {
-        ir::Expression::Assets(x) => Ok(x.clone()),
+        tir::Expression::Assets(x) => Ok(x.clone()),
         _ => Err(Error::CoerceError(format!("{ir:?}"), "Assets".to_string())),
     }
 }
@@ -124,7 +124,7 @@ pub fn address_into_stake_credential(
 }
 
 pub fn expr_into_reward_account(
-    expr: &ir::Expression,
+    expr: &tir::Expression,
     network: Network,
 ) -> Result<primitives::RewardAccount, Error> {
     let address = expr_into_address(expr, network)?;
@@ -143,7 +143,7 @@ pub fn expr_into_reward_account(
 }
 
 pub fn expr_into_stake_credential(
-    expr: &ir::Expression,
+    expr: &tir::Expression,
     network: Network,
 ) -> Result<primitives::StakeCredential, Error> {
     let address = expr_into_address(expr, network)?;
@@ -151,14 +151,14 @@ pub fn expr_into_stake_credential(
 }
 
 pub fn expr_into_address(
-    expr: &ir::Expression,
+    expr: &tir::Expression,
     network: Network,
 ) -> Result<pallas::ledger::addresses::Address, Error> {
     match expr {
-        ir::Expression::Address(x) => bytes_into_address(x),
-        ir::Expression::Hash(x) => policy_into_address(x, network),
-        ir::Expression::Bytes(x) => bytes_into_address(x),
-        ir::Expression::String(x) => string_into_address(x),
+        tir::Expression::Address(x) => bytes_into_address(x),
+        tir::Expression::Hash(x) => policy_into_address(x, network),
+        tir::Expression::Bytes(x) => bytes_into_address(x),
+        tir::Expression::String(x) => string_into_address(x),
         _ => Err(Error::CoerceError(
             format!("{expr:?}"),
             "Address".to_string(),
@@ -182,10 +182,10 @@ pub fn address_into_keyhash(
     }
 }
 
-pub fn expr_into_address_keyhash(expr: &ir::Expression) -> Result<primitives::AddrKeyhash, Error> {
+pub fn expr_into_address_keyhash(expr: &tir::Expression) -> Result<primitives::AddrKeyhash, Error> {
     match expr {
-        ir::Expression::Bytes(x) => Ok(primitives::AddrKeyhash::from(x.as_slice())),
-        ir::Expression::Address(x) => {
+        tir::Expression::Bytes(x) => Ok(primitives::AddrKeyhash::from(x.as_slice())),
+        tir::Expression::Address(x) => {
             let address = bytes_into_address(x)?;
             address_into_keyhash(&address)
         }
@@ -196,20 +196,20 @@ pub fn expr_into_address_keyhash(expr: &ir::Expression) -> Result<primitives::Ad
     }
 }
 
-pub fn expr_into_bytes(ir: &ir::Expression) -> Result<primitives::Bytes, Error> {
+pub fn expr_into_bytes(ir: &tir::Expression) -> Result<primitives::Bytes, Error> {
     match ir {
-        ir::Expression::Bytes(x) => Ok(primitives::Bytes::from(x.clone())),
-        ir::Expression::String(s) => Ok(primitives::Bytes::from(s.as_bytes().to_vec())),
+        tir::Expression::Bytes(x) => Ok(primitives::Bytes::from(x.clone())),
+        tir::Expression::String(s) => Ok(primitives::Bytes::from(s.as_bytes().to_vec())),
         _ => Err(Error::CoerceError(format!("{ir:?}"), "Bytes".to_string())),
     }
 }
 
 pub fn expr_into_hash<const SIZE: usize>(
-    ir: &ir::Expression,
+    ir: &tir::Expression,
 ) -> Result<primitives::Hash<SIZE>, Error> {
     match ir {
-        ir::Expression::Bytes(x) => Ok(primitives::Hash::from(x.as_slice())),
-        ir::Expression::Hash(x) => Ok(primitives::Hash::from(x.as_slice())),
+        tir::Expression::Bytes(x) => Ok(primitives::Hash::from(x.as_slice())),
+        tir::Expression::Hash(x) => Ok(primitives::Hash::from(x.as_slice())),
         _ => Err(Error::CoerceError(format!("{ir:?}"), "Hash".to_string())),
     }
 }

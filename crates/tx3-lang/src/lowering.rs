@@ -4,8 +4,7 @@
 //! into the intermediate representation (IR) of the Tx3 language.
 
 use crate::ast;
-use crate::ir;
-use crate::UtxoRef;
+use tx3_tir::model::v1beta0 as ir;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -219,7 +218,7 @@ impl IntoLower for ast::UtxoRef {
     type Output = ir::Expression;
 
     fn into_lower(&self, _: &Context) -> Result<Self::Output, Error> {
-        let x = ir::Expression::UtxoRefs(vec![UtxoRef {
+        let x = ir::Expression::UtxoRefs(vec![ir::UtxoRef {
             txid: self.txid.clone(),
             index: self.index as u32,
         }]);

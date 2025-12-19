@@ -11,9 +11,55 @@
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
-use crate::{Utxo, UtxoRef};
+use crate::{Node, Visitor};
 
 pub const IR_VERSION: &str = "v1beta0";
+
+#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq)]
+pub struct UtxoRef {
+    pub txid: Vec<u8>,
+    pub index: u32,
+}
+
+impl UtxoRef {
+    pub fn new(txid: &[u8], index: u32) -> Self {
+        Self {
+            txid: txid.to_vec(),
+            index,
+        }
+    }
+}
+
+impl std::fmt::Display for UtxoRef {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}#{}", hex::encode(&self.txid), self.index)
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Utxo {
+    pub r#ref: UtxoRef,
+    pub address: Vec<u8>,
+    pub datum: Option<Expression>,
+    pub assets: super::assets::CanonicalAssets,
+    pub script: Option<Expression>,
+}
+
+impl std::hash::Hash for Utxo {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.r#ref.hash(state);
+    }
+}
+
+impl PartialEq for Utxo {
+    fn eq(&self, other: &Self) -> bool {
+        self.r#ref == other.r#ref
+    }
+}
+
+impl Eq for Utxo {}
+
+pub type UtxoSet = HashSet<Utxo>;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct StructExpr {
@@ -362,42 +408,34 @@ pub struct Tx {
     pub metadata: Vec<Metadata>,
 }
 
-pub trait Visitor {
-    fn reduce(&mut self, op: Expression) -> Result<Expression, crate::applying::Error>;
-}
-
-pub trait Node: Sized {
-    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::applying::Error>;
-}
-
 impl<T: Node> Node for Option<T> {
-    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::applying::Error> {
+    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::reduce::Error> {
         self.map(|x| x.apply(visitor)).transpose()
     }
 }
 
 impl<T: Node> Node for Box<T> {
-    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::applying::Error> {
+    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::reduce::Error> {
         let visited = (*self).apply(visitor)?;
         Ok(Box::new(visited))
     }
 }
 
 impl Node for (Expression, Expression) {
-    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::applying::Error> {
+    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::reduce::Error> {
         let (a, b) = self;
         Ok((a.apply(visitor)?, b.apply(visitor)?))
     }
 }
 
 impl<T: Node> Node for Vec<T> {
-    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::applying::Error> {
+    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::reduce::Error> {
         self.into_iter().map(|x| x.apply(visitor)).collect()
     }
 }
 
 impl Node for StructExpr {
-    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::applying::Error> {
+    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::reduce::Error> {
         let visited = Self {
             constructor: self.constructor,
             fields: self.fields.apply(visitor)?,
@@ -408,7 +446,7 @@ impl Node for StructExpr {
 }
 
 impl Node for AssetExpr {
-    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::applying::Error> {
+    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::reduce::Error> {
         let visited = Self {
             policy: self.policy.apply(visitor)?,
             asset_name: self.asset_name.apply(visitor)?,
@@ -420,7 +458,7 @@ impl Node for AssetExpr {
 }
 
 impl Node for InputQuery {
-    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::applying::Error> {
+    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::reduce::Error> {
         let visited = Self {
             address: self.address.apply(visitor)?,
             min_amount: self.min_amount.apply(visitor)?,
@@ -433,7 +471,7 @@ impl Node for InputQuery {
 }
 
 impl Node for Param {
-    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::applying::Error> {
+    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::reduce::Error> {
         let visited = match self {
             Param::Set(x) => Param::Set(x.apply(visitor)?),
             Param::ExpectValue(name, ty) => Param::ExpectValue(name, ty),
@@ -446,7 +484,7 @@ impl Node for Param {
 }
 
 impl Node for BuiltInOp {
-    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::applying::Error> {
+    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::reduce::Error> {
         let visited = match self {
             BuiltInOp::NoOp(x) => BuiltInOp::NoOp(x.apply(visitor)?),
             BuiltInOp::Add(a, b) => BuiltInOp::Add(a.apply(visitor)?, b.apply(visitor)?),
@@ -461,7 +499,7 @@ impl Node for BuiltInOp {
 }
 
 impl Node for CompilerOp {
-    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::applying::Error> {
+    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::reduce::Error> {
         let visited = match self {
             CompilerOp::BuildScriptAddress(x) => CompilerOp::BuildScriptAddress(x.apply(visitor)?),
             CompilerOp::ComputeMinUtxo(x) => CompilerOp::ComputeMinUtxo(x.apply(visitor)?),
@@ -475,7 +513,7 @@ impl Node for CompilerOp {
 }
 
 impl Node for Coerce {
-    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::applying::Error> {
+    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::reduce::Error> {
         let visited = match self {
             Coerce::NoOp(x) => Coerce::NoOp(x.apply(visitor)?),
             Coerce::IntoAssets(x) => Coerce::IntoAssets(x.apply(visitor)?),
@@ -488,7 +526,7 @@ impl Node for Coerce {
 }
 
 impl Node for Expression {
-    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::applying::Error> {
+    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::reduce::Error> {
         // first we visit the nested expressions
         let visited = match self {
             Expression::List(x) => Expression::List(x.apply(visitor)?),
@@ -520,7 +558,7 @@ impl Node for Expression {
 }
 
 impl Node for Input {
-    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::applying::Error> {
+    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::reduce::Error> {
         let visited = Self {
             utxos: self.utxos.apply(visitor)?,
             redeemer: self.redeemer.apply(visitor)?,
@@ -532,7 +570,7 @@ impl Node for Input {
 }
 
 impl Node for Output {
-    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::applying::Error> {
+    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::reduce::Error> {
         let visited = Self {
             address: self.address.apply(visitor)?,
             datum: self.datum.apply(visitor)?,
@@ -545,7 +583,7 @@ impl Node for Output {
 }
 
 impl Node for Validity {
-    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::applying::Error> {
+    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::reduce::Error> {
         let visited = Self {
             since: self.since.apply(visitor)?,
             until: self.until.apply(visitor)?,
@@ -556,7 +594,7 @@ impl Node for Validity {
 }
 
 impl Node for Mint {
-    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::applying::Error> {
+    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::reduce::Error> {
         let visited = Self {
             amount: self.amount.apply(visitor)?,
             redeemer: self.redeemer.apply(visitor)?,
@@ -567,7 +605,7 @@ impl Node for Mint {
 }
 
 impl Node for Collateral {
-    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::applying::Error> {
+    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::reduce::Error> {
         let visited = Self {
             utxos: self.utxos.apply(visitor)?,
         };
@@ -577,7 +615,7 @@ impl Node for Collateral {
 }
 
 impl Node for Metadata {
-    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::applying::Error> {
+    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::reduce::Error> {
         let visited = Self {
             key: self.key.apply(visitor)?,
             value: self.value.apply(visitor)?,
@@ -588,7 +626,7 @@ impl Node for Metadata {
 }
 
 impl Node for Signers {
-    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::applying::Error> {
+    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::reduce::Error> {
         let visited = Self {
             signers: self.signers.apply(visitor)?,
         };
@@ -598,7 +636,7 @@ impl Node for Signers {
 }
 
 impl Node for HashMap<String, Expression> {
-    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::applying::Error> {
+    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::reduce::Error> {
         let visited: Vec<_> = self
             .into_iter()
             .map(|(k, v)| visitor.reduce(v).map(|v| (k, v)))
@@ -609,7 +647,7 @@ impl Node for HashMap<String, Expression> {
 }
 
 impl Node for AdHocDirective {
-    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::applying::Error> {
+    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::reduce::Error> {
         let visited = Self {
             name: self.name,
             data: self.data.apply(visitor)?,
@@ -620,7 +658,7 @@ impl Node for AdHocDirective {
 }
 
 impl Node for Tx {
-    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::applying::Error> {
+    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::reduce::Error> {
         let visited = Self {
             fees: self.fees.apply(visitor)?,
             references: self.references.apply(visitor)?,
@@ -636,51 +674,5 @@ impl Node for Tx {
         };
 
         Ok(visited)
-    }
-}
-
-#[derive(Debug, thiserror::Error, miette::Diagnostic)]
-pub enum Error {
-    #[error("Decoding error: {0}")]
-    Decoding(String),
-}
-
-pub fn to_vec(tx: &Tx) -> Vec<u8> {
-    let mut buffer = Vec::new();
-    ciborium::into_writer(tx, &mut buffer).unwrap(); // infallible
-    buffer
-}
-
-pub fn from_bytes(bytes: &[u8]) -> Result<Tx, Error> {
-    let tx: Tx = ciborium::from_reader(bytes).map_err(|e| Error::Decoding(e.to_string()))?;
-    Ok(tx)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    const BACKWARDS_SUPPORTED_VERSIONS: &[&str] = &["v1alpha9"];
-
-    fn decode_version_snapshot(version: &str) {
-        let manifest_dir = env!("CARGO_MANIFEST_DIR");
-
-        let path = format!(
-            "{}/../../test_data/backwards/{version}.tir.hex",
-            manifest_dir
-        );
-
-        let bytes = std::fs::read_to_string(path).unwrap();
-        let bytes = hex::decode(bytes).unwrap();
-
-        // if we can decode it without error, the test passes
-        _ = from_bytes(&bytes).unwrap();
-    }
-
-    #[test]
-    fn test_decoding_is_backward_compatible() {
-        for version in BACKWARDS_SUPPORTED_VERSIONS {
-            decode_version_snapshot(version);
-        }
     }
 }

@@ -15,7 +15,8 @@ use pallas::{
 };
 
 use super::*;
-use tx3_lang::{backend::Error, ir};
+use tx3_tir::compile::Error;
+use tx3_tir::model::v1beta0 as tir;
 
 use crate::{
     coercion::{self, expr_into_bytes, expr_into_metadatum, expr_into_number},
@@ -65,7 +66,7 @@ macro_rules! value {
 //         .collect()
 // }
 
-fn compile_struct(ir: &ir::StructExpr) -> Result<primitives::PlutusData, Error> {
+fn compile_struct(ir: &tir::StructExpr) -> Result<primitives::PlutusData, Error> {
     let fields = ir
         .fields
         .iter()
@@ -75,16 +76,16 @@ fn compile_struct(ir: &ir::StructExpr) -> Result<primitives::PlutusData, Error> 
     Ok(plutus_data::constr(ir.constructor as u64, fields))
 }
 
-fn compile_data_expr(ir: &ir::Expression) -> Result<primitives::PlutusData, Error> {
+fn compile_data_expr(ir: &tir::Expression) -> Result<primitives::PlutusData, Error> {
     match ir {
-        ir::Expression::Bytes(x) => Ok(x.as_data()),
-        ir::Expression::Number(x) => Ok(x.as_data()),
-        ir::Expression::Bool(x) => Ok(x.as_data()),
-        ir::Expression::String(x) => Ok(x.as_str().as_data()),
-        ir::Expression::Struct(x) => compile_struct(x),
-        ir::Expression::Map(x) => x.try_as_data(),
-        ir::Expression::Address(x) => Ok(x.as_data()),
-        ir::Expression::List(x) => x.try_as_data(),
+        tir::Expression::Bytes(x) => Ok(x.as_data()),
+        tir::Expression::Number(x) => Ok(x.as_data()),
+        tir::Expression::Bool(x) => Ok(x.as_data()),
+        tir::Expression::String(x) => Ok(x.as_str().as_data()),
+        tir::Expression::Struct(x) => compile_struct(x),
+        tir::Expression::Map(x) => x.try_as_data(),
+        tir::Expression::Address(x) => Ok(x.as_data()),
+        tir::Expression::List(x) => x.try_as_data(),
         _ => Err(Error::CoerceError(
             format!("{ir:?}"),
             "DataExpr".to_string(),
@@ -93,7 +94,7 @@ fn compile_data_expr(ir: &ir::Expression) -> Result<primitives::PlutusData, Erro
 }
 
 fn compile_native_asset_for_output(
-    ir: &ir::AssetExpr,
+    ir: &tir::AssetExpr,
 ) -> Result<primitives::Multiasset<primitives::PositiveCoin>, Error> {
     let policy = coercion::expr_into_bytes(&ir.policy)?;
     let policy = primitives::Hash::from(policy.as_slice());
@@ -107,7 +108,7 @@ fn compile_native_asset_for_output(
 }
 
 fn compile_native_asset_for_mint(
-    ir: &ir::AssetExpr,
+    ir: &tir::AssetExpr,
     is_burn: bool,
 ) -> Result<primitives::Multiasset<primitives::NonZeroInt>, Error> {
     let policy = coercion::expr_into_bytes(&ir.policy)?;
@@ -126,13 +127,13 @@ fn compile_native_asset_for_mint(
     Ok(asset)
 }
 
-fn compile_ada_value(ir: &ir::AssetExpr) -> Result<primitives::Value, Error> {
+fn compile_ada_value(ir: &tir::AssetExpr) -> Result<primitives::Value, Error> {
     let amount = coercion::expr_into_number(&ir.amount)?;
 
     Ok(value!(amount as u64))
 }
 
-fn compile_value(ir: &ir::AssetExpr) -> Result<primitives::Value, Error> {
+fn compile_value(ir: &tir::AssetExpr) -> Result<primitives::Value, Error> {
     let amount = coercion::expr_into_number(&ir.amount)?;
     if ir.policy.is_none() {
         compile_ada_value(ir)
@@ -145,7 +146,7 @@ fn compile_value(ir: &ir::AssetExpr) -> Result<primitives::Value, Error> {
 }
 
 fn compile_adhoc_script(
-    adhoc: &ir::AdHocDirective,
+    adhoc: &tir::AdHocDirective,
 ) -> Result<primitives::ScriptRef<'static>, Error> {
     let script = adhoc.data.get("script").map(expr_into_bytes).transpose()?;
 
@@ -187,7 +188,7 @@ fn compile_adhoc_script(
 }
 
 fn compile_output_block(
-    ir: &ir::Output,
+    ir: &tir::Output,
     network: Network,
 ) -> Result<primitives::TransactionOutput<'static>, Error> {
     let address = coercion::expr_into_address(&ir.address, network)?;
@@ -218,7 +219,7 @@ fn compile_output_block(
     Ok(output)
 }
 
-fn compile_mint_block(tx: &ir::Tx) -> Result<Option<primitives::Mint>, Error> {
+fn compile_mint_block(tx: &tir::Tx) -> Result<Option<primitives::Mint>, Error> {
     if tx.mints.is_empty() && tx.burns.is_empty() {
         return Ok(None);
     }
@@ -257,7 +258,7 @@ fn compile_mint_block(tx: &ir::Tx) -> Result<Option<primitives::Mint>, Error> {
     Ok(all)
 }
 
-fn compile_inputs(tx: &ir::Tx) -> Result<Vec<primitives::TransactionInput>, Error> {
+fn compile_inputs(tx: &tir::Tx) -> Result<Vec<primitives::TransactionInput>, Error> {
     let refs = tx
         .inputs
         .iter()
@@ -283,7 +284,7 @@ fn output_has_assets(output: &Result<primitives::TransactionOutput<'static>, Err
 }
 
 fn compile_outputs(
-    tx: &ir::Tx,
+    tx: &tir::Tx,
     network: Network,
 ) -> Result<Vec<primitives::TransactionOutput<'static>>, Error> {
     let mut resolved: Vec<_> = tx
@@ -308,7 +309,7 @@ fn compile_outputs(
 }
 
 pub fn compile_cardano_publish_directive(
-    adhoc: &ir::AdHocDirective,
+    adhoc: &tir::AdHocDirective,
     network: Network,
 ) -> Result<primitives::TransactionOutput<'static>, Error> {
     let address = adhoc
@@ -338,7 +339,7 @@ pub fn compile_cardano_publish_directive(
         script_data.insert("version".to_string(), version_expr.clone());
         script_data.insert("script".to_string(), script_expr.clone());
 
-        let synthetic_adhoc = ir::AdHocDirective {
+        let synthetic_adhoc = tir::AdHocDirective {
             name: "plutus_script".to_string(),
             data: script_data,
         };
@@ -365,7 +366,7 @@ pub fn compile_cardano_publish_directive(
 }
 
 pub fn compile_withdrawal_directive(
-    adhoc: &ir::AdHocDirective,
+    adhoc: &tir::AdHocDirective,
     network: Network,
 ) -> Result<(primitives::Bytes, u64), Error> {
     let credential = adhoc
@@ -388,7 +389,7 @@ pub fn compile_withdrawal_directive(
 }
 
 pub fn compile_withdrawals(
-    tx: &ir::Tx,
+    tx: &tir::Tx,
     network: Network,
 ) -> Result<Option<BTreeMap<primitives::RewardAccount, primitives::Coin>>, Error> {
     let withdrawals: BTreeMap<_, _> = tx
@@ -406,7 +407,7 @@ pub fn compile_withdrawals(
 }
 
 fn compile_vote_delegation_certificate(
-    x: &ir::AdHocDirective,
+    x: &tir::AdHocDirective,
     network: Network,
 ) -> Result<primitives::Certificate, Error> {
     let stake = coercion::expr_into_stake_credential(&x.data["stake"], network)?;
@@ -416,7 +417,7 @@ fn compile_vote_delegation_certificate(
     Ok(primitives::Certificate::VoteDeleg(stake, drep))
 }
 
-fn compile_certs(tx: &ir::Tx, network: Network) -> Result<Vec<primitives::Certificate>, Error> {
+fn compile_certs(tx: &tir::Tx, network: Network) -> Result<Vec<primitives::Certificate>, Error> {
     tx.adhoc
         .iter()
         .filter_map(|x| match x.name.as_str() {
@@ -429,7 +430,7 @@ fn compile_certs(tx: &ir::Tx, network: Network) -> Result<Vec<primitives::Certif
         .collect::<Result<Vec<_>, _>>()
 }
 
-fn compile_reference_inputs(tx: &ir::Tx) -> Result<Vec<primitives::TransactionInput>, Error> {
+fn compile_reference_inputs(tx: &tir::Tx) -> Result<Vec<primitives::TransactionInput>, Error> {
     let refs = tx
         .references
         .iter()
@@ -444,7 +445,7 @@ fn compile_reference_inputs(tx: &ir::Tx) -> Result<Vec<primitives::TransactionIn
     Ok(refs)
 }
 
-fn compile_collateral(tx: &ir::Tx) -> Result<Vec<TransactionInput>, Error> {
+fn compile_collateral(tx: &tir::Tx) -> Result<Vec<TransactionInput>, Error> {
     Ok(tx
         .collateral
         .iter()
@@ -458,7 +459,7 @@ fn compile_collateral(tx: &ir::Tx) -> Result<Vec<TransactionInput>, Error> {
         .collect())
 }
 
-fn compile_required_signers(tx: &ir::Tx) -> Result<Option<primitives::RequiredSigners>, Error> {
+fn compile_required_signers(tx: &tir::Tx) -> Result<Option<primitives::RequiredSigners>, Error> {
     let Some(signers) = &tx.signers else {
         return Ok(None);
     };
@@ -472,7 +473,7 @@ fn compile_required_signers(tx: &ir::Tx) -> Result<Option<primitives::RequiredSi
     Ok(primitives::RequiredSigners::from_vec(hashes))
 }
 
-fn compile_validity(validity: Option<&ir::Validity>) -> Result<(Option<u64>, Option<u64>), Error> {
+fn compile_validity(validity: Option<&tir::Validity>) -> Result<(Option<u64>, Option<u64>), Error> {
     let since = validity
         .and_then(|v| v.since.as_option())
         .map(coercion::expr_into_number)
@@ -488,7 +489,7 @@ fn compile_validity(validity: Option<&ir::Validity>) -> Result<(Option<u64>, Opt
     Ok((since, until))
 }
 
-fn compile_donation(tx: &ir::Tx) -> Result<Option<pallas::codec::utils::PositiveCoin>, Error> {
+fn compile_donation(tx: &tir::Tx) -> Result<Option<pallas::codec::utils::PositiveCoin>, Error> {
     tx.adhoc
         .iter()
         .find(|x| x.name.as_str() == "treasury_donation")
@@ -507,7 +508,7 @@ fn compile_donation(tx: &ir::Tx) -> Result<Option<pallas::codec::utils::Positive
 }
 
 fn compile_tx_body(
-    tx: &ir::Tx,
+    tx: &tir::Tx,
     network: Network,
 ) -> Result<primitives::TransactionBody<'static>, Error> {
     let (since, until) = compile_validity(tx.validity.as_ref())?;
@@ -538,7 +539,7 @@ fn compile_tx_body(
     Ok(out)
 }
 
-fn compile_auxiliary_data(tx: &ir::Tx) -> Result<Option<primitives::AuxiliaryData>, Error> {
+fn compile_auxiliary_data(tx: &tir::Tx) -> Result<Option<primitives::AuxiliaryData>, Error> {
     let metadata_kv = tx
         .clone()
         .metadata
@@ -569,13 +570,13 @@ fn compile_auxiliary_data(tx: &ir::Tx) -> Result<Option<primitives::AuxiliaryDat
     }
 }
 
-fn utxo_ref_matches(ref1: &tx3_lang::UtxoRef, ref2: &primitives::TransactionInput) -> bool {
+fn utxo_ref_matches(ref1: &tir::UtxoRef, ref2: &primitives::TransactionInput) -> bool {
     ref1.txid.eq(ref2.transaction_id.as_slice()) && ref1.index == ref2.index as u32
 }
 
 fn compile_single_spend_redeemer(
-    input_id: &tx3_lang::UtxoRef,
-    redeemer: &ir::Expression,
+    input_id: &tir::UtxoRef,
+    redeemer: &tir::Expression,
     sorted_inputs: &[&primitives::TransactionInput],
 ) -> Result<primitives::Redeemer, Error> {
     let index = sorted_inputs
@@ -594,7 +595,7 @@ fn compile_single_spend_redeemer(
 }
 
 fn compile_spend_redeemers(
-    tx: &ir::Tx,
+    tx: &tir::Tx,
     compiled_body: &primitives::TransactionBody,
 ) -> Result<Vec<primitives::Redeemer>, Error> {
     let mut compiled_inputs = compiled_body.inputs.iter().collect::<Vec<_>>();
@@ -642,14 +643,14 @@ pub fn mint_redeemer_index(
 }
 
 fn compile_single_mint_redeemer(
-    mint: &ir::Mint,
+    mint: &tir::Mint,
     compiled_body: &primitives::TransactionBody,
 ) -> Result<Option<primitives::Redeemer>, Error> {
     let Some(red) = mint.redeemer.as_option() else {
         return Ok(None);
     };
 
-    let assets: Vec<ir::AssetExpr> = coercion::expr_into_assets(&mint.amount)?;
+    let assets: Vec<tir::AssetExpr> = coercion::expr_into_assets(&mint.amount)?;
     // TODO: This only works with the first redeemer.
     // Are we allowed to include more than one?
     let asset = assets
@@ -669,7 +670,7 @@ fn compile_single_mint_redeemer(
 }
 
 fn compile_mint_redeemers(
-    tx: &ir::Tx,
+    tx: &tir::Tx,
     compiled_body: &primitives::TransactionBody,
 ) -> Result<Vec<primitives::Redeemer>, Error> {
     let redeemers = tx
@@ -683,7 +684,7 @@ fn compile_mint_redeemers(
 }
 
 fn compile_burn_redeemers(
-    tx: &ir::Tx,
+    tx: &tir::Tx,
     compiled_body: &primitives::TransactionBody,
 ) -> Result<Vec<primitives::Redeemer>, Error> {
     let redeemers = tx
@@ -698,7 +699,7 @@ fn compile_burn_redeemers(
 
 fn withdrawal_redeemer_index(
     compiled_body: &primitives::TransactionBody,
-    adhoc: &ir::AdHocDirective,
+    adhoc: &tir::AdHocDirective,
     network: Network,
 ) -> Result<u32, Error> {
     let mut keys = compiled_body
@@ -727,7 +728,7 @@ fn withdrawal_redeemer_index(
 }
 
 fn compile_single_withdrawal_redeemer(
-    adhoc: &ir::AdHocDirective,
+    adhoc: &tir::AdHocDirective,
     compiled_body: &primitives::TransactionBody,
     network: Network,
 ) -> Result<Option<primitives::Redeemer>, Error> {
@@ -737,7 +738,7 @@ fn compile_single_withdrawal_redeemer(
         .ok_or(Error::MissingExpression("missing redeemer".to_string()))?;
 
     match redeemer {
-        ir::Expression::None => Ok(None),
+        tir::Expression::None => Ok(None),
         _ => Ok(Some(primitives::Redeemer {
             tag: primitives::RedeemerTag::Reward,
             index: withdrawal_redeemer_index(compiled_body, adhoc, network)?,
@@ -748,7 +749,7 @@ fn compile_single_withdrawal_redeemer(
 }
 
 fn compile_withdrawal_redeemers(
-    tx: &ir::Tx,
+    tx: &tir::Tx,
     compiled_body: &primitives::TransactionBody,
     network: Network,
 ) -> Result<Vec<primitives::Redeemer>, Error> {
@@ -764,7 +765,7 @@ fn compile_withdrawal_redeemers(
 }
 
 fn compile_redeemers(
-    tx: &ir::Tx,
+    tx: &tir::Tx,
     compiled_body: &primitives::TransactionBody,
     network: Network,
 ) -> Result<Option<Redeemers>, Error> {
@@ -814,12 +815,12 @@ fn infer_required_scripts(
     all_scripts
 }
 
-fn find_script_for_hash(tx: &ir::Tx, hash: primitives::Hash<28>) -> Option<ir::Expression> {
+fn find_script_for_hash(tx: &tir::Tx, hash: primitives::Hash<28>) -> Option<tir::Expression> {
     // TODO: we need to track script symbols as part of the IR
     todo!()
 }
 
-fn compile_adhoc_plutus_witness<const V: usize>(tx: &ir::Tx) -> Vec<PlutusScript<V>> {
+fn compile_adhoc_plutus_witness<const V: usize>(tx: &tir::Tx) -> Vec<PlutusScript<V>> {
     let out: Vec<_> = tx
         .adhoc
         .iter()
@@ -848,7 +849,7 @@ fn compile_adhoc_plutus_witness<const V: usize>(tx: &ir::Tx) -> Vec<PlutusScript
 
 pub type NativeWitness = KeepRaw<'static, primitives::NativeScript>;
 
-fn compile_adhoc_native_witness(tx: &ir::Tx) -> Result<Vec<NativeWitness>, Error> {
+fn compile_adhoc_native_witness(tx: &tir::Tx) -> Result<Vec<NativeWitness>, Error> {
     tx.adhoc
         .iter()
         .filter(|x| x.name.as_str() == "native_witness")
@@ -869,7 +870,7 @@ fn compile_adhoc_native_witness(tx: &ir::Tx) -> Result<Vec<NativeWitness>, Error
 }
 
 fn compile_witness_set(
-    tx: &ir::Tx,
+    tx: &tir::Tx,
     compiled_body: &primitives::TransactionBody,
     network: Network,
 ) -> Result<primitives::WitnessSet<'static>, Error> {
@@ -928,28 +929,7 @@ fn compute_script_data_hash(
     data.map(|x| x.hash())
 }
 
-// Compute min utxo lovelace according to spec
-// https://cips.cardano.org/cip/CIP-55
-pub fn compute_min_utxo(
-    x: ir::Expression,
-    tx_body: &Option<crate::TxBody>,
-    coins_per_byte: i128,
-) -> Result<i128, Error> {
-    let index = coercion::expr_into_number(&x)?;
-    let overhead = 160;
-
-    let total_bytes = if let Some(body) = tx_body {
-        let utxo = body.outputs.get(index as usize).unwrap();
-        let bytes = pallas::codec::minicbor::to_vec(utxo).unwrap().len() as i128;
-        bytes + overhead
-    } else {
-        crate::MIN_UTXO_BYTES
-    };
-
-    Ok(total_bytes * coins_per_byte)
-}
-
-pub fn entry_point(tx: &ir::Tx, pparams: &PParams) -> Result<primitives::Tx<'static>, Error> {
+pub fn entry_point(tx: &tir::Tx, pparams: &PParams) -> Result<primitives::Tx<'static>, Error> {
     let mut transaction_body = compile_tx_body(tx, pparams.network)?;
     let transaction_witness_set = compile_witness_set(tx, &transaction_body, pparams.network)?;
     let auxiliary_data = compile_auxiliary_data(tx)?;

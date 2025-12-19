@@ -1,5 +1,8 @@
 use std::collections::HashSet;
-use tx3_lang::{AssetClass, CanonicalAssets, Utxo, UtxoSet};
+use tx3_tir::model::{
+    assets::{AssetClass, CanonicalAssets},
+    v1beta0::{Utxo, UtxoSet},
+};
 
 use super::CoinSelection;
 

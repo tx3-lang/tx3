@@ -25,17 +25,11 @@
 //! ```
 
 pub mod analyzing;
-pub mod applying;
-pub mod assets;
 pub mod ast;
 pub mod backend;
-pub mod ir;
 pub mod loading;
 pub mod lowering;
 pub mod parsing;
-
-#[cfg(feature = "interop")]
-pub mod interop;
 
 // chain specific
 pub mod cardano;
@@ -47,106 +41,9 @@ macro_rules! include_tx3_build {
     };
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq)]
-pub struct UtxoRef {
-    pub txid: Vec<u8>,
-    pub index: u32,
-}
-
-impl UtxoRef {
-    pub fn new(txid: &[u8], index: u32) -> Self {
-        Self {
-            txid: txid.to_vec(),
-            index,
-        }
-    }
-}
-
-impl std::fmt::Display for UtxoRef {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}#{}", hex::encode(&self.txid), self.index)
-    }
-}
-
-pub use assets::{AssetClass, AssetName, AssetPolicy, CanonicalAssets};
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Utxo {
-    pub r#ref: UtxoRef,
-    pub address: Vec<u8>,
-    pub datum: Option<ir::Expression>,
-    pub assets: CanonicalAssets,
-    pub script: Option<ir::Expression>,
-}
-
-impl std::hash::Hash for Utxo {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.r#ref.hash(state);
-    }
-}
-
-impl PartialEq for Utxo {
-    fn eq(&self, other: &Self) -> bool {
-        self.r#ref == other.r#ref
-    }
-}
-
-impl Eq for Utxo {}
-
-pub type UtxoSet = HashSet<Utxo>;
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub enum ArgValue {
-    Int(i128),
-    Bool(bool),
-    String(String),
-    Bytes(Vec<u8>),
-    Address(Vec<u8>),
-    UtxoSet(UtxoSet),
-    UtxoRef(UtxoRef),
-}
-
-impl From<Vec<u8>> for ArgValue {
-    fn from(value: Vec<u8>) -> Self {
-        Self::Bytes(value)
-    }
-}
-
-impl From<String> for ArgValue {
-    fn from(value: String) -> Self {
-        Self::String(value)
-    }
-}
-
-impl From<&str> for ArgValue {
-    fn from(value: &str) -> Self {
-        Self::String(value.to_string())
-    }
-}
-
-impl From<bool> for ArgValue {
-    fn from(value: bool) -> Self {
-        Self::Bool(value)
-    }
-}
-
-macro_rules! impl_from_int_for_arg_value {
-    ($($t:ty),*) => {
-        $(
-            impl From<$t> for ArgValue {
-                fn from(value: $t) -> Self {
-                    Self::Int(value as i128)
-                }
-            }
-        )*
-    };
-}
-
-impl_from_int_for_arg_value!(i8, i16, i32, i64, i128, u8, u16, u32, u64, u128);
-
 pub struct Protocol {
     pub(crate) ast: ast::Program,
-    pub(crate) env_args: std::collections::HashMap<String, ArgValue>,
+    pub(crate) env_args: std::collections::HashMap<String, tir::reduce::ArgValue>,
 }
 
 impl Protocol {
@@ -183,20 +80,18 @@ impl Protocol {
     }
 }
 
-pub use applying::{apply_args, apply_fees, apply_inputs, find_params, find_queries, reduce};
-use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use tx3_tir as tir;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ProtoTx {
-    ir: ir::Tx,
-    args: std::collections::BTreeMap<String, ArgValue>,
-    inputs: std::collections::BTreeMap<String, UtxoSet>,
+    ir: tir::model::v1beta0::Tx,
+    args: std::collections::BTreeMap<String, tir::reduce::ArgValue>,
+    inputs: std::collections::BTreeMap<String, tir::model::v1beta0::UtxoSet>,
     fees: Option<u64>,
 }
 
-impl From<ir::Tx> for ProtoTx {
-    fn from(ir: ir::Tx) -> Self {
+impl From<tir::model::v1beta0::Tx> for ProtoTx {
+    fn from(ir: tir::model::v1beta0::Tx) -> Self {
         Self {
             ir,
             args: std::collections::BTreeMap::new(),
@@ -206,31 +101,33 @@ impl From<ir::Tx> for ProtoTx {
     }
 }
 
-impl From<ProtoTx> for ir::Tx {
+impl From<ProtoTx> for tir::model::v1beta0::Tx {
     fn from(tx: ProtoTx) -> Self {
         tx.ir
     }
 }
 
 impl ProtoTx {
-    pub fn find_params(&self) -> std::collections::BTreeMap<String, ir::Type> {
-        find_params(&self.ir)
+    pub fn find_params(&self) -> std::collections::BTreeMap<String, tir::model::v1beta0::Type> {
+        tx3_tir::reduce::find_params(&self.ir)
     }
 
-    pub fn find_queries(&self) -> std::collections::BTreeMap<String, ir::InputQuery> {
-        find_queries(&self.ir)
+    pub fn find_queries(
+        &self,
+    ) -> std::collections::BTreeMap<String, tir::model::v1beta0::InputQuery> {
+        tx3_tir::reduce::find_queries(&self.ir)
     }
 
-    pub fn set_arg(&mut self, name: &str, value: ArgValue) {
+    pub fn set_arg(&mut self, name: &str, value: tir::reduce::ArgValue) {
         self.args.insert(name.to_lowercase().to_string(), value);
     }
 
-    pub fn with_arg(mut self, name: &str, value: ArgValue) -> Self {
+    pub fn with_arg(mut self, name: &str, value: tir::reduce::ArgValue) -> Self {
         self.args.insert(name.to_lowercase().to_string(), value);
         self
     }
 
-    pub fn set_input(&mut self, name: &str, value: UtxoSet) {
+    pub fn set_input(&mut self, name: &str, value: tir::model::v1beta0::UtxoSet) {
         self.inputs.insert(name.to_lowercase().to_string(), value);
     }
 
@@ -238,34 +135,34 @@ impl ProtoTx {
         self.fees = Some(value);
     }
 
-    pub fn apply(self) -> Result<Self, applying::Error> {
-        let tx = apply_args(self.ir, &self.args)?;
+    pub fn apply(self) -> Result<Self, tir::reduce::Error> {
+        let tx = tir::reduce::apply_args(self.ir, &self.args)?;
 
         let tx = if let Some(fees) = self.fees {
-            apply_fees(tx, fees)?
+            tir::reduce::apply_fees(tx, fees)?
         } else {
             tx
         };
 
-        let tx = apply_inputs(tx, &self.inputs)?;
+        let tx = tir::reduce::apply_inputs(tx, &self.inputs)?;
 
-        let tx = reduce(tx)?;
+        let tx = tir::reduce::reduce(tx)?;
 
         Ok(tx.into())
     }
 
     pub fn ir_bytes(&self) -> Vec<u8> {
-        ir::to_vec(&self.ir)
+        tir::interop::to_vec(&self.ir)
     }
 
-    pub fn from_ir_bytes(bytes: &[u8]) -> Result<Self, ir::Error> {
-        let ir: ir::Tx = ir::from_bytes(bytes)?;
+    pub fn from_ir_bytes(bytes: &[u8]) -> Result<Self, tir::interop::Error> {
+        let ir: tir::model::v1beta0::Tx = tir::interop::from_bytes(bytes)?;
         Ok(Self::from(ir))
     }
 }
 
-impl AsRef<ir::Tx> for ProtoTx {
-    fn as_ref(&self) -> &ir::Tx {
+impl AsRef<tir::model::v1beta0::Tx> for ProtoTx {
+    fn as_ref(&self) -> &tir::model::v1beta0::Tx {
         &self.ir
     }
 }
@@ -282,7 +179,7 @@ mod tests {
         let code = format!("{manifest_dir}/../../examples/transfer.tx3");
 
         let protocol = Protocol::from_file(&code)
-            .with_env_arg("sender", ArgValue::Address(b"sender".to_vec()))
+            .with_env_arg("sender", tir::reduce::ArgValue::Address(b"sender".to_vec()))
             .load()
             .unwrap();
 
@@ -292,7 +189,7 @@ mod tests {
         dbg!(&tx.find_queries());
 
         let mut tx = tx
-            .with_arg("quantity", ArgValue::Int(100_000_000))
+            .with_arg("quantity", tir::reduce::ArgValue::Int(100_000_000))
             .apply()
             .unwrap();
 
@@ -301,16 +198,18 @@ mod tests {
 
         tx.set_input(
             "source",
-            HashSet::from([Utxo {
-                r#ref: UtxoRef {
+            HashSet::from([tir::model::v1beta0::Utxo {
+                r#ref: tir::model::v1beta0::UtxoRef {
                     txid: b"fafafafafafafafafafafafafafafafafafafafafafafafafafafafafafafafa"
                         .to_vec(),
                     index: 0,
                 },
                 address: b"abababa".to_vec(),
                 datum: None,
-                assets: CanonicalAssets::from_defined_asset(b"abababa", b"asset", 100),
-                script: Some(ir::Expression::Bytes(b"abce".to_vec())),
+                assets: tir::model::assets::CanonicalAssets::from_defined_asset(
+                    b"abababa", b"asset", 100,
+                ),
+                script: Some(tir::model::v1beta0::Expression::Bytes(b"abce".to_vec())),
             }]),
         );
 

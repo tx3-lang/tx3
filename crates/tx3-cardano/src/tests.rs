@@ -1,8 +1,11 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
-use tx3_lang::{
-    applying, backend::Compiler as _, ir::Node as _, ArgValue, Protocol, Utxo, UtxoRef,
-};
+use tx3_lang::Protocol;
+use tx3_tir::compile::{CompiledTx, Compiler as _};
+use tx3_tir::model::assets::CanonicalAssets;
+use tx3_tir::model::v1beta0 as tir;
+use tx3_tir::reduce::{self, ArgValue};
+use tx3_tir::Node as _;
 
 use super::*;
 
@@ -73,7 +76,7 @@ fn address_to_bytes(address: &str) -> ArgValue {
     )
 }
 
-fn wildcard_utxos(datum: Option<tx3_lang::ir::Expression>) -> HashSet<Utxo> {
+fn wildcard_utxos(datum: Option<tir::Expression>) -> HashSet<tir::Utxo> {
     let tx_hash = hex::decode("267aae354f0d14d82877fa5720f7ddc9b0e3eea3cd2a0757af77db4d975ba81c")
         .unwrap()
         .try_into()
@@ -81,42 +84,42 @@ fn wildcard_utxos(datum: Option<tx3_lang::ir::Expression>) -> HashSet<Utxo> {
 
     let address = pallas::ledger::addresses::Address::from_bech32("addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2").unwrap().to_vec();
 
-    let utxo = Utxo {
-        r#ref: UtxoRef {
+    let utxo = tir::Utxo {
+        r#ref: tir::UtxoRef {
             txid: tx_hash,
             index: 0,
         },
         address,
-        datum: Some(datum.unwrap_or(tx3_lang::ir::Expression::None)),
-        assets: tx3_lang::CanonicalAssets::from_naked_amount(500_000_000),
+        datum: Some(datum.unwrap_or(tir::Expression::None)),
+        assets: CanonicalAssets::from_naked_amount(500_000_000),
         script: None,
     };
 
     HashSet::from([utxo])
 }
 
-fn fill_inputs(tx: tx3_lang::ir::Tx, utxos: HashSet<Utxo>) -> tx3_lang::ir::Tx {
+fn fill_inputs(tx: tir::Tx, utxos: HashSet<tir::Utxo>) -> tir::Tx {
     let mut tx = tx;
 
-    for (name, _) in applying::find_queries(&tx) {
+    for (name, _) in reduce::find_queries(&tx) {
         let utxos = utxos.clone();
         let args = BTreeMap::from([(name.to_string(), utxos)]);
-        tx = tx3_lang::applying::apply_inputs(tx, &args).unwrap();
+        tx = reduce::apply_inputs(tx, &args).unwrap();
     }
 
-    tx = applying::reduce(tx).unwrap();
+    tx = reduce::reduce(tx).unwrap();
 
     tx
 }
 
 fn compile_tx_round(
-    mut tx: tx3_lang::ir::Tx,
+    mut tx: tir::Tx,
     fees: u64,
     compiler: &mut Compiler,
-    utxos: HashSet<Utxo>,
-) -> TxEval {
-    tx = applying::apply_fees(tx, fees).unwrap();
-    tx = applying::reduce(tx).unwrap();
+    utxos: HashSet<tir::Utxo>,
+) -> CompiledTx {
+    tx = reduce::apply_fees(tx, fees).unwrap();
+    tx = reduce::reduce(tx).unwrap();
     tx = tx.apply(compiler).unwrap();
 
     tx = fill_inputs(tx, utxos);
@@ -124,7 +127,7 @@ fn compile_tx_round(
     compiler.compile(&tx).unwrap()
 }
 
-fn test_compile(tx: tx3_lang::ir::Tx, compiler: &mut Compiler, utxos: HashSet<Utxo>) -> TxEval {
+fn test_compile(tx: tir::Tx, compiler: &mut Compiler, utxos: HashSet<tir::Utxo>) -> CompiledTx {
     let mut fees = 0;
     let mut rounds = 0;
     let mut tx_eval = None;
@@ -192,11 +195,11 @@ async fn smoke_test_vesting_unlock() {
     let tx = protocol.new_tx("unlock")
             .unwrap()
             .with_arg("beneficiary", address_to_bytes("addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"))
-            .with_arg("locked_utxo", ArgValue::UtxoRef(tx3_lang::UtxoRef {
+            .with_arg("locked_utxo", ArgValue::UtxoRef(tir::UtxoRef {
                 txid: hex::decode("682d6d95495403b491737b95dae5c1f060498d9efc91a592962134f880398be2").unwrap(),
                 index: 1,
             }))
-            .with_arg("timelock_script", ArgValue::UtxoRef(tx3_lang::UtxoRef {
+            .with_arg("timelock_script", ArgValue::UtxoRef(tir::UtxoRef {
                 txid: hex::decode("682d6d95495403b491737b95dae5c1f060498d9efc91a592962134f880398be2").unwrap(),
                 index: 0,
             }))
@@ -242,9 +245,9 @@ async fn faucet_test() {
 #[pollster::test]
 async fn list_concat_test() {
     let mut compiler = test_compiler(None);
-    let datum = Some(ir::Expression::Struct(ir::StructExpr {
+    let datum = Some(tir::Expression::Struct(tir::StructExpr {
         constructor: 0,
-        fields: vec![ir::Expression::List(vec![])],
+        fields: vec![tir::Expression::List(vec![])],
     }));
     let utxos = wildcard_utxos(datum);
     let protocol = load_protocol("list_concat");
@@ -266,15 +269,13 @@ async fn list_concat_test() {
 async fn input_datum_test() {
     let mut compiler = test_compiler(None);
 
-    let utxos = wildcard_utxos(Some(tx3_lang::ir::Expression::Struct(
-        tx3_lang::ir::StructExpr {
-            constructor: 0,
-            fields: vec![
-                tx3_lang::ir::Expression::Number(1),
-                tx3_lang::ir::Expression::Bytes(b"abc".to_vec()),
-            ],
-        },
-    )));
+    let utxos = wildcard_utxos(Some(tir::Expression::Struct(tir::StructExpr {
+        constructor: 0,
+        fields: vec![
+            tir::Expression::Number(1),
+            tir::Expression::Bytes(b"abc".to_vec()),
+        ],
+    })));
 
     let protocol = load_protocol("input_datum");
 
@@ -315,7 +316,7 @@ async fn env_vars_test() {
     );
     tx.set_arg(
         "mint_script",
-        ArgValue::UtxoRef(UtxoRef {
+        ArgValue::UtxoRef(tir::UtxoRef {
             txid: hex::decode("682d6d95495403b491737b95dae5c1f060498d9efc91a592962134f880398be2")
                 .unwrap(),
             index: 1,
@@ -509,10 +510,10 @@ async fn min_utxo_test() {
 async fn min_utxo_compiler_op_test() {
     let compiler = test_compiler(None);
 
-    let result = compiler.execute(ir::CompilerOp::ComputeMinUtxo(ir::Expression::Number(0)));
+    let result = compiler.reduce_op(tir::CompilerOp::ComputeMinUtxo(tir::Expression::Number(0)));
 
     assert!(result.is_ok());
-    if let Ok(ir::Expression::Assets(assets)) = result {
+    if let Ok(tir::Expression::Assets(assets)) = result {
         assert!(!assets.is_empty());
     }
 }
