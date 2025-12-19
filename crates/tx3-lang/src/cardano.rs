@@ -3,10 +3,11 @@ use std::{collections::HashMap, rc::Rc};
 use pest::iterators::Pair;
 use serde::{Deserialize, Serialize};
 
+use tx3_tir::model::v1beta0 as ir;
+
 use crate::{
     analyzing::{Analyzable, AnalyzeReport},
     ast::{DataExpr, Identifier, Scope, Span, Type},
-    ir,
     lowering::IntoLower,
     parsing::{AstNode, Error, Rule},
 };

@@ -2,14 +2,17 @@ use std::collections::HashMap;
 
 pub mod coercion;
 pub mod compile;
+pub mod ops;
 
 // Re-export pallas for upstream users
 pub use pallas;
 
 use pallas::ledger::primitives;
 use pallas::ledger::traverse::ComputeHash;
-use tx3_lang::backend::TxEval;
-use tx3_lang::ir;
+use tx3_tir::compile::CompiledTx;
+use tx3_tir::compile::Error as CompileError;
+use tx3_tir::model::v1beta0 as tir;
+use tx3_tir::reduce::Error as ReduceError;
 
 #[cfg(test)]
 pub mod tests;
@@ -67,8 +70,12 @@ impl Compiler {
     }
 }
 
-impl tx3_lang::backend::Compiler for Compiler {
-    fn compile(&mut self, tx: &tx3_lang::ir::Tx) -> Result<TxEval, tx3_lang::backend::Error> {
+impl tx3_tir::compile::Compiler for Compiler {
+    type EntryPoint = tir::Tx;
+    type CompilerOp = tir::CompilerOp;
+    type Expression = tir::Expression;
+
+    fn compile(&mut self, tx: &Self::EntryPoint) -> Result<CompiledTx, CompileError> {
         let compiled_tx = compile::entry_point(tx, &self.pparams)?;
 
         let hash = compiled_tx.transaction_body.compute_hash();
@@ -76,11 +83,11 @@ impl tx3_lang::backend::Compiler for Compiler {
 
         self.latest_tx_body = Some(compiled_tx.transaction_body);
 
-        let size_fees = eval_size_fees(&payload, &self.pparams, self.config.extra_fees);
+        let size_fees = ops::eval_size_fees(&payload, &self.pparams, self.config.extra_fees);
 
         //let redeemer_fees = eval_redeemer_fees(tx, pparams)?;
 
-        let eval = TxEval {
+        let eval = CompiledTx {
             payload,
             hash: hash.to_vec(),
             fee: size_fees, // TODO: add redeemer fees
@@ -90,67 +97,60 @@ impl tx3_lang::backend::Compiler for Compiler {
         Ok(eval)
     }
 
-    fn execute(&self, op: ir::CompilerOp) -> Result<ir::Expression, tx3_lang::backend::Error> {
+    fn reduce_op(&self, op: Self::CompilerOp) -> Result<Self::Expression, ReduceError> {
         match op {
-            ir::CompilerOp::BuildScriptAddress(x) => {
+            tir::CompilerOp::BuildScriptAddress(x) => {
                 let hash: primitives::Hash<28> = coercion::expr_into_hash(&x)?;
                 let address = coercion::policy_into_address(hash.as_ref(), self.pparams.network)?;
-                Ok(ir::Expression::Address(address.to_vec()))
+                Ok(tir::Expression::Address(address.to_vec()))
             }
-            ir::CompilerOp::ComputeMinUtxo(x) => {
-                let lovelace = compile::compute_min_utxo(
+            tir::CompilerOp::ComputeMinUtxo(x) => {
+                let lovelace = ops::compute_min_utxo(
                     x,
                     &self.latest_tx_body,
                     self.pparams.coins_per_utxo_byte as i128,
                 )?;
-                Ok(ir::Expression::Assets(vec![ir::AssetExpr {
-                    policy: ir::Expression::None,
-                    asset_name: ir::Expression::None,
-                    amount: ir::Expression::Number(lovelace),
+
+                Ok(tir::Expression::Assets(vec![tir::AssetExpr {
+                    policy: tir::Expression::None,
+                    asset_name: tir::Expression::None,
+                    amount: tir::Expression::Number(lovelace),
                 }]))
             }
-            ir::CompilerOp::ComputeTipSlot => Ok(ir::Expression::Number(self.cursor.slot as i128)),
-            ir::CompilerOp::ComputeSlotToTime(x) => {
+            tir::CompilerOp::ComputeTipSlot => {
+                Ok(tir::Expression::Number(self.cursor.slot as i128))
+            }
+            tir::CompilerOp::ComputeSlotToTime(x) => {
                 let slot = coercion::expr_into_number(&x)?;
+
                 if slot < 0 {
-                    return Err(tx3_lang::backend::Error::CoerceError(
+                    return Err(CompileError::CoerceError(
                         format!("{}", slot),
                         "positive slot number".to_string(),
-                    ));
+                    )
+                    .into());
                 }
 
-                Ok(ir::Expression::Number(slot_to_time(slot, &self.cursor)))
+                Ok(tir::Expression::Number(ops::slot_to_time(
+                    slot,
+                    &self.cursor,
+                )))
             }
-            ir::CompilerOp::ComputeTimeToSlot(x) => {
+            tir::CompilerOp::ComputeTimeToSlot(x) => {
                 let time = coercion::expr_into_number(&x)?;
                 if time < 0 {
-                    return Err(tx3_lang::backend::Error::CoerceError(
+                    return Err(CompileError::CoerceError(
                         format!("{}", time),
                         "positive timestamp".to_string(),
-                    ));
+                    )
+                    .into());
                 }
 
-                Ok(ir::Expression::Number(time_to_slot(time, &self.cursor)))
+                Ok(tir::Expression::Number(ops::time_to_slot(
+                    time,
+                    &self.cursor,
+                )))
             }
         }
     }
-}
-
-fn eval_size_fees(tx: &[u8], pparams: &PParams, extra_fees: Option<u64>) -> u64 {
-    tx.len() as u64 * pparams.min_fee_coefficient
-        + pparams.min_fee_constant
-        + extra_fees.unwrap_or(DEFAULT_EXTRA_FEES)
-}
-
-fn slot_to_time(slot: i128, cursor: &ChainPoint) -> i128 {
-    let current_time = cursor.timestamp as i128;
-    let time_diff = slot - cursor.slot as i128;
-    current_time + (time_diff * 1000)
-}
-
-fn time_to_slot(time: i128, cursor: &ChainPoint) -> i128 {
-    let current_slot = cursor.slot as i128;
-    let current_time = cursor.timestamp as i128;
-    let time_diff = time - current_time;
-    current_slot + (time_diff / 1000)
 }

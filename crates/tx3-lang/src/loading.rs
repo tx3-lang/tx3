@@ -3,7 +3,9 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::{analyzing, ast, parsing, ArgValue, Protocol};
+use tx3_tir::reduce::ArgValue;
+
+use crate::{analyzing, ast, parsing, Protocol};
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum Error {

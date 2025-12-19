@@ -1,10 +1,10 @@
-use crate::{ir::Type, UtxoRef};
 use base64::Engine as _;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Number, Value};
 use thiserror::Error;
 
-pub use crate::ArgValue;
+use crate::model::v1beta0::{Type, UtxoRef};
+pub use crate::reduce::ArgValue;
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct BytesEnvelope {

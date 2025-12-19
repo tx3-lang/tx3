@@ -2160,6 +2160,7 @@ dependencies = [
  "thiserror 2.0.11",
  "trait-variant",
  "tx3-lang",
+ "tx3-tir",
  "utxorpc",
 ]
 
@@ -2168,8 +2169,6 @@ name = "tx3-lang"
 version = "0.13.0"
 dependencies = [
  "assert-json-diff",
- "base64 0.22.1",
- "bech32 0.11.1",
  "ciborium",
  "hex",
  "miette",
@@ -2181,6 +2180,7 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.11",
  "trait-variant",
+ "tx3-tir",
 ]
 
 [[package]]
@@ -2194,6 +2194,21 @@ dependencies = [
  "proptest",
  "thiserror 2.0.11",
  "trait-variant",
+ "tx3-tir",
+]
+
+[[package]]
+name = "tx3-tir"
+version = "0.13.0"
+dependencies = [
+ "base64 0.22.1",
+ "bech32 0.11.1",
+ "ciborium",
+ "hex",
+ "proptest",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.11",
  "tx3-lang",
 ]
 

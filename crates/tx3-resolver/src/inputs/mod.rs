@@ -2,13 +2,11 @@
 
 use std::collections::{BTreeMap, HashSet};
 
-use tx3_lang::{
-    applying,
-    backend::{self, UtxoStore},
-    ir, CanonicalAssets, UtxoRef, UtxoSet,
-};
+use tx3_tir::model::assets::CanonicalAssets;
+use tx3_tir::model::v1beta0 as tir;
 
 pub use crate::inputs::narrow::SearchSpace;
+use crate::{Error, UtxoStore};
 
 mod narrow;
 mod select;
@@ -40,27 +38,9 @@ macro_rules! data_or_bail {
 }
 
 pub struct Diagnostic {
-    pub query: ir::InputQuery,
-    pub utxos: UtxoSet,
-    pub selected: UtxoSet,
-}
-
-#[derive(thiserror::Error, Debug)]
-pub enum Error {
-    #[error("expected {0}, got {1:?}")]
-    ExpectedData(String, ir::Expression),
-
-    #[error("input query too broad")]
-    InputQueryTooBroad,
-
-    #[error("input not resolved: {0}")]
-    InputNotResolved(String, CanonicalQuery, SearchSpace),
-
-    #[error("store error: {0}")]
-    StoreError(#[from] backend::Error),
-
-    #[error("apply error: {0}")]
-    ApplyError(#[from] applying::Error),
+    pub query: tir::InputQuery,
+    pub utxos: tir::UtxoSet,
+    pub selected: tir::UtxoSet,
 }
 
 const MAX_SEARCH_SPACE_SIZE: usize = 50;
@@ -69,7 +49,7 @@ const MAX_SEARCH_SPACE_SIZE: usize = 50;
 pub struct CanonicalQuery {
     pub address: Option<Vec<u8>>,
     pub min_amount: Option<CanonicalAssets>,
-    pub refs: HashSet<UtxoRef>,
+    pub refs: HashSet<tir::UtxoRef>,
     pub support_many: bool,
     pub collateral: bool,
 }
@@ -96,10 +76,10 @@ impl std::fmt::Display for CanonicalQuery {
     }
 }
 
-impl TryFrom<ir::InputQuery> for CanonicalQuery {
+impl TryFrom<tir::InputQuery> for CanonicalQuery {
     type Error = Error;
 
-    fn try_from(query: ir::InputQuery) -> Result<Self, Self::Error> {
+    fn try_from(query: tir::InputQuery) -> Result<Self, Self::Error> {
         let address = query
             .address
             .as_option()
@@ -132,12 +112,12 @@ impl TryFrom<ir::InputQuery> for CanonicalQuery {
     }
 }
 
-pub async fn resolve<T: UtxoStore>(tx: ir::Tx, utxos: &T) -> Result<ir::Tx, Error> {
+pub async fn resolve<T: UtxoStore>(tx: tir::Tx, utxos: &T) -> Result<tir::Tx, Error> {
     let mut all_inputs = BTreeMap::new();
 
     let mut selector = select::InputSelector::new(utxos);
 
-    for (name, query) in applying::find_queries(&tx) {
+    for (name, query) in tx3_tir::reduce::find_queries(&tx) {
         let query = CanonicalQuery::try_from(query)?;
 
         let space = narrow::narrow_search_space(utxos, &query).await?;
@@ -151,7 +131,7 @@ pub async fn resolve<T: UtxoStore>(tx: ir::Tx, utxos: &T) -> Result<ir::Tx, Erro
         all_inputs.insert(name, utxos);
     }
 
-    let out = applying::apply_inputs(tx, &all_inputs)?;
+    let out = tx3_tir::reduce::apply_inputs(tx, &all_inputs)?;
 
     Ok(out)
 }

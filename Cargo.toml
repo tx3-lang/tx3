@@ -1,6 +1,11 @@
 [workspace]
 resolver = "2"
-members = ["crates/tx3-cardano", "crates/tx3-lang", "crates/tx3-resolver"]
+members = [
+    "crates/tx3-cardano",
+    "crates/tx3-lang",
+    "crates/tx3-resolver",
+    "crates/tx3-tir",
+]
 
 [workspace.package]
 publish = true
@@ -18,3 +23,4 @@ readme = "README.md"
 thiserror = "2.0.11"
 trait-variant = "0.1.2"
 hex = "0.4.3"
+serde = { version = "1.0.217", features = ["derive"] }
