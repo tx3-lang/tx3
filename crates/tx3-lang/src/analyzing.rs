@@ -12,7 +12,7 @@ use crate::parsing::AstNode;
 
 const METADATA_MAX_SIZE_BYTES: usize = 64;
 
-#[derive(Debug, thiserror::Error, miette::Diagnostic, PartialEq, Eq)]
+#[derive(Debug, thiserror::Error, miette::Diagnostic, PartialEq, Eq, Clone)]
 #[error("not in scope: {name}")]
 #[diagnostic(code(tx3::not_in_scope))]
 pub struct NotInScopeError {
@@ -25,7 +25,7 @@ pub struct NotInScopeError {
     span: Span,
 }
 
-#[derive(Debug, thiserror::Error, miette::Diagnostic, PartialEq, Eq)]
+#[derive(Debug, thiserror::Error, miette::Diagnostic, PartialEq, Eq, Clone)]
 #[error("invalid symbol, expected {expected}, got {got}")]
 #[diagnostic(code(tx3::invalid_symbol))]
 pub struct InvalidSymbolError {
@@ -39,7 +39,7 @@ pub struct InvalidSymbolError {
     span: Span,
 }
 
-#[derive(Debug, thiserror::Error, miette::Diagnostic, PartialEq, Eq)]
+#[derive(Debug, thiserror::Error, miette::Diagnostic, PartialEq, Eq, Clone)]
 #[error("invalid type ({got}), expected: {expected}")]
 #[diagnostic(code(tx3::invalid_type))]
 pub struct InvalidTargetTypeError {
@@ -53,7 +53,7 @@ pub struct InvalidTargetTypeError {
     span: Span,
 }
 
-#[derive(Debug, thiserror::Error, miette::Diagnostic, PartialEq, Eq)]
+#[derive(Debug, thiserror::Error, miette::Diagnostic, PartialEq, Eq, Clone)]
 #[error("optional output ({name}) cannot have a datum")]
 #[diagnostic(code(tx3::optional_output_datum))]
 pub struct OptionalOutputError {
@@ -66,7 +66,7 @@ pub struct OptionalOutputError {
     span: Span,
 }
 
-#[derive(Debug, thiserror::Error, miette::Diagnostic, PartialEq, Eq)]
+#[derive(Debug, thiserror::Error, miette::Diagnostic, PartialEq, Eq, Clone)]
 #[error("metadata value exceeds 64 bytes: {size} bytes found")]
 #[diagnostic(code(tx3::metadata_size_limit_exceeded))]
 pub struct MetadataSizeLimitError {
@@ -79,7 +79,7 @@ pub struct MetadataSizeLimitError {
     span: Span,
 }
 
-#[derive(Debug, thiserror::Error, miette::Diagnostic, PartialEq, Eq)]
+#[derive(Debug, thiserror::Error, miette::Diagnostic, PartialEq, Eq, Clone)]
 #[error("metadata key must be an integer, got: {key_type}")]
 #[diagnostic(code(tx3::metadata_invalid_key_type))]
 pub struct MetadataInvalidKeyTypeError {
@@ -92,7 +92,7 @@ pub struct MetadataInvalidKeyTypeError {
     span: Span,
 }
 
-#[derive(thiserror::Error, Debug, miette::Diagnostic, PartialEq, Eq)]
+#[derive(thiserror::Error, Debug, miette::Diagnostic, PartialEq, Eq, Clone)]
 pub enum Error {
     #[error("duplicate definition: {0}")]
     #[diagnostic(code(tx3::duplicate_definition))]
@@ -203,7 +203,7 @@ impl Error {
     }
 }
 
-#[derive(Debug, Default, thiserror::Error, Diagnostic)]
+#[derive(Debug, Default, thiserror::Error, Diagnostic, Clone)]
 pub struct AnalyzeReport {
     #[related]
     pub errors: Vec<Error>,
