@@ -37,6 +37,42 @@ pub enum BytesEncoding {
     Hex,
 }
 
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct TirEnvelope {
+    pub content: String,
+    pub encoding: BytesEncoding,
+    pub version: String,
+}
+
+impl From<TirEnvelope> for Vec<u8> {
+    fn from(envelope: TirEnvelope) -> Self {
+        let bytes = match envelope.encoding {
+            BytesEncoding::Base64 => base64_to_bytes(&envelope.content).unwrap(),
+            BytesEncoding::Hex => hex_to_bytes(&envelope.content).unwrap(),
+        };
+
+        bytes
+    }
+}
+
+impl TryFrom<TirEnvelope> for crate::model::v1beta0::Tx {
+    type Error = super::Error;
+
+    fn try_from(envelope: TirEnvelope) -> Result<Self, Self::Error> {
+        let version = super::TirVersion::try_from(envelope.version.as_str())?;
+
+        let bytes: Vec<u8> = envelope.into();
+
+        if version != super::TirVersion::V1Beta0 {
+            return Err(Self::Error::InvalidTirVersion(version.to_string()));
+        }
+
+        let tx: crate::model::v1beta0::Tx = super::from_bytes(&bytes)?;
+
+        Ok(tx)
+    }
+}
+
 fn utxoref_to_value(x: UtxoRef) -> Value {
     Value::String(format!("{}#{}", hex::encode(x.txid), x.index))
 }

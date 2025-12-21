@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = [
+members = ["bin/tx3c",
     "crates/tx3-cardano",
     "crates/tx3-lang",
     "crates/tx3-resolver",
