@@ -1,4 +1,6 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
+
+use tx3_tir::reduce::{Apply, ArgValue};
 
 use crate::{analyzing, ast, lowering, parsing};
 
@@ -17,8 +19,8 @@ pub enum Error {
     #[error("Analyzing error")]
     Analyzing(#[from] analyzing::AnalyzeReport),
 
-    #[error("Invalid environment file: {0}")]
-    InvalidEnvFile(String),
+    #[error("Apply error: {0}")]
+    Apply(#[from] tx3_tir::reduce::Error),
 }
 
 pub type Code = String;
@@ -119,8 +121,32 @@ impl Workspace {
         Ok(())
     }
 
+    pub fn ensure_tir(&mut self) -> Result<(), Error> {
+        if self.tir.is_empty() {
+            self.lower()?;
+        }
+
+        Ok(())
+    }
+
     pub fn tir(&self, name: &str) -> Option<&tx3_tir::model::v1beta0::Tx> {
         self.tir.get(name)
+    }
+
+    pub fn apply_args(&mut self, args: &BTreeMap<String, ArgValue>) -> Result<(), Error> {
+        self.ensure_tir()?;
+
+        let values = self.tir.drain();
+        let mut new_tir = HashMap::new();
+
+        for (key, tir) in values {
+            let tir = tir.apply_args(args)?;
+            new_tir.insert(key, tir);
+        }
+
+        self.tir = new_tir;
+
+        Ok(())
     }
 }
 
