@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, HashMap};
 
+pub const TII_VERSION: &str = "v1beta0";
+
 /// Root structure for TII (Transaction Invocation Interface) JSON files
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TiiFile {
