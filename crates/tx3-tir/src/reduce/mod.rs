@@ -1448,7 +1448,9 @@ macro_rules! impl_from_int_for_arg_value {
 
 impl_from_int_for_arg_value!(i8, i16, i32, i64, i128, u8, u16, u32, u64, u128);
 
-pub fn apply_args(template: Tx, args: &BTreeMap<String, ArgValue>) -> Result<Tx, Error> {
+pub type ArgMap = BTreeMap<String, ArgValue>;
+
+pub fn apply_args(template: Tx, args: &ArgMap) -> Result<Tx, Error> {
     template.apply_args(args)
 }
 

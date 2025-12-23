@@ -12,7 +12,7 @@ pub struct TiiFile {
     pub protocol: Protocol,
     pub transactions: HashMap<String, Transaction>,
     #[serde(skip_serializing_if = "HashMap::is_empty")]
-    pub environments: HashMap<String, Environment>,
+    pub profiles: HashMap<String, Profile>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub components: Option<Components>,
 }
@@ -26,10 +26,13 @@ pub struct TiiInfo {
 /// Protocol metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Protocol {
+    pub scope: String,
     pub name: String,
     pub version: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub environment: Option<Schema>,
 }
 
 /// Transaction definition
@@ -43,18 +46,10 @@ pub struct Transaction {
 
 /// Environment definition
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Environment {
+pub struct Profile {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
-    pub defaults: EnvironmentDefaults,
-}
-
-/// Environment defaults
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EnvironmentDefaults {
-    pub schema: Schema,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub defaults: Option<serde_json::Value>,
+    pub environment: serde_json::Value,
 }
 
 /// Components section containing schemas and other components
@@ -109,4 +104,49 @@ pub fn infer_schema_from_params(params: &BTreeMap<String, tir::Type>) -> Schema 
         // Fallback to a basic object schema if deserialization fails
         serde_json::from_value(json!({"type": "object"})).unwrap()
     })
+}
+
+pub fn map_ast_type_to_json_schema(r#type: &tx3_lang::ast::Type) -> Value {
+    match r#type {
+        tx3_lang::ast::Type::Int => json!({"type": "integer"}),
+        tx3_lang::ast::Type::Bool => json!({"type": "boolean"}),
+        tx3_lang::ast::Type::Bytes => json!({"type": "string", "format": "byte"}),
+        tx3_lang::ast::Type::Address => json!({"type": "string"}),
+        tx3_lang::ast::Type::Unit => json!({"type": "null"}),
+        tx3_lang::ast::Type::List(inner) => json!({
+            "type": "array",
+            "items": map_ast_type_to_json_schema(inner)
+        }),
+        tx3_lang::ast::Type::Map(key, value) => json!({
+            "type": "object",
+            "additionalProperties": map_ast_type_to_json_schema(value)
+        }),
+        tx3_lang::ast::Type::Custom(_) => json!({"type": "object"}),
+        tx3_lang::ast::Type::Undefined => json!({"type": "null"}),
+        tx3_lang::ast::Type::Utxo => json!({"type": "object"}),
+        tx3_lang::ast::Type::UtxoRef => json!({"type": "object"}),
+        tx3_lang::ast::Type::AnyAsset => json!({"type": "object"}),
+    }
+}
+
+pub fn infer_env_schema(ast: &tx3_lang::ast::Program) -> Schema {
+    let mut properties = serde_json::Map::new();
+    let mut required = Vec::new();
+
+    if let Some(env) = &ast.env {
+        for field in env.fields.iter() {
+            let field_schema = map_ast_type_to_json_schema(&field.r#type);
+            properties.insert(field.name.clone(), field_schema);
+            required.push(field.name.clone());
+        }
+    }
+
+    let schema_json = json!({
+        "type": "object",
+        "properties": properties,
+        "required": required
+    });
+
+    serde_json::from_value(schema_json)
+        .unwrap_or_else(|_| serde_json::from_value(json!({"type": "object"})).unwrap())
 }
