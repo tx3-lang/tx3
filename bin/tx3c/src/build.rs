@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Context};
 use clap::Parser;
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap, HashMap, HashSet},
     path::PathBuf,
 };
 use tx3_tir::reduce::ArgValue;
@@ -96,23 +96,39 @@ fn load_env_file(path: Option<&PathBuf>) -> anyhow::Result<BTreeMap<String, ArgV
     Ok(env)
 }
 
+fn infer_available_profiles(args: &Args) -> HashSet<String> {
+    let mut profiles = HashSet::new();
+
+    for entry in args.profile_env_files.iter() {
+        profiles.insert(entry.profile.clone());
+    }
+
+    // TODO: inspect other per-profile args in case there's other profiles
+    // defined
+
+    profiles
+}
+
 fn emit_tii(args: Args, ws: &tx3_lang::Workspace) -> anyhow::Result<()> {
+    let ast = ws.ast().ok_or(anyhow!("Failed to get AST"))?;
+
+    let env_schema = tii::infer_env_schema(&ast);
+
     let mut tii = tii::TiiFile {
         tii: tii::TiiInfo {
             version: tii::TII_VERSION.to_string(),
         },
         protocol: tii::Protocol {
-            scope: args.protocol_scope.unwrap_or("unknown".to_string()),
-            name: args.protocol_name.unwrap_or("unknown".to_string()),
-            version: args.protocol_version.unwrap_or("0.0.1".to_string()),
-            description: args.protocol_description,
+            scope: args.protocol_scope.clone().unwrap_or("unknown".to_string()),
+            name: args.protocol_name.clone().unwrap_or("unknown".to_string()),
+            version: args.protocol_version.clone().unwrap_or("0.0.1".to_string()),
+            description: args.protocol_description.clone(),
+            environment: Some(env_schema),
         },
         transactions: HashMap::new(),
-        environments: HashMap::new(),
+        profiles: HashMap::new(),
         components: None,
     };
-
-    let ast = ws.ast().ok_or(anyhow!("Failed to get AST"))?;
 
     for tx in ast.txs.iter() {
         let tir = ws
@@ -144,15 +160,31 @@ fn emit_tii(args: Args, ws: &tx3_lang::Workspace) -> anyhow::Result<()> {
         );
     }
 
-    // Create final JSON object
+    for profile in infer_available_profiles(&args) {
+        let env_file = args
+            .profile_env_files
+            .iter()
+            .find(|entry| entry.profile == profile);
+
+        let env = load_env_file(env_file.map(|entry| &entry.value))?;
+
+        let env_json = tx3_tir::interop::json::to_json_object(env);
+
+        tii.profiles.insert(
+            profile,
+            tii::Profile {
+                description: None,
+                environment: env_json,
+            },
+        );
+    }
+
     let output_json = json!(tii);
 
-    // Determine output path
     let output_path = args
         .output
         .unwrap_or_else(|| args.source.with_extension("tii"));
 
-    // Write JSON to file
     std::fs::write(&output_path, serde_json::to_string_pretty(&output_json)?)?;
 
     println!(

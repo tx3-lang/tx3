@@ -93,9 +93,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.96"
+version = "1.0.100"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6b964d184e89d9b6b67dd2715bc8e74cf3107fb2b529990c90cf517326150bf4"
+checksum = "a23eb6b1614318a8071c9b2521f36b424b2c83db5eb3a0fead4a6c0809af6e61"
 
 [[package]]
 name = "approx"
@@ -539,6 +539,16 @@ checksum = "9ed9a281f7bc9b7576e61468ba615a66a5c8cfdff42420a70aa82701a3b1e292"
 dependencies = [
  "block-buffer",
  "crypto-common",
+]
+
+[[package]]
+name = "dotenv-parser"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4d4e7e3d829e699806e8f1cb1906e671114c2b955a9c65559756b5f93258e8f0"
+dependencies = [
+ "pest",
+ "pest_derive",
 ]
 
 [[package]]
@@ -2386,7 +2396,9 @@ dependencies = [
 name = "tx3c"
 version = "0.13.0"
 dependencies = [
+ "anyhow",
  "clap",
+ "dotenv-parser",
  "hex",
  "schemars",
  "serde",

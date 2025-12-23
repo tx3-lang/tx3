@@ -3,8 +3,11 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Number, Value};
 use thiserror::Error;
 
-use crate::model::v1beta0::{Type, UtxoRef};
 pub use crate::reduce::ArgValue;
+use crate::{
+    model::v1beta0::{Type, UtxoRef},
+    reduce::ArgMap,
+};
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct BytesEnvelope {
@@ -257,6 +260,11 @@ pub fn to_json(value: ArgValue) -> Value {
         }
         ArgValue::UtxoRef(x) => utxoref_to_value(x),
     }
+}
+
+pub fn to_json_object(map: ArgMap) -> Value {
+    let v = map.into_iter().map(|(k, v)| (k, to_json(v))).collect();
+    Value::Object(v)
 }
 
 pub fn from_json(value: Value, target: &Type) -> Result<ArgValue, Error> {

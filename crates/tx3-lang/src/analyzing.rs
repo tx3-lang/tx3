@@ -1368,7 +1368,7 @@ impl Analyzable for Program {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
         let mut scope = Scope::new(parent);
 
-        if let Some(env) = self.env.take() {
+        if let Some(env) = self.env.as_ref() {
             for field in env.fields.iter() {
                 scope.track_env_var(&field.name, field.r#type.clone());
             }
