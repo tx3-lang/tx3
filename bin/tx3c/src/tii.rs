@@ -26,6 +26,7 @@ pub struct TiiInfo {
 /// Protocol metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Protocol {
+    pub scope: String,
     pub name: String,
     pub version: String,
     #[serde(skip_serializing_if = "Option::is_none")]
