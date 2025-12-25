@@ -4,7 +4,7 @@ use std::{
     collections::{BTreeMap, HashMap, HashSet},
     path::PathBuf,
 };
-use tx3_tir::reduce::ArgValue;
+use tx3_lang::ast;
 
 use serde_json::json;
 
@@ -58,9 +58,6 @@ pub struct Args {
     pub emit: Vec<String>,
 
     #[arg(long)]
-    pub apply_env_file: Option<PathBuf>,
-
-    #[arg(long)]
     pub protocol_scope: Option<String>,
 
     #[arg(long)]
@@ -81,7 +78,7 @@ pub struct Args {
     profile_env_files: Vec<ProfileKV<PathBuf>>,
 }
 
-fn load_env_file(path: Option<&PathBuf>) -> anyhow::Result<BTreeMap<String, ArgValue>> {
+fn load_dotfile(path: Option<&PathBuf>) -> anyhow::Result<BTreeMap<String, String>> {
     let Some(path) = path else {
         return Ok(BTreeMap::new());
     };
@@ -91,7 +88,10 @@ fn load_env_file(path: Option<&PathBuf>) -> anyhow::Result<BTreeMap<String, ArgV
     let env = dotenv_parser::parse_dotenv(&source)
         .map_err(|e| anyhow!("Failed to parse env file: {}", e))?;
 
-    let env = env.into_iter().map(|(k, v)| (k, v.into())).collect();
+    let env = env
+        .into_iter()
+        .map(|(k, v)| (k.to_lowercase(), v))
+        .collect();
 
     Ok(env)
 }
@@ -109,6 +109,40 @@ fn infer_available_profiles(args: &Args) -> HashSet<String> {
     profiles
 }
 
+fn infer_environment_values_from_dotfile(
+    env: &BTreeMap<String, String>,
+    ast: &ast::Program,
+) -> serde_json::Value {
+    let mut obj = serde_json::Map::new();
+
+    if let Some(def) = &ast.env {
+        for field in def.fields.iter() {
+            let key = field.name.clone();
+            if let Some(value) = env.get(key.as_str()) {
+                obj.insert(key, json!(value));
+            }
+        }
+    }
+
+    serde_json::Value::Object(obj)
+}
+
+fn infer_party_values_from_dotfile(
+    env: &BTreeMap<String, String>,
+    ast: &ast::Program,
+) -> serde_json::Value {
+    let mut obj = serde_json::Map::new();
+
+    for party in &ast.parties {
+        let key = party.name.value.to_lowercase();
+        if let Some(value) = env.get(key.as_str()) {
+            obj.insert(key, json!(value));
+        }
+    }
+
+    serde_json::Value::Object(obj)
+}
+
 fn emit_tii(args: Args, ws: &tx3_lang::Workspace) -> anyhow::Result<()> {
     let ast = ws.ast().ok_or(anyhow!("Failed to get AST"))?;
 
@@ -123,21 +157,27 @@ fn emit_tii(args: Args, ws: &tx3_lang::Workspace) -> anyhow::Result<()> {
             name: args.protocol_name.clone().unwrap_or("unknown".to_string()),
             version: args.protocol_version.clone().unwrap_or("0.0.1".to_string()),
             description: args.protocol_description.clone(),
-            environment: Some(env_schema),
         },
+        environment: Some(env_schema),
+        parties: HashMap::new(),
         transactions: HashMap::new(),
         profiles: HashMap::new(),
         components: None,
     };
+
+    for party in ast.parties.iter() {
+        tii.parties.insert(
+            party.name.value.to_lowercase(),
+            tii::Party { description: None },
+        );
+    }
 
     for tx in ast.txs.iter() {
         let tir = ws
             .tir(&tx.name.value)
             .ok_or_else(|| anyhow!("Failed to get TIR for transaction: {}", tx.name.value))?;
 
-        let params = tx3_tir::reduce::find_params(tir);
-
-        let params_schema = tii::infer_schema_from_params(&params);
+        let params_schema = tii::infer_tx_params_schema(tx);
 
         // Convert TIR to bytes
         let bytes = tx3_tir::interop::to_vec(tir);
@@ -166,15 +206,17 @@ fn emit_tii(args: Args, ws: &tx3_lang::Workspace) -> anyhow::Result<()> {
             .iter()
             .find(|entry| entry.profile == profile);
 
-        let env = load_env_file(env_file.map(|entry| &entry.value))?;
+        let dotfile = load_dotfile(env_file.map(|entry| &entry.value))?;
 
-        let env_json = tx3_tir::interop::json::to_json_object(env);
+        let environment = infer_environment_values_from_dotfile(&dotfile, &ast);
+        let parties = infer_party_values_from_dotfile(&dotfile, &ast);
 
         tii.profiles.insert(
             profile,
             tii::Profile {
                 description: None,
-                environment: env_json,
+                environment,
+                parties,
             },
         );
     }
@@ -202,10 +244,6 @@ pub fn run(args: Args) -> anyhow::Result<()> {
     ws.parse()?;
     ws.analyze()?;
     ws.lower()?;
-
-    let apply_env = load_env_file(args.apply_env_file.as_ref())?;
-
-    ws.apply_args(&apply_env)?;
 
     if args.emit.contains(&"tii".to_string()) {
         emit_tii(args, &ws)?;
