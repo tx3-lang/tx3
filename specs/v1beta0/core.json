@@ -1,0 +1,39 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://tx3.land/specs/v1beta0/core",
+    "$defs": {
+        "Address": {
+            "type": "string",
+            "format": "bech32"
+        },
+        "UtxoRef": {
+            "type": "string",
+            "pattern": "^0x[0-9a-fA-F]{64}#[0-9]+$"
+        },
+        "TirEnvelope": {
+            "type": "object",
+            "required": [
+                "encoding",
+                "contentType"
+            ],
+            "properties": {
+                "encoding": {
+                    "type": "string",
+                    "enum": [
+                        "hex",
+                        "base64"
+                    ]
+                },
+                "content": {
+                    "type": "string",
+                    "description": "The encoded TIR bytes in the selected encoding"
+                },
+                "version": {
+                    "type": "string",
+                    "description": "The TIR version of the encoded content"
+                }
+            },
+            "additionalProperties": false
+        }
+    }
+}

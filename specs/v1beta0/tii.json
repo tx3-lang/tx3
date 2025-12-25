@@ -1,0 +1,141 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://tx3.land/specs/v1beta0/tii",
+    "type": "object",
+    "required": [
+        "tii",
+        "protocol",
+        "transactions"
+    ],
+    "properties": {
+        "tii": {
+            "$ref": "#/$defs/tiiInfo"
+        },
+        "protocol": {
+            "$ref": "#/$defs/protocol"
+        },
+        "environment": {
+            "$ref": "#/$defs/jsonSchema"
+        },
+        "parties": {
+            "type": "object",
+            "additionalProperties": {
+                "$ref": "#/$defs/party"
+            }
+        },
+        "transactions": {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": {
+                "$ref": "#/$defs/transaction"
+            }
+        },
+        "profiles": {
+            "type": "object",
+            "additionalProperties": {
+                "$ref": "#/$defs/profile"
+            }
+        },
+        "components": {
+            "$ref": "#/$defs/components"
+        }
+    },
+    "$defs": {
+        "tiiInfo": {
+            "type": "object",
+            "required": [
+                "version"
+            ],
+            "properties": {
+                "version": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false
+        },
+        "protocol": {
+            "type": "object",
+            "required": [
+                "name",
+                "version"
+            ],
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false
+        },
+        "transaction": {
+            "type": "object",
+            "required": [
+                "tir",
+                "params"
+            ],
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "tir": {
+                    "$ref": "core.json#/TirEnvelope"
+                },
+                "params": {
+                    "$ref": "#/$defs/jsonSchema"
+                }
+            },
+            "additionalProperties": false
+        },
+        "profile": {
+            "type": "object",
+            "required": [
+                "environment",
+                "parties"
+            ],
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "environment": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "parties": {
+                    "type": "object",
+                    "additionalProperties": true
+                }
+            },
+            "additionalProperties": false
+        },
+        "party": {
+            "type": "object",
+            "required": [],
+            "properties": {
+                "description": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false
+        },
+        "components": {
+            "type": "object",
+            "properties": {
+                "schemas": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/$defs/jsonSchema"
+                    }
+                }
+            },
+            "additionalProperties": false
+        },
+        "jsonSchema": {
+            "$ref": "https://json-schema.org/draft/2020-12/schema"
+        }
+    }
+}
