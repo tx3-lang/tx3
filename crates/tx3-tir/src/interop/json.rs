@@ -263,7 +263,11 @@ pub fn to_json(value: ArgValue) -> Value {
 }
 
 pub fn to_json_object(map: ArgMap) -> Value {
-    let v = map.into_iter().map(|(k, v)| (k, to_json(v))).collect();
+    let v = map
+        .into_iter()
+        .map(|(k, v)| (k.to_lowercase(), to_json(v)))
+        .collect();
+
     Value::Object(v)
 }
 
