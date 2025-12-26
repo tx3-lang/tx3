@@ -11,6 +11,7 @@ use pallas::ledger::primitives;
 use pallas::ledger::traverse::ComputeHash;
 use tx3_tir::compile::CompiledTx;
 use tx3_tir::compile::Error as CompileError;
+use tx3_tir::encoding::AnyTir;
 use tx3_tir::model::v1beta0 as tir;
 use tx3_tir::reduce::Error as ReduceError;
 
@@ -71,11 +72,14 @@ impl Compiler {
 }
 
 impl tx3_tir::compile::Compiler for Compiler {
-    type EntryPoint = tir::Tx;
     type CompilerOp = tir::CompilerOp;
     type Expression = tir::Expression;
 
-    fn compile(&mut self, tx: &Self::EntryPoint) -> Result<CompiledTx, CompileError> {
+    fn compile(&mut self, tir: &AnyTir) -> Result<CompiledTx, CompileError> {
+        let AnyTir::V1Beta0(tx) = tir else {
+            return Err(CompileError::UnsupportedTirVersion(tir.version()));
+        };
+
         let compiled_tx = compile::entry_point(tx, &self.pparams)?;
 
         let hash = compiled_tx.transaction_body.compute_hash();

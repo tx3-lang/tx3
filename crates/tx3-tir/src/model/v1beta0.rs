@@ -11,55 +11,13 @@
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
-use crate::{Node, Visitor};
+use crate::{
+    encoding::{TirRoot, TirVersion},
+    model::core::*,
+    Node, Visitor,
+};
 
 pub const IR_VERSION: &str = "v1beta0";
-
-#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq)]
-pub struct UtxoRef {
-    pub txid: Vec<u8>,
-    pub index: u32,
-}
-
-impl UtxoRef {
-    pub fn new(txid: &[u8], index: u32) -> Self {
-        Self {
-            txid: txid.to_vec(),
-            index,
-        }
-    }
-}
-
-impl std::fmt::Display for UtxoRef {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}#{}", hex::encode(&self.txid), self.index)
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Utxo {
-    pub r#ref: UtxoRef,
-    pub address: Vec<u8>,
-    pub datum: Option<Expression>,
-    pub assets: super::assets::CanonicalAssets,
-    pub script: Option<Expression>,
-}
-
-impl std::hash::Hash for Utxo {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.r#ref.hash(state);
-    }
-}
-
-impl PartialEq for Utxo {
-    fn eq(&self, other: &Self) -> bool {
-        self.r#ref == other.r#ref
-    }
-}
-
-impl Eq for Utxo {}
-
-pub type UtxoSet = HashSet<Utxo>;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct StructExpr {
@@ -212,22 +170,6 @@ pub struct PolicyExpr {
     pub name: String,
     pub hash: Expression,
     pub script: ScriptSource,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-pub enum Type {
-    Undefined,
-    Unit,
-    Int,
-    Bool,
-    Bytes,
-    Address,
-    Utxo,
-    UtxoRef,
-    AnyAsset,
-    List,
-    Map,
-    Custom(String),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -406,6 +348,10 @@ pub struct Tx {
     pub collateral: Vec<Collateral>,
     pub signers: Option<Signers>,
     pub metadata: Vec<Metadata>,
+}
+
+impl TirRoot for Tx {
+    const VERSION: TirVersion = TirVersion::V1Beta0;
 }
 
 impl<T: Node> Node for Option<T> {

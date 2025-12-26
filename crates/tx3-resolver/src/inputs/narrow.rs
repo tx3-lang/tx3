@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use tx3_tir::model::{assets::AssetClass, v1beta0::UtxoRef};
+use tx3_tir::model::{assets::AssetClass, core::UtxoRef};
 
 use crate::{inputs::CanonicalQuery, UtxoPattern, UtxoStore};
 

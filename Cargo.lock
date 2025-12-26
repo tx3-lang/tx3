@@ -2368,10 +2368,14 @@ name = "tx3-resolver"
 version = "0.13.0"
 dependencies = [
  "approx",
+ "base64 0.22.1",
+ "bech32 0.11.1",
  "chainfuzz",
  "hex",
  "pollster",
  "proptest",
+ "serde",
+ "serde_json",
  "thiserror 2.0.11",
  "trait-variant",
  "tx3-tir",
@@ -2381,8 +2385,6 @@ dependencies = [
 name = "tx3-tir"
 version = "0.13.0"
 dependencies = [
- "base64 0.22.1",
- "bech32 0.11.1",
  "ciborium",
  "hex",
  "proptest",

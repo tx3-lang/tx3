@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use tx3_tir::model::{
     assets::CanonicalAssets,
-    v1beta0::{self as tir, UtxoRef, UtxoSet},
+    core::{Utxo, UtxoRef, UtxoSet},
 };
 
 use crate::{
@@ -14,14 +14,11 @@ pub mod naive;
 pub mod vector;
 
 pub trait CoinSelection {
-    fn pick_many(search_space: tir::UtxoSet, target: &CanonicalAssets) -> tir::UtxoSet;
-    fn pick_single(search_space: tir::UtxoSet, target: &CanonicalAssets) -> tir::UtxoSet;
+    fn pick_many(search_space: UtxoSet, target: &CanonicalAssets) -> UtxoSet;
+    fn pick_single(search_space: UtxoSet, target: &CanonicalAssets) -> UtxoSet;
 }
 
-pub fn find_first_excess_utxo(
-    utxos: &HashSet<tir::Utxo>,
-    target: &CanonicalAssets,
-) -> Option<tir::Utxo> {
+pub fn find_first_excess_utxo(utxos: &HashSet<Utxo>, target: &CanonicalAssets) -> Option<Utxo> {
     // if there is only one utxo, then we can't remove them. This is to avoid the
     // edge case where the target is empty (eg: 0 fees gas on a testnet or L2)
     if utxos.len() == 1 {

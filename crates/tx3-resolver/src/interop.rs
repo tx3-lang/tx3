@@ -3,11 +3,68 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Number, Value};
 use thiserror::Error;
 
-pub use crate::reduce::ArgValue;
-use crate::{
-    model::v1beta0::{Type, UtxoRef},
-    reduce::ArgMap,
-};
+use tx3_tir::model::core::{Type, UtxoRef};
+pub use tx3_tir::reduce::ArgValue;
+
+use tx3_tir::reduce::ArgMap;
+
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error("invalid base64: {0}")]
+    InvalidBase64(#[from] base64::DecodeError),
+
+    #[error("invalid hex: {0}")]
+    InvalidHex(#[from] hex::FromHexError),
+
+    #[error("invalid bech32: {0}")]
+    InvalidBech32(#[from] bech32::DecodeError),
+
+    #[error("value is not a valid number: {0}")]
+    InvalidBytesForNumber(String),
+
+    #[error("value is null")]
+    ValueIsNull,
+
+    #[error("can't infer type for value: {0}")]
+    CantInferTypeForValue(Value),
+
+    #[error("value is not a number: {0}")]
+    ValueIsNotANumber(Value),
+
+    #[error("value can't fit: {0}")]
+    NumberCantFit(Number),
+
+    #[error("value is not a bool: {0}")]
+    ValueIsNotABool(Value),
+
+    #[error("value is not a string")]
+    ValueIsNotAString,
+
+    #[error("value is not bytes: {0}")]
+    ValueIsNotBytes(Value),
+
+    #[error("value is not a utxo ref: {0}")]
+    ValueIsNotUtxoRef(Value),
+
+    #[error("invalid bytes envelope: {0}")]
+    InvalidBytesEnvelope(serde_json::Error),
+
+    #[error("value is not an address: {0}")]
+    ValueIsNotAnAddress(Value),
+
+    #[error("invalid utxo ref: {0}")]
+    InvalidUtxoRef(String),
+
+    #[error("target type not supported: {0:?}")]
+    TargetTypeNotSupported(Type),
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(rename_all = "lowercase")]
+pub enum BytesEncoding {
+    Base64,
+    Hex,
+}
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct BytesEnvelope {
@@ -33,47 +90,39 @@ impl From<BytesEnvelope> for Vec<u8> {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
-#[serde(rename_all = "lowercase")]
-pub enum BytesEncoding {
-    Base64,
-    Hex,
+pub fn string_to_bigint(s: String) -> Result<i128, Error> {
+    let bytes = hex_to_bytes(&s)?;
+    let bytes =
+        <[u8; 16]>::try_from(bytes).map_err(|x| Error::InvalidBytesForNumber(hex::encode(x)))?;
+    Ok(i128::from_be_bytes(bytes))
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct TirEnvelope {
-    pub content: String,
-    pub encoding: BytesEncoding,
-    pub version: String,
+pub fn hex_to_bytes(s: &str) -> Result<Vec<u8>, Error> {
+    let s = if s.starts_with("0x") {
+        s.trim_start_matches("0x")
+    } else {
+        s
+    };
+
+    let out = hex::decode(s)?;
+
+    Ok(out)
 }
 
-impl From<TirEnvelope> for Vec<u8> {
-    fn from(envelope: TirEnvelope) -> Self {
-        let bytes = match envelope.encoding {
-            BytesEncoding::Base64 => base64_to_bytes(&envelope.content).unwrap(),
-            BytesEncoding::Hex => hex_to_bytes(&envelope.content).unwrap(),
-        };
+pub fn base64_to_bytes(s: &str) -> Result<Vec<u8>, Error> {
+    let out = base64::engine::general_purpose::STANDARD.decode(s)?;
 
-        bytes
-    }
+    Ok(out)
 }
 
-impl TryFrom<TirEnvelope> for crate::model::v1beta0::Tx {
-    type Error = super::Error;
+pub fn bech32_to_bytes(s: &str) -> Result<Vec<u8>, Error> {
+    let (_, data) = bech32::decode(s)?;
 
-    fn try_from(envelope: TirEnvelope) -> Result<Self, Self::Error> {
-        let version = super::TirVersion::try_from(envelope.version.as_str())?;
+    Ok(data)
+}
 
-        let bytes: Vec<u8> = envelope.into();
-
-        if version != super::TirVersion::V1Beta0 {
-            return Err(Self::Error::InvalidTirVersion(version.to_string()));
-        }
-
-        let tx: crate::model::v1beta0::Tx = super::from_bytes(&bytes)?;
-
-        Ok(tx)
-    }
+fn number_to_bigint(x: Number) -> Result<i128, Error> {
+    x.as_i128().ok_or(Error::NumberCantFit(x))
 }
 
 fn utxoref_to_value(x: UtxoRef) -> Value {
@@ -89,24 +138,15 @@ fn bigint_to_value(i: i128) -> Value {
     }
 }
 
-fn number_to_bigint(x: Number) -> Result<i128, Error> {
-    x.as_i128().ok_or(Error::NumberCantFit(x))
-}
-
-fn string_to_bigint(s: String) -> Result<i128, Error> {
-    let bytes = hex_to_bytes(&s)?;
-    let bytes =
-        <[u8; 16]>::try_from(bytes).map_err(|x| Error::InvalidBytesForNumber(hex::encode(x)))?;
-    Ok(i128::from_be_bytes(bytes))
-}
-
 fn value_to_bigint(value: Value) -> Result<i128, Error> {
-    match value {
-        Value::Number(n) => number_to_bigint(n),
-        Value::String(s) => string_to_bigint(s),
-        Value::Null => Err(Error::ValueIsNull),
-        x => Err(Error::ValueIsNotANumber(x)),
-    }
+    let out = match value {
+        Value::Number(n) => number_to_bigint(n)?,
+        Value::String(s) => string_to_bigint(s)?,
+        Value::Null => return Err(Error::ValueIsNull),
+        x => return Err(Error::ValueIsNotANumber(x)),
+    };
+
+    Ok(out)
 }
 
 fn value_to_bool(value: Value) -> Result<bool, Error> {
@@ -120,51 +160,34 @@ fn value_to_bool(value: Value) -> Result<bool, Error> {
     }
 }
 
-fn hex_to_bytes(s: &str) -> Result<Vec<u8>, Error> {
-    let s = if s.starts_with("0x") {
-        s.trim_start_matches("0x")
-    } else {
-        s
-    };
-
-    hex::decode(s).map_err(Error::InvalidHex)
-}
-
-fn base64_to_bytes(s: &str) -> Result<Vec<u8>, Error> {
-    base64::engine::general_purpose::STANDARD
-        .decode(s)
-        .map_err(Error::InvalidBase64)
-}
-
 fn value_to_bytes(value: Value) -> Result<Vec<u8>, Error> {
-    match value {
-        Value::String(s) => hex_to_bytes(&s),
+    let out = match value {
+        Value::String(s) => hex_to_bytes(&s)?,
         Value::Object(_) => {
             let envelope: BytesEnvelope =
                 serde_json::from_value(value).map_err(Error::InvalidBytesEnvelope)?;
 
             match envelope.encoding {
-                BytesEncoding::Base64 => base64_to_bytes(&envelope.content),
-                BytesEncoding::Hex => hex_to_bytes(&envelope.content),
+                BytesEncoding::Base64 => base64_to_bytes(&envelope.content)?,
+                BytesEncoding::Hex => hex_to_bytes(&envelope.content)?,
             }
         }
-        x => Err(Error::ValueIsNotBytes(x)),
-    }
-}
+        x => return Err(Error::ValueIsNotBytes(x)),
+    };
 
-fn bech32_to_bytes(s: &str) -> Result<Vec<u8>, Error> {
-    let (_, data) = bech32::decode(s).map_err(Error::InvalidBech32)?;
-    Ok(data)
+    Ok(out)
 }
 
 fn value_to_address(value: Value) -> Result<Vec<u8>, Error> {
-    match value {
+    let out = match value {
         Value::String(s) => match bech32_to_bytes(&s) {
-            Ok(data) => Ok(data),
-            Err(_) => hex_to_bytes(&s),
+            Ok(data) => data,
+            Err(_) => hex_to_bytes(&s)?,
         },
-        x => Err(Error::ValueIsNotAnAddress(x)),
-    }
+        x => return Err(Error::ValueIsNotAnAddress(x)),
+    };
+
+    Ok(out)
 }
 
 fn value_to_underfined(value: Value) -> Result<ArgValue, Error> {
@@ -194,57 +217,6 @@ fn value_to_utxo_ref(value: Value) -> Result<UtxoRef, Error> {
         Value::String(s) => string_to_utxo_ref(&s),
         x => Err(Error::ValueIsNotUtxoRef(x)),
     }
-}
-
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("value is null")]
-    ValueIsNull,
-
-    #[error("can't infer type for value: {0}")]
-    CantInferTypeForValue(Value),
-
-    #[error("value is not a number: {0}")]
-    ValueIsNotANumber(Value),
-
-    #[error("value can't fit: {0}")]
-    NumberCantFit(Number),
-
-    #[error("value is not a valid number: {0}")]
-    InvalidBytesForNumber(String),
-
-    #[error("value is not a bool: {0}")]
-    ValueIsNotABool(Value),
-
-    #[error("value is not a string")]
-    ValueIsNotAString,
-
-    #[error("value is not bytes: {0}")]
-    ValueIsNotBytes(Value),
-
-    #[error("value is not a utxo ref: {0}")]
-    ValueIsNotUtxoRef(Value),
-
-    #[error("invalid bytes envelope: {0}")]
-    InvalidBytesEnvelope(serde_json::Error),
-
-    #[error("invalid base64: {0}")]
-    InvalidBase64(base64::DecodeError),
-
-    #[error("invalid hex: {0}")]
-    InvalidHex(hex::FromHexError),
-
-    #[error("invalid bech32: {0}")]
-    InvalidBech32(bech32::DecodeError),
-
-    #[error("value is not an address: {0}")]
-    ValueIsNotAnAddress(Value),
-
-    #[error("invalid utxo ref: {0}")]
-    InvalidUtxoRef(String),
-
-    #[error("target type not supported: {0:?}")]
-    TargetTypeNotSupported(Type),
 }
 
 pub fn to_json(value: ArgValue) -> Value {

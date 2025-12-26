@@ -11,7 +11,7 @@ use crate::{Error, UtxoPattern, UtxoStore};
 
 use tx3_tir::model::{
     assets::CanonicalAssets,
-    v1beta0::{Utxo, UtxoRef, UtxoSet},
+    core::{Utxo, UtxoRef, UtxoSet},
 };
 
 use crate::mock;

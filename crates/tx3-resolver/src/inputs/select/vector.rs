@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use tx3_tir::model::{
     assets::{AssetClass, CanonicalAssets},
-    v1beta0::{Utxo, UtxoSet},
+    core::{Utxo, UtxoSet},
 };
 
 use super::CoinSelection;

@@ -1,7 +1,14 @@
-use crate::{model::v1beta0, Visitor};
+use crate::{
+    encoding::{AnyTir, TirVersion},
+    model::v1beta0,
+    Visitor,
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    #[error("unsupported TIR version: {0}")]
+    UnsupportedTirVersion(TirVersion),
+
     #[error("error coercing {0} into {1}")]
     CoerceError(String, String),
 
@@ -24,11 +31,10 @@ pub struct CompiledTx {
 }
 
 pub trait Compiler {
-    type EntryPoint;
     type CompilerOp;
     type Expression;
 
-    fn compile(&mut self, tx: &Self::EntryPoint) -> Result<CompiledTx, Error>;
+    fn compile(&mut self, tir: &AnyTir) -> Result<CompiledTx, Error>;
     fn reduce_op(&self, op: Self::CompilerOp) -> Result<Self::Expression, crate::reduce::Error>;
 }
 

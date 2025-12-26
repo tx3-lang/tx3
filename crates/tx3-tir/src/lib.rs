@@ -1,5 +1,5 @@
 pub mod compile;
-pub mod interop;
+pub mod encoding;
 pub mod model;
 pub mod reduce;
 

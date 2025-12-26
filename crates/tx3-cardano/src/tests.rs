@@ -3,6 +3,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use tx3_lang::Workspace;
 use tx3_tir::compile::{CompiledTx, Compiler as _};
 use tx3_tir::model::assets::CanonicalAssets;
+use tx3_tir::model::core::{Utxo, UtxoRef};
 use tx3_tir::model::v1beta0 as tir;
 use tx3_tir::reduce::{self, Apply as _, ArgValue};
 use tx3_tir::Node as _;
@@ -78,7 +79,7 @@ fn address_to_bytes(address: &str) -> ArgValue {
     )
 }
 
-fn wildcard_utxos(datum: Option<tir::Expression>) -> HashSet<tir::Utxo> {
+fn wildcard_utxos(datum: Option<tir::Expression>) -> HashSet<Utxo> {
     let tx_hash = hex::decode("267aae354f0d14d82877fa5720f7ddc9b0e3eea3cd2a0757af77db4d975ba81c")
         .unwrap()
         .try_into()
@@ -86,8 +87,8 @@ fn wildcard_utxos(datum: Option<tir::Expression>) -> HashSet<tir::Utxo> {
 
     let address = pallas::ledger::addresses::Address::from_bech32("addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2").unwrap().to_vec();
 
-    let utxo = tir::Utxo {
-        r#ref: tir::UtxoRef {
+    let utxo = Utxo {
+        r#ref: UtxoRef {
             txid: tx_hash,
             index: 0,
         },
@@ -100,7 +101,7 @@ fn wildcard_utxos(datum: Option<tir::Expression>) -> HashSet<tir::Utxo> {
     HashSet::from([utxo])
 }
 
-fn fill_inputs(tx: tir::Tx, utxos: HashSet<tir::Utxo>) -> tir::Tx {
+fn fill_inputs(tx: tir::Tx, utxos: HashSet<Utxo>) -> tir::Tx {
     let mut tx = tx;
 
     for (name, _) in reduce::find_queries(&tx) {
@@ -119,7 +120,7 @@ fn compile_tx_round(
     args: &BTreeMap<String, ArgValue>,
     fees: u64,
     compiler: &mut Compiler,
-    utxos: HashSet<tir::Utxo>,
+    utxos: HashSet<Utxo>,
 ) -> CompiledTx {
     tx = reduce::apply_args(tx, args).unwrap();
     tx = reduce::apply_fees(tx, fees).unwrap();
@@ -130,14 +131,14 @@ fn compile_tx_round(
 
     assert!(tx.is_constant());
 
-    compiler.compile(&tx).unwrap()
+    compiler.compile(&AnyTir::V1Beta0(tx)).unwrap()
 }
 
 fn test_compile(
     tx: tir::Tx,
     args: &BTreeMap<String, ArgValue>,
     compiler: &mut Compiler,
-    utxos: HashSet<tir::Utxo>,
+    utxos: HashSet<Utxo>,
 ) -> CompiledTx {
     let mut fees = 0;
     let mut rounds = 0;
@@ -177,7 +178,7 @@ macro_rules! arg_value {
     ($name:expr, "utxo_ref", $txid:expr, $index:expr) => {
         (
             $name.to_string(),
-            ArgValue::UtxoRef(tir::UtxoRef {
+            ArgValue::UtxoRef(UtxoRef {
                 txid: hex::decode($txid).unwrap(),
                 index: $index,
             }),

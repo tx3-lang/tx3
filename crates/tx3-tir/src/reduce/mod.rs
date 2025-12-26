@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use crate::model::assets::CanonicalAssets;
+use crate::model::core::*;
 use crate::model::v1beta0::*;
 
 #[derive(Debug, thiserror::Error)]
@@ -1450,27 +1451,30 @@ impl_from_int_for_arg_value!(i8, i16, i32, i64, i128, u8, u16, u32, u64, u128);
 
 pub type ArgMap = BTreeMap<String, ArgValue>;
 
-pub fn apply_args(template: Tx, args: &ArgMap) -> Result<Tx, Error> {
+pub fn apply_args<T: Apply>(template: T, args: &ArgMap) -> Result<T, Error> {
     template.apply_args(args)
 }
 
-pub fn apply_inputs(template: Tx, args: &BTreeMap<String, HashSet<Utxo>>) -> Result<Tx, Error> {
+pub fn apply_inputs<T: Apply>(
+    template: T,
+    args: &BTreeMap<String, HashSet<Utxo>>,
+) -> Result<T, Error> {
     template.apply_inputs(args)
 }
 
-pub fn apply_fees(template: Tx, fees: u64) -> Result<Tx, Error> {
+pub fn apply_fees<T: Apply>(template: T, fees: u64) -> Result<T, Error> {
     template.apply_fees(fees)
 }
 
-pub fn reduce(template: Tx) -> Result<Tx, Error> {
+pub fn reduce<T: Apply>(template: T) -> Result<T, Error> {
     template.reduce()
 }
 
-pub fn find_params(template: &Tx) -> BTreeMap<String, Type> {
+pub fn find_params<T: Apply>(template: &T) -> BTreeMap<String, Type> {
     template.params()
 }
 
-pub fn find_queries(template: &Tx) -> BTreeMap<String, InputQuery> {
+pub fn find_queries<T: Apply>(template: &T) -> BTreeMap<String, InputQuery> {
     template.queries()
 }
 

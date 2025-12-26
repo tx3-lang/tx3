@@ -2,6 +2,7 @@ use std::str::FromStr as _;
 
 use pallas::{codec::utils::Int, ledger::primitives::conway as primitives};
 use tx3_tir::compile::Error;
+use tx3_tir::model::core::UtxoRef;
 use tx3_tir::model::v1beta0 as tir;
 
 use crate::Network;
@@ -67,13 +68,13 @@ pub fn expr_into_metadatum(
     }
 }
 
-pub fn expr_into_utxo_refs(expr: &tir::Expression) -> Result<Vec<tir::UtxoRef>, Error> {
+pub fn expr_into_utxo_refs(expr: &tir::Expression) -> Result<Vec<UtxoRef>, Error> {
     match expr {
         tir::Expression::UtxoRefs(x) => Ok(x.clone()),
         tir::Expression::UtxoSet(x) => Ok(x.iter().map(|x| x.r#ref.clone()).collect()),
         tir::Expression::String(x) => {
             let (raw_txid, raw_output_ix) = x.split_once("#").expect("Invalid utxo ref");
-            Ok(vec![tir::UtxoRef {
+            Ok(vec![UtxoRef {
                 txid: hex::decode(raw_txid).expect("Invalid hex txid"),
                 index: raw_output_ix.parse().expect("Invalid output index"),
             }])

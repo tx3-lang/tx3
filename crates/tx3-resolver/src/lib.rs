@@ -1,13 +1,22 @@
 use std::collections::HashSet;
 
 use tx3_tir::compile::{CompiledTx, Compiler};
+use tx3_tir::encoding::AnyTir;
 use tx3_tir::model::v1beta0 as tir;
-use tx3_tir::reduce::Apply as _;
+use tx3_tir::reduce::{Apply as _, ArgMap};
 use tx3_tir::Node as _;
 
 use crate::inputs::CanonicalQuery;
 
 pub mod inputs;
+pub mod interop;
+pub mod trp;
+
+pub use tx3_tir::model::assets::CanonicalAssets;
+pub use tx3_tir::model::core::{Type, Utxo, UtxoRef, UtxoSet};
+
+// TODO: we need to re-export this because some of the UtxoStore interface depends ond them, but this is tech debt. We should remove any dependency to versioned IR artifacts.
+pub use tx3_tir::model::v1beta0::{Expression, StructExpr};
 
 #[cfg(test)]
 pub mod mock;
@@ -17,11 +26,14 @@ pub enum Error {
     #[error("can't compile non-constant tir")]
     CantCompileNonConstantTir,
 
-    #[error("compile error: {0}")]
-    CompileError(Box<tx3_tir::compile::Error>),
+    #[error(transparent)]
+    CompileError(#[from] tx3_tir::compile::Error),
 
-    #[error("reduce error: {0}")]
-    ReduceError(Box<tx3_tir::reduce::Error>),
+    #[error(transparent)]
+    InteropError(#[from] interop::Error),
+
+    #[error(transparent)]
+    ReduceError(#[from] tx3_tir::reduce::Error),
 
     #[error("expected {0}, got {1:?}")]
     ExpectedData(String, tir::Expression),
@@ -32,11 +44,26 @@ pub enum Error {
     #[error("input not resolved: {0}")]
     InputNotResolved(String, CanonicalQuery, inputs::SearchSpace),
 
+    #[error("missing argument `{key}` of type {ty:?}")]
+    MissingTxArg {
+        key: String,
+        ty: tx3_tir::model::core::Type,
+    },
+
     #[error("transient error: {0}")]
     TransientError(String),
 
     #[error("store error: {0}")]
     StoreError(String),
+
+    #[error("TIR encode / decode error: {0}")]
+    TirEncodingError(#[from] tx3_tir::encoding::Error),
+
+    #[error("tx was not accepted: {0}")]
+    TxNotAccepted(String),
+
+    #[error("tx script returned failure")]
+    TxScriptFailure(Vec<String>),
 }
 
 pub enum UtxoPattern<'a> {
@@ -61,30 +88,18 @@ impl<'a> UtxoPattern<'a> {
 
 #[trait_variant::make(Send)]
 pub trait UtxoStore {
-    async fn narrow_refs(&self, pattern: UtxoPattern<'_>) -> Result<HashSet<tir::UtxoRef>, Error>;
-    async fn fetch_utxos(&self, refs: HashSet<tir::UtxoRef>) -> Result<tir::UtxoSet, Error>;
-}
-
-impl From<tx3_tir::compile::Error> for Error {
-    fn from(error: tx3_tir::compile::Error) -> Self {
-        Error::CompileError(Box::new(error))
-    }
-}
-
-impl From<tx3_tir::reduce::Error> for Error {
-    fn from(error: tx3_tir::reduce::Error) -> Self {
-        Error::ReduceError(Box::new(error))
-    }
+    async fn narrow_refs(&self, pattern: UtxoPattern<'_>) -> Result<HashSet<UtxoRef>, Error>;
+    async fn fetch_utxos(&self, refs: HashSet<UtxoRef>) -> Result<UtxoSet, Error>;
 }
 
 async fn eval_pass<C, S>(
-    tx: &tir::Tx,
+    tx: &AnyTir,
     compiler: &mut C,
     utxos: &S,
     last_eval: Option<&CompiledTx>,
 ) -> Result<Option<CompiledTx>, Error>
 where
-    C: Compiler<Expression = tir::Expression, CompilerOp = tir::CompilerOp, EntryPoint = tir::Tx>,
+    C: Compiler<Expression = tir::Expression, CompilerOp = tir::CompilerOp>,
     S: UtxoStore,
 {
     let attempt = tx.clone();
@@ -118,16 +133,37 @@ where
     Ok(None)
 }
 
+fn safe_apply_args(tir: AnyTir, args: &ArgMap) -> Result<AnyTir, Error> {
+    let params = tx3_tir::reduce::find_params(&tir);
+
+    // ensure all required arguments are provided
+    for (key, ty) in params.iter() {
+        if !args.contains_key(key) {
+            return Err(Error::MissingTxArg {
+                key: key.to_string(),
+                ty: ty.clone(),
+            });
+        };
+    }
+
+    let tir = tx3_tir::reduce::apply_args(tir, &args)?;
+
+    Ok(tir)
+}
+
 pub async fn resolve_tx<C, S>(
-    tx: tir::Tx,
+    tx: AnyTir,
+    args: &ArgMap,
     compiler: &mut C,
     utxos: &S,
     max_optimize_rounds: usize,
 ) -> Result<CompiledTx, Error>
 where
-    C: Compiler<Expression = tir::Expression, CompilerOp = tir::CompilerOp, EntryPoint = tir::Tx>,
+    C: Compiler<Expression = tir::Expression, CompilerOp = tir::CompilerOp>,
     S: UtxoStore,
 {
+    let tx = safe_apply_args(tx, args)?;
+
     let max_optimize_rounds = max_optimize_rounds.max(3);
 
     let mut last_eval = None;

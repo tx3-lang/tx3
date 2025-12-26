@@ -16,6 +16,7 @@ use pallas::{
 
 use super::*;
 use tx3_tir::compile::Error;
+use tx3_tir::model::core::UtxoRef;
 use tx3_tir::model::v1beta0 as tir;
 
 use crate::{
@@ -570,12 +571,12 @@ fn compile_auxiliary_data(tx: &tir::Tx) -> Result<Option<primitives::AuxiliaryDa
     }
 }
 
-fn utxo_ref_matches(ref1: &tir::UtxoRef, ref2: &primitives::TransactionInput) -> bool {
+fn utxo_ref_matches(ref1: &UtxoRef, ref2: &primitives::TransactionInput) -> bool {
     ref1.txid.eq(ref2.transaction_id.as_slice()) && ref1.index == ref2.index as u32
 }
 
 fn compile_single_spend_redeemer(
-    input_id: &tir::UtxoRef,
+    input_id: &UtxoRef,
     redeemer: &tir::Expression,
     sorted_inputs: &[&primitives::TransactionInput],
 ) -> Result<primitives::Redeemer, Error> {

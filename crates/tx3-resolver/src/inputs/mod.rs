@@ -2,8 +2,10 @@
 
 use std::collections::{BTreeMap, HashSet};
 
-use tx3_tir::model::assets::CanonicalAssets;
+use tx3_tir::encoding::AnyTir;
+use tx3_tir::model::core::UtxoSet;
 use tx3_tir::model::v1beta0 as tir;
+use tx3_tir::model::{assets::CanonicalAssets, core::UtxoRef};
 
 pub use crate::inputs::narrow::SearchSpace;
 use crate::{Error, UtxoStore};
@@ -39,8 +41,8 @@ macro_rules! data_or_bail {
 
 pub struct Diagnostic {
     pub query: tir::InputQuery,
-    pub utxos: tir::UtxoSet,
-    pub selected: tir::UtxoSet,
+    pub utxos: UtxoSet,
+    pub selected: UtxoSet,
 }
 
 const MAX_SEARCH_SPACE_SIZE: usize = 50;
@@ -49,7 +51,7 @@ const MAX_SEARCH_SPACE_SIZE: usize = 50;
 pub struct CanonicalQuery {
     pub address: Option<Vec<u8>>,
     pub min_amount: Option<CanonicalAssets>,
-    pub refs: HashSet<tir::UtxoRef>,
+    pub refs: HashSet<UtxoRef>,
     pub support_many: bool,
     pub collateral: bool,
 }
@@ -112,7 +114,7 @@ impl TryFrom<tir::InputQuery> for CanonicalQuery {
     }
 }
 
-pub async fn resolve<T: UtxoStore>(tx: tir::Tx, utxos: &T) -> Result<tir::Tx, Error> {
+pub async fn resolve<T: UtxoStore>(tx: AnyTir, utxos: &T) -> Result<AnyTir, Error> {
     let mut all_inputs = BTreeMap::new();
 
     let mut selector = select::InputSelector::new(utxos);

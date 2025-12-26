@@ -4,6 +4,7 @@
 //! into the intermediate representation (IR) of the Tx3 language.
 
 use crate::ast;
+use tx3_tir::model::core::{Type, UtxoRef};
 use tx3_tir::model::v1beta0 as ir;
 
 #[derive(Debug, thiserror::Error)]
@@ -176,7 +177,7 @@ impl IntoLower for ast::Identifier {
             ast::Symbol::LocalExpr(expr) => Ok(expr.into_lower(ctx)?),
             ast::Symbol::PartyDef(x) => Ok(ir::Param::ExpectValue(
                 x.name.value.to_lowercase().clone(),
-                ir::Type::Address,
+                Type::Address,
             )
             .into()),
             ast::Symbol::Input(def) => {
@@ -218,7 +219,7 @@ impl IntoLower for ast::UtxoRef {
     type Output = ir::Expression;
 
     fn into_lower(&self, _: &Context) -> Result<Self::Output, Error> {
-        let x = ir::Expression::UtxoRefs(vec![ir::UtxoRef {
+        let x = ir::Expression::UtxoRefs(vec![UtxoRef {
             txid: self.txid.clone(),
             index: self.index as u32,
         }]);
@@ -334,22 +335,22 @@ impl IntoLower for ast::PolicyDef {
 }
 
 impl IntoLower for ast::Type {
-    type Output = ir::Type;
+    type Output = Type;
 
     fn into_lower(&self, _: &Context) -> Result<Self::Output, Error> {
         match self {
-            ast::Type::Undefined => Ok(ir::Type::Undefined),
-            ast::Type::Unit => Ok(ir::Type::Unit),
-            ast::Type::Int => Ok(ir::Type::Int),
-            ast::Type::Bool => Ok(ir::Type::Bool),
-            ast::Type::Bytes => Ok(ir::Type::Bytes),
-            ast::Type::Address => Ok(ir::Type::Address),
-            ast::Type::Utxo => Ok(ir::Type::Utxo),
-            ast::Type::UtxoRef => Ok(ir::Type::UtxoRef),
-            ast::Type::AnyAsset => Ok(ir::Type::AnyAsset),
-            ast::Type::List(_) => Ok(ir::Type::List),
-            ast::Type::Map(_, _) => Ok(ir::Type::Map),
-            ast::Type::Custom(x) => Ok(ir::Type::Custom(x.value.clone())),
+            ast::Type::Undefined => Ok(Type::Undefined),
+            ast::Type::Unit => Ok(Type::Unit),
+            ast::Type::Int => Ok(Type::Int),
+            ast::Type::Bool => Ok(Type::Bool),
+            ast::Type::Bytes => Ok(Type::Bytes),
+            ast::Type::Address => Ok(Type::Address),
+            ast::Type::Utxo => Ok(Type::Utxo),
+            ast::Type::UtxoRef => Ok(Type::UtxoRef),
+            ast::Type::AnyAsset => Ok(Type::AnyAsset),
+            ast::Type::List(_) => Ok(Type::List),
+            ast::Type::Map(_, _) => Ok(Type::Map),
+            ast::Type::Custom(x) => Ok(Type::Custom(x.value.clone())),
         }
     }
 }
