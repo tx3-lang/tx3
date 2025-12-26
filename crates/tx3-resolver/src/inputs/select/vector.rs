@@ -140,7 +140,7 @@ impl VectorSelector {
         let classes: Vec<_> = class_union!(search_space, target);
 
         let mut candidates = Vec::from_iter(search_space);
-        candidates.sort_by_cached_key(|utxo| utxo.assets.distance(&target, &classes));
+        candidates.sort_by_cached_key(|utxo| utxo.assets.distance(target, &classes));
         candidates.reverse();
 
         candidates

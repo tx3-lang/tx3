@@ -346,7 +346,7 @@ pub fn compile_cardano_publish_directive(
         };
 
         let script = compile_adhoc_script(&synthetic_adhoc)?;
-        Some(pallas::codec::utils::CborWrap(script.into()))
+        Some(pallas::codec::utils::CborWrap(script))
     } else {
         None
     };

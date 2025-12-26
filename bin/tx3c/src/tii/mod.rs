@@ -31,7 +31,7 @@ pub fn map_ast_type_to_json_schema(r#type: &tx3_lang::ast::Type) -> Value {
             "type": "array",
             "items": map_ast_type_to_json_schema(inner)
         }),
-        tx3_lang::ast::Type::Map(key, value) => json!({
+        tx3_lang::ast::Type::Map(_, value) => json!({
             "type": "object",
             "additionalProperties": map_ast_type_to_json_schema(value)
         }),
@@ -156,7 +156,7 @@ fn load_dotfile(path: Option<&PathBuf>) -> anyhow::Result<BTreeMap<String, Strin
 pub fn emit_tii(args: Args, ws: &tx3_lang::Workspace) -> anyhow::Result<()> {
     let ast = ws.ast().ok_or(anyhow!("Failed to get AST"))?;
 
-    let env_schema = infer_env_schema(&ast);
+    let env_schema = infer_env_schema(ast);
 
     let mut tii = TiiFile {
         tii: TiiInfo {
@@ -216,8 +216,8 @@ pub fn emit_tii(args: Args, ws: &tx3_lang::Workspace) -> anyhow::Result<()> {
 
         let dotfile = load_dotfile(env_file.map(|entry| &entry.value))?;
 
-        let environment = infer_environment_values_from_dotfile(&dotfile, &ast);
-        let parties = infer_party_values_from_dotfile(&dotfile, &ast);
+        let environment = infer_environment_values_from_dotfile(&dotfile, ast);
+        let parties = infer_party_values_from_dotfile(&dotfile, ast);
 
         tii.profiles.insert(
             profile,

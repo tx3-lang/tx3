@@ -87,7 +87,7 @@ impl TryFrom<tir::InputQuery> for CanonicalQuery {
             .as_option()
             .map(|x| data_or_bail!(x, bytes))
             .transpose()?
-            .map(|x| Vec::from(x));
+            .map(Vec::from);
 
         let min_amount = query
             .min_amount

@@ -1,12 +1,5 @@
-use anyhow::{anyhow, Context};
 use clap::Parser;
-use std::{
-    collections::{BTreeMap, HashMap, HashSet},
-    path::PathBuf,
-};
-use tx3_lang::ast;
-
-use serde_json::json;
+use std::path::PathBuf;
 
 use crate::tii;
 

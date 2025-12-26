@@ -146,7 +146,7 @@ fn safe_apply_args(tir: AnyTir, args: &ArgMap) -> Result<AnyTir, Error> {
         };
     }
 
-    let tir = tx3_tir::reduce::apply_args(tir, &args)?;
+    let tir = tx3_tir::reduce::apply_args(tir, args)?;
 
     Ok(tir)
 }

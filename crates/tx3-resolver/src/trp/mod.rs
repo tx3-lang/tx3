@@ -15,12 +15,10 @@ use crate::{
 
 impl From<TirEnvelope> for Vec<u8> {
     fn from(envelope: TirEnvelope) -> Self {
-        let bytes = match envelope.encoding {
+        match envelope.encoding {
             BytesEncoding::Base64 => base64_to_bytes(&envelope.content).unwrap(),
             BytesEncoding::Hex => hex_to_bytes(&envelope.content).unwrap(),
-        };
-
-        bytes
+        }
     }
 }
 
