@@ -7,7 +7,7 @@ use pallas::{
     },
     ledger::{
         primitives::{
-            conway::{self as primitives, Redeemers},
+            conway::{self as primitives, Redeemers, RedeemersKey, RedeemersValue},
             PlutusScript, TransactionInput,
         },
         traverse::ComputeHash,
@@ -305,7 +305,6 @@ fn compile_outputs(
 
     resolved.extend(cardano_outputs);
 
-    println!("resolved: {:?}", resolved);
     Ok(resolved)
 }
 
@@ -776,19 +775,33 @@ fn compile_redeemers(
     let withdrawal_redeemers = compile_withdrawal_redeemers(tx, compiled_body, network)?;
 
     // TODO: chain other redeemers
-    let redeemers: Vec<_> = spend_redeemers
+    let all: Vec<_> = spend_redeemers
         .into_iter()
         .chain(mint_redeemers)
         .chain(burn_redeemers)
         .chain(withdrawal_redeemers)
         .collect();
 
-    if redeemers.is_empty() {
+    let mut map = BTreeMap::new();
+
+    for redeemer in all {
+        let key = RedeemersKey {
+            tag: redeemer.tag,
+            index: redeemer.index,
+        };
+
+        let value = RedeemersValue {
+            ex_units: redeemer.ex_units,
+            data: redeemer.data,
+        };
+
+        map.insert(key, value);
+    }
+
+    if map.is_empty() {
         Ok(None)
     } else {
-        Ok(Some(primitives::Redeemers::List(
-            MaybeIndefArray::Def(redeemers).to_vec(),
-        )))
+        Ok(Some(primitives::Redeemers::Map(map)))
     }
 }
 

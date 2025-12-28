@@ -251,7 +251,7 @@ async fn smoke_test_vesting_unlock() {
 
     assert_eq!(
         hex::encode(tx.hash),
-        "a720d363d4cc1afa7be67eb4e0a8ddc5e7effe40316d2a49cc19836b9e04c0d4"
+        "6aba778b2e7525c09dde45c87e1ac6e4ecabc694278bb63d6ef9d9078290617e"
     );
 }
 
@@ -272,7 +272,7 @@ async fn faucet_test() {
 
     assert_eq!(
         hex::encode(tx.hash),
-        "0c699a172b9166f85f21229e47a7d7e24bc0de62f977fe9796795226293647e4"
+        "1094415ab4aaeac622ed90a992ba2f506d9f7f98a529e46f595a2603d800f039"
     );
 }
 
@@ -349,7 +349,7 @@ async fn env_vars_test() {
 
     assert_eq!(
         hex::encode(tx.hash),
-        "90f90b26589228954a9d3aeda823b4b74d296bc153e6427d9706537881967c6a"
+        "964218c7acc56aa1f6bb422820853063de03ceff981b5ef510d2c4b41b1e3ae8"
     );
 }
 
@@ -371,7 +371,7 @@ async fn local_vars_test() {
 
     assert_eq!(
         hex::encode(tx.hash),
-        "cb1978d0177fd1a36c282c60d0318766497cc597a17a3483db1c8ff54a547626"
+        "cc3d44de45863d85cd2429131349d5f71c492e7dac3530c2d2c47d4233d0db97"
     );
 }
 
@@ -392,7 +392,7 @@ async fn adhoc_plutus_witness_test() {
 
     assert_eq!(
         hex::encode(tx.hash),
-        "dc2f396b205fe4e5bee3ecbf1d259e8db295c3a7775c9026958d60c3beec5d08"
+        "ee73ab26bb548493e48fd3b9426e82b103a4684483019ce70bd24413f692267a"
     );
 }
 
@@ -415,7 +415,7 @@ async fn burn_test() {
 
     assert_eq!(
         hex::encode(tx.hash),
-        "48b172526c29ac9f2193f8bcb276f5fa48acfa27498dfc0dd0faa8df6299e363"
+        "a1e391ff221f922814e349a1cd425c146534ca771900e74563ddab56928bb93c"
     );
 }
 
