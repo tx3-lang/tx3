@@ -4,7 +4,7 @@ mod build;
 mod tii;
 
 #[derive(Parser)]
-#[command(name = "tx3c")]
+#[command(name = "tx3c", version, author, about)]
 #[command(about = "Tx3 language compiler CLI")]
 struct Cli {
     #[command(subcommand)]
