@@ -406,6 +406,87 @@ impl IntoLower for ast::NegateOp {
     }
 }
 
+impl IntoLower for ast::FnCall {
+    type Output = ir::Expression;
+
+    fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
+        let function_name = &self.callee.value;
+
+        match function_name.as_str() {
+            "min_utxo" => {
+                if self.args.len() != 1 {
+                    return Err(Error::InvalidAst(format!(
+                        "min_utxo expects 1 argument, got {}",
+                        self.args.len()
+                    )));
+                }
+                let arg = self.args[0].into_lower(ctx)?;
+                Ok(ir::Expression::EvalCompiler(Box::new(
+                    ir::CompilerOp::ComputeMinUtxo(arg),
+                )))
+            }
+            "tip_slot" => {
+                if !self.args.is_empty() {
+                    return Err(Error::InvalidAst(format!(
+                        "tip_slot expects 0 arguments, got {}",
+                        self.args.len()
+                    )));
+                }
+                Ok(ir::Expression::EvalCompiler(Box::new(
+                    ir::CompilerOp::ComputeTipSlot,
+                )))
+            }
+            "slot_to_time" => {
+                if self.args.len() != 1 {
+                    return Err(Error::InvalidAst(format!(
+                        "slot_to_time expects 1 argument, got {}",
+                        self.args.len()
+                    )));
+                }
+                let arg = self.args[0].into_lower(ctx)?;
+                Ok(ir::Expression::EvalCompiler(Box::new(
+                    ir::CompilerOp::ComputeSlotToTime(arg),
+                )))
+            }
+            "time_to_slot" => {
+                if self.args.len() != 1 {
+                    return Err(Error::InvalidAst(format!(
+                        "time_to_slot expects 1 argument, got {}",
+                        self.args.len()
+                    )));
+                }
+
+                let arg = self.args[0].into_lower(ctx)?;
+
+                Ok(ir::Expression::EvalCompiler(Box::new(
+                    ir::CompilerOp::ComputeTimeToSlot(arg),
+                )))
+            }
+            _ => {
+                // Try to coerce as asset - if it fails, we'll get an error
+
+                match coerce_identifier_into_asset_def(&self.callee) {
+                    Ok(asset_def) => {
+                        let policy = asset_def.policy.into_lower(ctx)?;
+                        let asset_name = asset_def.asset_name.into_lower(ctx)?;
+                        let amount = self.args[0].into_lower(ctx)?;
+
+                        Ok(ir::Expression::Assets(vec![ir::AssetExpr {
+                            policy,
+                            asset_name,
+                            amount,
+                        }]))
+                    }
+                    Err(_) => Err(Error::InvalidAst(format!(
+                        "unknown function: {}",
+                        function_name
+                    ))),
+                }
+            }
+        }
+    }
+}
+
 impl IntoLower for ast::PropertyOp {
     type Output = ir::Expression;
 
@@ -475,7 +556,6 @@ impl IntoLower for ast::DataExpr {
             ast::DataExpr::StructConstructor(x) => ir::Expression::Struct(x.into_lower(ctx)?),
             ast::DataExpr::ListConstructor(x) => ir::Expression::List(x.into_lower(ctx)?),
             ast::DataExpr::MapConstructor(x) => x.into_lower(ctx)?,
-            ast::DataExpr::StaticAssetConstructor(x) => x.into_lower(ctx)?,
             ast::DataExpr::AnyAssetConstructor(x) => x.into_lower(ctx)?,
             ast::DataExpr::Unit => ir::Expression::Struct(ir::StructExpr::unit()),
             ast::DataExpr::Identifier(x) => x.into_lower(ctx)?,
@@ -485,6 +565,7 @@ impl IntoLower for ast::DataExpr {
             ast::DataExpr::NegateOp(x) => x.into_lower(ctx)?,
             ast::DataExpr::PropertyOp(x) => x.into_lower(ctx)?,
             ast::DataExpr::UtxoRef(x) => x.into_lower(ctx)?,
+            ast::DataExpr::FnCall(x) => x.into_lower(ctx)?,
             ast::DataExpr::MinUtxo(x) => ir::Expression::EvalCompiler(Box::new(
                 ir::CompilerOp::ComputeMinUtxo(x.into_lower(ctx)?),
             )),
@@ -500,25 +581,6 @@ impl IntoLower for ast::DataExpr {
         };
 
         Ok(out)
-    }
-}
-
-impl IntoLower for ast::StaticAssetConstructor {
-    type Output = ir::Expression;
-
-    fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
-        let asset_def = coerce_identifier_into_asset_def(&self.r#type)?;
-
-        let policy = asset_def.policy.into_lower(ctx)?;
-        let asset_name = asset_def.asset_name.into_lower(ctx)?;
-
-        let amount = self.amount.into_lower(ctx)?;
-
-        Ok(ir::Expression::Assets(vec![ir::AssetExpr {
-            policy,
-            asset_name,
-            amount,
-        }]))
     }
 }
 

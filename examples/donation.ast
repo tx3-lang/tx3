@@ -65,8 +65,8 @@
                         }
                       },
                       "rhs": {
-                        "StaticAssetConstructor": {
-                          "type": {
+                        "FnCall": {
+                          "callee": {
                             "value": "Ada",
                             "span": {
                               "dummy": false,
@@ -74,28 +74,30 @@
                               "end": 139
                             }
                           },
-                          "amount": {
-                            "AddOp": {
-                              "lhs": {
-                                "Identifier": {
-                                  "value": "quantity",
-                                  "span": {
-                                    "dummy": false,
-                                    "start": 140,
-                                    "end": 148
+                          "args": [
+                            {
+                              "AddOp": {
+                                "lhs": {
+                                  "Identifier": {
+                                    "value": "quantity",
+                                    "span": {
+                                      "dummy": false,
+                                      "start": 140,
+                                      "end": 148
+                                    }
                                   }
+                                },
+                                "rhs": {
+                                  "Number": 445
+                                },
+                                "span": {
+                                  "dummy": false,
+                                  "start": 149,
+                                  "end": 150
                                 }
-                              },
-                              "rhs": {
-                                "Number": 445
-                              },
-                              "span": {
-                                "dummy": false,
-                                "start": 149,
-                                "end": 150
                               }
                             }
-                          },
+                          ],
                           "span": {
                             "dummy": false,
                             "start": 136,
@@ -111,12 +113,31 @@
                     }
                   },
                   "rhs": {
-                    "MinUtxo": {
-                      "value": "change",
+                    "FnCall": {
+                      "callee": {
+                        "value": "min_utxo",
+                        "span": {
+                          "dummy": false,
+                          "start": 158,
+                          "end": 166
+                        }
+                      },
+                      "args": [
+                        {
+                          "Identifier": {
+                            "value": "change",
+                            "span": {
+                              "dummy": false,
+                              "start": 167,
+                              "end": 173
+                            }
+                          }
+                        }
+                      ],
                       "span": {
                         "dummy": false,
-                        "start": 167,
-                        "end": 173
+                        "start": 158,
+                        "end": 174
                       }
                     }
                   },
@@ -176,8 +197,8 @@
                         }
                       },
                       "rhs": {
-                        "StaticAssetConstructor": {
-                          "type": {
+                        "FnCall": {
+                          "callee": {
                             "value": "Ada",
                             "span": {
                               "dummy": false,
@@ -185,28 +206,30 @@
                               "end": 256
                             }
                           },
-                          "amount": {
-                            "AddOp": {
-                              "lhs": {
-                                "Identifier": {
-                                  "value": "quantity",
-                                  "span": {
-                                    "dummy": false,
-                                    "start": 257,
-                                    "end": 265
+                          "args": [
+                            {
+                              "AddOp": {
+                                "lhs": {
+                                  "Identifier": {
+                                    "value": "quantity",
+                                    "span": {
+                                      "dummy": false,
+                                      "start": 257,
+                                      "end": 265
+                                    }
                                   }
+                                },
+                                "rhs": {
+                                  "Number": 445
+                                },
+                                "span": {
+                                  "dummy": false,
+                                  "start": 266,
+                                  "end": 267
                                 }
-                              },
-                              "rhs": {
-                                "Number": 445
-                              },
-                              "span": {
-                                "dummy": false,
-                                "start": 266,
-                                "end": 267
                               }
                             }
-                          },
+                          ],
                           "span": {
                             "dummy": false,
                             "start": 253,

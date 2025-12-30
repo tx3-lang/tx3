@@ -843,28 +843,6 @@ impl AstNode for PolicyDef {
     }
 }
 
-impl AstNode for StaticAssetConstructor {
-    const RULE: Rule = Rule::static_asset_constructor;
-
-    fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
-        let span = pair.as_span().into();
-        let mut inner = pair.into_inner();
-
-        let r#type = Identifier::parse(inner.next().unwrap())?;
-        let amount = DataExpr::parse(inner.next().unwrap())?;
-
-        Ok(StaticAssetConstructor {
-            r#type,
-            amount: Box::new(amount),
-            span,
-        })
-    }
-
-    fn span(&self) -> &Span {
-        &self.span
-    }
-}
-
 impl AstNode for AnyAssetConstructor {
     const RULE: Rule = Rule::any_asset_constructor;
 
@@ -904,6 +882,28 @@ impl AstNode for ConcatOp {
             rhs: Box::new(rhs),
             span,
         })
+    }
+
+    fn span(&self) -> &Span {
+        &self.span
+    }
+}
+
+impl AstNode for crate::ast::FnCall {
+    const RULE: Rule = Rule::fn_call;
+
+    fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
+        let span = pair.as_span().into();
+        let mut inner = pair.into_inner();
+
+        let callee = Identifier::parse(inner.next().unwrap())?;
+
+        let mut args = Vec::new();
+        for arg_pair in inner {
+            args.push(DataExpr::parse(arg_pair)?);
+        }
+
+        Ok(crate::ast::FnCall { callee, args, span })
     }
 
     fn span(&self) -> &Span {
@@ -1133,39 +1133,18 @@ impl DataExpr {
         Ok(DataExpr::UtxoRef(UtxoRef::parse(pair)?))
     }
 
-    fn static_asset_constructor_parse(pair: Pair<Rule>) -> Result<Self, Error> {
-        Ok(DataExpr::StaticAssetConstructor(
-            StaticAssetConstructor::parse(pair)?,
-        ))
-    }
-
     fn any_asset_constructor_parse(pair: Pair<Rule>) -> Result<Self, Error> {
         Ok(DataExpr::AnyAssetConstructor(AnyAssetConstructor::parse(
             pair,
         )?))
     }
 
-    fn min_utxo_parse(pair: Pair<Rule>) -> Result<Self, Error> {
-        let inner = pair.into_inner().next().unwrap();
-        Ok(DataExpr::MinUtxo(Identifier::parse(inner)?))
-    }
-
-    fn tip_slot_parse(_pair: Pair<Rule>) -> Result<Self, Error> {
-        Ok(DataExpr::ComputeTipSlot)
-    }
-
-    fn slot_to_time_parse(pair: Pair<Rule>) -> Result<Self, Error> {
-        let inner = pair.into_inner().next().unwrap();
-        Ok(DataExpr::SlotToTime(Box::new(DataExpr::parse(inner)?)))
-    }
-
-    fn time_to_slot_parse(pair: Pair<Rule>) -> Result<Self, Error> {
-        let inner = pair.into_inner().next().unwrap();
-        Ok(DataExpr::TimeToSlot(Box::new(DataExpr::parse(inner)?)))
-    }
-
     fn concat_constructor_parse(pair: Pair<Rule>) -> Result<Self, Error> {
         Ok(DataExpr::ConcatOp(ConcatOp::parse(pair)?))
+    }
+
+    fn fn_call_parse(pair: Pair<Rule>) -> Result<Self, Error> {
+        Ok(DataExpr::FnCall(crate::ast::FnCall::parse(pair)?))
     }
 
     fn negate_op_parse(pair: Pair<Rule>, right: DataExpr) -> Result<Self, Error> {
@@ -1247,13 +1226,9 @@ impl AstNode for DataExpr {
                 Rule::unit => Ok(DataExpr::Unit),
                 Rule::identifier => DataExpr::identifier_parse(x),
                 Rule::utxo_ref => DataExpr::utxo_ref_parse(x),
-                Rule::static_asset_constructor => DataExpr::static_asset_constructor_parse(x),
                 Rule::any_asset_constructor => DataExpr::any_asset_constructor_parse(x),
                 Rule::concat_constructor => DataExpr::concat_constructor_parse(x),
-                Rule::min_utxo => DataExpr::min_utxo_parse(x),
-                Rule::tip_slot => DataExpr::tip_slot_parse(x),
-                Rule::slot_to_time => DataExpr::slot_to_time_parse(x),
-                Rule::time_to_slot => DataExpr::time_to_slot_parse(x),
+                Rule::fn_call => DataExpr::fn_call_parse(x),
                 Rule::data_expr => DataExpr::parse(x),
                 x => unreachable!("unexpected rule as data primary: {:?}", x),
             })
@@ -1285,7 +1260,6 @@ impl AstNode for DataExpr {
             DataExpr::StructConstructor(x) => x.span(),
             DataExpr::ListConstructor(x) => x.span(),
             DataExpr::MapConstructor(x) => x.span(),
-            DataExpr::StaticAssetConstructor(x) => x.span(),
             DataExpr::AnyAssetConstructor(x) => x.span(),
             DataExpr::Identifier(x) => x.span(),
             DataExpr::AddOp(x) => &x.span,
@@ -1298,6 +1272,7 @@ impl AstNode for DataExpr {
             DataExpr::SlotToTime(x) => x.span(),
             DataExpr::TimeToSlot(x) => x.span(),
             DataExpr::ComputeTipSlot => &Span::DUMMY, // TODO
+            DataExpr::FnCall(x) => &x.span,
         }
     }
 }
@@ -1972,14 +1947,14 @@ mod tests {
     );
 
     input_to_ast_check!(
-        StaticAssetConstructor,
+        DataExpr,
         "type_and_literal",
         "MyToken(15)",
-        StaticAssetConstructor {
-            r#type: Identifier::new("MyToken"),
-            amount: Box::new(DataExpr::Number(15)),
+        DataExpr::FnCall(crate::ast::FnCall {
+            callee: Identifier::new("MyToken"),
+            args: vec![DataExpr::Number(15)],
             span: Span::DUMMY,
-        }
+        })
     );
 
     input_to_ast_check!(
@@ -2203,7 +2178,11 @@ mod tests {
         DataExpr,
         "min_utxo_basic",
         "min_utxo(output1)",
-        DataExpr::MinUtxo(Identifier::new("output1"))
+        DataExpr::FnCall(crate::ast::FnCall {
+            callee: Identifier::new("min_utxo"),
+            args: vec![DataExpr::Identifier(Identifier::new("output1"))],
+            span: Span::DUMMY,
+        })
     );
 
     input_to_ast_check!(
@@ -2211,12 +2190,16 @@ mod tests {
         "min_utxo_in_expression",
         "Ada(100) + min_utxo(my_output)",
         DataExpr::AddOp(AddOp {
-            lhs: Box::new(DataExpr::StaticAssetConstructor(StaticAssetConstructor {
-                r#type: Identifier::new("Ada"),
-                amount: Box::new(DataExpr::Number(100)),
+            lhs: Box::new(DataExpr::FnCall(crate::ast::FnCall {
+                callee: Identifier::new("Ada"),
+                args: vec![DataExpr::Number(100)],
                 span: Span::DUMMY,
             })),
-            rhs: Box::new(DataExpr::MinUtxo(Identifier::new("my_output"))),
+            rhs: Box::new(DataExpr::FnCall(crate::ast::FnCall {
+                callee: Identifier::new("min_utxo"),
+                args: vec![DataExpr::Identifier(Identifier::new("my_output"))],
+                span: Span::DUMMY,
+            })),
             span: Span::DUMMY,
         })
     );
@@ -2225,7 +2208,11 @@ mod tests {
         DataExpr,
         "tip_slot_basic",
         "tip_slot()",
-        DataExpr::ComputeTipSlot
+        DataExpr::FnCall(crate::ast::FnCall {
+            callee: Identifier::new("tip_slot"),
+            args: vec![],
+            span: Span::DUMMY,
+        })
     );
 
     input_to_ast_check!(
@@ -2234,7 +2221,11 @@ mod tests {
         "1000 + tip_slot()",
         DataExpr::AddOp(AddOp {
             lhs: Box::new(DataExpr::Number(1000)),
-            rhs: Box::new(DataExpr::ComputeTipSlot),
+            rhs: Box::new(DataExpr::FnCall(crate::ast::FnCall {
+                callee: Identifier::new("tip_slot"),
+                args: vec![],
+                span: Span::DUMMY,
+            })),
             span: Span::DUMMY,
         })
     );
@@ -2466,13 +2457,11 @@ mod tests {
                 OutputBlockField::To(Box::new(DataExpr::Identifier(Identifier::new(
                     "my_party".to_string(),
                 )))),
-                OutputBlockField::Amount(Box::new(DataExpr::StaticAssetConstructor(
-                    StaticAssetConstructor {
-                        r#type: Identifier::new("Ada"),
-                        amount: Box::new(DataExpr::Number(100)),
-                        span: Span::DUMMY,
-                    },
-                ))),
+                OutputBlockField::Amount(Box::new(DataExpr::FnCall(crate::ast::FnCall {
+                    callee: Identifier::new("Ada"),
+                    args: vec![DataExpr::Number(100)],
+                    span: Span::DUMMY,
+                }))),
             ],
             span: Span::DUMMY,
         }
@@ -2713,7 +2702,11 @@ mod tests {
         "values[min_utxo(output)]",
         DataExpr::PropertyOp(PropertyOp {
             operand: Box::new(DataExpr::Identifier(Identifier::new("values"))),
-            property: Box::new(DataExpr::MinUtxo(Identifier::new("output"))),
+            property: Box::new(DataExpr::FnCall(crate::ast::FnCall {
+                callee: Identifier::new("min_utxo"),
+                args: vec![DataExpr::Identifier(Identifier::new("output"))],
+                span: Span::DUMMY,
+            })),
             span: Span::DUMMY,
             scope: None,
         })
