@@ -410,14 +410,61 @@ impl IntoLower for ast::FnCall {
     type Output = ir::Expression;
 
     fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
-        let callee = self.callee.into_lower(ctx)?;
-        let args = self
-            .args
-            .iter()
-            .map(|arg| arg.into_lower(ctx))
-            .collect::<Result<Vec<_>, _>>()?;
+        let function_name = &self.callee.value;
 
-        Ok(ir::Expression::FnCall(Box::new(callee), args))
+        match function_name.as_str() {
+            "min_utxo" => {
+                if self.args.len() != 1 {
+                    return Err(Error::InvalidAst(format!(
+                        "min_utxo expects 1 argument, got {}",
+                        self.args.len()
+                    )));
+                }
+                let arg = self.args[0].into_lower(ctx)?;
+                Ok(ir::Expression::EvalCompiler(Box::new(
+                    ir::CompilerOp::ComputeMinUtxo(arg),
+                )))
+            }
+            "tip_slot" => {
+                if !self.args.is_empty() {
+                    return Err(Error::InvalidAst(format!(
+                        "tip_slot expects 0 arguments, got {}",
+                        self.args.len()
+                    )));
+                }
+                Ok(ir::Expression::EvalCompiler(Box::new(
+                    ir::CompilerOp::ComputeTipSlot,
+                )))
+            }
+            "slot_to_time" => {
+                if self.args.len() != 1 {
+                    return Err(Error::InvalidAst(format!(
+                        "slot_to_time expects 1 argument, got {}",
+                        self.args.len()
+                    )));
+                }
+                let arg = self.args[0].into_lower(ctx)?;
+                Ok(ir::Expression::EvalCompiler(Box::new(
+                    ir::CompilerOp::ComputeSlotToTime(arg),
+                )))
+            }
+            "time_to_slot" => {
+                if self.args.len() != 1 {
+                    return Err(Error::InvalidAst(format!(
+                        "time_to_slot expects 1 argument, got {}",
+                        self.args.len()
+                    )));
+                }
+                let arg = self.args[0].into_lower(ctx)?;
+                Ok(ir::Expression::EvalCompiler(Box::new(
+                    ir::CompilerOp::ComputeTimeToSlot(arg),
+                )))
+            }
+            _ => Err(Error::InvalidAst(format!(
+                "unknown function: {}",
+                function_name
+            ))),
+        }
     }
 }
 

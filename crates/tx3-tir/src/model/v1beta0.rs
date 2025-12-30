@@ -203,7 +203,6 @@ pub enum Expression {
     EvalBuiltIn(Box<BuiltInOp>),
     EvalCompiler(Box<CompilerOp>),
     EvalCoerce(Box<Coerce>),
-    FnCall(Box<Expression>, Vec<Expression>), // callee, arguments
 
     // pass-through
     AdHocDirective(Box<AdHocDirective>),
@@ -486,9 +485,6 @@ impl Node for Expression {
             Expression::EvalBuiltIn(x) => Expression::EvalBuiltIn(x.apply(visitor)?),
             Expression::EvalCompiler(x) => Expression::EvalCompiler(x.apply(visitor)?),
             Expression::EvalCoerce(x) => Expression::EvalCoerce(x.apply(visitor)?),
-            Expression::FnCall(callee, args) => {
-                Expression::FnCall(Box::new((*callee).apply(visitor)?), args.apply(visitor)?)
-            }
 
             // leaf expressions don't need to be visited
             Expression::Bytes(x) => Expression::Bytes(x),
