@@ -1023,4 +1023,6 @@ mod tests {
     test_lowering!(donation);
 
     test_lowering!(list_concat);
+
+    test_lowering!(buidler_fest_2026);
 }

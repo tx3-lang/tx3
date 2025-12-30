@@ -1,0 +1,981 @@
+{
+  "env": {
+    "fields": [
+      {
+        "name": "issuer_beacon_policy",
+        "type": "Bytes",
+        "span": {
+          "dummy": false,
+          "start": 56,
+          "end": 83
+        }
+      },
+      {
+        "name": "issuer_beacon_name",
+        "type": "Bytes",
+        "span": {
+          "dummy": false,
+          "start": 89,
+          "end": 114
+        }
+      },
+      {
+        "name": "ticket_policy",
+        "type": "Bytes",
+        "span": {
+          "dummy": false,
+          "start": 120,
+          "end": 140
+        }
+      },
+      {
+        "name": "issuer_script_ref",
+        "type": "UtxoRef",
+        "span": {
+          "dummy": false,
+          "start": 146,
+          "end": 172
+        }
+      },
+      {
+        "name": "ticket_price",
+        "type": "Int",
+        "span": {
+          "dummy": false,
+          "start": 178,
+          "end": 195
+        }
+      }
+    ],
+    "span": {
+      "dummy": false,
+      "start": 46,
+      "end": 198
+    }
+  },
+  "txs": [
+    {
+      "name": {
+        "value": "buy_ticket",
+        "span": {
+          "dummy": false,
+          "start": 250,
+          "end": 260
+        }
+      },
+      "parameters": {
+        "parameters": [
+          {
+            "name": {
+              "value": "ticket_name",
+              "span": {
+                "dummy": false,
+                "start": 261,
+                "end": 272
+              }
+            },
+            "type": "Bytes"
+          }
+        ],
+        "span": {
+          "dummy": false,
+          "start": 260,
+          "end": 280
+        }
+      },
+      "locals": {
+        "assigns": [
+          {
+            "name": {
+              "value": "issuer_beacon",
+              "span": {
+                "dummy": false,
+                "start": 304,
+                "end": 317
+              }
+            },
+            "value": {
+              "AnyAssetConstructor": {
+                "policy": {
+                  "Identifier": {
+                    "value": "issuer_beacon_policy",
+                    "span": {
+                      "dummy": false,
+                      "start": 328,
+                      "end": 348
+                    }
+                  }
+                },
+                "asset_name": {
+                  "Identifier": {
+                    "value": "issuer_beacon_name",
+                    "span": {
+                      "dummy": false,
+                      "start": 350,
+                      "end": 368
+                    }
+                  }
+                },
+                "amount": {
+                  "Number": 1
+                },
+                "span": {
+                  "dummy": false,
+                  "start": 319,
+                  "end": 372
+                }
+              }
+            },
+            "span": {
+              "dummy": false,
+              "start": 304,
+              "end": 372
+            }
+          }
+        ],
+        "span": {
+          "dummy": false,
+          "start": 287,
+          "end": 379
+        }
+      },
+      "references": [
+        {
+          "name": "issuer_script",
+          "ref": {
+            "Identifier": {
+              "value": "issuer_script_ref",
+              "span": {
+                "dummy": false,
+                "start": 559,
+                "end": 576
+              }
+            }
+          },
+          "span": {
+            "dummy": false,
+            "start": 520,
+            "end": 583
+          }
+        }
+      ],
+      "inputs": [
+        {
+          "name": "funds",
+          "many": true,
+          "fields": [
+            {
+              "From": {
+                "Identifier": {
+                  "value": "Buyer",
+                  "span": {
+                    "dummy": false,
+                    "start": 618,
+                    "end": 623
+                  }
+                }
+              }
+            },
+            {
+              "MinAmount": {
+                "AddOp": {
+                  "lhs": {
+                    "AddOp": {
+                      "lhs": {
+                        "Identifier": {
+                          "value": "fees",
+                          "span": {
+                            "dummy": false,
+                            "start": 645,
+                            "end": 649
+                          }
+                        }
+                      },
+                      "rhs": {
+                        "FnCall": {
+                          "callee": {
+                            "value": "Ada",
+                            "span": {
+                              "dummy": false,
+                              "start": 652,
+                              "end": 655
+                            }
+                          },
+                          "args": [
+                            {
+                              "Identifier": {
+                                "value": "ticket_price",
+                                "span": {
+                                  "dummy": false,
+                                  "start": 656,
+                                  "end": 668
+                                }
+                              }
+                            }
+                          ],
+                          "span": {
+                            "dummy": false,
+                            "start": 652,
+                            "end": 669
+                          }
+                        }
+                      },
+                      "span": {
+                        "dummy": false,
+                        "start": 650,
+                        "end": 651
+                      }
+                    }
+                  },
+                  "rhs": {
+                    "FnCall": {
+                      "callee": {
+                        "value": "min_utxo",
+                        "span": {
+                          "dummy": false,
+                          "start": 672,
+                          "end": 680
+                        }
+                      },
+                      "args": [
+                        {
+                          "Identifier": {
+                            "value": "ticket",
+                            "span": {
+                              "dummy": false,
+                              "start": 681,
+                              "end": 687
+                            }
+                          }
+                        }
+                      ],
+                      "span": {
+                        "dummy": false,
+                        "start": 672,
+                        "end": 688
+                      }
+                    }
+                  },
+                  "span": {
+                    "dummy": false,
+                    "start": 670,
+                    "end": 671
+                  }
+                }
+              }
+            }
+          ],
+          "span": {
+            "dummy": false,
+            "start": 589,
+            "end": 695
+          }
+        },
+        {
+          "name": "current_state",
+          "many": false,
+          "fields": [
+            {
+              "From": {
+                "Identifier": {
+                  "value": "Issuer",
+                  "span": {
+                    "dummy": false,
+                    "start": 737,
+                    "end": 743
+                  }
+                }
+              }
+            },
+            {
+              "MinAmount": {
+                "Identifier": {
+                  "value": "issuer_beacon",
+                  "span": {
+                    "dummy": false,
+                    "start": 765,
+                    "end": 778
+                  }
+                }
+              }
+            },
+            {
+              "DatumIs": {
+                "Custom": {
+                  "value": "IssuerState",
+                  "span": {
+                    "dummy": true,
+                    "start": 0,
+                    "end": 0
+                  }
+                }
+              }
+            },
+            {
+              "Redeemer": "Unit"
+            }
+          ],
+          "span": {
+            "dummy": false,
+            "start": 701,
+            "end": 838
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": {
+            "value": "ticket",
+            "span": {
+              "dummy": false,
+              "start": 987,
+              "end": 993
+            }
+          },
+          "optional": false,
+          "fields": [
+            {
+              "To": {
+                "Identifier": {
+                  "value": "Buyer",
+                  "span": {
+                    "dummy": false,
+                    "start": 1008,
+                    "end": 1013
+                  }
+                }
+              }
+            },
+            {
+              "Amount": {
+                "AddOp": {
+                  "lhs": {
+                    "SubOp": {
+                      "lhs": {
+                        "SubOp": {
+                          "lhs": {
+                            "Identifier": {
+                              "value": "funds",
+                              "span": {
+                                "dummy": false,
+                                "start": 1031,
+                                "end": 1036
+                              }
+                            }
+                          },
+                          "rhs": {
+                            "Identifier": {
+                              "value": "fees",
+                              "span": {
+                                "dummy": false,
+                                "start": 1039,
+                                "end": 1043
+                              }
+                            }
+                          },
+                          "span": {
+                            "dummy": false,
+                            "start": 1037,
+                            "end": 1038
+                          }
+                        }
+                      },
+                      "rhs": {
+                        "FnCall": {
+                          "callee": {
+                            "value": "Ada",
+                            "span": {
+                              "dummy": false,
+                              "start": 1046,
+                              "end": 1049
+                            }
+                          },
+                          "args": [
+                            {
+                              "Identifier": {
+                                "value": "ticket_price",
+                                "span": {
+                                  "dummy": false,
+                                  "start": 1050,
+                                  "end": 1062
+                                }
+                              }
+                            }
+                          ],
+                          "span": {
+                            "dummy": false,
+                            "start": 1046,
+                            "end": 1063
+                          }
+                        }
+                      },
+                      "span": {
+                        "dummy": false,
+                        "start": 1044,
+                        "end": 1045
+                      }
+                    }
+                  },
+                  "rhs": {
+                    "AnyAssetConstructor": {
+                      "policy": {
+                        "Identifier": {
+                          "value": "ticket_policy",
+                          "span": {
+                            "dummy": false,
+                            "start": 1075,
+                            "end": 1088
+                          }
+                        }
+                      },
+                      "asset_name": {
+                        "ConcatOp": {
+                          "lhs": {
+                            "String": {
+                              "value": "TICKET",
+                              "span": {
+                                "dummy": false,
+                                "start": 1097,
+                                "end": 1105
+                              }
+                            }
+                          },
+                          "rhs": {
+                            "PropertyOp": {
+                              "operand": {
+                                "Identifier": {
+                                  "value": "current_state",
+                                  "span": {
+                                    "dummy": false,
+                                    "start": 1107,
+                                    "end": 1120
+                                  }
+                                }
+                              },
+                              "property": {
+                                "Identifier": {
+                                  "value": "ticket_counter",
+                                  "span": {
+                                    "dummy": false,
+                                    "start": 1121,
+                                    "end": 1135
+                                  }
+                                }
+                              },
+                              "span": {
+                                "dummy": false,
+                                "start": 1120,
+                                "end": 1135
+                              }
+                            }
+                          },
+                          "span": {
+                            "dummy": false,
+                            "start": 1090,
+                            "end": 1136
+                          }
+                        }
+                      },
+                      "amount": {
+                        "Number": 1
+                      },
+                      "span": {
+                        "dummy": false,
+                        "start": 1066,
+                        "end": 1140
+                      }
+                    }
+                  },
+                  "span": {
+                    "dummy": false,
+                    "start": 1064,
+                    "end": 1065
+                  }
+                }
+              }
+            }
+          ],
+          "span": {
+            "dummy": false,
+            "start": 980,
+            "end": 1147
+          }
+        },
+        {
+          "name": {
+            "value": "new_state",
+            "span": {
+              "dummy": false,
+              "start": 1160,
+              "end": 1169
+            }
+          },
+          "optional": false,
+          "fields": [
+            {
+              "To": {
+                "Identifier": {
+                  "value": "Issuer",
+                  "span": {
+                    "dummy": false,
+                    "start": 1184,
+                    "end": 1190
+                  }
+                }
+              }
+            },
+            {
+              "Amount": {
+                "Identifier": {
+                  "value": "current_state",
+                  "span": {
+                    "dummy": false,
+                    "start": 1208,
+                    "end": 1221
+                  }
+                }
+              }
+            },
+            {
+              "Datum": {
+                "StructConstructor": {
+                  "type": {
+                    "value": "IssuerState",
+                    "span": {
+                      "dummy": false,
+                      "start": 1238,
+                      "end": 1249
+                    }
+                  },
+                  "case": {
+                    "name": {
+                      "value": "Default",
+                      "span": {
+                        "dummy": true,
+                        "start": 0,
+                        "end": 0
+                      }
+                    },
+                    "fields": [
+                      {
+                        "name": {
+                          "value": "ticket_counter",
+                          "span": {
+                            "dummy": false,
+                            "start": 1264,
+                            "end": 1278
+                          }
+                        },
+                        "value": {
+                          "AddOp": {
+                            "lhs": {
+                              "PropertyOp": {
+                                "operand": {
+                                  "Identifier": {
+                                    "value": "current_state",
+                                    "span": {
+                                      "dummy": false,
+                                      "start": 1280,
+                                      "end": 1293
+                                    }
+                                  }
+                                },
+                                "property": {
+                                  "Identifier": {
+                                    "value": "ticket_counter",
+                                    "span": {
+                                      "dummy": false,
+                                      "start": 1294,
+                                      "end": 1308
+                                    }
+                                  }
+                                },
+                                "span": {
+                                  "dummy": false,
+                                  "start": 1293,
+                                  "end": 1308
+                                }
+                              }
+                            },
+                            "rhs": {
+                              "Number": 1
+                            },
+                            "span": {
+                              "dummy": false,
+                              "start": 1309,
+                              "end": 1310
+                            }
+                          }
+                        },
+                        "span": {
+                          "dummy": false,
+                          "start": 1264,
+                          "end": 1312
+                        }
+                      }
+                    ],
+                    "spread": null,
+                    "span": {
+                      "dummy": false,
+                      "start": 1250,
+                      "end": 1323
+                    }
+                  },
+                  "span": {
+                    "dummy": false,
+                    "start": 1238,
+                    "end": 1323
+                  }
+                }
+              }
+            }
+          ],
+          "span": {
+            "dummy": false,
+            "start": 1153,
+            "end": 1330
+          }
+        },
+        {
+          "name": {
+            "value": "payment",
+            "span": {
+              "dummy": false,
+              "start": 1343,
+              "end": 1350
+            }
+          },
+          "optional": false,
+          "fields": [
+            {
+              "To": {
+                "Identifier": {
+                  "value": "Treasury",
+                  "span": {
+                    "dummy": false,
+                    "start": 1365,
+                    "end": 1373
+                  }
+                }
+              }
+            },
+            {
+              "Amount": {
+                "FnCall": {
+                  "callee": {
+                    "value": "Ada",
+                    "span": {
+                      "dummy": false,
+                      "start": 1391,
+                      "end": 1394
+                    }
+                  },
+                  "args": [
+                    {
+                      "Identifier": {
+                        "value": "ticket_price",
+                        "span": {
+                          "dummy": false,
+                          "start": 1395,
+                          "end": 1407
+                        }
+                      }
+                    }
+                  ],
+                  "span": {
+                    "dummy": false,
+                    "start": 1391,
+                    "end": 1408
+                  }
+                }
+              }
+            }
+          ],
+          "span": {
+            "dummy": false,
+            "start": 1336,
+            "end": 1415
+          }
+        }
+      ],
+      "validity": {
+        "fields": [
+          {
+            "UntilSlot": {
+              "AddOp": {
+                "lhs": {
+                  "FnCall": {
+                    "callee": {
+                      "value": "tip_slot",
+                      "span": {
+                        "dummy": false,
+                        "start": 491,
+                        "end": 499
+                      }
+                    },
+                    "args": [],
+                    "span": {
+                      "dummy": false,
+                      "start": 491,
+                      "end": 501
+                    }
+                  }
+                },
+                "rhs": {
+                  "Number": 600
+                },
+                "span": {
+                  "dummy": false,
+                  "start": 502,
+                  "end": 503
+                }
+              }
+            }
+          }
+        ],
+        "span": {
+          "dummy": false,
+          "start": 385,
+          "end": 514
+        }
+      },
+      "mints": [
+        {
+          "fields": [
+            {
+              "Amount": {
+                "AnyAssetConstructor": {
+                  "policy": {
+                    "Identifier": {
+                      "value": "ticket_policy",
+                      "span": {
+                        "dummy": false,
+                        "start": 880,
+                        "end": 893
+                      }
+                    }
+                  },
+                  "asset_name": {
+                    "ConcatOp": {
+                      "lhs": {
+                        "String": {
+                          "value": "TICKET",
+                          "span": {
+                            "dummy": false,
+                            "start": 902,
+                            "end": 910
+                          }
+                        }
+                      },
+                      "rhs": {
+                        "PropertyOp": {
+                          "operand": {
+                            "Identifier": {
+                              "value": "current_state",
+                              "span": {
+                                "dummy": false,
+                                "start": 912,
+                                "end": 925
+                              }
+                            }
+                          },
+                          "property": {
+                            "Identifier": {
+                              "value": "ticket_counter",
+                              "span": {
+                                "dummy": false,
+                                "start": 926,
+                                "end": 940
+                              }
+                            }
+                          },
+                          "span": {
+                            "dummy": false,
+                            "start": 925,
+                            "end": 940
+                          }
+                        }
+                      },
+                      "span": {
+                        "dummy": false,
+                        "start": 895,
+                        "end": 941
+                      }
+                    }
+                  },
+                  "amount": {
+                    "Number": 1
+                  },
+                  "span": {
+                    "dummy": false,
+                    "start": 871,
+                    "end": 945
+                  }
+                }
+              }
+            },
+            {
+              "Redeemer": "Unit"
+            }
+          ],
+          "span": {
+            "dummy": false,
+            "start": 848,
+            "end": 974
+          }
+        }
+      ],
+      "burns": [],
+      "signers": null,
+      "adhoc": [],
+      "span": {
+        "dummy": false,
+        "start": 247,
+        "end": 1488
+      },
+      "collateral": [
+        {
+          "fields": [
+            {
+              "From": {
+                "Identifier": {
+                  "value": "Buyer",
+                  "span": {
+                    "dummy": false,
+                    "start": 1448,
+                    "end": 1453
+                  }
+                }
+              }
+            },
+            {
+              "MinAmount": {
+                "Identifier": {
+                  "value": "fees",
+                  "span": {
+                    "dummy": false,
+                    "start": 1475,
+                    "end": 1479
+                  }
+                }
+              }
+            }
+          ],
+          "span": {
+            "dummy": false,
+            "start": 1421,
+            "end": 1486
+          }
+        }
+      ],
+      "metadata": null
+    }
+  ],
+  "types": [
+    {
+      "name": {
+        "value": "IssuerState",
+        "span": {
+          "dummy": false,
+          "start": 205,
+          "end": 216
+        }
+      },
+      "cases": [
+        {
+          "name": {
+            "value": "Default",
+            "span": {
+              "dummy": true,
+              "start": 0,
+              "end": 0
+            }
+          },
+          "fields": [
+            {
+              "name": {
+                "value": "ticket_counter",
+                "span": {
+                  "dummy": false,
+                  "start": 223,
+                  "end": 237
+                }
+              },
+              "type": "Int",
+              "span": {
+                "dummy": false,
+                "start": 223,
+                "end": 242
+              }
+            }
+          ],
+          "span": {
+            "dummy": false,
+            "start": 200,
+            "end": 245
+          }
+        }
+      ],
+      "span": {
+        "dummy": false,
+        "start": 200,
+        "end": 245
+      }
+    }
+  ],
+  "aliases": [],
+  "assets": [],
+  "parties": [
+    {
+      "name": {
+        "value": "Buyer",
+        "span": {
+          "dummy": false,
+          "start": 6,
+          "end": 11
+        }
+      },
+      "span": {
+        "dummy": false,
+        "start": 0,
+        "end": 12
+      }
+    },
+    {
+      "name": {
+        "value": "Issuer",
+        "span": {
+          "dummy": false,
+          "start": 20,
+          "end": 26
+        }
+      },
+      "span": {
+        "dummy": false,
+        "start": 14,
+        "end": 27
+      }
+    },
+    {
+      "name": {
+        "value": "Treasury",
+        "span": {
+          "dummy": false,
+          "start": 35,
+          "end": 43
+        }
+      },
+      "span": {
+        "dummy": false,
+        "start": 29,
+        "end": 44
+      }
+    }
+  ],
+  "policies": [],
+  "span": {
+    "dummy": false,
+    "start": 0,
+    "end": 1489
+  }
+}
