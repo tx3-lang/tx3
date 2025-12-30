@@ -189,6 +189,7 @@ impl Concatenable for String {
     fn concat(self, other: Expression) -> Result<Expression, Error> {
         match other {
             Expression::String(y) => Ok(Expression::String(self + &y)),
+            Expression::Number(y) => Ok(Expression::String(self + &y.to_string())),
             Expression::None => Ok(Expression::String(self)),
             _ => Err(Error::InvalidBinaryOp(
                 "concat".to_string(),
@@ -1949,6 +1950,21 @@ mod tests {
         match reduced {
             Expression::String(s) => assert_eq!(s, "helloworld"),
             _ => panic!("Expected string 'helloworld'"),
+        }
+    }
+
+    #[test]
+    fn test_string_number_concat_is_reduced() {
+        let op = Expression::EvalBuiltIn(Box::new(BuiltInOp::Concat(
+            Expression::String("hello".to_string()),
+            Expression::Number(123),
+        )));
+
+        let reduced = op.reduce().unwrap();
+
+        match reduced {
+            Expression::String(s) => assert_eq!(s, "hello123"),
+            _ => panic!("Expected string 'hello123'"),
         }
     }
 
