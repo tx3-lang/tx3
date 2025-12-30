@@ -911,6 +911,28 @@ impl AstNode for ConcatOp {
     }
 }
 
+impl AstNode for crate::ast::FnCall {
+    const RULE: Rule = Rule::fn_call;
+
+    fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
+        let span = pair.as_span().into();
+        let mut inner = pair.into_inner();
+
+        let callee = Identifier::parse(inner.next().unwrap())?;
+
+        let mut args = Vec::new();
+        for arg_pair in inner {
+            args.push(DataExpr::parse(arg_pair)?);
+        }
+
+        Ok(crate::ast::FnCall { callee, args, span })
+    }
+
+    fn span(&self) -> &Span {
+        &self.span
+    }
+}
+
 impl AstNode for RecordConstructorField {
     const RULE: Rule = Rule::record_constructor_field;
 
@@ -1168,6 +1190,10 @@ impl DataExpr {
         Ok(DataExpr::ConcatOp(ConcatOp::parse(pair)?))
     }
 
+    fn fn_call_parse(pair: Pair<Rule>) -> Result<Self, Error> {
+        Ok(DataExpr::FnCall(crate::ast::FnCall::parse(pair)?))
+    }
+
     fn negate_op_parse(pair: Pair<Rule>, right: DataExpr) -> Result<Self, Error> {
         Ok(DataExpr::NegateOp(NegateOp {
             operand: Box::new(right),
@@ -1254,6 +1280,7 @@ impl AstNode for DataExpr {
                 Rule::tip_slot => DataExpr::tip_slot_parse(x),
                 Rule::slot_to_time => DataExpr::slot_to_time_parse(x),
                 Rule::time_to_slot => DataExpr::time_to_slot_parse(x),
+                Rule::fn_call => DataExpr::fn_call_parse(x),
                 Rule::data_expr => DataExpr::parse(x),
                 x => unreachable!("unexpected rule as data primary: {:?}", x),
             })
@@ -1298,6 +1325,7 @@ impl AstNode for DataExpr {
             DataExpr::SlotToTime(x) => x.span(),
             DataExpr::TimeToSlot(x) => x.span(),
             DataExpr::ComputeTipSlot => &Span::DUMMY, // TODO
+            DataExpr::FnCall(x) => &x.span,
         }
     }
 }

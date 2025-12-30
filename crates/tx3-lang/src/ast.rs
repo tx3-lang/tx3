@@ -727,6 +727,13 @@ impl ConcatOp {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct FnCall {
+    pub callee: Identifier,
+    pub args: Vec<DataExpr>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum DataExpr {
     None,
     Unit,
@@ -750,6 +757,7 @@ pub enum DataExpr {
     NegateOp(NegateOp),
     PropertyOp(PropertyOp),
     UtxoRef(UtxoRef),
+    FnCall(FnCall),
 }
 
 impl DataExpr {
@@ -787,6 +795,7 @@ impl DataExpr {
             DataExpr::ComputeTipSlot => Some(Type::Int),
             DataExpr::SlotToTime(_) => Some(Type::Int),
             DataExpr::TimeToSlot(_) => Some(Type::Int),
+            DataExpr::FnCall(_) => None, // Function call return type determined by symbol resolution
         }
     }
 }

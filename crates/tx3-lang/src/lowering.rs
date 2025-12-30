@@ -406,6 +406,21 @@ impl IntoLower for ast::NegateOp {
     }
 }
 
+impl IntoLower for ast::FnCall {
+    type Output = ir::Expression;
+
+    fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
+        let callee = self.callee.into_lower(ctx)?;
+        let args = self
+            .args
+            .iter()
+            .map(|arg| arg.into_lower(ctx))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(ir::Expression::FnCall(Box::new(callee), args))
+    }
+}
+
 impl IntoLower for ast::PropertyOp {
     type Output = ir::Expression;
 
@@ -497,6 +512,7 @@ impl IntoLower for ast::DataExpr {
             ast::DataExpr::TimeToSlot(x) => ir::Expression::EvalCompiler(Box::new(
                 ir::CompilerOp::ComputeTimeToSlot(x.into_lower(ctx)?),
             )),
+            ast::DataExpr::FnCall(x) => x.into_lower(ctx)?,
         };
 
         Ok(out)

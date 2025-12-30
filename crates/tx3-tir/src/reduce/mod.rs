@@ -886,6 +886,13 @@ impl Apply for Expression {
             Self::EvalCoerce(x) => Ok(Self::EvalCoerce(Box::new(x.apply_args(args)?))),
             Self::EvalCompiler(x) => Ok(Self::EvalCompiler(Box::new(x.apply_args(args)?))),
             Self::AdHocDirective(x) => Ok(Self::AdHocDirective(Box::new(x.apply_args(args)?))),
+            Self::FnCall(callee, args_vec) => Ok(Self::FnCall(
+                Box::new(callee.apply_args(args)?),
+                args_vec
+                    .into_iter()
+                    .map(|arg| arg.apply_args(args))
+                    .collect::<Result<Vec<_>, _>>()?,
+            )),
 
             // Don't fall into the temptation of simplifying the following cases under a single
             // wildcard with a default implementation, it makes it really hard to detect missing
@@ -934,6 +941,13 @@ impl Apply for Expression {
             Self::EvalCoerce(x) => Ok(Self::EvalCoerce(Box::new(x.apply_inputs(args)?))),
             Self::EvalCompiler(x) => Ok(Self::EvalCompiler(Box::new(x.apply_inputs(args)?))),
             Self::AdHocDirective(x) => Ok(Self::AdHocDirective(Box::new(x.apply_inputs(args)?))),
+            Self::FnCall(callee, args_vec) => Ok(Self::FnCall(
+                Box::new(callee.apply_inputs(args)?),
+                args_vec
+                    .into_iter()
+                    .map(|arg| arg.apply_inputs(args))
+                    .collect::<Result<Vec<_>, _>>()?,
+            )),
 
             // Don't fall into the temptation of simplifying the following cases under a single
             // wildcard with a default implementation, it makes it really hard to detect missing
@@ -982,6 +996,13 @@ impl Apply for Expression {
             Self::EvalCoerce(x) => Ok(Self::EvalCoerce(Box::new(x.apply_fees(fees)?))),
             Self::EvalCompiler(x) => Ok(Self::EvalCompiler(Box::new(x.apply_fees(fees)?))),
             Self::AdHocDirective(x) => Ok(Self::AdHocDirective(Box::new(x.apply_fees(fees)?))),
+            Self::FnCall(callee, args_vec) => Ok(Self::FnCall(
+                Box::new(callee.apply_fees(fees)?),
+                args_vec
+                    .into_iter()
+                    .map(|arg| arg.apply_fees(fees))
+                    .collect::<Result<Vec<_>, _>>()?,
+            )),
 
             // Don't fall into the temptation of simplifying the following cases under a single
             // wildcard with a default implementation, it makes it really hard to detect missing
@@ -1010,6 +1031,9 @@ impl Apply for Expression {
             Self::EvalCoerce(x) => x.is_constant(),
             Self::EvalCompiler(_) => false,
             Self::AdHocDirective(x) => x.is_constant(),
+            Self::FnCall(callee, args) => {
+                callee.is_constant() && args.iter().all(|arg| arg.is_constant())
+            }
 
             // Don't fall into the temptation of simplifying the following cases under a single
             // wildcard with a default implementation, it makes it really hard to detect missing
@@ -1041,6 +1065,13 @@ impl Apply for Expression {
             Self::EvalCoerce(x) => x.params(),
             Self::EvalCompiler(x) => x.params(),
             Self::AdHocDirective(x) => x.params(),
+            Self::FnCall(callee, args) => {
+                let mut result = callee.params();
+                for arg in args {
+                    result.extend(arg.params());
+                }
+                result
+            }
 
             // Don't fall into the temptation of simplifying the following cases under a single
             // wildcard with a default implementation, it makes it really hard to detect missing
@@ -1075,6 +1106,13 @@ impl Apply for Expression {
             Self::EvalCoerce(x) => x.queries(),
             Self::EvalCompiler(x) => x.queries(),
             Self::AdHocDirective(x) => x.queries(),
+            Self::FnCall(callee, args) => {
+                let mut result = callee.queries();
+                for arg in args {
+                    result.extend(arg.queries());
+                }
+                result
+            }
 
             // Don't fall into the temptation of simplifying the following cases under a single
             // wildcard with a default implementation, it makes it really hard to detect missing
@@ -1113,6 +1151,12 @@ impl Apply for Expression {
             )),
             Expression::EvalCompiler(x) => Ok(Self::EvalCompiler(Box::new(x.reduce()?))),
             Expression::AdHocDirective(x) => Ok(Self::AdHocDirective(Box::new(x.reduce()?))),
+            Expression::FnCall(callee, args) => Ok(Self::FnCall(
+                Box::new(callee.reduce()?),
+                args.into_iter()
+                    .map(|arg| arg.reduce())
+                    .collect::<Result<Vec<_>, _>>()?,
+            )),
 
             // the following ones can be turned into simpler expressions
             Expression::EvalBuiltIn(x) => match x.reduce()? {

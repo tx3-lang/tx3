@@ -139,6 +139,10 @@ slot_to_time = { "slot_to_time" ~ "(" ~ data_expr ~ ")" }
 
 time_to_slot = { "time_to_slot" ~ "(" ~ data_expr ~ ")" }
 
+fn_call = {
+    identifier ~ "(" ~ (data_expr ~ ("," ~ data_expr)* ~ ","?)? ~ ")"
+}
+
 data_expr = { data_prefix* ~ data_primary ~ data_postfix* ~ (data_infix ~ data_prefix* ~ data_primary ~ data_postfix* )* }
 
     data_infix = _{ data_add | data_sub }
@@ -169,6 +173,7 @@ data_expr = { data_prefix* ~ data_primary ~ data_postfix* ~ (data_infix ~ data_p
         concat_constructor |
         any_asset_constructor |
         static_asset_constructor |
+        fn_call |
         identifier |
         "(" ~ data_expr ~ ")"
     }
