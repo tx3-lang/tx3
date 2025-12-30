@@ -2815,4 +2815,6 @@ mod tests {
     test_parsing!(donation);
 
     test_parsing!(list_concat);
+
+    test_parsing!(buidler_fest_2026);
 }
