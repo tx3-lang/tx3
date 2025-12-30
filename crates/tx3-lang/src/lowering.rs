@@ -455,15 +455,34 @@ impl IntoLower for ast::FnCall {
                         self.args.len()
                     )));
                 }
+
                 let arg = self.args[0].into_lower(ctx)?;
+
                 Ok(ir::Expression::EvalCompiler(Box::new(
                     ir::CompilerOp::ComputeTimeToSlot(arg),
                 )))
             }
-            _ => Err(Error::InvalidAst(format!(
-                "unknown function: {}",
-                function_name
-            ))),
+            _ => {
+                // Try to coerce as asset - if it fails, we'll get an error
+
+                match coerce_identifier_into_asset_def(&self.callee) {
+                    Ok(asset_def) => {
+                        let policy = asset_def.policy.into_lower(ctx)?;
+                        let asset_name = asset_def.asset_name.into_lower(ctx)?;
+                        let amount = self.args[0].into_lower(ctx)?;
+
+                        Ok(ir::Expression::Assets(vec![ir::AssetExpr {
+                            policy,
+                            asset_name,
+                            amount,
+                        }]))
+                    }
+                    Err(_) => Err(Error::InvalidAst(format!(
+                        "unknown function: {}",
+                        function_name
+                    ))),
+                }
+            }
         }
     }
 }
@@ -537,7 +556,6 @@ impl IntoLower for ast::DataExpr {
             ast::DataExpr::StructConstructor(x) => ir::Expression::Struct(x.into_lower(ctx)?),
             ast::DataExpr::ListConstructor(x) => ir::Expression::List(x.into_lower(ctx)?),
             ast::DataExpr::MapConstructor(x) => x.into_lower(ctx)?,
-            ast::DataExpr::StaticAssetConstructor(x) => x.into_lower(ctx)?,
             ast::DataExpr::AnyAssetConstructor(x) => x.into_lower(ctx)?,
             ast::DataExpr::Unit => ir::Expression::Struct(ir::StructExpr::unit()),
             ast::DataExpr::Identifier(x) => x.into_lower(ctx)?,
@@ -547,6 +565,7 @@ impl IntoLower for ast::DataExpr {
             ast::DataExpr::NegateOp(x) => x.into_lower(ctx)?,
             ast::DataExpr::PropertyOp(x) => x.into_lower(ctx)?,
             ast::DataExpr::UtxoRef(x) => x.into_lower(ctx)?,
+            ast::DataExpr::FnCall(x) => x.into_lower(ctx)?,
             ast::DataExpr::MinUtxo(x) => ir::Expression::EvalCompiler(Box::new(
                 ir::CompilerOp::ComputeMinUtxo(x.into_lower(ctx)?),
             )),
@@ -559,29 +578,9 @@ impl IntoLower for ast::DataExpr {
             ast::DataExpr::TimeToSlot(x) => ir::Expression::EvalCompiler(Box::new(
                 ir::CompilerOp::ComputeTimeToSlot(x.into_lower(ctx)?),
             )),
-            ast::DataExpr::FnCall(x) => x.into_lower(ctx)?,
         };
 
         Ok(out)
-    }
-}
-
-impl IntoLower for ast::StaticAssetConstructor {
-    type Output = ir::Expression;
-
-    fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
-        let asset_def = coerce_identifier_into_asset_def(&self.r#type)?;
-
-        let policy = asset_def.policy.into_lower(ctx)?;
-        let asset_name = asset_def.asset_name.into_lower(ctx)?;
-
-        let amount = self.amount.into_lower(ctx)?;
-
-        Ok(ir::Expression::Assets(vec![ir::AssetExpr {
-            policy,
-            asset_name,
-            amount,
-        }]))
     }
 }
 

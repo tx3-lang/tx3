@@ -98,8 +98,8 @@
               "MinAmount": {
                 "AddOp": {
                   "lhs": {
-                    "StaticAssetConstructor": {
-                      "type": {
+                    "FnCall": {
+                      "callee": {
                         "value": "Ship",
                         "span": {
                           "dummy": false,
@@ -107,16 +107,21 @@
                           "end": 768
                         }
                       },
-                      "amount": {
-                        "Identifier": {
-                          "value": "ship_name",
-                          "span": {
-                            "dummy": false,
-                            "start": 769,
-                            "end": 778
+                      "args": [
+                        {
+                          "Identifier": {
+                            "value": "ship_name",
+                            "span": {
+                              "dummy": false,
+                              "start": 769,
+                              "end": 778
+                            }
                           }
+                        },
+                        {
+                          "Number": 1
                         }
-                      },
+                      ],
                       "span": {
                         "dummy": false,
                         "start": 764,
@@ -125,8 +130,8 @@
                     }
                   },
                   "rhs": {
-                    "StaticAssetConstructor": {
-                      "type": {
+                    "FnCall": {
+                      "callee": {
                         "value": "Fuel",
                         "span": {
                           "dummy": false,
@@ -134,16 +139,18 @@
                           "end": 789
                         }
                       },
-                      "amount": {
-                        "Identifier": {
-                          "value": "required_fuel",
-                          "span": {
-                            "dummy": false,
-                            "start": 790,
-                            "end": 803
+                      "args": [
+                        {
+                          "Identifier": {
+                            "value": "required_fuel",
+                            "span": {
+                              "dummy": false,
+                              "start": 790,
+                              "end": 803
+                            }
                           }
                         }
-                      },
+                      ],
                       "span": {
                         "dummy": false,
                         "start": 785,
@@ -271,8 +278,8 @@
             },
             {
               "MinAmount": {
-                "StaticAssetConstructor": {
-                  "type": {
+                "FnCall": {
+                  "callee": {
                     "value": "Pilot",
                     "span": {
                       "dummy": false,
@@ -280,16 +287,21 @@
                       "end": 996
                     }
                   },
-                  "amount": {
-                    "Identifier": {
-                      "value": "ship_name",
-                      "span": {
-                        "dummy": false,
-                        "start": 997,
-                        "end": 1006
+                  "args": [
+                    {
+                      "Identifier": {
+                        "value": "ship_name",
+                        "span": {
+                          "dummy": false,
+                          "start": 997,
+                          "end": 1006
+                        }
                       }
+                    },
+                    {
+                      "Number": 1
                     }
-                  },
+                  ],
                   "span": {
                     "dummy": false,
                     "start": 991,
@@ -372,8 +384,8 @@
                     }
                   },
                   "rhs": {
-                    "StaticAssetConstructor": {
-                      "type": {
+                    "FnCall": {
+                      "callee": {
                         "value": "Fuel",
                         "span": {
                           "dummy": false,
@@ -381,16 +393,18 @@
                           "end": 1212
                         }
                       },
-                      "amount": {
-                        "Identifier": {
-                          "value": "required_fuel",
-                          "span": {
-                            "dummy": false,
-                            "start": 1213,
-                            "end": 1226
+                      "args": [
+                        {
+                          "Identifier": {
+                            "value": "required_fuel",
+                            "span": {
+                              "dummy": false,
+                              "start": 1213,
+                              "end": 1226
+                            }
                           }
                         }
-                      },
+                      ],
                       "span": {
                         "dummy": false,
                         "start": 1208,
@@ -647,8 +661,8 @@
           "fields": [
             {
               "Amount": {
-                "StaticAssetConstructor": {
-                  "type": {
+                "FnCall": {
+                  "callee": {
                     "value": "Fuel",
                     "span": {
                       "dummy": false,
@@ -656,16 +670,18 @@
                       "end": 1126
                     }
                   },
-                  "amount": {
-                    "Identifier": {
-                      "value": "required_fuel",
-                      "span": {
-                        "dummy": false,
-                        "start": 1127,
-                        "end": 1140
+                  "args": [
+                    {
+                      "Identifier": {
+                        "value": "required_fuel",
+                        "span": {
+                          "dummy": false,
+                          "start": 1127,
+                          "end": 1140
+                        }
                       }
                     }
-                  },
+                  ],
                   "span": {
                     "dummy": false,
                     "start": 1122,

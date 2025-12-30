@@ -31,6 +31,7 @@ pub enum Symbol {
     AliasDef(Box<AliasDef>),
     RecordField(Box<RecordField>),
     VariantCase(Box<VariantCase>),
+    Function(String),
     Fees,
 }
 
@@ -537,19 +538,6 @@ pub enum PolicyValue {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct StaticAssetConstructor {
-    pub r#type: Identifier,
-    pub amount: Box<DataExpr>,
-    pub span: Span,
-}
-
-impl StaticAssetConstructor {
-    pub fn target_type(&self) -> Option<Type> {
-        Some(Type::AnyAsset)
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AnyAssetConstructor {
     pub policy: Box<DataExpr>,
     pub asset_name: Box<DataExpr>,
@@ -744,7 +732,6 @@ pub enum DataExpr {
     StructConstructor(StructConstructor),
     ListConstructor(ListConstructor),
     MapConstructor(MapConstructor),
-    StaticAssetConstructor(StaticAssetConstructor),
     AnyAssetConstructor(AnyAssetConstructor),
     Identifier(Identifier),
     MinUtxo(Identifier),
@@ -788,7 +775,6 @@ impl DataExpr {
             DataExpr::ConcatOp(x) => x.target_type(),
             DataExpr::NegateOp(x) => x.target_type(),
             DataExpr::PropertyOp(x) => x.target_type(),
-            DataExpr::StaticAssetConstructor(x) => x.target_type(),
             DataExpr::AnyAssetConstructor(x) => x.target_type(),
             DataExpr::UtxoRef(_) => Some(Type::UtxoRef),
             DataExpr::MinUtxo(_) => Some(Type::AnyAsset),

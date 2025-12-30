@@ -169,6 +169,7 @@ impl Error {
             Symbol::AssetDef(asset) => format!("AssetDef({})", asset.name.value),
             Symbol::EnvVar(name, _) => format!("EnvVar({})", name),
             Symbol::ParamVar(name, _) => format!("ParamVar({})", name),
+            Symbol::Function(name) => format!("Function({})", name),
             Symbol::LocalExpr(_) => "LocalExpr".to_string(),
             Symbol::Input(_) => "Input".to_string(),
             Symbol::Output(_) => "Output".to_string(),
@@ -303,6 +304,8 @@ macro_rules! bail_report {
     };
 }
 
+const BUILTIN_FUNCTIONS: &[&str] = &["min_utxo", "tip_slot", "slot_to_time", "time_to_slot"];
+
 impl Scope {
     pub fn new(parent: Option<Rc<Scope>>) -> Self {
         Self {
@@ -407,6 +410,8 @@ impl Scope {
             Some(symbol.clone())
         } else if let Some(parent) = &self.parent {
             parent.resolve(name)
+        } else if BUILTIN_FUNCTIONS.contains(&name) {
+            Some(Symbol::Function(name.to_string()))
         } else {
             None
         }
@@ -697,8 +702,8 @@ impl Analyzable for DataExpr {
             DataExpr::SubOp(x) => x.analyze(parent),
             DataExpr::NegateOp(x) => x.analyze(parent),
             DataExpr::PropertyOp(x) => x.analyze(parent),
-            DataExpr::StaticAssetConstructor(x) => x.analyze(parent),
             DataExpr::AnyAssetConstructor(x) => x.analyze(parent),
+            DataExpr::FnCall(x) => x.analyze(parent),
             DataExpr::MinUtxo(x) => x.analyze(parent),
             DataExpr::SlotToTime(x) => x.analyze(parent),
             DataExpr::TimeToSlot(x) => x.analyze(parent),
@@ -717,8 +722,8 @@ impl Analyzable for DataExpr {
             DataExpr::SubOp(x) => x.is_resolved(),
             DataExpr::NegateOp(x) => x.is_resolved(),
             DataExpr::PropertyOp(x) => x.is_resolved(),
-            DataExpr::StaticAssetConstructor(x) => x.is_resolved(),
             DataExpr::AnyAssetConstructor(x) => x.is_resolved(),
+            DataExpr::FnCall(x) => x.is_resolved(),
             DataExpr::MinUtxo(x) => x.is_resolved(),
             DataExpr::SlotToTime(x) => x.is_resolved(),
             DataExpr::TimeToSlot(x) => x.is_resolved(),
@@ -728,16 +733,21 @@ impl Analyzable for DataExpr {
     }
 }
 
-impl Analyzable for StaticAssetConstructor {
+impl Analyzable for crate::ast::FnCall {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        let amount = self.amount.analyze(parent.clone());
-        let r#type = self.r#type.analyze(parent.clone());
+        let callee = self.callee.analyze(parent.clone());
 
-        amount + r#type
+        let mut args_report = AnalyzeReport::default();
+
+        for arg in &mut self.args {
+            args_report = args_report + arg.analyze(parent.clone());
+        }
+
+        callee + args_report
     }
 
     fn is_resolved(&self) -> bool {
-        self.amount.is_resolved() && self.r#type.is_resolved()
+        self.callee.is_resolved() && self.args.iter().all(|arg| arg.is_resolved())
     }
 }
 
