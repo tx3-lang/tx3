@@ -326,7 +326,7 @@
                             "Property": [
                               {
                                 "EvalCoerce": {
-                                  "IntoAssets": {
+                                  "IntoDatum": {
                                     "EvalParam": {
                                       "ExpectInput": [
                                         "source",
@@ -388,7 +388,7 @@
                             "Property": [
                               {
                                 "EvalCoerce": {
-                                  "IntoAssets": {
+                                  "IntoDatum": {
                                     "EvalParam": {
                                       "ExpectInput": [
                                         "source",
@@ -450,7 +450,7 @@
                             "Property": [
                               {
                                 "EvalCoerce": {
-                                  "IntoAssets": {
+                                  "IntoDatum": {
                                     "EvalParam": {
                                       "ExpectInput": [
                                         "source",
@@ -666,11 +666,8 @@
     {
       "name": "withdrawal",
       "data": {
-        "redeemer": {
-          "Struct": {
-            "constructor": 0,
-            "fields": []
-          }
+        "amount": {
+          "Number": 100
         },
         "credential": {
           "EvalParam": {
@@ -680,17 +677,17 @@
             ]
           }
         },
-        "amount": {
-          "Number": 100
+        "redeemer": {
+          "Struct": {
+            "constructor": 0,
+            "fields": []
+          }
         }
       }
     },
     {
       "name": "plutus_witness",
       "data": {
-        "version": {
-          "Number": 2
-        },
         "script": {
           "Bytes": [
             171,
@@ -699,6 +696,9 @@
             18,
             52
           ]
+        },
+        "version": {
+          "Number": 2
         }
       }
     },

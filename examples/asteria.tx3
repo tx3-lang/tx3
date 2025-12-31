@@ -1,6 +1,7 @@
-party Player;
 
 party Game;
+
+party Player;
 
 asset Fuel = 0x6b9c456aa650cb808a9ab54326e039d5235ed69f069c9664a8fe5b69."FUEL";
 
@@ -50,7 +51,7 @@ tx move_ship(
         min_amount: Pilot(ship_name, 1),
     }
     
-    input fees {
+    input gas {
         from: Player,
         min_amount: fees,
     }
