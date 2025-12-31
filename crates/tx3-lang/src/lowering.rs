@@ -588,8 +588,13 @@ impl IntoLower for ast::AnyAssetConstructor {
     type Output = ir::Expression;
 
     fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
+        let ctx = &ctx.enter_datum_expr();
         let policy = self.policy.into_lower(ctx)?;
+
+        let ctx = &ctx.enter_datum_expr();
         let asset_name = self.asset_name.into_lower(ctx)?;
+
+        let ctx = &ctx.enter_datum_expr();
         let amount = self.amount.into_lower(ctx)?;
 
         Ok(ir::Expression::Assets(vec![ir::AssetExpr {
