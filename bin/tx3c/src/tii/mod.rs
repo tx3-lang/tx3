@@ -101,6 +101,32 @@ fn infer_available_profiles(args: &Args) -> HashSet<String> {
     profiles
 }
 
+// This is not to be meant as a comprehensive conversion between String -> TIR, it's just a
+// mapping between the string representation of a value in a dotfile to its JSON representation.
+//
+// The only casess that mappers are those where there's a natural JSON representation (number and boolean so far).
+//
+// The strict mapping of values onto TIR artifacts ocurrs in the tx3-sdk at _resolve-time_.
+fn map_dotfile_value_to_json(value: &str, target: &ast::Type) -> serde_json::Value {
+    match target {
+        ast::Type::Int => {
+            if let Ok(i) = value.parse::<i128>() {
+                json!(i)
+            } else {
+                json!(value)
+            }
+        }
+        ast::Type::Bool => {
+            if let Ok(b) = value.parse::<bool>() {
+                json!(b)
+            } else {
+                json!(value)
+            }
+        }
+        _ => json!(value),
+    }
+}
+
 fn infer_environment_values_from_dotfile(
     env: &BTreeMap<String, String>,
     ast: &ast::Program,
@@ -110,8 +136,9 @@ fn infer_environment_values_from_dotfile(
     if let Some(def) = &ast.env {
         for field in def.fields.iter() {
             let key = field.name.clone();
+
             if let Some(value) = env.get(key.as_str()) {
-                obj.insert(key, json!(value));
+                obj.insert(key, map_dotfile_value_to_json(value, &field.r#type));
             }
         }
     }
