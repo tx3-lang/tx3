@@ -1,0 +1,31 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+## [0.14.2](https://github.com/tx3-lang/tx3/releases/tag/tx3c-v0.14.2) - 2025-12-31
+
+### Added
+
+- *(tx3c)* add comprehensive support for TII format
+- *(tx3c)* support build profiles ([#275](https://github.com/tx3-lang/tx3/pull/275))
+- *(tx3c)* improve build command options ([#274](https://github.com/tx3-lang/tx3/pull/274))
+- introduce tx3c binary
+- implement naive eval mechanism ([#3](https://github.com/tx3-lang/tx3/pull/3))
+
+### Fixed
+
+- *(tx3c)* improve parsing of non-string dotenv values
+- *(tx3c)* enable version command
+
+### Other
+
+- fix some lint warnings
+- *(tx3c)* improve module organization
+- remove experimental label ([#73](https://github.com/tx3-lang/tx3/pull/73))
+- add better examples to README ([#8](https://github.com/tx3-lang/tx3/pull/8))
+- define scope
