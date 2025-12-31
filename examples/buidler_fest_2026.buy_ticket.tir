@@ -259,7 +259,7 @@
                             "Property": [
                               {
                                 "EvalCoerce": {
-                                  "IntoAssets": {
+                                  "IntoDatum": {
                                     "EvalParam": {
                                       "ExpectInput": [
                                         "current_state",
@@ -527,48 +527,52 @@
                     "EvalBuiltIn": {
                       "Property": [
                         {
-                          "EvalParam": {
-                            "ExpectInput": [
-                              "current_state",
-                              {
-                                "address": {
-                                  "EvalParam": {
-                                    "ExpectValue": [
-                                      "issuer",
-                                      "Address"
-                                    ]
-                                  }
-                                },
-                                "min_amount": {
-                                  "Assets": [
-                                    {
-                                      "policy": {
-                                        "EvalParam": {
-                                          "ExpectValue": [
-                                            "issuer_beacon_policy",
-                                            "Bytes"
-                                          ]
-                                        }
-                                      },
-                                      "asset_name": {
-                                        "EvalParam": {
-                                          "ExpectValue": [
-                                            "issuer_beacon_name",
-                                            "Bytes"
-                                          ]
-                                        }
-                                      },
-                                      "amount": {
-                                        "Number": 1
+                          "EvalCoerce": {
+                            "IntoDatum": {
+                              "EvalParam": {
+                                "ExpectInput": [
+                                  "current_state",
+                                  {
+                                    "address": {
+                                      "EvalParam": {
+                                        "ExpectValue": [
+                                          "issuer",
+                                          "Address"
+                                        ]
                                       }
-                                    }
-                                  ]
-                                },
-                                "ref": "None",
-                                "many": false,
-                                "collateral": false
+                                    },
+                                    "min_amount": {
+                                      "Assets": [
+                                        {
+                                          "policy": {
+                                            "EvalParam": {
+                                              "ExpectValue": [
+                                                "issuer_beacon_policy",
+                                                "Bytes"
+                                              ]
+                                            }
+                                          },
+                                          "asset_name": {
+                                            "EvalParam": {
+                                              "ExpectValue": [
+                                                "issuer_beacon_name",
+                                                "Bytes"
+                                              ]
+                                            }
+                                          },
+                                          "amount": {
+                                            "Number": 1
+                                          }
+                                        }
+                                      ]
+                                    },
+                                    "ref": "None",
+                                    "many": false,
+                                    "collateral": false
+                                  }
+                                ]
                               }
-                            ]
+                            }
                           }
                         },
                         {

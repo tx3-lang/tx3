@@ -1230,81 +1230,69 @@ impl Analyzable for ParameterList {
     }
 }
 
+impl TxDef {
+    // best effort to analyze artifacts that might be circularly dependent on each other
+    fn best_effort_analyze_circular_dependencies(&mut self, mut scope: Scope) -> Scope {
+        if let Some(locals) = &self.locals {
+            for assign in locals.assigns.iter() {
+                scope.track_local_expr(&assign.name.value, assign.value.clone());
+            }
+        }
+
+        for (_, input) in self.inputs.iter().enumerate() {
+            scope.track_input(&input.name, input.clone())
+        }
+
+        for (index, output) in self.outputs.iter().enumerate() {
+            scope.track_output(index, output.clone())
+        }
+
+        let scope_snapshot = Rc::new(scope);
+        let _ = self.locals.analyze(Some(scope_snapshot.clone()));
+        let _ = self.inputs.analyze(Some(scope_snapshot.clone()));
+        let _ = self.outputs.analyze(Some(scope_snapshot.clone()));
+
+        Scope::new(Some(scope_snapshot))
+    }
+}
+
 impl Analyzable for TxDef {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
         // analyze static types before anything else
-
         let params = self.parameters.analyze(parent.clone());
 
         // create the new scope and populate its symbols
 
-        let parent = {
-            let mut current = Scope::new(parent.clone());
+        let mut scope = Scope::new(parent.clone());
 
-            current.symbols.insert("fees".to_string(), Symbol::Fees);
+        scope.symbols.insert("fees".to_string(), Symbol::Fees);
 
-            for param in self.parameters.parameters.iter() {
-                current.track_param_var(&param.name.value, param.r#type.clone());
-            }
-            Rc::new(current)
-        };
+        for param in self.parameters.parameters.iter() {
+            scope.track_param_var(&param.name.value, param.r#type.clone());
+        }
 
-        let mut locals = self.locals.take().unwrap_or_default();
+        for _ in 0..9 {
+            scope = self.best_effort_analyze_circular_dependencies(scope);
+        }
 
-        let locals_report = locals.analyze(Some(parent.clone()));
+        let final_scope = Rc::new(scope);
 
-        let parent = {
-            let mut current = Scope::new(Some(parent.clone()));
+        let locals = self.locals.analyze(Some(final_scope.clone()));
+        let inputs = self.inputs.analyze(Some(final_scope.clone()));
+        let outputs = self.outputs.analyze(Some(final_scope.clone()));
+        let mints = self.mints.analyze(Some(final_scope.clone()));
+        let burns = self.burns.analyze(Some(final_scope.clone()));
+        let adhoc = self.adhoc.analyze(Some(final_scope.clone()));
+        let validity = self.validity.analyze(Some(final_scope.clone()));
+        let metadata = self.metadata.analyze(Some(final_scope.clone()));
+        let signers = self.signers.analyze(Some(final_scope.clone()));
+        let references = self.references.analyze(Some(final_scope.clone()));
+        let collateral = self.collateral.analyze(Some(final_scope.clone()));
 
-            for assign in locals.assigns.iter() {
-                current.track_local_expr(&assign.name.value, assign.value.clone());
-            }
-
-            for (index, output) in self.outputs.iter().enumerate() {
-                current.track_output(index, output.clone())
-            }
-
-            Rc::new(current)
-        };
-
-        let inputs = self.inputs.analyze(Some(parent.clone()));
-
-        let parent = {
-            let mut current = Scope::new(Some(parent.clone()));
-
-            for input in self.inputs.iter() {
-                current.track_input(&input.name, input.clone());
-            }
-
-            for (index, output) in self.outputs.iter().enumerate() {
-                current.track_output(index, output.clone())
-            }
-
-            Rc::new(current)
-        };
-
-        let outputs = self.outputs.analyze(Some(parent.clone()));
-
-        let mints = self.mints.analyze(Some(parent.clone()));
-
-        let burns = self.burns.analyze(Some(parent.clone()));
-
-        let adhoc = self.adhoc.analyze(Some(parent.clone()));
-
-        let validity = self.validity.analyze(Some(parent.clone()));
-
-        let metadata = self.metadata.analyze(Some(parent.clone()));
-
-        let signers = self.signers.analyze(Some(parent.clone()));
-
-        let references = self.references.analyze(Some(parent.clone()));
-
-        let collateral = self.collateral.analyze(Some(parent.clone()));
-
-        self.scope = Some(parent);
+        self.scope = Some(final_scope);
 
         params
-            + locals_report
+            + locals
             + inputs
             + outputs
             + mints
