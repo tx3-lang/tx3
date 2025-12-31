@@ -1,12 +1,10 @@
 use base64::Engine as _;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Number, Value};
+use serde_json::{Number, Value};
 use thiserror::Error;
 
 use tx3_tir::model::core::{Type, UtxoRef};
 pub use tx3_tir::reduce::ArgValue;
-
-use tx3_tir::reduce::ArgMap;
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -90,15 +88,25 @@ impl From<BytesEnvelope> for Vec<u8> {
     }
 }
 
+fn has_hex_prefix(s: &str) -> bool {
+    s.starts_with("0x")
+}
+
 pub fn string_to_bigint(s: String) -> Result<i128, Error> {
-    let bytes = hex_to_bytes(&s)?;
-    let bytes =
-        <[u8; 16]>::try_from(bytes).map_err(|x| Error::InvalidBytesForNumber(hex::encode(x)))?;
-    Ok(i128::from_be_bytes(bytes))
+    if has_hex_prefix(&s) {
+        let bytes = hex_to_bytes(&s)?;
+        let bytes = <[u8; 16]>::try_from(bytes)
+            .map_err(|x| Error::InvalidBytesForNumber(hex::encode(x)))?;
+        Ok(i128::from_be_bytes(bytes))
+    } else {
+        let i = i128::from_str_radix(&s, 10)
+            .map_err(|x| Error::InvalidBytesForNumber(x.to_string()))?;
+        Ok(i)
+    }
 }
 
 pub fn hex_to_bytes(s: &str) -> Result<Vec<u8>, Error> {
-    let s = if s.starts_with("0x") {
+    let s = if has_hex_prefix(s) {
         s.trim_start_matches("0x")
     } else {
         s
@@ -123,19 +131,6 @@ pub fn bech32_to_bytes(s: &str) -> Result<Vec<u8>, Error> {
 
 fn number_to_bigint(x: Number) -> Result<i128, Error> {
     x.as_i128().ok_or(Error::NumberCantFit(x))
-}
-
-fn utxoref_to_value(x: UtxoRef) -> Value {
-    Value::String(format!("{}#{}", hex::encode(x.txid), x.index))
-}
-
-fn bigint_to_value(i: i128) -> Value {
-    if i >= i64::MIN as i128 && i <= i64::MAX as i128 {
-        Value::Number((i as i64).into())
-    } else {
-        let ashex = hex::encode(i.to_be_bytes());
-        Value::String(format!("0x{ashex}"))
-    }
 }
 
 fn value_to_bigint(value: Value) -> Result<i128, Error> {
@@ -219,30 +214,6 @@ fn value_to_utxo_ref(value: Value) -> Result<UtxoRef, Error> {
     }
 }
 
-pub fn to_json(value: ArgValue) -> Value {
-    match value {
-        ArgValue::Int(i) => bigint_to_value(i),
-        ArgValue::Bool(b) => Value::Bool(b),
-        ArgValue::String(s) => Value::String(s),
-        ArgValue::Bytes(b) => Value::String(format!("0x{}", hex::encode(b))),
-        ArgValue::Address(a) => Value::String(hex::encode(a)),
-        ArgValue::UtxoSet(x) => {
-            let v = x.into_iter().map(|x| json!(x)).collect();
-            Value::Array(v)
-        }
-        ArgValue::UtxoRef(x) => utxoref_to_value(x),
-    }
-}
-
-pub fn to_json_object(map: ArgMap) -> Value {
-    let v = map
-        .into_iter()
-        .map(|(k, v)| (k.to_lowercase(), to_json(v)))
-        .collect();
-
-    Value::Object(v)
-}
-
 pub fn from_json(value: Value, target: &Type) -> Result<ArgValue, Error> {
     match target {
         Type::Int => {
@@ -273,6 +244,7 @@ pub fn from_json(value: Value, target: &Type) -> Result<ArgValue, Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
 
     // TODO: derive PartialEq in upstream tx3-lang
     fn partial_eq(a: ArgValue, b: ArgValue) -> bool {
@@ -313,38 +285,43 @@ mod tests {
         assert!(partial_eq(value, expected));
     }
 
-    fn round_trip_test(value: ArgValue, target: Type) {
-        let json = to_json(value.clone());
-        dbg!(&json);
-        let value2 = from_json(json, &target).unwrap();
-        assert!(partial_eq(value, value2));
-    }
-
     #[test]
     fn test_round_trip_small_int() {
-        round_trip_test(ArgValue::Int(123456789), Type::Int);
+        json_to_value_test(json!(123456789), Type::Int, ArgValue::Int(123456789));
     }
 
     #[test]
     fn test_round_trip_negative_int() {
-        round_trip_test(ArgValue::Int(-123456789), Type::Int);
+        json_to_value_test(json!(-123456789), Type::Int, ArgValue::Int(-123456789));
     }
 
     #[test]
     fn test_round_trip_big_int() {
-        round_trip_test(ArgValue::Int(12345678901234567890), Type::Int);
+        json_to_value_test(
+            json!("12345678901234567890"),
+            Type::Int,
+            ArgValue::Int(12345678901234567890),
+        );
     }
 
     #[test]
     fn test_round_trip_int_overflow() {
-        round_trip_test(ArgValue::Int(i128::MIN), Type::Int);
-        round_trip_test(ArgValue::Int(i128::MAX), Type::Int);
+        json_to_value_test(
+            json!(i128::MIN.to_string()),
+            Type::Int,
+            ArgValue::Int(i128::MIN),
+        );
+        json_to_value_test(
+            json!(i128::MAX.to_string()),
+            Type::Int,
+            ArgValue::Int(i128::MAX),
+        );
     }
 
     #[test]
     fn test_round_trip_bool() {
-        round_trip_test(ArgValue::Bool(true), Type::Bool);
-        round_trip_test(ArgValue::Bool(false), Type::Bool);
+        json_to_value_test(json!(true), Type::Bool, ArgValue::Bool(true));
+        json_to_value_test(json!(false), Type::Bool, ArgValue::Bool(false));
     }
 
     #[test]
@@ -361,7 +338,17 @@ mod tests {
 
     #[test]
     fn test_round_trip_bytes() {
-        round_trip_test(ArgValue::Bytes(b"hello".to_vec()), Type::Bytes);
+        json_to_value_test(
+            json!(hex::encode("hello")),
+            Type::Bytes,
+            ArgValue::Bytes(b"hello".to_vec()),
+        );
+
+        json_to_value_test(
+            json!(format!("0x{}", hex::encode("hello"))),
+            Type::Bytes,
+            ArgValue::Bytes(b"hello".to_vec()),
+        );
     }
 
     #[test]
@@ -386,7 +373,11 @@ mod tests {
 
     #[test]
     fn test_round_trip_address() {
-        round_trip_test(ArgValue::Address(b"abc123".to_vec()), Type::Address);
+        json_to_value_test(
+            json!(hex::encode("abc123")),
+            Type::Address,
+            ArgValue::Address(b"abc123".to_vec()),
+        );
     }
 
     #[test]
