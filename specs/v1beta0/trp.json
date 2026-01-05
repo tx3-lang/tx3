@@ -282,6 +282,19 @@
           "logs"
         ]
       },
+      "WitnessInput": {
+        "title": "WitnessInput",
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/SubmitWitness",
+            "title": "Object"
+          },
+          {
+            "type": "string",
+            "title": "Hex"
+          }
+        ]
+      },
       "SubmitParams": {
         "title": "SubmitParams",
         "type": "object",
@@ -292,7 +305,7 @@
           "witnesses": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/SubmitWitness"
+              "$ref": "#/components/schemas/WitnessInput"
             }
           }
         },
