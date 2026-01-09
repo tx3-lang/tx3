@@ -17,7 +17,7 @@ pallas = { version = ">=1.0.0-alpha, <2.0.0" }
 # pallas = { version = ">=1.0.0-alpha, <2.0.0", path = "../../../../txpipe/pallas/pallas" }
 # pallas = { git = "https://github.com/txpipe/pallas.git" }
 
-tx3-tir = { version = "0.14.2", path = "../tx3-tir" }
+tx3-tir = { version = "0.14.3", path = "../tx3-tir" }
 
 hex = "0.4.3"
 thiserror = "2.0.11"
