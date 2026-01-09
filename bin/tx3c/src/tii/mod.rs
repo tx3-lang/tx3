@@ -256,6 +256,18 @@ pub fn emit_tii(args: Args, ws: &tx3_lang::Workspace) -> anyhow::Result<()> {
         );
     }
 
+    // Temp: Ensure there's always a "local" profile
+    if !tii.profiles.contains_key("local") {
+        tii.profiles.insert(
+            "local".to_string(),
+            Profile {
+                description: None,
+                environment: json!({}),
+                parties: json!({}),
+            },
+        );
+    }
+
     let output_json = json!(tii);
 
     let output_path = args
