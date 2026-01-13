@@ -2,7 +2,7 @@ use std::str::FromStr as _;
 
 use pallas::{codec::utils::Int, ledger::primitives::conway as primitives};
 use tx3_tir::compile::Error;
-use tx3_tir::model::core::UtxoRef;
+use tx3_tir::model::core::{UtxoRef, Utxo};
 use tx3_tir::model::v1beta0 as tir;
 
 use crate::Network;
@@ -82,6 +82,18 @@ pub fn expr_into_utxo_refs(expr: &tir::Expression) -> Result<Vec<UtxoRef>, Error
         _ => Err(Error::CoerceError(
             format!("{expr:?}"),
             "UtxoRefs".to_string(),
+        )),
+    }
+}
+
+pub fn expr_into_utxo(expr: &tir::Expression) -> Result<Vec<Utxo>, Error> {
+    match expr {
+        tir::Expression::UtxoSet(x) => Ok(Vec::from_iter(x.iter().map(|x| x.clone()))),
+        tir::Expression::UtxoRefs(_) => Ok(vec![]),
+        tir::Expression::String(_) => Ok(vec![]),
+        _ => Err(Error::CoerceError(
+            format!("{expr:?}"),
+            "Utxo".to_string(),
         )),
     }
 }
