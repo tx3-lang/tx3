@@ -305,6 +305,7 @@ pub struct Output {
     pub datum: Expression,
     pub amount: Expression,
     pub optional: bool,
+    pub declared_index: Option<u32>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -522,6 +523,7 @@ impl Node for Output {
             datum: self.datum.apply(visitor)?,
             amount: self.amount.apply(visitor)?,
             optional: self.optional,
+            declared_index: self.declared_index,
         };
 
         Ok(visited)

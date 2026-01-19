@@ -586,6 +586,7 @@ pub struct CardanoPublishBlock {
     pub name: Option<Identifier>,
     pub fields: Vec<CardanoPublishBlockField>,
     pub span: Span,
+    pub declared_index: Option<usize>,
 }
 
 impl CardanoPublishBlock {
@@ -663,7 +664,12 @@ impl AstNode for CardanoPublishBlock {
             .map(|x| CardanoPublishBlockField::parse(x))
             .collect::<Result<Vec<_>, _>>()?;
 
-        Ok(CardanoPublishBlock { name, fields, span })
+        Ok(CardanoPublishBlock {
+            name,
+            fields,
+            span,
+            declared_index: None,
+        })
     }
 
     fn span(&self) -> &Span {
@@ -938,6 +944,7 @@ mod tests {
                 ))),
             ],
             span: Span::DUMMY,
+            declared_index: None,
         }
     );
 
@@ -967,6 +974,7 @@ mod tests {
                 ))),
             ],
             span: Span::DUMMY,
+            declared_index: None,
         }
     );
 
