@@ -534,7 +534,10 @@
           ]
         }
       },
-      "optional": false
+      "optional": false,
+      "declared_index": {
+        "Number": 0
+      }
     }
   ],
   "validity": {
@@ -669,6 +672,12 @@
         "amount": {
           "Number": 100
         },
+        "redeemer": {
+          "Struct": {
+            "constructor": 0,
+            "fields": []
+          }
+        },
         "credential": {
           "EvalParam": {
             "ExpectValue": [
@@ -676,18 +685,15 @@
               "Address"
             ]
           }
-        },
-        "redeemer": {
-          "Struct": {
-            "constructor": 0,
-            "fields": []
-          }
         }
       }
     },
     {
       "name": "plutus_witness",
       "data": {
+        "version": {
+          "Number": 2
+        },
         "script": {
           "Bytes": [
             171,
@@ -696,9 +702,6 @@
             18,
             52
           ]
-        },
-        "version": {
-          "Number": 2
         }
       }
     },
