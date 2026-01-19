@@ -703,7 +703,7 @@ impl IntoLower for ast::OutputBlock {
             datum,
             amount,
             optional: self.optional,
-            declared_index: self.declared_index.map(|n| n as u32),
+            declared_index: self.declared_index,
         })
     }
 }

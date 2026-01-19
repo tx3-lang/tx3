@@ -733,11 +733,20 @@ impl IntoLower for CardanoPublishBlock {
         &self,
         ctx: &crate::lowering::Context,
     ) -> Result<Self::Output, crate::lowering::Error> {
-        let data = self
+        let mut data: HashMap<String, ir::Expression> = self
             .fields
             .iter()
             .map(|x| x.into_lower(ctx))
             .collect::<Result<_, _>>()?;
+
+        data.insert(
+            "declared_index".into(),
+            ir::Expression::Number(
+                self.declared_index
+                    .map(|x| x as i128)
+                    .expect("Publish block must have a declaration index"),
+            ),
+        );
 
         Ok(ir::AdHocDirective {
             name: "cardano_publish".to_string(),

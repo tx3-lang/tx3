@@ -305,7 +305,7 @@ pub struct Output {
     pub datum: Expression,
     pub amount: Expression,
     pub optional: bool,
-    pub declared_index: Option<u32>,
+    pub declared_index: Option<usize>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
