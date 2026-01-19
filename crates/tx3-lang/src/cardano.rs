@@ -740,7 +740,7 @@ impl IntoLower for CardanoPublishBlock {
             .collect::<Result<_, _>>()?;
 
         data.insert(
-            "declared_index".into(),
+            "declared_index".to_string(),
             ir::Expression::Number(
                 self.declared_index
                     .map(|x| x as i128)
