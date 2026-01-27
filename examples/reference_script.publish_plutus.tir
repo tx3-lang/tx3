@@ -127,7 +127,10 @@
           ]
         }
       },
-      "optional": false
+      "optional": false,
+      "declared_index": {
+        "Number": 1
+      }
     }
   ],
   "validity": null,
@@ -137,9 +140,6 @@
     {
       "name": "cardano_publish",
       "data": {
-        "version": {
-          "Number": 3
-        },
         "amount": {
           "Assets": [
             {
@@ -155,6 +155,17 @@
               }
             }
           ]
+        },
+        "version": {
+          "Number": 3
+        },
+        "to": {
+          "EvalParam": {
+            "ExpectValue": [
+              "receiver",
+              "Address"
+            ]
+          }
         },
         "script": {
           "Bytes": [
@@ -178,13 +189,8 @@
             105
           ]
         },
-        "to": {
-          "EvalParam": {
-            "ExpectValue": [
-              "receiver",
-              "Address"
-            ]
-          }
+        "declared_index": {
+          "Number": 0
         }
       }
     }
