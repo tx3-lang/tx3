@@ -305,6 +305,7 @@ pub struct Output {
     pub datum: Expression,
     pub amount: Expression,
     pub optional: bool,
+    #[serde(default)]
     pub declared_index: Expression,
 }
 
