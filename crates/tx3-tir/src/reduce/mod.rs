@@ -756,6 +756,57 @@ impl Composite for Input {
     }
 }
 
+impl Apply for Reference {
+    fn apply_args(self, args: &BTreeMap<String, ArgValue>) -> Result<Self, Error> {
+        Ok(Self {
+            utxos: self.utxos.apply_args(args)?,
+            ..self
+        })
+    }
+
+    fn apply_inputs(self, args: &BTreeMap<String, HashSet<Utxo>>) -> Result<Self, Error> {
+        Ok(Self {
+            utxos: self.utxos.apply_inputs(args)?,
+            ..self
+        })
+    }
+
+    fn apply_fees(self, fees: u64) -> Result<Self, Error> {
+        Ok(Self {
+            utxos: self.utxos.apply_fees(fees)?,
+            ..self
+        })
+    }
+
+    fn is_constant(&self) -> bool {
+        self.utxos.is_constant()
+    }
+
+    fn params(&self) -> BTreeMap<String, Type> {
+        self.utxos.params()
+    }
+
+    fn queries(&self) -> BTreeMap<String, InputQuery> {
+        BTreeMap::from([(
+            self.name.clone(),
+            InputQuery {
+                address: Expression::None,
+                min_amount: Expression::None,
+                r#ref: self.utxos.clone(),
+                many: false,
+                collateral: false,
+            },
+        )])
+    }
+
+    fn reduce(self) -> Result<Self, Error> {
+        Ok(Self {
+            utxos: self.utxos.reduce()?,
+            ..self
+        })
+    }
+}
+
 impl Composite for InputQuery {
     fn components(&self) -> Vec<&Expression> {
         vec![&self.address, &self.min_amount, &self.r#ref]

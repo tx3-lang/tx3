@@ -4,11 +4,14 @@
   },
   "references": [
     {
-      "EvalParam": {
-        "ExpectValue": [
-          "mint_script",
-          "UtxoRef"
-        ]
+      "name": "myscript",
+      "utxos": {
+        "EvalParam": {
+          "ExpectValue": [
+            "mint_script",
+            "UtxoRef"
+          ]
+        }
       }
     }
   ],

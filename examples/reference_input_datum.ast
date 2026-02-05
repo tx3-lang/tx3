@@ -1,0 +1,355 @@
+{
+  "env": null,
+  "txs": [
+    {
+      "name": {
+        "value": "swap",
+        "span": {
+          "dummy": false,
+          "start": 76,
+          "end": 80
+        }
+      },
+      "parameters": {
+        "parameters": [],
+        "span": {
+          "dummy": false,
+          "start": 80,
+          "end": 82
+        }
+      },
+      "locals": null,
+      "references": [
+        {
+          "name": "pool",
+          "ref": {
+            "UtxoRef": {
+              "txid": [
+                18,
+                52,
+                86,
+                120,
+                144,
+                18,
+                52,
+                86,
+                120,
+                144,
+                18,
+                52,
+                86,
+                120,
+                144,
+                18,
+                52,
+                86,
+                120,
+                144,
+                18,
+                52,
+                86,
+                120,
+                144,
+                18,
+                52,
+                86,
+                120,
+                144,
+                18,
+                52
+              ],
+              "index": 0,
+              "span": {
+                "dummy": false,
+                "start": 119,
+                "end": 187
+              }
+            }
+          },
+          "datum_is": {
+            "Custom": {
+              "value": "PoolState",
+              "span": {
+                "dummy": true,
+                "start": 0,
+                "end": 0
+              }
+            }
+          },
+          "span": {
+            "dummy": false,
+            "start": 89,
+            "end": 223
+          }
+        }
+      ],
+      "inputs": [
+        {
+          "name": "user_input",
+          "many": false,
+          "fields": [
+            {
+              "From": {
+                "Identifier": {
+                  "value": "User",
+                  "span": {
+                    "dummy": false,
+                    "start": 262,
+                    "end": 266
+                  }
+                }
+              }
+            },
+            {
+              "MinAmount": {
+                "FnCall": {
+                  "callee": {
+                    "value": "Ada",
+                    "span": {
+                      "dummy": false,
+                      "start": 288,
+                      "end": 291
+                    }
+                  },
+                  "args": [
+                    {
+                      "Number": 1000000
+                    }
+                  ],
+                  "span": {
+                    "dummy": false,
+                    "start": 288,
+                    "end": 300
+                  }
+                }
+              }
+            }
+          ],
+          "span": {
+            "dummy": false,
+            "start": 229,
+            "end": 307
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": null,
+          "optional": false,
+          "fields": [
+            {
+              "To": {
+                "Identifier": {
+                  "value": "User",
+                  "span": {
+                    "dummy": false,
+                    "start": 334,
+                    "end": 338
+                  }
+                }
+              }
+            },
+            {
+              "Amount": {
+                "FnCall": {
+                  "callee": {
+                    "value": "Ada",
+                    "span": {
+                      "dummy": false,
+                      "start": 356,
+                      "end": 359
+                    }
+                  },
+                  "args": [
+                    {
+                      "AddOp": {
+                        "lhs": {
+                          "PropertyOp": {
+                            "operand": {
+                              "Identifier": {
+                                "value": "pool",
+                                "span": {
+                                  "dummy": false,
+                                  "start": 360,
+                                  "end": 364
+                                }
+                              }
+                            },
+                            "property": {
+                              "Identifier": {
+                                "value": "reserve_a",
+                                "span": {
+                                  "dummy": false,
+                                  "start": 365,
+                                  "end": 374
+                                }
+                              }
+                            },
+                            "span": {
+                              "dummy": false,
+                              "start": 364,
+                              "end": 374
+                            }
+                          }
+                        },
+                        "rhs": {
+                          "PropertyOp": {
+                            "operand": {
+                              "Identifier": {
+                                "value": "pool",
+                                "span": {
+                                  "dummy": false,
+                                  "start": 377,
+                                  "end": 381
+                                }
+                              }
+                            },
+                            "property": {
+                              "Identifier": {
+                                "value": "reserve_b",
+                                "span": {
+                                  "dummy": false,
+                                  "start": 382,
+                                  "end": 391
+                                }
+                              }
+                            },
+                            "span": {
+                              "dummy": false,
+                              "start": 381,
+                              "end": 391
+                            }
+                          }
+                        },
+                        "span": {
+                          "dummy": false,
+                          "start": 375,
+                          "end": 376
+                        }
+                      }
+                    }
+                  ],
+                  "span": {
+                    "dummy": false,
+                    "start": 356,
+                    "end": 392
+                  }
+                }
+              }
+            }
+          ],
+          "span": {
+            "dummy": false,
+            "start": 313,
+            "end": 399
+          }
+        }
+      ],
+      "validity": null,
+      "mints": [],
+      "burns": [],
+      "signers": null,
+      "adhoc": [],
+      "span": {
+        "dummy": false,
+        "start": 73,
+        "end": 401
+      },
+      "collateral": [],
+      "metadata": null
+    }
+  ],
+  "types": [
+    {
+      "name": {
+        "value": "PoolState",
+        "span": {
+          "dummy": false,
+          "start": 5,
+          "end": 14
+        }
+      },
+      "cases": [
+        {
+          "name": {
+            "value": "Default",
+            "span": {
+              "dummy": true,
+              "start": 0,
+              "end": 0
+            }
+          },
+          "fields": [
+            {
+              "name": {
+                "value": "reserve_a",
+                "span": {
+                  "dummy": false,
+                  "start": 21,
+                  "end": 30
+                }
+              },
+              "type": "Int",
+              "span": {
+                "dummy": false,
+                "start": 21,
+                "end": 35
+              }
+            },
+            {
+              "name": {
+                "value": "reserve_b",
+                "span": {
+                  "dummy": false,
+                  "start": 41,
+                  "end": 50
+                }
+              },
+              "type": "Int",
+              "span": {
+                "dummy": false,
+                "start": 41,
+                "end": 55
+              }
+            }
+          ],
+          "span": {
+            "dummy": false,
+            "start": 0,
+            "end": 58
+          }
+        }
+      ],
+      "span": {
+        "dummy": false,
+        "start": 0,
+        "end": 58
+      }
+    }
+  ],
+  "aliases": [],
+  "assets": [],
+  "parties": [
+    {
+      "name": {
+        "value": "User",
+        "span": {
+          "dummy": false,
+          "start": 66,
+          "end": 70
+        }
+      },
+      "span": {
+        "dummy": false,
+        "start": 60,
+        "end": 71
+      }
+    }
+  ],
+  "policies": [],
+  "span": {
+    "dummy": false,
+    "start": 0,
+    "end": 402
+  }
+}
