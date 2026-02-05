@@ -1,0 +1,74 @@
+party Buyer;
+
+party Issuer;
+
+party Treasury;
+
+env {
+    issuer_beacon_policy: Bytes,
+    issuer_beacon_name: Bytes,
+    ticket_policy: Bytes,
+    issuer_script_ref: UtxoRef,
+    ticket_price: Int,
+}
+
+type IssuerState {
+    ticket_counter: Int,
+}
+
+tx buy_ticket() {
+    locals {
+        issuer_beacon: AnyAsset(issuer_beacon_policy, issuer_beacon_name, 1),
+        ticket_name: concat("TICKET", current_state.ticket_counter),
+        ticket_token: AnyAsset(ticket_policy, ticket_name, 1),
+    }
+
+    validity {
+        until_slot: tip_slot() + 600,
+    }
+
+    reference issuer_script {
+        ref: issuer_script_ref,
+    }
+
+    input* funds {
+        from: Buyer,
+        min_amount: fees + Ada(ticket_price) + min_utxo(ticket),
+    }
+
+    input current_state {
+        from: Issuer,
+        min_amount: issuer_beacon,
+        datum_is: IssuerState,
+        redeemer: (),
+    }
+
+    
+    mint {
+        amount: ticket_token,
+        redeemer: (),
+    }
+
+    output ticket {
+        to: Buyer,
+        amount: funds - fees - Ada(ticket_price) + ticket_token,
+    }
+
+    output new_state {
+        to: Issuer,
+        amount: current_state,
+        datum: IssuerState {
+            ticket_counter: current_state.ticket_counter + 1,
+        },
+    }
+
+    output payment {
+        to: Treasury,
+        amount: Ada(ticket_price),
+    }
+
+    collateral {
+        from: Buyer,
+        min_amount: fees,
+    }
+}

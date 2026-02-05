@@ -130,8 +130,8 @@
                     }
                   },
                   "rhs": {
-                    "StaticAssetConstructor": {
-                      "type": {
+                    "FnCall": {
+                      "callee": {
                         "value": "MyToken",
                         "span": {
                           "dummy": false,
@@ -139,16 +139,18 @@
                           "end": 506
                         }
                       },
-                      "amount": {
-                        "Identifier": {
-                          "value": "quantity",
-                          "span": {
-                            "dummy": false,
-                            "start": 507,
-                            "end": 515
+                      "args": [
+                        {
+                          "Identifier": {
+                            "value": "quantity",
+                            "span": {
+                              "dummy": false,
+                              "start": 507,
+                              "end": 515
+                            }
                           }
                         }
-                      },
+                      ],
                       "span": {
                         "dummy": false,
                         "start": 499,
@@ -178,8 +180,8 @@
           "fields": [
             {
               "Amount": {
-                "StaticAssetConstructor": {
-                  "type": {
+                "FnCall": {
+                  "callee": {
                     "value": "MyToken",
                     "span": {
                       "dummy": false,
@@ -187,16 +189,18 @@
                       "end": 374
                     }
                   },
-                  "amount": {
-                    "Identifier": {
-                      "value": "quantity",
-                      "span": {
-                        "dummy": false,
-                        "start": 375,
-                        "end": 383
+                  "args": [
+                    {
+                      "Identifier": {
+                        "value": "quantity",
+                        "span": {
+                          "dummy": false,
+                          "start": 375,
+                          "end": 383
+                        }
                       }
                     }
-                  },
+                  ],
                   "span": {
                     "dummy": false,
                     "start": 367,

@@ -3,10 +3,11 @@ use std::{collections::HashMap, rc::Rc};
 use pest::iterators::Pair;
 use serde::{Deserialize, Serialize};
 
+use tx3_tir::model::v1beta0 as ir;
+
 use crate::{
     analyzing::{Analyzable, AnalyzeReport},
     ast::{DataExpr, Identifier, Scope, Span, Type},
-    ir,
     lowering::IntoLower,
     parsing::{AstNode, Error, Rule},
 };
@@ -926,13 +927,11 @@ mod tests {
                 CardanoPublishBlockField::To(Box::new(DataExpr::Identifier(Identifier::new(
                     "Receiver"
                 )))),
-                CardanoPublishBlockField::Amount(Box::new(DataExpr::StaticAssetConstructor(
-                    StaticAssetConstructor {
-                        r#type: Identifier::new("Ada"),
-                        amount: Box::new(DataExpr::Identifier(Identifier::new("quantity"))),
-                        span: Span::DUMMY,
-                    }
-                ))),
+                CardanoPublishBlockField::Amount(Box::new(DataExpr::FnCall(crate::ast::FnCall {
+                    callee: Identifier::new("Ada"),
+                    args: vec![DataExpr::Identifier(Identifier::new("quantity"))],
+                    span: Span::DUMMY,
+                }))),
                 CardanoPublishBlockField::Version(Box::new(DataExpr::Number(3))),
                 CardanoPublishBlockField::Script(Box::new(DataExpr::HexString(
                     HexStringLiteral::new("ABCDEF".to_string())
@@ -957,13 +956,11 @@ mod tests {
                 CardanoPublishBlockField::To(Box::new(DataExpr::Identifier(Identifier::new(
                     "Receiver"
                 )))),
-                CardanoPublishBlockField::Amount(Box::new(DataExpr::StaticAssetConstructor(
-                    StaticAssetConstructor {
-                        r#type: Identifier::new("Ada"),
-                        amount: Box::new(DataExpr::Identifier(Identifier::new("quantity"))),
-                        span: Span::DUMMY,
-                    }
-                ))),
+                CardanoPublishBlockField::Amount(Box::new(DataExpr::FnCall(crate::ast::FnCall {
+                    callee: Identifier::new("Ada"),
+                    args: vec![DataExpr::Identifier(Identifier::new("quantity"))],
+                    span: Span::DUMMY,
+                }))),
                 CardanoPublishBlockField::Version(Box::new(DataExpr::Number(3))),
                 CardanoPublishBlockField::Script(Box::new(DataExpr::HexString(
                     HexStringLiteral::new("ABCDEF".to_string())

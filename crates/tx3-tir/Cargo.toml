@@ -1,0 +1,24 @@
+[package]
+name = "tx3-tir"
+description = "Artifacts for the Tx3 Transaction Intermediate Representation (TIR)"
+publish.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+version.workspace = true
+keywords.workspace = true
+documentation.workspace = true
+homepage.workspace = true
+readme.workspace = true
+
+[dependencies]
+thiserror = { workspace = true }
+hex = { workspace = true }
+serde = { workspace = true }
+ciborium = "0.2.2"
+
+[dev-dependencies]
+proptest = "1.7.0"
+tx3-lang = { path = "../tx3-lang" }
+serde_json = "1.0.137"

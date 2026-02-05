@@ -1,5 +1,5 @@
 use std::collections::HashSet;
-use std::ops::{Deref, DerefMut, Range, RangeBounds};
+use std::ops::{Deref, DerefMut, Range};
 
 pub use chainfuzz::addresses::KnownAddress;
 pub use chainfuzz::assets::KnownAsset;
@@ -7,8 +7,12 @@ pub use chainfuzz::utxos::UtxoMap;
 pub use chainfuzz::utxos::{utxo_with_random_amount, utxo_with_random_asset, UtxoGenerator};
 pub use chainfuzz::{TxoRef as FuzzTxoRef, Utxo as FuzzUtxo};
 
-use tx3_lang::backend::{Error, UtxoPattern, UtxoStore};
-use tx3_lang::{ir, CanonicalAssets, Utxo, UtxoRef, UtxoSet};
+use crate::{Error, UtxoPattern, UtxoStore};
+
+use tx3_tir::model::{
+    assets::CanonicalAssets,
+    core::{Utxo, UtxoRef, UtxoSet},
+};
 
 use crate::mock;
 

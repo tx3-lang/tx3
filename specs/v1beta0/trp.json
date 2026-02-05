@@ -1,0 +1,326 @@
+{
+  "openrpc": "1.3.2",
+  "info": {
+    "title": "Transaction Resolver Protocol",
+    "version": "0.1.0",
+    "description": "OpenRPC schema inferred from the TRP Rust client implementation."
+  },
+  "servers": [
+    {
+      "name": "default",
+      "url": "http://localhost:8545"
+    }
+  ],
+  "methods": [
+    {
+      "name": "trp.resolve",
+      "summary": "Resolve a proto transaction into a signed transaction envelope.",
+      "params": {
+        "name": "ResolveParams",
+        "schema": {
+          "$ref": "#/components/schemas/ResolveParams"
+        }
+      },
+      "result": {
+        "name": "TxEnvelope",
+        "schema": {
+          "$ref": "#/components/schemas/TxEnvelope"
+        }
+      },
+      "errors": [
+        {
+          "code": -32000,
+          "message": "Unsupported TIR",
+          "data": {
+            "$ref": "#/components/schemas/UnsupportedTirDiagnostic"
+          }
+        },
+        {
+          "code": -32001,
+          "message": "Missing transaction argument",
+          "data": {
+            "$ref": "#/components/schemas/MissingTxArgDiagnostic"
+          }
+        },
+        {
+          "code": -32002,
+          "message": "Input not resolved",
+          "data": {
+            "$ref": "#/components/schemas/InputNotResolvedDiagnostic"
+          }
+        },
+        {
+          "code": -32003,
+          "message": "Tx script failure",
+          "data": {
+            "$ref": "#/components/schemas/TxScriptFailureDiagnostic"
+          }
+        }
+      ]
+    },
+    {
+      "name": "trp.submit",
+      "summary": "Submit a resolved transaction with witnesses.",
+      "params": {
+        "name": "SubmitParams",
+        "schema": {
+          "$ref": "#/components/schemas/SubmitParams"
+        }
+      },
+      "result": {
+        "name": "SubmitResponse",
+        "schema": {
+          "$ref": "#/components/schemas/SubmitResponse"
+        }
+      }
+    }
+  ],
+  "components": {
+    "schemas": {
+      "BytesEnvelope": {
+        "title": "BytesEnvelope",
+        "type": "object",
+        "properties": {
+          "encoding": {
+            "type": "string"
+          },
+          "payload": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "encoding",
+          "payload"
+        ]
+      },
+      "SubmitResponse": {
+        "title": "SubmitResponse",
+        "type": "object",
+        "properties": {
+          "hash": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "hash"
+        ]
+      },
+      "TxEnvelope": {
+        "title": "TxEnvelope",
+        "type": "object",
+        "properties": {
+          "tx": {
+            "type": "string",
+            "description": "Hex-encoded transaction bytes"
+          },
+          "hash": {
+            "type": "string",
+            "description": "Transaction hash"
+          }
+        },
+        "required": [
+          "tx",
+          "hash"
+        ]
+      },
+      "SubmitWitness": {
+        "title": "SubmitWitness",
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "vkey"
+            ]
+          },
+          "key": {
+            "$ref": "#/components/schemas/BytesEnvelope"
+          },
+          "signature": {
+            "$ref": "#/components/schemas/BytesEnvelope"
+          }
+        },
+        "required": [
+          "type",
+          "key",
+          "signature"
+        ]
+      },
+      "UnsupportedTirDiagnostic": {
+        "title": "UnsupportedTirDiagnostic",
+        "type": "object",
+        "properties": {
+          "provided": {
+            "type": "string"
+          },
+          "expected": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "provided",
+          "expected"
+        ]
+      },
+      "MissingTxArgDiagnostic": {
+        "title": "MissingTxArgDiagnostic",
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "type"
+        ]
+      },
+      "SearchSpaceDiagnostic": {
+        "title": "SearchSpaceDiagnostic",
+        "type": "object",
+        "properties": {
+          "matched": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "by_address_count": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "by_asset_class_count": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "by_ref_count": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "matched"
+        ]
+      },
+      "InputQueryDiagnostic": {
+        "title": "InputQueryDiagnostic",
+        "type": "object",
+        "properties": {
+          "address": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "min_amount": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "refs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "support_many": {
+            "type": "boolean"
+          },
+          "collateral": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "min_amount",
+          "refs",
+          "support_many",
+          "collateral"
+        ]
+      },
+      "InputNotResolvedDiagnostic": {
+        "title": "InputNotResolvedDiagnostic",
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "query": {
+            "$ref": "#/components/schemas/InputQueryDiagnostic"
+          },
+          "search_space": {
+            "$ref": "#/components/schemas/SearchSpaceDiagnostic"
+          }
+        },
+        "required": [
+          "name",
+          "query",
+          "search_space"
+        ]
+      },
+      "TxScriptFailureDiagnostic": {
+        "title": "TxScriptFailureDiagnostic",
+        "type": "object",
+        "properties": {
+          "logs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "logs"
+        ]
+      },
+      "SubmitParams": {
+        "title": "SubmitParams",
+        "type": "object",
+        "properties": {
+          "tx": {
+            "$ref": "#/components/schemas/BytesEnvelope"
+          },
+          "witnesses": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubmitWitness"
+            }
+          }
+        },
+        "required": [
+          "tx",
+          "witnesses"
+        ]
+      },
+      "ResolveParams": {
+        "title": "ResolveParams",
+        "type": "object",
+        "properties": {
+          "tir": {
+            "$ref": "core.json#/tirEnvelope"
+          },
+          "args": {
+            "type": "object"
+          },
+          "env": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "tir",
+          "args",
+          "env"
+        ]
+      }
+    }
+  }
+}

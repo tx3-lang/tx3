@@ -31,6 +31,7 @@ pub enum Symbol {
     AliasDef(Box<AliasDef>),
     RecordField(Box<RecordField>),
     VariantCase(Box<VariantCase>),
+    Function(String),
     Fees,
 }
 
@@ -537,19 +538,6 @@ pub enum PolicyValue {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct StaticAssetConstructor {
-    pub r#type: Identifier,
-    pub amount: Box<DataExpr>,
-    pub span: Span,
-}
-
-impl StaticAssetConstructor {
-    pub fn target_type(&self) -> Option<Type> {
-        Some(Type::AnyAsset)
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AnyAssetConstructor {
     pub policy: Box<DataExpr>,
     pub asset_name: Box<DataExpr>,
@@ -727,6 +715,13 @@ impl ConcatOp {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct FnCall {
+    pub callee: Identifier,
+    pub args: Vec<DataExpr>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum DataExpr {
     None,
     Unit,
@@ -737,7 +732,6 @@ pub enum DataExpr {
     StructConstructor(StructConstructor),
     ListConstructor(ListConstructor),
     MapConstructor(MapConstructor),
-    StaticAssetConstructor(StaticAssetConstructor),
     AnyAssetConstructor(AnyAssetConstructor),
     Identifier(Identifier),
     MinUtxo(Identifier),
@@ -750,6 +744,7 @@ pub enum DataExpr {
     NegateOp(NegateOp),
     PropertyOp(PropertyOp),
     UtxoRef(UtxoRef),
+    FnCall(FnCall),
 }
 
 impl DataExpr {
@@ -780,13 +775,13 @@ impl DataExpr {
             DataExpr::ConcatOp(x) => x.target_type(),
             DataExpr::NegateOp(x) => x.target_type(),
             DataExpr::PropertyOp(x) => x.target_type(),
-            DataExpr::StaticAssetConstructor(x) => x.target_type(),
             DataExpr::AnyAssetConstructor(x) => x.target_type(),
             DataExpr::UtxoRef(_) => Some(Type::UtxoRef),
             DataExpr::MinUtxo(_) => Some(Type::AnyAsset),
             DataExpr::ComputeTipSlot => Some(Type::Int),
             DataExpr::SlotToTime(_) => Some(Type::Int),
             DataExpr::TimeToSlot(_) => Some(Type::Int),
+            DataExpr::FnCall(_) => None, // Function call return type determined by symbol resolution
         }
     }
 }
