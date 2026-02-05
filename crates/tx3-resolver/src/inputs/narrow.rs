@@ -83,7 +83,7 @@ pub struct SearchSpace {
 }
 
 impl SearchSpace {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             union: Subset::NotSet,
             intersection: Subset::NotSet,

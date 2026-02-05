@@ -355,20 +355,39 @@ impl AstNode for ReferenceBlock {
     const RULE: Rule = Rule::reference_block;
 
     fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
-        let span = pair.as_span().into();
+        let span: Span = pair.as_span().into();
         let mut inner = pair.into_inner();
 
         let name = inner.next().unwrap().as_str().to_string();
 
-        let pair = inner.next().unwrap();
-        match pair.as_rule() {
-            Rule::input_block_ref => {
-                let pair = pair.into_inner().next().unwrap();
-                let r#ref = DataExpr::parse(pair)?;
-                Ok(ReferenceBlock { name, r#ref, span })
+        let mut r#ref = None;
+        let mut datum_is = None;
+        for field in inner {
+            match field.as_rule() {
+                Rule::input_block_ref => {
+                    let pair = field.into_inner().next().unwrap();
+                    r#ref = Some(DataExpr::parse(pair)?);
+                }
+                Rule::input_block_datum_is => {
+                    let pair = field.into_inner().next().unwrap();
+                    datum_is = Some(Type::parse(pair)?);
+                }
+                x => unreachable!("Unexpected rule in reference_block: {:?}", x),
             }
-            x => unreachable!("Unexpected rule in ref_input_block: {:?}", x),
         }
+
+        let r#ref = r#ref.ok_or_else(|| Error {
+            message: "reference block requires 'ref' field".to_string(),
+            src: String::new(),
+            span: span.clone(),
+        })?;
+
+        Ok(ReferenceBlock {
+            name,
+            r#ref,
+            datum_is,
+            span,
+        })
     }
 
     fn span(&self) -> &Span {
@@ -2809,6 +2828,7 @@ mod tests {
     test_parsing!(cardano_witness);
 
     test_parsing!(reference_script);
+    test_parsing!(reference_input_datum);
     test_parsing!(map);
     test_parsing!(burn);
 

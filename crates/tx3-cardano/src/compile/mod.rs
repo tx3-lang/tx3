@@ -434,7 +434,9 @@ fn compile_reference_inputs(tx: &tir::Tx) -> Result<Vec<primitives::TransactionI
     let refs = tx
         .references
         .iter()
-        .flat_map(coercion::expr_into_utxo_refs)
+        .map(|r| coercion::expr_into_utxo_refs(&r.utxos))
+        .collect::<Result<Vec<_>, _>>()?
+        .into_iter()
         .flatten()
         .map(|x| primitives::TransactionInput {
             transaction_id: x.txid.as_slice().into(),

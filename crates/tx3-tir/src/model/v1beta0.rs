@@ -8,8 +8,10 @@
 //! [`lower`](crate::lower) for lowering an AST to the intermediate
 //! representation.
 
+use serde::de::{self, Deserializer, SeqAccess, Visitor as SerdeVisitor};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
+use std::fmt;
 
 use crate::{
     encoding::{TirRoot, TirVersion},
@@ -293,6 +295,12 @@ pub struct InputQuery {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct Reference {
+    pub name: String,
+    pub utxos: Expression,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Input {
     pub name: String,
     pub utxos: Expression,
@@ -335,10 +343,57 @@ pub struct Signers {
     pub signers: Vec<Expression>,
 }
 
+/// Legacy TIR stored references as Vec<Expression>. We accept both formats when deserializing.
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum ReferenceOrLegacy {
+    New(Reference),
+    Legacy(Expression),
+}
+
+fn deserialize_references<'de, D>(deserializer: D) -> Result<Vec<Reference>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    struct ReferencesVisitor;
+
+    impl<'de> SerdeVisitor<'de> for ReferencesVisitor {
+        type Value = Vec<Reference>;
+
+        fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+            formatter.write_str("array of Reference or legacy array of Expression")
+        }
+
+        fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+        where
+            A: SeqAccess<'de>,
+        {
+            let mut refs = Vec::new();
+            let mut index = 0usize;
+            while let Some(item) = seq.next_element::<ReferenceOrLegacy>()? {
+                match item {
+                    ReferenceOrLegacy::New(r) => refs.push(r),
+                    ReferenceOrLegacy::Legacy(utxos) => {
+                        refs.push(Reference {
+                            name: format!("ref_{}", index),
+                            utxos,
+                        });
+                    }
+                }
+                index += 1;
+            }
+            Ok(refs)
+        }
+    }
+
+    deserializer.deserialize_seq(ReferencesVisitor)
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Tx {
     pub fees: Expression,
-    pub references: Vec<Expression>,
+    #[serde(deserialize_with = "deserialize_references")]
+    pub references: Vec<Reference>,
     pub inputs: Vec<Input>,
     pub outputs: Vec<Output>,
     pub validity: Option<Validity>,
@@ -409,6 +464,17 @@ impl Node for InputQuery {
             address: self.address.apply(visitor)?,
             min_amount: self.min_amount.apply(visitor)?,
             r#ref: self.r#ref.apply(visitor)?,
+            ..self
+        };
+
+        Ok(visited)
+    }
+}
+
+impl Node for Reference {
+    fn apply<V: Visitor>(self, visitor: &mut V) -> Result<Self, crate::reduce::Error> {
+        let visited = Self {
+            utxos: self.utxos.apply(visitor)?,
             ..self
         };
 
