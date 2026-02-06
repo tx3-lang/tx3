@@ -237,6 +237,23 @@ fn definition_to_type_def(
     }))
 }
 
+pub fn type_defs_from_blueprint(
+    blueprint: &Blueprint,
+    alias: Option<&str>,
+) -> Result<Vec<TypeDef>, Error> {
+    let definitions = match &blueprint.definitions {
+        Some(d) => d,
+        None => return Ok(vec![]),
+    };
+
+    let mut type_defs = Vec::new();
+    for (key, def) in &definitions.inner {
+        if let Some(type_def) = definition_to_type_def(key, def, definitions, alias)? {
+            type_defs.push(type_def);
+        }
+    }
+    Ok(type_defs)
+}
 pub fn resolve_imports(
     program: &mut Program,
     loader: Option<&impl ImportLoader>,
@@ -257,23 +274,16 @@ pub fn resolve_imports(
     for import in &program.imports {
         let json = loader.load_source(import.path.value.as_str())?;
         let blueprint: Blueprint = serde_json::from_str(&json)?;
-
-        let definitions = match &blueprint.definitions {
-            Some(d) => d,
-            None => continue,
-        };
-
         let alias = import.alias.as_ref().map(|a| a.value.as_str());
+        let type_defs = type_defs_from_blueprint(&blueprint, alias)?;
 
-        for (key, def) in &definitions.inner {
-            if let Some(type_def) = definition_to_type_def(key, def, definitions, alias)? {
-                let name = type_def.name.value.clone();
-                if existing_names.contains(&name) || added_names.contains(&name) {
-                    return Err(Error::duplicate_type(name, import.span.clone()));
-                }
-                added_names.insert(name.clone());
-                program.types.push(type_def);
+        for type_def in type_defs {
+            let name = type_def.name.value.clone();
+            if existing_names.contains(&name) || added_names.contains(&name) {
+                return Err(Error::duplicate_type(name, import.span.clone()));
             }
+            added_names.insert(name.clone());
+            program.types.push(type_def);
         }
     }
 
