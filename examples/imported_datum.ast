@@ -124,11 +124,11 @@
                   },
                   "case": {
                     "name": {
-                      "value": "SettingsDatum",
+                      "value": "Default",
                       "span": {
-                        "dummy": false,
-                        "start": 275,
-                        "end": 288
+                        "dummy": true,
+                        "start": 0,
+                        "end": 0
                       }
                     },
                     "fields": [
@@ -137,8 +137,8 @@
                           "value": "githoney_address",
                           "span": {
                             "dummy": false,
-                            "start": 303,
-                            "end": 319
+                            "start": 288,
+                            "end": 304
                           }
                         },
                         "value": {
@@ -147,17 +147,17 @@
                               "value": "plutus_cardano_address_Address",
                               "span": {
                                 "dummy": false,
-                                "start": 321,
-                                "end": 351
+                                "start": 306,
+                                "end": 336
                               }
                             },
                             "case": {
                               "name": {
-                                "value": "Address",
+                                "value": "Default",
                                 "span": {
-                                  "dummy": false,
-                                  "start": 353,
-                                  "end": 360
+                                  "dummy": true,
+                                  "start": 0,
+                                  "end": 0
                                 }
                               },
                               "fields": [
@@ -166,8 +166,8 @@
                                     "value": "payment_credential",
                                     "span": {
                                       "dummy": false,
-                                      "start": 379,
-                                      "end": 397
+                                      "start": 355,
+                                      "end": 373
                                     }
                                   },
                                   "value": {
@@ -176,8 +176,8 @@
                                         "value": "plutus_cardano_address_PaymentCredential",
                                         "span": {
                                           "dummy": false,
-                                          "start": 399,
-                                          "end": 439
+                                          "start": 375,
+                                          "end": 415
                                         }
                                       },
                                       "case": {
@@ -185,8 +185,8 @@
                                           "value": "VerificationKey",
                                           "span": {
                                             "dummy": false,
-                                            "start": 441,
-                                            "end": 456
+                                            "start": 417,
+                                            "end": 432
                                           }
                                         },
                                         "fields": [
@@ -195,8 +195,8 @@
                                               "value": "field",
                                               "span": {
                                                 "dummy": false,
-                                                "start": 479,
-                                                "end": 484
+                                                "start": 455,
+                                                "end": 460
                                               }
                                             },
                                             "value": {
@@ -204,36 +204,36 @@
                                                 "value": "12345678901234567890123456789012345678901234567890123456",
                                                 "span": {
                                                   "dummy": false,
-                                                  "start": 486,
-                                                  "end": 544
+                                                  "start": 462,
+                                                  "end": 520
                                                 }
                                               }
                                             },
                                             "span": {
                                               "dummy": false,
-                                              "start": 479,
-                                              "end": 544
+                                              "start": 455,
+                                              "end": 520
                                             }
                                           }
                                         ],
                                         "spread": null,
                                         "span": {
                                           "dummy": false,
-                                          "start": 439,
-                                          "end": 563
+                                          "start": 415,
+                                          "end": 539
                                         }
                                       },
                                       "span": {
                                         "dummy": false,
-                                        "start": 399,
-                                        "end": 563
+                                        "start": 375,
+                                        "end": 539
                                       }
                                     }
                                   },
                                   "span": {
                                     "dummy": false,
-                                    "start": 379,
-                                    "end": 563
+                                    "start": 355,
+                                    "end": 539
                                   }
                                 },
                                 {
@@ -241,8 +241,8 @@
                                     "value": "stake_credential",
                                     "span": {
                                       "dummy": false,
-                                      "start": 581,
-                                      "end": 597
+                                      "start": 557,
+                                      "end": 573
                                     }
                                   },
                                   "value": {
@@ -251,8 +251,8 @@
                                         "value": "plutus_Option_cardano_address_StakeCredential",
                                         "span": {
                                           "dummy": false,
-                                          "start": 599,
-                                          "end": 644
+                                          "start": 575,
+                                          "end": 620
                                         }
                                       },
                                       "case": {
@@ -260,50 +260,50 @@
                                           "value": "None",
                                           "span": {
                                             "dummy": false,
-                                            "start": 646,
-                                            "end": 650
+                                            "start": 622,
+                                            "end": 626
                                           }
                                         },
                                         "fields": [],
                                         "spread": null,
                                         "span": {
                                           "dummy": false,
-                                          "start": 644,
-                                          "end": 653
+                                          "start": 620,
+                                          "end": 629
                                         }
                                       },
                                       "span": {
                                         "dummy": false,
-                                        "start": 599,
-                                        "end": 653
+                                        "start": 575,
+                                        "end": 629
                                       }
                                     }
                                   },
                                   "span": {
                                     "dummy": false,
-                                    "start": 581,
-                                    "end": 653
+                                    "start": 557,
+                                    "end": 629
                                   }
                                 }
                               ],
                               "spread": null,
                               "span": {
                                 "dummy": false,
-                                "start": 351,
-                                "end": 668
+                                "start": 337,
+                                "end": 644
                               }
                             },
                             "span": {
                               "dummy": false,
-                              "start": 321,
-                              "end": 668
+                              "start": 306,
+                              "end": 644
                             }
                           }
                         },
                         "span": {
                           "dummy": false,
-                          "start": 303,
-                          "end": 668
+                          "start": 288,
+                          "end": 644
                         }
                       },
                       {
@@ -311,8 +311,8 @@
                           "value": "bounty_creation_fee",
                           "span": {
                             "dummy": false,
-                            "start": 682,
-                            "end": 701
+                            "start": 658,
+                            "end": 677
                           }
                         },
                         "value": {
@@ -320,8 +320,8 @@
                         },
                         "span": {
                           "dummy": false,
-                          "start": 682,
-                          "end": 706
+                          "start": 658,
+                          "end": 682
                         }
                       },
                       {
@@ -329,8 +329,8 @@
                           "value": "bounty_reward_fee",
                           "span": {
                             "dummy": false,
-                            "start": 720,
-                            "end": 737
+                            "start": 696,
+                            "end": 713
                           }
                         },
                         "value": {
@@ -338,22 +338,22 @@
                         },
                         "span": {
                           "dummy": false,
-                          "start": 720,
-                          "end": 742
+                          "start": 696,
+                          "end": 718
                         }
                       }
                     ],
                     "spread": null,
                     "span": {
                       "dummy": false,
-                      "start": 273,
-                      "end": 753
+                      "start": 274,
+                      "end": 729
                     }
                   },
                   "span": {
                     "dummy": false,
                     "start": 247,
-                    "end": 753
+                    "end": 729
                   }
                 }
               }
@@ -367,7 +367,7 @@
           "span": {
             "dummy": false,
             "start": 195,
-            "end": 785
+            "end": 761
           }
         }
       ],
@@ -379,7 +379,7 @@
       "span": {
         "dummy": false,
         "start": 73,
-        "end": 787
+        "end": 763
       },
       "collateral": [],
       "metadata": null
@@ -409,6 +409,6 @@
   "span": {
     "dummy": false,
     "start": 0,
-    "end": 788
+    "end": 764
   }
 }

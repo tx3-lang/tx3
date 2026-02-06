@@ -12,8 +12,8 @@ tx create_settings(
 
     output settings {
         to: Admin,
-        datum: plutus_types_SettingsDatum::SettingsDatum {
-            githoney_address: plutus_cardano_address_Address::Address {
+        datum: plutus_types_SettingsDatum {
+            githoney_address: plutus_cardano_address_Address {
                 payment_credential: plutus_cardano_address_PaymentCredential::VerificationKey {
                     field: 0x12345678901234567890123456789012345678901234567890123456,
                 },
