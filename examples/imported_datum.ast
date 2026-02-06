@@ -1,0 +1,414 @@
+{
+  "imports": [
+    {
+      "path": {
+        "value": "../crates/cip-57/examples/plutus.json",
+        "span": {
+          "dummy": false,
+          "start": 7,
+          "end": 46
+        }
+      },
+      "alias": {
+        "value": "plutus",
+        "span": {
+          "dummy": false,
+          "start": 50,
+          "end": 56
+        }
+      },
+      "span": {
+        "dummy": false,
+        "start": 0,
+        "end": 57
+      }
+    }
+  ],
+  "env": null,
+  "txs": [
+    {
+      "name": {
+        "value": "create_settings",
+        "span": {
+          "dummy": false,
+          "start": 76,
+          "end": 91
+        }
+      },
+      "parameters": {
+        "parameters": [
+          {
+            "name": {
+              "value": "now",
+              "span": {
+                "dummy": false,
+                "start": 97,
+                "end": 100
+              }
+            },
+            "type": "Int"
+          }
+        ],
+        "span": {
+          "dummy": false,
+          "start": 91,
+          "end": 108
+        }
+      },
+      "locals": null,
+      "references": [],
+      "inputs": [
+        {
+          "name": "fee_source",
+          "many": false,
+          "fields": [
+            {
+              "From": {
+                "Identifier": {
+                  "value": "Admin",
+                  "span": {
+                    "dummy": false,
+                    "start": 148,
+                    "end": 153
+                  }
+                }
+              }
+            },
+            {
+              "MinAmount": {
+                "Number": 1000000
+              }
+            }
+          ],
+          "span": {
+            "dummy": false,
+            "start": 115,
+            "end": 189
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": {
+            "value": "settings",
+            "span": {
+              "dummy": false,
+              "start": 202,
+              "end": 210
+            }
+          },
+          "optional": false,
+          "fields": [
+            {
+              "To": {
+                "Identifier": {
+                  "value": "Admin",
+                  "span": {
+                    "dummy": false,
+                    "start": 225,
+                    "end": 230
+                  }
+                }
+              }
+            },
+            {
+              "Datum": {
+                "StructConstructor": {
+                  "type": {
+                    "value": "plutus_types_SettingsDatum",
+                    "span": {
+                      "dummy": false,
+                      "start": 247,
+                      "end": 273
+                    }
+                  },
+                  "case": {
+                    "name": {
+                      "value": "SettingsDatum",
+                      "span": {
+                        "dummy": false,
+                        "start": 275,
+                        "end": 288
+                      }
+                    },
+                    "fields": [
+                      {
+                        "name": {
+                          "value": "githoney_address",
+                          "span": {
+                            "dummy": false,
+                            "start": 303,
+                            "end": 319
+                          }
+                        },
+                        "value": {
+                          "StructConstructor": {
+                            "type": {
+                              "value": "plutus_cardano_address_Address",
+                              "span": {
+                                "dummy": false,
+                                "start": 321,
+                                "end": 351
+                              }
+                            },
+                            "case": {
+                              "name": {
+                                "value": "Address",
+                                "span": {
+                                  "dummy": false,
+                                  "start": 353,
+                                  "end": 360
+                                }
+                              },
+                              "fields": [
+                                {
+                                  "name": {
+                                    "value": "payment_credential",
+                                    "span": {
+                                      "dummy": false,
+                                      "start": 379,
+                                      "end": 397
+                                    }
+                                  },
+                                  "value": {
+                                    "StructConstructor": {
+                                      "type": {
+                                        "value": "plutus_cardano_address_PaymentCredential",
+                                        "span": {
+                                          "dummy": false,
+                                          "start": 399,
+                                          "end": 439
+                                        }
+                                      },
+                                      "case": {
+                                        "name": {
+                                          "value": "VerificationKey",
+                                          "span": {
+                                            "dummy": false,
+                                            "start": 441,
+                                            "end": 456
+                                          }
+                                        },
+                                        "fields": [
+                                          {
+                                            "name": {
+                                              "value": "field",
+                                              "span": {
+                                                "dummy": false,
+                                                "start": 479,
+                                                "end": 484
+                                              }
+                                            },
+                                            "value": {
+                                              "HexString": {
+                                                "value": "12345678901234567890123456789012345678901234567890123456",
+                                                "span": {
+                                                  "dummy": false,
+                                                  "start": 486,
+                                                  "end": 544
+                                                }
+                                              }
+                                            },
+                                            "span": {
+                                              "dummy": false,
+                                              "start": 479,
+                                              "end": 544
+                                            }
+                                          }
+                                        ],
+                                        "spread": null,
+                                        "span": {
+                                          "dummy": false,
+                                          "start": 439,
+                                          "end": 563
+                                        }
+                                      },
+                                      "span": {
+                                        "dummy": false,
+                                        "start": 399,
+                                        "end": 563
+                                      }
+                                    }
+                                  },
+                                  "span": {
+                                    "dummy": false,
+                                    "start": 379,
+                                    "end": 563
+                                  }
+                                },
+                                {
+                                  "name": {
+                                    "value": "stake_credential",
+                                    "span": {
+                                      "dummy": false,
+                                      "start": 581,
+                                      "end": 597
+                                    }
+                                  },
+                                  "value": {
+                                    "StructConstructor": {
+                                      "type": {
+                                        "value": "plutus_Option_cardano_address_StakeCredential",
+                                        "span": {
+                                          "dummy": false,
+                                          "start": 599,
+                                          "end": 644
+                                        }
+                                      },
+                                      "case": {
+                                        "name": {
+                                          "value": "None",
+                                          "span": {
+                                            "dummy": false,
+                                            "start": 646,
+                                            "end": 650
+                                          }
+                                        },
+                                        "fields": [],
+                                        "spread": null,
+                                        "span": {
+                                          "dummy": false,
+                                          "start": 644,
+                                          "end": 653
+                                        }
+                                      },
+                                      "span": {
+                                        "dummy": false,
+                                        "start": 599,
+                                        "end": 653
+                                      }
+                                    }
+                                  },
+                                  "span": {
+                                    "dummy": false,
+                                    "start": 581,
+                                    "end": 653
+                                  }
+                                }
+                              ],
+                              "spread": null,
+                              "span": {
+                                "dummy": false,
+                                "start": 351,
+                                "end": 668
+                              }
+                            },
+                            "span": {
+                              "dummy": false,
+                              "start": 321,
+                              "end": 668
+                            }
+                          }
+                        },
+                        "span": {
+                          "dummy": false,
+                          "start": 303,
+                          "end": 668
+                        }
+                      },
+                      {
+                        "name": {
+                          "value": "bounty_creation_fee",
+                          "span": {
+                            "dummy": false,
+                            "start": 682,
+                            "end": 701
+                          }
+                        },
+                        "value": {
+                          "Number": 500
+                        },
+                        "span": {
+                          "dummy": false,
+                          "start": 682,
+                          "end": 706
+                        }
+                      },
+                      {
+                        "name": {
+                          "value": "bounty_reward_fee",
+                          "span": {
+                            "dummy": false,
+                            "start": 720,
+                            "end": 737
+                          }
+                        },
+                        "value": {
+                          "Number": 100
+                        },
+                        "span": {
+                          "dummy": false,
+                          "start": 720,
+                          "end": 742
+                        }
+                      }
+                    ],
+                    "spread": null,
+                    "span": {
+                      "dummy": false,
+                      "start": 273,
+                      "end": 753
+                    }
+                  },
+                  "span": {
+                    "dummy": false,
+                    "start": 247,
+                    "end": 753
+                  }
+                }
+              }
+            },
+            {
+              "Amount": {
+                "Number": 2000000
+              }
+            }
+          ],
+          "span": {
+            "dummy": false,
+            "start": 195,
+            "end": 785
+          }
+        }
+      ],
+      "validity": null,
+      "mints": [],
+      "burns": [],
+      "signers": null,
+      "adhoc": [],
+      "span": {
+        "dummy": false,
+        "start": 73,
+        "end": 787
+      },
+      "collateral": [],
+      "metadata": null
+    }
+  ],
+  "types": [],
+  "aliases": [],
+  "assets": [],
+  "parties": [
+    {
+      "name": {
+        "value": "Admin",
+        "span": {
+          "dummy": false,
+          "start": 65,
+          "end": 70
+        }
+      },
+      "span": {
+        "dummy": false,
+        "start": 59,
+        "end": 71
+      }
+    }
+  ],
+  "policies": [],
+  "span": {
+    "dummy": false,
+    "start": 0,
+    "end": 788
+  }
+}

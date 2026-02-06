@@ -1,6 +1,0 @@
-import "../../../cip-57/examples/plutus.json" as types;
-
-party Sender;
-party Receiver;
-
-tx dummy() {}

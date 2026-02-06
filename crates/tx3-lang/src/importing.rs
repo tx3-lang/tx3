@@ -344,4 +344,94 @@ mod tests {
             type_names
         );
     }
+
+    #[test]
+    fn import_with_alias_adds_types() {
+        let manifest_dir = env!("CARGO_MANIFEST_DIR");
+        let root = std::path::Path::new(manifest_dir);
+
+        let mut program =
+            crate::parsing::parse_string(r#"import "../cip-57/examples/plutus.json" as types;"#)
+                .unwrap();
+
+        let loader = FsLoader::new(root);
+        resolve_imports(&mut program, Some(&loader)).unwrap();
+
+        let type_names: Vec<String> = program.types.iter().map(|t| t.name.value.clone()).collect();
+        assert!(
+            type_names.iter().any(|n| n.starts_with("types_")),
+            "expected at least one type prefixed with 'types_', got: {:?}",
+            type_names
+        );
+    }
+
+    #[test]
+    fn import_without_root_errors() {
+        let src = r#"
+            import "some/file.json";
+            party X;
+            tx dummy() {}
+        "#;
+        let mut program = crate::parsing::parse_string(src).unwrap();
+        let res = resolve_imports(&mut program, None::<&InMemoryLoader>);
+
+        assert!(res.is_err(), "expected error when importing without root");
+        let err = res.unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("root") || msg.contains("import"),
+            "expected error about root or import, got: {}",
+            msg
+        );
+    }
+
+    #[test]
+    fn duplicate_type_name_from_imports_errors() {
+        let json = r#"{
+            "preamble": { "title": "test", "version": "0", "plutusVersion": "v3" },
+            "validators": [],
+            "definitions": {
+                "One": {
+                     "title": "One",
+                     "anyOf": [ { "title": "A", "dataType": "constructor", "index": 0, "fields": [] } ]
+                }
+            }
+        }"#;
+
+        let src = r#"
+            import "schema1.json" as types;
+            import "schema2.json" as types;
+        "#;
+
+        let mut program = crate::parsing::parse_string(src).unwrap();
+        let mut loader = InMemoryLoader::new();
+        loader.add("schema1.json", json);
+        loader.add("schema2.json", json);
+        let res = resolve_imports(&mut program, Some(&loader));
+
+        assert!(
+            res.is_err(),
+            "expected error for duplicate type names from two imports"
+        );
+        let err = res.unwrap_err();
+        assert!(
+            err.to_string().contains("duplicate") || err.to_string().contains("type"),
+            "expected duplicate/type error, got: {}",
+            err
+        );
+    }
+
+    #[test]
+    fn invalid_import_path_errors() {
+        let manifest_dir = env!("CARGO_MANIFEST_DIR");
+        let root = std::path::Path::new(manifest_dir);
+        let src = r#"
+            import "nonexistent/plutus.json" as types;
+        "#;
+        let mut program = crate::parsing::parse_string(src).unwrap();
+        let loader = FsLoader::new(root);
+
+        let res = resolve_imports(&mut program, Some(&loader));
+        assert!(res.is_err(), "expected error for missing import file");
+    }
 }
