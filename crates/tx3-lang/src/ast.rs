@@ -173,6 +173,8 @@ impl AsRef<str> for Identifier {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct Program {
+    #[serde(default)]
+    pub imports: Vec<ImportDef>,
     pub env: Option<EnvDef>,
     pub txs: Vec<TxDef>,
     pub types: Vec<TypeDef>,
@@ -185,6 +187,13 @@ pub struct Program {
     // analysis
     #[serde(skip)]
     pub(crate) scope: Option<Rc<Scope>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ImportDef {
+    pub path: StringLiteral,
+    pub alias: Option<Identifier>,
+    pub span: Span,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
