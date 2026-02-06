@@ -208,6 +208,19 @@ fn definition_to_type_def(
             .map(|s| schema_to_variant_case(s, definitions, alias))
             .collect::<Result<Vec<_>, _>>()?
     } else {
+        // Data type has no structure but should still be imported.
+        // TODO: There is no Any for our type system, so for now we'll just import it as a single empty variant case.
+        if key == "Data" {
+            return Ok(Some(TypeDef {
+                name: Identifier::new(import_type_name(key, alias)),
+                cases: vec![VariantCase {
+                    name: Identifier::new("Default"),
+                    fields: vec![],
+                    span: Span::DUMMY,
+                }],
+                span: Span::DUMMY,
+            }));
+        }
         return Ok(None);
     };
 
