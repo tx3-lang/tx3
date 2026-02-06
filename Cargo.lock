@@ -2358,6 +2358,7 @@ version = "0.14.3"
 dependencies = [
  "assert-json-diff",
  "ciborium",
+ "cip-57",
  "hex",
  "miette",
  "paste",

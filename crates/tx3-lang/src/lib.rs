@@ -26,6 +26,7 @@
 
 pub mod analyzing;
 pub mod ast;
+pub mod interop;
 pub mod lowering;
 pub mod parsing;
 
