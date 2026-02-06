@@ -215,6 +215,11 @@ fn definition_to_type_def(
         return Ok(None);
     }
 
+    let mut cases = cases;
+    if cases.len() == 1 {
+        cases[0].name = Identifier::new("Default");
+    }
+
     let type_name = import_type_name(key, alias);
     Ok(Some(TypeDef {
         name: Identifier::new(type_name),
