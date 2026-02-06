@@ -23,7 +23,7 @@ fn import_with_alias_adds_types() {
 #[test]
 fn import_without_root_errors() {
     let src = r#"
-cardano::import "some/file.json";
+import "some/file.json";
 party X;
 tx dummy() {}
 "#;
@@ -45,7 +45,7 @@ fn duplicate_type_name_from_imports_errors() {
     let path = Path::new(manifest_dir).join("tests/fixtures/import_test.tx3");
     let content = std::fs::read_to_string(&path).unwrap();
     let content_twice = format!(
-        "{}\ncardano::import \"../../../cip-57/examples/plutus.json\" as types;\n{}",
+        "{}\nimport \"../../../cip-57/examples/plutus.json\" as types;\n{}",
         content, "tx dummy2() {}"
     );
     let fixtures = Path::new(manifest_dir).join("tests/fixtures");
@@ -71,7 +71,7 @@ fn invalid_import_path_errors() {
     let fixtures = Path::new(manifest_dir).join("tests/fixtures");
     let temp_tx3 = fixtures.join("temp_nonexistent_import.tx3");
     let content = r#"
-cardano::import "nonexistent/plutus.json" as types;
+import "nonexistent/plutus.json" as types;
 party X;
 tx dummy() {}
 "#;

@@ -440,7 +440,7 @@ tx_body_block = _{
 }
 
 import_def = {
-    "cardano" ~ "::" ~ "import" ~ string ~ ("as" ~ identifier)? ~ ";"
+    "import" ~ string ~ ("as" ~ identifier)? ~ ";"
 }
 
 env_field = { identifier ~ ":" ~ type }

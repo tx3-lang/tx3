@@ -1,4 +1,4 @@
-cardano::import "../../../cip-57/examples/plutus.json" as types;
+import "../../../cip-57/examples/plutus.json" as types;
 
 party Sender;
 party Receiver;
