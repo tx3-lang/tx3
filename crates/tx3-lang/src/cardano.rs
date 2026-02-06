@@ -847,7 +847,7 @@ mod tests {
     use super::*;
     use crate::{
         analyzing::analyze,
-        ast::{self, *},
+        ast::*,
     };
     use pest::Parser;
 
