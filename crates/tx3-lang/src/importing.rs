@@ -149,10 +149,6 @@ fn resolve_ref_to_type(
         }
     }
 
-    if def.any_of.is_some() {
-        return Ok(Type::Custom(Identifier::new(import_type_name(&key, alias))));
-    }
-
     Ok(Type::Custom(Identifier::new(import_type_name(&key, alias))))
 }
 
