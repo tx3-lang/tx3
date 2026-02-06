@@ -943,6 +943,28 @@ impl TypeDef {
     pub(crate) fn find_case(&self, case: &str) -> Option<&VariantCase> {
         self.cases.iter().find(|x| x.name.value == case)
     }
+
+    pub fn to_tx3_source(&self) -> String {
+        let name = &self.name.value;
+        // Implicit cases don't have an explicit constructor on its usage
+        if self.cases.len() == 1 && self.cases[0].name.value == "Default" {
+            let fields = &self.cases[0].fields;
+            let fields_str = fields
+                .iter()
+                .map(|f| format!("{}: {}", f.name.value, f.r#type))
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!("type {} {{ {} }}", name, fields_str)
+        } else {
+            let cases_str = self
+                .cases
+                .iter()
+                .map(VariantCase::to_tx3_source)
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!("type {} {{ {} }}", name, cases_str)
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -961,6 +983,21 @@ impl VariantCase {
     #[allow(dead_code)]
     pub(crate) fn find_field(&self, field: &str) -> Option<&RecordField> {
         self.fields.iter().find(|x| x.name.value == field)
+    }
+
+    fn to_tx3_source(&self) -> String {
+        let name = &self.name.value;
+        if self.fields.is_empty() {
+            name.clone()
+        } else {
+            let fields_str = self
+                .fields
+                .iter()
+                .map(|f| format!("{}: {}", f.name.value, f.r#type))
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!("{} {{ {} }}", name, fields_str)
+        }
     }
 }
 
