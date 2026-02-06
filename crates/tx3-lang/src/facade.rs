@@ -1,8 +1,9 @@
 use std::collections::{BTreeMap, HashMap};
+use std::path::PathBuf;
 
 use tx3_tir::reduce::{Apply, ArgValue};
 
-use crate::{analyzing, ast, lowering, parsing};
+use crate::{analyzing, ast, importing, lowering, parsing};
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum Error {
@@ -16,6 +17,10 @@ pub enum Error {
     #[diagnostic(transparent)]
     Parsing(#[from] parsing::Error),
 
+    #[error("Import error: {0}")]
+    #[diagnostic(transparent)]
+    Importing(#[from] importing::Error),
+
     #[error("Analyzing error")]
     Analyzing(#[from] analyzing::AnalyzeReport),
 
@@ -27,6 +32,7 @@ pub type Code = String;
 
 pub struct Workspace {
     main: Option<Code>,
+    root: Option<PathBuf>,
     ast: Option<ast::Program>,
     analisis: Option<analyzing::AnalyzeReport>,
     tir: HashMap<String, tx3_tir::model::v1beta0::Tx>,
@@ -34,10 +40,13 @@ pub struct Workspace {
 
 impl Workspace {
     pub fn from_file(main: impl AsRef<std::path::Path>) -> Result<Self, Error> {
-        let main = std::fs::read_to_string(main.as_ref())?;
+        let path = main.as_ref();
+        let main = std::fs::read_to_string(path)?;
+        let root = path.parent().map(PathBuf::from);
 
         Ok(Self {
             main: Some(main),
+            root,
             ast: None,
             analisis: None,
             tir: HashMap::new(),
@@ -47,6 +56,7 @@ impl Workspace {
     pub fn from_string(main: Code) -> Self {
         Self {
             main: Some(main),
+            root: None,
             ast: None,
             analisis: None,
             tir: HashMap::new(),
@@ -63,7 +73,9 @@ impl Workspace {
 
     pub fn parse(&mut self) -> Result<(), Error> {
         let main = self.ensure_main()?;
-        let ast = parsing::parse_string(main)?;
+        let mut ast = parsing::parse_string(main)?;
+        let loader = self.root.clone().map(importing::FsLoader::new);
+        importing::resolve_imports(&mut ast, loader.as_ref())?;
         self.ast = Some(ast);
         Ok(())
     }

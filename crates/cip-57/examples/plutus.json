@@ -1,0 +1,634 @@
+{
+  "preamble": {
+    "title": "txpipe/contract",
+    "description": "Aiken contracts for project 'txpipe/contract'",
+    "version": "0.0.0",
+    "plutusVersion": "v3",
+    "compiler": {
+      "name": "Aiken",
+      "version": "v1.1.17+c3a7fba"
+    },
+    "license": "Apache-2.0"
+  },
+  "validators": [
+    {
+      "title": "githoney_contract.badges_contract.spend",
+      "datum": {
+        "title": "_datum",
+        "schema": {
+          "$ref": "#/definitions/cardano~1transaction~1Datum"
+        }
+      },
+      "redeemer": {
+        "title": "_redeemer",
+        "schema": {
+          "$ref": "#/definitions/cardano~1transaction~1Redeemer"
+        }
+      },
+      "parameters": [
+        {
+          "title": "settings_policy_id",
+          "schema": {
+            "$ref": "#/definitions/cardano~1assets~1PolicyId"
+          }
+        }
+      ],
+      "compiledCode": "eedaa957c60268de",
+      "hash": "24b9b1964ce02550db270a1d6270b505b9c0342625ee766d77fab1f9"
+    },
+    {
+      "title": "githoney_contract.badges_contract.else",
+      "redeemer": {
+        "schema": {}
+      },
+      "parameters": [
+        {
+          "title": "settings_policy_id",
+          "schema": {
+            "$ref": "#/definitions/cardano~1assets~1PolicyId"
+          }
+        }
+      ],
+      "compiledCode": "3fe9763bc5ea0108",
+      "hash": "24b9b1964ce02550db270a1d6270b505b9c0342625ee766d77fab1f9"
+    },
+    {
+      "title": "githoney_contract.badges_policy.mint",
+      "redeemer": {
+        "title": "_redeemer",
+        "schema": {
+          "$ref": "#/definitions/cardano~1transaction~1Redeemer"
+        }
+      },
+      "parameters": [
+        {
+          "title": "utxo_ref",
+          "schema": {
+            "$ref": "#/definitions/cardano~1transaction~1OutputReference"
+          }
+        },
+        {
+          "title": "nonce",
+          "schema": {
+            "$ref": "#/definitions/Int"
+          }
+        }
+      ],
+      "compiledCode": "c8db1de3fbbc8921",
+      "hash": "87d6bd0b40f204d49803dad8e0d70611918d22354125c8f226a42670"
+    },
+    {
+      "title": "githoney_contract.badges_policy.else",
+      "redeemer": {
+        "schema": {}
+      },
+      "parameters": [
+        {
+          "title": "utxo_ref",
+          "schema": {
+            "$ref": "#/definitions/cardano~1transaction~1OutputReference"
+          }
+        },
+        {
+          "title": "nonce",
+          "schema": {
+            "$ref": "#/definitions/Int"
+          }
+        }
+      ],
+      "compiledCode": "f143b98f13d5b12b",
+      "hash": "87d6bd0b40f204d49803dad8e0d70611918d22354125c8f226a42670"
+    },
+    {
+      "title": "githoney_contract.githoney.spend",
+      "datum": {
+        "title": "datum",
+        "schema": {
+          "$ref": "#/definitions/types~1GithoneyDatum"
+        }
+      },
+      "redeemer": {
+        "title": "redeemer",
+        "schema": {
+          "$ref": "#/definitions/types~1GithoneyContractRedeemers"
+        }
+      },
+      "parameters": [
+        {
+          "title": "settings_policy_id",
+          "schema": {
+            "$ref": "#/definitions/cardano~1assets~1PolicyId"
+          }
+        }
+      ],
+      "compiledCode": "f1a9d1de401b5004",
+      "hash": "7577273f99e7f3c9211d6342338d6316afc91689333c4d5099e7b2d1"
+    },
+    {
+      "title": "githoney_contract.githoney.mint",
+      "redeemer": {
+        "title": "_redeemer",
+        "schema": {
+          "$ref": "#/definitions/cardano~1transaction~1Redeemer"
+        }
+      },
+      "parameters": [
+        {
+          "title": "settings_policy_id",
+          "schema": {
+            "$ref": "#/definitions/cardano~1assets~1PolicyId"
+          }
+        }
+      ],
+      "compiledCode": "f1f665b7b5ec44d6",
+      "hash": "7577273f99e7f3c9211d6342338d6316afc91689333c4d5099e7b2d1"
+    },
+    {
+      "title": "githoney_contract.githoney.else",
+      "redeemer": {
+        "schema": {}
+      },
+      "parameters": [
+        {
+          "title": "settings_policy_id",
+          "schema": {
+            "$ref": "#/definitions/cardano~1assets~1PolicyId"
+          }
+        }
+      ],
+      "compiledCode": "8dc98413cbd1b43f",
+      "hash": "7577273f99e7f3c9211d6342338d6316afc91689333c4d5099e7b2d1"
+    },
+    {
+      "title": "githoney_contract.settings.spend",
+      "datum": {
+        "title": "datum",
+        "schema": {
+          "$ref": "#/definitions/types~1SettingsDatum"
+        }
+      },
+      "redeemer": {
+        "title": "redeemer",
+        "schema": {
+          "$ref": "#/definitions/types~1SettingsRedeemers"
+        }
+      },
+      "compiledCode": "5eb78784a02ee1a0",
+      "hash": "049f1a09fb535089fdd9df98b4b0975d1081f9afc2d6f59ad2f9c208"
+    },
+    {
+      "title": "githoney_contract.settings.else",
+      "redeemer": {
+        "schema": {}
+      },
+      "compiledCode": "9813b3c286674b27",
+      "hash": "049f1a09fb535089fdd9df98b4b0975d1081f9afc2d6f59ad2f9c208"
+    },
+    {
+      "title": "githoney_contract.settings_minting.mint",
+      "redeemer": {
+        "title": "_redeemer",
+        "schema": {
+          "$ref": "#/definitions/cardano~1transaction~1Redeemer"
+        }
+      },
+      "parameters": [
+        {
+          "title": "utxo_ref",
+          "schema": {
+            "$ref": "#/definitions/cardano~1transaction~1OutputReference"
+          }
+        },
+        {
+          "title": "settings_script_addr",
+          "schema": {
+            "$ref": "#/definitions/cardano~1address~1Address"
+          }
+        }
+      ],
+      "compiledCode": "6396e66bd8b6ac88",
+      "hash": "15721f473d73adf918aa7541871739c2e8df0a60abe023411cf9f1b0"
+    },
+    {
+      "title": "githoney_contract.settings_minting.else",
+      "redeemer": {
+        "schema": {}
+      },
+      "parameters": [
+        {
+          "title": "utxo_ref",
+          "schema": {
+            "$ref": "#/definitions/cardano~1transaction~1OutputReference"
+          }
+        },
+        {
+          "title": "settings_script_addr",
+          "schema": {
+            "$ref": "#/definitions/cardano~1address~1Address"
+          }
+        }
+      ],
+      "compiledCode": "fa2dba3b69a8d00c",
+      "hash": "15721f473d73adf918aa7541871739c2e8df0a60abe023411cf9f1b0"
+    }
+  ],
+  "definitions": {
+    "Bool": {
+      "title": "Bool",
+      "anyOf": [
+        {
+          "title": "False",
+          "dataType": "constructor",
+          "index": 0,
+          "fields": []
+        },
+        {
+          "title": "True",
+          "dataType": "constructor",
+          "index": 1,
+          "fields": []
+        }
+      ]
+    },
+    "ByteArray": {
+      "title": "ByteArray",
+      "dataType": "bytes"
+    },
+    "Data": {
+      "title": "Data",
+      "description": "Any Plutus data."
+    },
+    "Int": {
+      "dataType": "integer"
+    },
+    "Option$cardano/address/Address": {
+      "title": "Option",
+      "anyOf": [
+        {
+          "title": "Some",
+          "description": "An optional value.",
+          "dataType": "constructor",
+          "index": 0,
+          "fields": [
+            {
+              "$ref": "#/definitions/cardano~1address~1Address"
+            }
+          ]
+        },
+        {
+          "title": "None",
+          "description": "Nothing.",
+          "dataType": "constructor",
+          "index": 1,
+          "fields": []
+        }
+      ]
+    },
+    "Option$cardano/address/StakeCredential": {
+      "title": "Option",
+      "anyOf": [
+        {
+          "title": "Some",
+          "description": "An optional value.",
+          "dataType": "constructor",
+          "index": 0,
+          "fields": [
+            {
+              "$ref": "#/definitions/cardano~1address~1StakeCredential"
+            }
+          ]
+        },
+        {
+          "title": "None",
+          "description": "Nothing.",
+          "dataType": "constructor",
+          "index": 1,
+          "fields": []
+        }
+      ]
+    },
+    "Pairs$cardano/assets/AssetName_Int": {
+      "title": "Pairs<AssetName, Int>",
+      "dataType": "map",
+      "keys": {
+        "$ref": "#/definitions/cardano~1assets~1AssetName"
+      },
+      "values": {
+        "$ref": "#/definitions/Int"
+      }
+    },
+    "Pairs$cardano/assets/PolicyId_Pairs$cardano/assets/AssetName_Int": {
+      "title": "Pairs<PolicyId, Pairs<AssetName, Int>>",
+      "dataType": "map",
+      "keys": {
+        "$ref": "#/definitions/cardano~1assets~1PolicyId"
+      },
+      "values": {
+        "$ref": "#/definitions/Pairs$cardano~1assets~1AssetName_Int"
+      }
+    },
+    "aiken/crypto/DataHash": {
+      "title": "DataHash",
+      "dataType": "bytes"
+    },
+    "aiken/crypto/ScriptHash": {
+      "title": "ScriptHash",
+      "dataType": "bytes"
+    },
+    "aiken/crypto/VerificationKeyHash": {
+      "title": "VerificationKeyHash",
+      "dataType": "bytes"
+    },
+    "cardano/address/Address": {
+      "title": "Address",
+      "description": "A Cardano `Address` typically holding one or two credential references.\n\n Note that legacy bootstrap addresses (a.k.a. 'Byron addresses') are\n completely excluded from Plutus contexts. Thus, from an on-chain\n perspective only exists addresses of type 00, 01, ..., 07 as detailed\n in [CIP-0019 :: Shelley Addresses](https://github.com/cardano-foundation/CIPs/tree/master/CIP-0019/#shelley-addresses).",
+      "anyOf": [
+        {
+          "title": "Address",
+          "dataType": "constructor",
+          "index": 0,
+          "fields": [
+            {
+              "title": "payment_credential",
+              "$ref": "#/definitions/cardano~1address~1PaymentCredential"
+            },
+            {
+              "title": "stake_credential",
+              "$ref": "#/definitions/Option$cardano~1address~1StakeCredential"
+            }
+          ]
+        }
+      ]
+    },
+    "cardano/address/Credential": {
+      "title": "Credential",
+      "description": "A general structure for representing an on-chain `Credential`.\n\n Credentials are always one of two kinds: a direct public/private key\n pair, or a script (native or Plutus).",
+      "anyOf": [
+        {
+          "title": "VerificationKey",
+          "dataType": "constructor",
+          "index": 0,
+          "fields": [
+            {
+              "$ref": "#/definitions/aiken~1crypto~1VerificationKeyHash"
+            }
+          ]
+        },
+        {
+          "title": "Script",
+          "dataType": "constructor",
+          "index": 1,
+          "fields": [
+            {
+              "$ref": "#/definitions/aiken~1crypto~1ScriptHash"
+            }
+          ]
+        }
+      ]
+    },
+    "cardano/address/PaymentCredential": {
+      "title": "PaymentCredential",
+      "description": "A general structure for representing an on-chain `Credential`.\n\n Credentials are always one of two kinds: a direct public/private key\n pair, or a script (native or Plutus).",
+      "anyOf": [
+        {
+          "title": "VerificationKey",
+          "dataType": "constructor",
+          "index": 0,
+          "fields": [
+            {
+              "$ref": "#/definitions/aiken~1crypto~1VerificationKeyHash"
+            }
+          ]
+        },
+        {
+          "title": "Script",
+          "dataType": "constructor",
+          "index": 1,
+          "fields": [
+            {
+              "$ref": "#/definitions/aiken~1crypto~1ScriptHash"
+            }
+          ]
+        }
+      ]
+    },
+    "cardano/address/StakeCredential": {
+      "title": "StakeCredential",
+      "description": "Represent a type of object that can be represented either inline (by hash)\n or via a reference (i.e. a pointer to an on-chain location).\n\n This is mainly use for capturing pointers to a stake credential\n registration certificate in the case of so-called pointer addresses.",
+      "anyOf": [
+        {
+          "title": "Inline",
+          "dataType": "constructor",
+          "index": 0,
+          "fields": [
+            {
+              "$ref": "#/definitions/cardano~1address~1Credential"
+            }
+          ]
+        },
+        {
+          "title": "Pointer",
+          "dataType": "constructor",
+          "index": 1,
+          "fields": [
+            {
+              "title": "slot_number",
+              "$ref": "#/definitions/Int"
+            },
+            {
+              "title": "transaction_index",
+              "$ref": "#/definitions/Int"
+            },
+            {
+              "title": "certificate_index",
+              "$ref": "#/definitions/Int"
+            }
+          ]
+        }
+      ]
+    },
+    "cardano/assets/AssetName": {
+      "title": "AssetName",
+      "dataType": "bytes"
+    },
+    "cardano/assets/PolicyId": {
+      "title": "PolicyId",
+      "dataType": "bytes"
+    },
+    "cardano/transaction/Datum": {
+      "title": "Datum",
+      "description": "An output `Datum`.",
+      "anyOf": [
+        {
+          "title": "NoDatum",
+          "dataType": "constructor",
+          "index": 0,
+          "fields": []
+        },
+        {
+          "title": "DatumHash",
+          "description": "A datum referenced by its hash digest.",
+          "dataType": "constructor",
+          "index": 1,
+          "fields": [
+            {
+              "$ref": "#/definitions/aiken~1crypto~1DataHash"
+            }
+          ]
+        },
+        {
+          "title": "InlineDatum",
+          "description": "A datum completely inlined in the output.",
+          "dataType": "constructor",
+          "index": 2,
+          "fields": [
+            {
+              "$ref": "#/definitions/Data"
+            }
+          ]
+        }
+      ]
+    },
+    "cardano/transaction/OutputReference": {
+      "title": "OutputReference",
+      "description": "An `OutputReference` is a unique reference to an output on-chain. The `output_index`\n corresponds to the position in the output list of the transaction (identified by its id)\n that produced that output",
+      "anyOf": [
+        {
+          "title": "OutputReference",
+          "dataType": "constructor",
+          "index": 0,
+          "fields": [
+            {
+              "title": "transaction_id",
+              "$ref": "#/definitions/ByteArray"
+            },
+            {
+              "title": "output_index",
+              "$ref": "#/definitions/Int"
+            }
+          ]
+        }
+      ]
+    },
+    "cardano/transaction/Redeemer": {
+      "title": "Redeemer",
+      "description": "Any Plutus data."
+    },
+    "types/GithoneyContractRedeemers": {
+      "title": "GithoneyContractRedeemers",
+      "anyOf": [
+        {
+          "title": "AddRewards",
+          "dataType": "constructor",
+          "index": 0,
+          "fields": []
+        },
+        {
+          "title": "Assign",
+          "dataType": "constructor",
+          "index": 1,
+          "fields": []
+        },
+        {
+          "title": "Merge",
+          "dataType": "constructor",
+          "index": 2,
+          "fields": []
+        },
+        {
+          "title": "Close",
+          "dataType": "constructor",
+          "index": 3,
+          "fields": []
+        },
+        {
+          "title": "Claim",
+          "dataType": "constructor",
+          "index": 4,
+          "fields": []
+        }
+      ]
+    },
+    "types/GithoneyDatum": {
+      "title": "GithoneyDatum",
+      "anyOf": [
+        {
+          "title": "GithoneyDatum",
+          "dataType": "constructor",
+          "index": 0,
+          "fields": [
+            {
+              "title": "admin_payment_credential",
+              "$ref": "#/definitions/cardano~1address~1Credential"
+            },
+            {
+              "title": "maintainer_address",
+              "$ref": "#/definitions/cardano~1address~1Address"
+            },
+            {
+              "title": "contributor_address",
+              "$ref": "#/definitions/Option$cardano~1address~1Address"
+            },
+            {
+              "title": "bounty_reward_fee",
+              "$ref": "#/definitions/Int"
+            },
+            {
+              "title": "deadline",
+              "$ref": "#/definitions/Int"
+            },
+            {
+              "title": "merged",
+              "$ref": "#/definitions/Bool"
+            },
+            {
+              "title": "initial_value",
+              "$ref": "#/definitions/Pairs$cardano~1assets~1PolicyId_Pairs$cardano~1assets~1AssetName_Int"
+            }
+          ]
+        }
+      ]
+    },
+    "types/SettingsDatum": {
+      "title": "SettingsDatum",
+      "anyOf": [
+        {
+          "title": "SettingsDatum",
+          "dataType": "constructor",
+          "index": 0,
+          "fields": [
+            {
+              "title": "githoney_address",
+              "$ref": "#/definitions/cardano~1address~1Address"
+            },
+            {
+              "title": "bounty_creation_fee",
+              "$ref": "#/definitions/Int"
+            },
+            {
+              "title": "bounty_reward_fee",
+              "$ref": "#/definitions/Int"
+            }
+          ]
+        }
+      ]
+    },
+    "types/SettingsRedeemers": {
+      "title": "SettingsRedeemers",
+      "anyOf": [
+        {
+          "title": "UpdateSettings",
+          "dataType": "constructor",
+          "index": 0,
+          "fields": []
+        },
+        {
+          "title": "CloseSettings",
+          "dataType": "constructor",
+          "index": 1,
+          "fields": []
+        }
+      ]
+    }
+  }
+}
