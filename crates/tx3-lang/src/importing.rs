@@ -10,19 +10,19 @@ use crate::ast::{Identifier, Program, RecordField, Span, Type, TypeDef, VariantC
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum Error {
     #[error("cannot resolve imports without a root path (use Workspace::from_file instead of from_string)")]
-    #[diagnostic(code(tx3::interop::missing_root))]
+    #[diagnostic(code(tx3::importing::missing_root))]
     MissingRoot,
 
     #[error("I/O error reading import file: {0}")]
-    #[diagnostic(code(tx3::interop::io))]
+    #[diagnostic(code(tx3::importing::io))]
     Io(#[from] std::io::Error),
 
     #[error("invalid JSON in plutus file: {0}")]
-    #[diagnostic(code(tx3::interop::json))]
+    #[diagnostic(code(tx3::importing::json))]
     Json(#[from] serde_json::Error),
 
     #[error("duplicate type name: {name}")]
-    #[diagnostic(code(tx3::interop::duplicate_type))]
+    #[diagnostic(code(tx3::importing::duplicate_type))]
     DuplicateType {
         name: String,
 
@@ -34,7 +34,7 @@ pub enum Error {
     },
 
     #[error("plutus schema error: {message}")]
-    #[diagnostic(code(tx3::interop::schema))]
+    #[diagnostic(code(tx3::importing::schema))]
     Schema { message: String },
 }
 

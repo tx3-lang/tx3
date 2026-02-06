@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use tx3_tir::reduce::{Apply, ArgValue};
 
-use crate::{analyzing, ast, interop, lowering, parsing};
+use crate::{analyzing, ast, importing, lowering, parsing};
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum Error {
@@ -19,7 +19,7 @@ pub enum Error {
 
     #[error("Import error: {0}")]
     #[diagnostic(transparent)]
-    Interop(#[from] interop::Error),
+    Importing(#[from] importing::Error),
 
     #[error("Analyzing error")]
     Analyzing(#[from] analyzing::AnalyzeReport),
@@ -74,8 +74,8 @@ impl Workspace {
     pub fn parse(&mut self) -> Result<(), Error> {
         let main = self.ensure_main()?;
         let mut ast = parsing::parse_string(main)?;
-        let loader = self.root.clone().map(interop::FsLoader::new);
-        interop::resolve_imports(&mut ast, loader.as_ref())?;
+        let loader = self.root.clone().map(importing::FsLoader::new);
+        importing::resolve_imports(&mut ast, loader.as_ref())?;
         self.ast = Some(ast);
         Ok(())
     }
