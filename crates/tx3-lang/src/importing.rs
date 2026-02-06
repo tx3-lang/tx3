@@ -452,4 +452,74 @@ mod tests {
         let res = resolve_imports(&mut program, Some(&loader));
         assert!(res.is_err(), "expected error for missing import file");
     }
+
+    #[test]
+    fn single_variant_type_import_with_analyze() {
+        let dollar = "$";
+        let hash = "#";
+        let json = format!(r#"{{
+            "preamble": {{ "title": "test", "version": "0", "plutusVersion": "v3" }},
+            "validators": [],
+            "definitions": {{
+                "OutputReference": {{
+                    "title": "OutputReference",
+                    "anyOf": [
+                        {{
+                            "title": "OutputReference",
+                            "dataType": "constructor",
+                            "index": 0,
+                            "fields": [
+                                {{
+                                    "title": "transaction_id",
+                                    "{}ref": "{}/definitions/ByteArray"
+                                }},
+                                {{
+                                    "title": "output_index",
+                                    "{}ref": "{}/definitions/Int"
+                                }}
+                            ]
+                        }}
+                    ]
+                }},
+                "ByteArray": {{
+                    "title": "ByteArray",
+                    "dataType": "bytes"
+                }},
+                "Int": {{
+                    "title": "Int",
+                    "dataType": "integer"
+                }}
+            }}
+        }}"#, dollar, hash, dollar, hash);
+
+        let src = r#"
+            import "test.json" as types;
+            party Alice;
+            tx test(outref: types_OutputReference) {
+                output my_output {
+                    to: Alice,
+                    amount: 1000000,
+                }
+            }
+        "#;
+
+        let mut program = crate::parsing::parse_string(src).unwrap();
+        let mut loader = InMemoryLoader::new();
+        loader.add("test.json", json);
+        
+        resolve_imports(&mut program, Some(&loader)).unwrap();
+
+        let output_ref_type = program.types.iter()
+            .find(|t| t.name.value == "types_OutputReference")
+            .expect("types_OutputReference should be imported");
+        assert_eq!(output_ref_type.cases.len(), 1);
+        assert_eq!(output_ref_type.cases[0].name.value, "Default");
+
+        let report = crate::analyzing::analyze(&mut program);
+        assert!(
+            report.errors.is_empty(),
+            "expected no analysis errors, got: {:?}",
+            report.errors
+        );
+    }
 }
