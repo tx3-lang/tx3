@@ -457,7 +457,8 @@ mod tests {
     fn single_variant_type_import_with_analyze() {
         let dollar = "$";
         let hash = "#";
-        let json = format!(r#"{{
+        let json = format!(
+            r#"{{
             "preamble": {{ "title": "test", "version": "0", "plutusVersion": "v3" }},
             "validators": [],
             "definitions": {{
@@ -490,7 +491,9 @@ mod tests {
                     "dataType": "integer"
                 }}
             }}
-        }}"#, dollar, hash, dollar, hash);
+        }}"#,
+            dollar, hash, dollar, hash
+        );
 
         let src = r#"
             import "test.json" as types;
@@ -506,10 +509,12 @@ mod tests {
         let mut program = crate::parsing::parse_string(src).unwrap();
         let mut loader = InMemoryLoader::new();
         loader.add("test.json", json);
-        
+
         resolve_imports(&mut program, Some(&loader)).unwrap();
 
-        let output_ref_type = program.types.iter()
+        let output_ref_type = program
+            .types
+            .iter()
             .find(|t| t.name.value == "types_OutputReference")
             .expect("types_OutputReference should be imported");
         assert_eq!(output_ref_type.cases.len(), 1);
