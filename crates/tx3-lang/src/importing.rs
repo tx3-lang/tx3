@@ -254,6 +254,17 @@ pub fn type_defs_from_blueprint(
     }
     Ok(type_defs)
 }
+
+pub fn types_from_plutus(
+    path: &str,
+    alias: Option<&str>,
+    loader: &impl ImportLoader,
+) -> Result<Vec<TypeDef>, Error> {
+    let json = loader.load_source(path)?;
+    let blueprint: Blueprint = serde_json::from_str(&json)?;
+    type_defs_from_blueprint(&blueprint, alias)
+}
+
 pub fn resolve_imports(
     program: &mut Program,
     loader: Option<&impl ImportLoader>,
