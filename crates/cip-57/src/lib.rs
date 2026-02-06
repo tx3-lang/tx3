@@ -52,12 +52,19 @@ pub struct Argument {
     pub schema: Reference,
 }
 
-/// Represents a purpose array which can be either a single purpose or an array of purposes.
+/// Represents a purpose which can be either a single purpose or an object with oneOf.
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(untagged)]
 pub enum PurposeArray {
     Single(Purpose),
-    Array(Vec<Purpose>),
+    OneOf(PurposeOneOf),
+}
+
+/// Represents a purpose object with a oneOf field containing an array of purposes.
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PurposeOneOf {
+    pub one_of: Vec<Purpose>,
 }
 
 /// Represents the purpose of an argument, which can be spend, mint, withdraw, or publish.
