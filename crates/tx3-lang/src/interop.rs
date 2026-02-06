@@ -1,7 +1,7 @@
 //! Resolves plutus.json (CIP-57) imports and maps blueprint definitions to tx3 types.
 
 use std::collections::HashSet;
-use std::path::Path;
+use std::path::PathBuf;
 
 use cip_57::{Blueprint, DataType, Definition, Definitions, Field, ReferencesArray, Schema};
 
@@ -48,6 +48,27 @@ impl Error {
     }
 }
 
+pub trait ImportLoader {
+    fn load_source(&self, path: &str) -> std::io::Result<String>;
+}
+
+pub struct FsLoader {
+    root: PathBuf,
+}
+
+impl FsLoader {
+    pub fn new(root: impl Into<PathBuf>) -> Self {
+        Self { root: root.into() }
+    }
+}
+
+impl ImportLoader for FsLoader {
+    fn load_source(&self, path: &str) -> std::io::Result<String> {
+        let full_path = self.root.join(path);
+        std::fs::read_to_string(full_path)
+    }
+}
+
 /// Resolves `#/definitions/cardano~1address~1Address` to definition key `cardano/address/Address`.
 /// JSON pointer uses ~1 for / and ~0 for ~.
 fn ref_to_key_owned(r: &str) -> String {
@@ -65,7 +86,6 @@ fn key_to_normalized_name(key: &str) -> String {
     key.replace('/', "_").replace('$', "_")
 }
 
-/// Full type name for an imported definition: with alias use `Alias_NormalizedKey`, else `NormalizedKey`.
 fn import_type_name(key: &str, alias: Option<&str>) -> String {
     let base = key_to_normalized_name(key);
     match alias {
@@ -74,19 +94,15 @@ fn import_type_name(key: &str, alias: Option<&str>) -> String {
     }
 }
 
-/// Resolve a $ref to a tx3 Type using definitions and the current import alias.
 fn resolve_ref_to_type(
     ref_str: &str,
     definitions: &Definitions,
     alias: Option<&str>,
 ) -> Result<Type, Error> {
     let key = ref_to_key_owned(ref_str);
-    let def = definitions
-        .inner
-        .get(&key)
-        .ok_or_else(|| Error::Schema {
-            message: format!("definition not found: {}", key),
-        })?;
+    let def = definitions.inner.get(&key).ok_or_else(|| Error::Schema {
+        message: format!("definition not found: {}", key),
+    })?;
 
     if let Some(dt) = &def.data_type {
         match dt {
@@ -94,11 +110,14 @@ fn resolve_ref_to_type(
             DataType::Bytes => return Ok(Type::Bytes),
             DataType::List => {
                 let inner = match &def.items {
-                    Some(ReferencesArray::Single(r)) => {
-                        r.reference.as_ref().map(|s| resolve_ref_to_type(s, definitions, alias))
-                    }
+                    Some(ReferencesArray::Single(r)) => r
+                        .reference
+                        .as_ref()
+                        .map(|s| resolve_ref_to_type(s, definitions, alias)),
                     Some(ReferencesArray::Array(arr)) => arr.first().and_then(|r| {
-                        r.reference.as_ref().map(|s| resolve_ref_to_type(s, definitions, alias))
+                        r.reference
+                            .as_ref()
+                            .map(|s| resolve_ref_to_type(s, definitions, alias))
                     }),
                     None => None,
                 };
@@ -144,12 +163,12 @@ fn resolve_ref_to_type(
     Ok(Type::Custom(Identifier::new(import_type_name(&key, alias))))
 }
 
-fn field_to_record_field(f: &Field, definitions: &Definitions, alias: Option<&str>) -> Result<RecordField, Error> {
-    let name = f
-        .title
-        .as_deref()
-        .unwrap_or("field")
-        .to_string();
+fn field_to_record_field(
+    f: &Field,
+    definitions: &Definitions,
+    alias: Option<&str>,
+) -> Result<RecordField, Error> {
+    let name = f.title.as_deref().unwrap_or("field").to_string();
     let r#type = resolve_ref_to_type(&f.reference, definitions, alias)?;
     Ok(RecordField {
         name: Identifier::new(name),
@@ -158,12 +177,12 @@ fn field_to_record_field(f: &Field, definitions: &Definitions, alias: Option<&st
     })
 }
 
-fn schema_to_variant_case(schema: &Schema, definitions: &Definitions, alias: Option<&str>) -> Result<VariantCase, Error> {
-    let name = schema
-        .title
-        .as_deref()
-        .unwrap_or("Variant")
-        .to_string();
+fn schema_to_variant_case(
+    schema: &Schema,
+    definitions: &Definitions,
+    alias: Option<&str>,
+) -> Result<VariantCase, Error> {
+    let name = schema.title.as_deref().unwrap_or("Variant").to_string();
     let fields: Vec<RecordField> = schema
         .fields
         .iter()
@@ -176,7 +195,6 @@ fn schema_to_variant_case(schema: &Schema, definitions: &Definitions, alias: Opt
     })
 }
 
-/// Convert a CIP-57 Definition to a tx3 TypeDef if it is a product or sum type. Primitives and raw List/Map return None.
 fn definition_to_type_def(
     key: &str,
     def: &Definition,
@@ -212,12 +230,14 @@ fn definition_to_type_def(
     }))
 }
 
-/// Resolve all plutus.json imports: read files, parse blueprints, map definitions to TypeDefs, append to program.types with collision checks.
-pub fn resolve_imports(program: &mut Program, root: Option<&Path>) -> Result<(), Error> {
+pub fn resolve_imports(
+    program: &mut Program,
+    loader: Option<&impl ImportLoader>,
+) -> Result<(), Error> {
     if program.imports.is_empty() {
         return Ok(());
     }
-    let root = root.ok_or(Error::MissingRoot)?;
+    let loader = loader.ok_or(Error::MissingRoot)?;
 
     let existing_names: HashSet<String> = program
         .types
@@ -228,8 +248,7 @@ pub fn resolve_imports(program: &mut Program, root: Option<&Path>) -> Result<(),
     let mut added_names = HashSet::<String>::new();
 
     for import in &program.imports {
-        let path = root.join(import.path.value.as_str());
-        let json = std::fs::read_to_string(&path)?;
+        let json = loader.load_source(import.path.value.as_str())?;
         let blueprint: Blueprint = serde_json::from_str(&json)?;
 
         let definitions = match &blueprint.definitions {
@@ -252,4 +271,84 @@ pub fn resolve_imports(program: &mut Program, root: Option<&Path>) -> Result<(),
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ast::{Identifier, ImportDef, Program, Span, StringLiteral};
+
+    #[derive(Default, Clone)]
+    pub struct InMemoryLoader {
+        map: std::collections::HashMap<String, String>,
+    }
+
+    impl InMemoryLoader {
+        pub fn new() -> Self {
+            Self {
+                map: std::collections::HashMap::new(),
+            }
+        }
+
+        pub fn add(&mut self, path: impl Into<String>, contents: impl Into<String>) -> &mut Self {
+            self.map.insert(path.into(), contents.into());
+            self
+        }
+    }
+
+    impl ImportLoader for InMemoryLoader {
+        fn load_source(&self, path: &str) -> std::io::Result<String> {
+            self.map.get(path).cloned().ok_or_else(|| {
+                std::io::Error::new(
+                    std::io::ErrorKind::NotFound,
+                    format!("import not found: {}", path),
+                )
+            })
+        }
+    }
+
+    #[test]
+    fn resolve_imports_with_in_memory_loader() {
+        let mut program = Program {
+            imports: vec![ImportDef {
+                path: StringLiteral::new("test.json"),
+                alias: Some(Identifier::new("types")),
+                span: Span::DUMMY,
+            }],
+            env: None,
+            txs: vec![],
+            types: vec![],
+            aliases: vec![],
+            assets: vec![],
+            parties: vec![],
+            policies: vec![],
+            span: Span::DUMMY,
+            scope: None,
+        };
+
+        let json = r#"{
+            "preamble": { "title": "test", "version": "0", "plutusVersion": "v3" },
+            "validators": [],
+            "definitions": {
+                "Bool": {
+                    "title": "Bool",
+                    "anyOf": [
+                        { "title": "False", "dataType": "constructor", "index": 0, "fields": [] },
+                        { "title": "True", "dataType": "constructor", "index": 1, "fields": [] }
+                    ]
+                }
+            }
+        }"#;
+
+        let mut loader = InMemoryLoader::new();
+        loader.add("test.json", json);
+        resolve_imports(&mut program, Some(&loader)).unwrap();
+
+        let type_names: Vec<String> = program.types.iter().map(|t| t.name.value.clone()).collect();
+        assert!(
+            type_names.contains(&"types_Bool".to_string()),
+            "expected types_Bool in program.types, got: {:?}",
+            type_names
+        );
+    }
 }

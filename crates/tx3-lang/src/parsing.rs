@@ -131,11 +131,7 @@ impl AstNode for ImportDef {
         let mut inner = pair.into_inner();
         let path = StringLiteral::parse(inner.next().unwrap())?;
         let alias = inner.next().map(Identifier::parse).transpose()?;
-        Ok(ImportDef {
-            path,
-            alias,
-            span,
-        })
+        Ok(ImportDef { path, alias, span })
     }
 
     fn span(&self) -> &Span {

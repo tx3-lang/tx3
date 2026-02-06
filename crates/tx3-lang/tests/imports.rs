@@ -46,15 +46,17 @@ fn duplicate_type_name_from_imports_errors() {
     let content = std::fs::read_to_string(&path).unwrap();
     let content_twice = format!(
         "{}\ncardano::import \"../../../cip-57/examples/plutus.json\" as types;\n{}",
-        content,
-        "tx dummy2() {}"
+        content, "tx dummy2() {}"
     );
     let fixtures = Path::new(manifest_dir).join("tests/fixtures");
     let temp_tx3 = fixtures.join("temp_duplicate_import.tx3");
     std::fs::write(&temp_tx3, content_twice).unwrap();
     let res = Workspace::from_file(&temp_tx3).and_then(|mut w| w.parse());
     let _ = std::fs::remove_file(&temp_tx3);
-    assert!(res.is_err(), "expected error for duplicate type names from two imports");
+    assert!(
+        res.is_err(),
+        "expected error for duplicate type names from two imports"
+    );
     let err = res.unwrap_err();
     assert!(
         err.to_string().contains("duplicate") || err.to_string().contains("type"),

@@ -74,7 +74,8 @@ impl Workspace {
     pub fn parse(&mut self) -> Result<(), Error> {
         let main = self.ensure_main()?;
         let mut ast = parsing::parse_string(main)?;
-        interop::resolve_imports(&mut ast, self.root.as_deref())?;
+        let loader = self.root.clone().map(interop::FsLoader::new);
+        interop::resolve_imports(&mut ast, loader.as_ref())?;
         self.ast = Some(ast);
         Ok(())
     }
