@@ -153,13 +153,6 @@ fn resolve_ref_to_type(
         return Ok(Type::Custom(Identifier::new(import_type_name(&key, alias))));
     }
 
-    if def.data_type == Some(DataType::Integer) {
-        return Ok(Type::Int);
-    }
-    if def.data_type == Some(DataType::Bytes) {
-        return Ok(Type::Bytes);
-    }
-
     Ok(Type::Custom(Identifier::new(import_type_name(&key, alias))))
 }
 
