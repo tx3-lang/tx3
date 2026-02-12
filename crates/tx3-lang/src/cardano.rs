@@ -717,9 +717,18 @@ impl IntoLower for CardanoPublishBlockField {
         ctx: &crate::lowering::Context,
     ) -> Result<Self::Output, crate::lowering::Error> {
         match self {
-            CardanoPublishBlockField::To(x) => Ok(("to".to_string(), x.into_lower(ctx)?)),
-            CardanoPublishBlockField::Amount(x) => Ok(("amount".to_string(), x.into_lower(ctx)?)),
-            CardanoPublishBlockField::Datum(x) => Ok(("datum".to_string(), x.into_lower(ctx)?)),
+            CardanoPublishBlockField::To(x) => {
+                let ctx = ctx.enter_address_expr();
+                Ok(("to".to_string(), x.into_lower(&ctx)?))
+            }
+            CardanoPublishBlockField::Amount(x) => {
+                let ctx = ctx.enter_asset_expr();
+                Ok(("amount".to_string(), x.into_lower(&ctx)?))
+            }
+            CardanoPublishBlockField::Datum(x) => {
+                let ctx = ctx.enter_datum_expr();
+                Ok(("datum".to_string(), x.into_lower(&ctx)?))
+            }
             CardanoPublishBlockField::Version(x) => Ok(("version".to_string(), x.into_lower(ctx)?)),
             CardanoPublishBlockField::Script(x) => Ok(("script".to_string(), x.into_lower(ctx)?)),
         }
