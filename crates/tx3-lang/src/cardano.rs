@@ -586,7 +586,7 @@ pub struct CardanoPublishBlock {
     pub name: Option<Identifier>,
     pub fields: Vec<CardanoPublishBlockField>,
     pub span: Span,
-    pub declared_index: Option<usize>,
+    pub declared_index: usize,
 }
 
 impl CardanoPublishBlock {
@@ -668,7 +668,7 @@ impl AstNode for CardanoPublishBlock {
             name,
             fields,
             span,
-            declared_index: None,
+            declared_index: 0,
         })
     }
 
@@ -750,11 +750,7 @@ impl IntoLower for CardanoPublishBlock {
 
         data.insert(
             "declared_index".to_string(),
-            ir::Expression::Number(
-                self.declared_index
-                    .map(|x| x as i128)
-                    .expect("Publish block must have a declaration index"),
-            ),
+            ir::Expression::Number(self.declared_index as i128),
         );
 
         Ok(ir::AdHocDirective {
@@ -962,7 +958,7 @@ mod tests {
                 ))),
             ],
             span: Span::DUMMY,
-            declared_index: None,
+            declared_index: 0,
         }
     );
 
@@ -992,7 +988,7 @@ mod tests {
                 ))),
             ],
             span: Span::DUMMY,
-            declared_index: None,
+            declared_index: 0,
         }
     );
 

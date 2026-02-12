@@ -404,7 +404,7 @@ pub struct OutputBlock {
     pub optional: bool,
     pub fields: Vec<OutputBlockField>,
     pub span: Span,
-    pub declared_index: Option<usize>,
+    pub declared_index: usize,
 }
 
 impl OutputBlock {

@@ -217,7 +217,7 @@ impl AstNode for TxDef {
                 Rule::input_block => inputs.push(InputBlock::parse(item)?),
                 Rule::output_block => {
                     let mut ob = OutputBlock::parse(item)?;
-                    ob.declared_index = Some(declared_index);
+                    ob.declared_index = declared_index;
                     declared_index += 1;
                     outputs.push(ob);
                 }
@@ -228,7 +228,7 @@ impl AstNode for TxDef {
                     let mut csb = ChainSpecificBlock::parse(item)?;
                     let ChainSpecificBlock::Cardano(cardano_block) = &mut csb;
                     if let crate::cardano::CardanoBlock::Publish(pb) = cardano_block {
-                        pb.declared_index = Some(declared_index);
+                        pb.declared_index = declared_index;
                         declared_index += 1;
                     }
 
@@ -633,7 +633,8 @@ impl AstNode for OutputBlock {
             optional,
             fields,
             span,
-            declared_index: None,
+            // Default to 0 and set it later
+            declared_index: 0,
         })
     }
 
@@ -2481,7 +2482,7 @@ mod tests {
                 }))),
             ],
             span: Span::DUMMY,
-            declared_index: None,
+            declared_index: 0,
         }
     );
 
