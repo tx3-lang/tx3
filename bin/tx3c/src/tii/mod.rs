@@ -95,8 +95,10 @@ fn infer_available_profiles(args: &Args) -> HashSet<String> {
         profiles.insert(entry.profile.clone());
     }
 
-    // TODO: inspect other per-profile args in case there's other profiles
-    // defined
+    // Add profiles from --profile flag (forced inclusion)
+    for profile in args.profiles.iter() {
+        profiles.insert(profile.clone());
+    }
 
     profiles
 }
