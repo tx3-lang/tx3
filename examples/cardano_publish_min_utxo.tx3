@@ -1,0 +1,13 @@
+tx test_min_utxo_publish() {
+    cardano::publish my_block {
+        to: "addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2",
+        amount: Ada(100),
+        script: 0x5709,
+        version: 2,
+    }
+
+    outputs {
+        to: "addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2",
+        amount: Ada(min_utxo(my_block)),
+    }
+}

@@ -170,7 +170,8 @@
             "dummy": false,
             "start": 343,
             "end": 426
-          }
+          },
+          "declared_index": 0
         }
       ],
       "validity": null,

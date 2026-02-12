@@ -244,7 +244,10 @@
           ]
         }
       },
-      "optional": false
+      "optional": false,
+      "declared_index": {
+        "Number": 0
+      }
     }
   ],
   "validity": null,

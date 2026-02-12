@@ -259,7 +259,8 @@
             "dummy": false,
             "start": 208,
             "end": 397
-          }
+          },
+          "declared_index": 0
         }
       ],
       "validity": null,

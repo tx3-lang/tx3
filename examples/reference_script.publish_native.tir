@@ -127,7 +127,10 @@
           ]
         }
       },
-      "optional": false
+      "optional": false,
+      "declared_index": {
+        "Number": 1
+      }
     }
   ],
   "validity": null,
@@ -137,16 +140,6 @@
     {
       "name": "cardano_publish",
       "data": {
-        "script": {
-          "Bytes": [
-            130,
-            1,
-            129,
-            130,
-            4,
-            0
-          ]
-        },
         "amount": {
           "Assets": [
             {
@@ -172,6 +165,19 @@
           }
         },
         "version": {
+          "Number": 0
+        },
+        "script": {
+          "Bytes": [
+            130,
+            1,
+            129,
+            130,
+            4,
+            0
+          ]
+        },
+        "declared_index": {
           "Number": 0
         }
       }
