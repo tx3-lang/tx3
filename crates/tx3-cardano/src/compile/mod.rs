@@ -288,24 +288,38 @@ fn compile_outputs(
     tx: &tir::Tx,
     network: Network,
 ) -> Result<Vec<primitives::TransactionOutput<'static>>, Error> {
-    let mut resolved: Vec<_> = tx
-        .outputs
-        .iter()
-        .map(|out| (out.optional, compile_output_block(out, network)))
-        .filter(|(optional, output)| !optional || output_has_assets(output))
-        .map(|(_, output)| output)
-        .collect::<Result<Vec<_>, _>>()?;
+    let outputs = tx.outputs.iter().filter_map(|out| {
+        let compiled = compile_output_block(out, network);
+
+        if out.optional && !output_has_assets(&compiled) {
+            return None;
+        }
+
+        let idx = out.declared_index.as_number().map(|n| n as usize);
+        Some(compiled.map(|o| (idx, o)))
+    });
 
     let cardano_outputs = tx
         .adhoc
         .iter()
         .filter(|x| x.name.as_str() == "cardano_publish")
-        .map(|adhoc| compile_cardano_publish_directive(adhoc, network))
+        .map(|adhoc| {
+            let idx = adhoc
+                .data
+                .get("declared_index")
+                .and_then(|expr| expr.as_number())
+                .map(|n| n as usize);
+
+            compile_cardano_publish_directive(adhoc, network).map(|o| (idx, o))
+        });
+
+    let mut all_outputs: Vec<_> = outputs
+        .chain(cardano_outputs)
         .collect::<Result<Vec<_>, _>>()?;
 
-    resolved.extend(cardano_outputs);
+    all_outputs.sort_by_key(|(idx, _)| idx.unwrap_or(usize::MAX));
 
-    Ok(resolved)
+    Ok(all_outputs.into_iter().map(|(_, out)| out).collect())
 }
 
 pub fn compile_cardano_publish_directive(

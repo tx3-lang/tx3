@@ -537,7 +537,8 @@
             "dummy": false,
             "start": 958,
             "end": 1063
-          }
+          },
+          "declared_index": 0
         },
         {
           "name": {
@@ -672,7 +673,8 @@
             "dummy": false,
             "start": 1069,
             "end": 1246
-          }
+          },
+          "declared_index": 1
         },
         {
           "name": {
@@ -733,7 +735,8 @@
             "dummy": false,
             "start": 1252,
             "end": 1331
-          }
+          },
+          "declared_index": 2
         }
       ],
       "validity": {

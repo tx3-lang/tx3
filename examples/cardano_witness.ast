@@ -203,7 +203,8 @@
             "dummy": false,
             "start": 404,
             "end": 481
-          }
+          },
+          "declared_index": 0
         }
       ],
       "validity": null,
@@ -525,7 +526,8 @@
             "dummy": false,
             "start": 972,
             "end": 1049
-          }
+          },
+          "declared_index": 0
         }
       ],
       "validity": null,
