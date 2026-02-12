@@ -2836,4 +2836,6 @@ mod tests {
     test_parsing!(list_concat);
 
     test_parsing!(buidler_fest_2026);
+
+    test_parsing!(cardano_publish_min_utxo);
 }

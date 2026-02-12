@@ -648,14 +648,6 @@
     {
       "name": "vote_delegation_certificate",
       "data": {
-        "stake": {
-          "Bytes": [
-            135,
-            101,
-            67,
-            33
-          ]
-        },
         "drep": {
           "Bytes": [
             18,
@@ -663,15 +655,20 @@
             86,
             120
           ]
+        },
+        "stake": {
+          "Bytes": [
+            135,
+            101,
+            67,
+            33
+          ]
         }
       }
     },
     {
       "name": "withdrawal",
       "data": {
-        "amount": {
-          "Number": 100
-        },
         "redeemer": {
           "Struct": {
             "constructor": 0,
@@ -685,15 +682,15 @@
               "Address"
             ]
           }
+        },
+        "amount": {
+          "Number": 100
         }
       }
     },
     {
       "name": "plutus_witness",
       "data": {
-        "version": {
-          "Number": 2
-        },
         "script": {
           "Bytes": [
             171,
@@ -702,6 +699,9 @@
             18,
             52
           ]
+        },
+        "version": {
+          "Number": 2
         }
       }
     },

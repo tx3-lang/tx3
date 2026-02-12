@@ -1,0 +1,207 @@
+{
+  "env": null,
+  "txs": [
+    {
+      "name": {
+        "value": "test_min_utxo_publish",
+        "span": {
+          "dummy": false,
+          "start": 3,
+          "end": 24
+        }
+      },
+      "parameters": {
+        "parameters": [],
+        "span": {
+          "dummy": false,
+          "start": 24,
+          "end": 26
+        }
+      },
+      "locals": null,
+      "references": [],
+      "inputs": [],
+      "outputs": [
+        {
+          "name": {
+            "value": "s",
+            "span": {
+              "dummy": false,
+              "start": 267,
+              "end": 268
+            }
+          },
+          "optional": false,
+          "fields": [
+            {
+              "To": {
+                "String": {
+                  "value": "addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2",
+                  "span": {
+                    "dummy": false,
+                    "start": 283,
+                    "end": 388
+                  }
+                }
+              }
+            },
+            {
+              "Amount": {
+                "FnCall": {
+                  "callee": {
+                    "value": "Ada",
+                    "span": {
+                      "dummy": false,
+                      "start": 406,
+                      "end": 409
+                    }
+                  },
+                  "args": [
+                    {
+                      "FnCall": {
+                        "callee": {
+                          "value": "min_utxo",
+                          "span": {
+                            "dummy": false,
+                            "start": 410,
+                            "end": 418
+                          }
+                        },
+                        "args": [
+                          {
+                            "Identifier": {
+                              "value": "my_block",
+                              "span": {
+                                "dummy": false,
+                                "start": 419,
+                                "end": 427
+                              }
+                            }
+                          }
+                        ],
+                        "span": {
+                          "dummy": false,
+                          "start": 410,
+                          "end": 428
+                        }
+                      }
+                    }
+                  ],
+                  "span": {
+                    "dummy": false,
+                    "start": 406,
+                    "end": 429
+                  }
+                }
+              }
+            }
+          ],
+          "span": {
+            "dummy": false,
+            "start": 261,
+            "end": 436
+          },
+          "declared_index": 1
+        }
+      ],
+      "validity": null,
+      "mints": [],
+      "burns": [],
+      "signers": null,
+      "adhoc": [
+        {
+          "Cardano": {
+            "Publish": {
+              "name": {
+                "value": "my_block",
+                "span": {
+                  "dummy": false,
+                  "start": 50,
+                  "end": 58
+                }
+              },
+              "fields": [
+                {
+                  "To": {
+                    "String": {
+                      "value": "addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2",
+                      "span": {
+                        "dummy": false,
+                        "start": 73,
+                        "end": 178
+                      }
+                    }
+                  }
+                },
+                {
+                  "Amount": {
+                    "FnCall": {
+                      "callee": {
+                        "value": "Ada",
+                        "span": {
+                          "dummy": false,
+                          "start": 196,
+                          "end": 199
+                        }
+                      },
+                      "args": [
+                        {
+                          "Number": 100
+                        }
+                      ],
+                      "span": {
+                        "dummy": false,
+                        "start": 196,
+                        "end": 204
+                      }
+                    }
+                  }
+                },
+                {
+                  "Script": {
+                    "HexString": {
+                      "value": "5709",
+                      "span": {
+                        "dummy": false,
+                        "start": 222,
+                        "end": 228
+                      }
+                    }
+                  }
+                },
+                {
+                  "Version": {
+                    "Number": 2
+                  }
+                }
+              ],
+              "span": {
+                "dummy": false,
+                "start": 42,
+                "end": 255
+              },
+              "declared_index": 0
+            }
+          }
+        }
+      ],
+      "span": {
+        "dummy": false,
+        "start": 0,
+        "end": 438
+      },
+      "collateral": [],
+      "metadata": null
+    }
+  ],
+  "types": [],
+  "aliases": [],
+  "assets": [],
+  "parties": [],
+  "policies": [],
+  "span": {
+    "dummy": false,
+    "start": 0,
+    "end": 439
+  }
+}
