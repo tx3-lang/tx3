@@ -1,9 +1,9 @@
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use pallas::{
     codec::{
         minicbor,
-        utils::{KeepRaw, MaybeIndefArray, NonEmptySet},
+        utils::{KeepRaw, NonEmptySet},
     },
     ledger::{
         primitives::{
@@ -912,35 +912,382 @@ fn compile_witness_set(
     Ok(witness_set)
 }
 
-fn infer_plutus_version(witness_set: &primitives::WitnessSet) -> PlutusVersion {
-    // TODO: how do we handle this for reference scripts?
+#[derive(Clone, Copy)]
+enum ScriptVersion {
+    V1,
+    V2,
+    V3,
+}
 
-    if witness_set.plutus_v1_script.is_some() {
-        0
-    } else if witness_set.plutus_v2_script.is_some() {
-        1
-    } else if witness_set.plutus_v3_script.is_some() {
-        2
-    } else {
-        // TODO: should we error here?
-        // Defaulting to Plutus V3 for now
-        2
+impl ScriptVersion {
+    fn to_plutus_version(self) -> Option<PlutusVersion> {
+        match self {
+            ScriptVersion::V1 => Some(0),
+            ScriptVersion::V2 => Some(1),
+            ScriptVersion::V3 => Some(2),
+        }
     }
 }
 
+fn add_script_ref_from_expr(
+    hash_to_version: &mut HashMap<primitives::Hash<28>, ScriptVersion>,
+    script_expr: &tir::Expression,
+) {
+    let bytes = match coercion::expr_into_bytes(script_expr) {
+        Ok(b) => b,
+        Err(_) => return,
+    };
+    let script_ref = match minicbor::decode::<primitives::ScriptRef>(bytes.as_slice()) {
+        Ok(s) => s,
+        Err(_) => return,
+    };
+    match &script_ref {
+        primitives::ScriptRef::PlutusV1Script(s) => {
+            hash_to_version.insert(s.compute_hash(), ScriptVersion::V1);
+        }
+        primitives::ScriptRef::PlutusV2Script(s) => {
+            hash_to_version.insert(s.compute_hash(), ScriptVersion::V2);
+        }
+        primitives::ScriptRef::PlutusV3Script(s) => {
+            hash_to_version.insert(s.compute_hash(), ScriptVersion::V3);
+        }
+        primitives::ScriptRef::NativeScript(_) => {}
+    }
+}
+
+// Scripts that could be used by the transaction
+fn build_script_hash_to_version(
+    witness_set: &primitives::WitnessSet,
+    tx_body: &primitives::TransactionBody,
+    auxiliary_data: Option<&primitives::AuxiliaryData>,
+    tx: &tir::Tx,
+) -> HashMap<primitives::Hash<28>, ScriptVersion> {
+    let mut hash_to_version = HashMap::new();
+
+    // Get scripts available in witnesses
+    if let Some(scripts) = witness_set.plutus_v1_script.as_ref() {
+        for script in scripts.iter() {
+            hash_to_version.insert(script.compute_hash(), ScriptVersion::V1);
+        }
+    }
+    if let Some(scripts) = witness_set.plutus_v2_script.as_ref() {
+        for script in scripts.iter() {
+            hash_to_version.insert(script.compute_hash(), ScriptVersion::V2);
+        }
+    }
+    if let Some(scripts) = witness_set.plutus_v3_script.as_ref() {
+        for script in scripts.iter() {
+            hash_to_version.insert(script.compute_hash(), ScriptVersion::V3);
+        }
+    }
+
+    // Get scripts available in outputs
+    for output in tx_body.outputs.iter() {
+        let script_ref = match output {
+            primitives::TransactionOutput::PostAlonzo(po) => po.script_ref.as_ref(),
+            _ => None,
+        };
+        let Some(cbor_wrap) = script_ref else {
+            continue;
+        };
+        let script_ref = &cbor_wrap.0;
+        match script_ref {
+            primitives::ScriptRef::PlutusV1Script(s) => {
+                hash_to_version.insert(s.compute_hash(), ScriptVersion::V1);
+            }
+            primitives::ScriptRef::PlutusV2Script(s) => {
+                hash_to_version.insert(s.compute_hash(), ScriptVersion::V2);
+            }
+            primitives::ScriptRef::PlutusV3Script(s) => {
+                hash_to_version.insert(s.compute_hash(), ScriptVersion::V3);
+            }
+            primitives::ScriptRef::NativeScript(_) => {}
+        }
+    }
+
+    // Get scripts available in auxiliary data (obscure way to include a script in a transaction
+    // but possible)
+    if let Some(primitives::AuxiliaryData::PostAlonzo(aux)) = auxiliary_data {
+        if let Some(scripts) = &aux.plutus_scripts {
+            for script in scripts.iter() {
+                hash_to_version.insert(script.compute_hash(), ScriptVersion::V1);
+            }
+        }
+    }
+
+    // Get scripts available in inputs
+    for input in tx.inputs.iter() {
+        if let Some(set) = input.utxos.as_utxo_set() {
+            for utxo in set.iter() {
+                if let Some(script_expr) = utxo.script.as_ref() {
+                    add_script_ref_from_expr(&mut hash_to_version, script_expr);
+                }
+            }
+        }
+    }
+
+    // Get scripts available in reference inputs
+    for expr in tx.references.iter() {
+        if let Some(set) = expr.as_utxo_set() {
+            for utxo in set.iter() {
+                if let Some(script_expr) = utxo.script.as_ref() {
+                    add_script_ref_from_expr(&mut hash_to_version, script_expr);
+                }
+            }
+        }
+    }
+
+    hash_to_version
+}
+
+/// Collects the set of Plutus versions that are actually used by redeemers in the witness set.
+fn infer_plutus_versions_from_redeemers(
+    tx: &tir::Tx,
+    tx_body: &primitives::TransactionBody,
+    witness_set: &primitives::WitnessSet,
+    hash_to_version: &HashMap<primitives::Hash<28>, ScriptVersion>,
+) -> Result<HashSet<PlutusVersion>, Error> {
+    let mut inferred = HashSet::new();
+
+    let redeemer_keys: Vec<primitives::RedeemersKey> = match witness_set.redeemer.as_ref() {
+        Some(raw) => match &**raw {
+            primitives::Redeemers::Map(m) => m.keys().cloned().collect(),
+            primitives::Redeemers::List(list) => list
+                .iter()
+                .map(|r| primitives::RedeemersKey {
+                    tag: r.tag,
+                    index: r.index,
+                })
+                .collect(),
+        },
+        None => return Ok(inferred),
+    };
+
+    let mut sorted_inputs: Vec<_> = tx_body.inputs.iter().collect();
+    sorted_inputs.sort_by_key(|x| (x.transaction_id.as_slice(), x.index));
+
+    let mut mint_policies: Vec<primitives::Hash<28>> =
+        tx_body.mint.iter().flatten().map(|(p, _)| *p).collect();
+    mint_policies.sort();
+    mint_policies.dedup();
+
+    let withdrawal_keys: Vec<_> = tx_body
+        .withdrawals
+        .iter()
+        .flatten()
+        .map(|(k, _)| k.as_slice())
+        .collect();
+
+    let certs: Vec<_> = tx_body
+        .certificates
+        .as_ref()
+        .map(|c| c.iter().collect::<Vec<_>>())
+        .unwrap_or_default();
+
+    for key in &redeemer_keys {
+        let version_opt = match key.tag {
+            primitives::RedeemerTag::Spend => {
+                let index = key.index as usize;
+                let input_ref = sorted_inputs.get(index).ok_or_else(|| {
+                    Error::ConsistencyError(format!(
+                        "spend redeemer at index {}: no transaction input at that index",
+                        index
+                    ))
+                })?;
+                let tir_input = tx.inputs.iter().find(|inp| {
+                    coercion::expr_into_utxo_refs(&inp.utxos)
+                        .ok()
+                        .and_then(|refs| refs.first().cloned())
+                        .is_some_and(|r| utxo_ref_matches(&r, input_ref))
+                });
+                let utxo = tir_input
+                    .and_then(|inp| inp.utxos.as_utxo_set())
+                    .and_then(|set| set.iter().next())
+                    .ok_or_else(|| {
+                        Error::ConsistencyError(format!(
+                            "cannot resolve script for spend redeemer at index {} (input or UTXO not present in TIR)",
+                            index
+                        ))
+                    })?;
+                let address = coercion::bytes_into_address(&utxo.address).map_err(|_| {
+                    Error::ConsistencyError(format!(
+                        "spend redeemer at index {}: invalid address in UTXO",
+                        index
+                    ))
+                })?;
+                let script_hash = match &address {
+                    pallas::ledger::addresses::Address::Shelley(s) => match s.payment() {
+                        pallas::ledger::addresses::ShelleyPaymentPart::Script(h) => *h,
+                        pallas::ledger::addresses::ShelleyPaymentPart::Key(_) => {
+                            return Err(Error::ConsistencyError(format!(
+                                "spend redeemer at index {}: input is key-locked, not a script address",
+                                index
+                            )))
+                        }
+                    },
+                    _ => {
+                        return Err(Error::ConsistencyError(format!(
+                            "spend redeemer at index {}: expected Shelley address",
+                            index
+                        )))
+                    }
+                };
+                let version = hash_to_version
+                    .get(&script_hash)
+                    .and_then(|v| v.to_plutus_version());
+                if version.is_none() {
+                    return Err(Error::ConsistencyError(format!(
+                        "script hash {} referenced by spend redeemer at index {} not found (script must appear in witness set, outputs, auxiliary data, or consumed/reference inputs)",
+                        hex::encode(script_hash.as_slice()),
+                        index
+                    )));
+                }
+                version
+            }
+            primitives::RedeemerTag::Mint => {
+                let index = key.index as usize;
+                let policy = mint_policies.get(index).ok_or_else(|| {
+                    Error::ConsistencyError(format!(
+                        "mint redeemer at index {} does not match any mint policy",
+                        index
+                    ))
+                })?;
+                let version = hash_to_version
+                    .get(policy)
+                    .and_then(|v| v.to_plutus_version());
+                if version.is_none() {
+                    return Err(Error::ConsistencyError(format!(
+                        "script hash {} (mint policy) referenced by mint redeemer at index {} not found",
+                        hex::encode(policy.as_slice()),
+                        index
+                    )));
+                }
+                version
+            }
+            primitives::RedeemerTag::Reward => {
+                let index = key.index as usize;
+                let cred_slice = withdrawal_keys.get(index).ok_or_else(|| {
+                    Error::ConsistencyError(format!(
+                        "reward redeemer at index {} does not match any withdrawal",
+                        index
+                    ))
+                })?;
+                if cred_slice.is_empty() {
+                    return Err(Error::ConsistencyError(format!(
+                        "reward redeemer at index {}: empty credential",
+                        index
+                    )));
+                }
+                let script_hash = primitives::Hash::from(*cred_slice);
+                let version = hash_to_version
+                    .get(&script_hash)
+                    .and_then(|v| v.to_plutus_version());
+                if version.is_none() {
+                    return Err(Error::ConsistencyError(format!(
+                        "script hash {} referenced by reward redeemer at index {} not found",
+                        hex::encode(script_hash.as_slice()),
+                        index
+                    )));
+                }
+                version
+            }
+            primitives::RedeemerTag::Cert => {
+                let index = key.index as usize;
+                let cert = certs.get(index).ok_or_else(|| {
+                    Error::ConsistencyError(format!(
+                        "cert redeemer at index {} does not match any certificate",
+                        index
+                    ))
+                })?;
+                let cred = match cert {
+                    primitives::Certificate::StakeRegistration(c)
+                    | primitives::Certificate::StakeDeregistration(c)
+                    | primitives::Certificate::StakeDelegation(c, _)
+                    | primitives::Certificate::Reg(c, _)
+                    | primitives::Certificate::UnReg(c, _)
+                    | primitives::Certificate::VoteDeleg(c, _)
+                    | primitives::Certificate::StakeVoteDeleg(c, _, _)
+                    | primitives::Certificate::StakeRegDeleg(c, _, _)
+                    | primitives::Certificate::VoteRegDeleg(c, _, _)
+                    | primitives::Certificate::StakeVoteRegDeleg(c, _, _, _)
+                    | primitives::Certificate::AuthCommitteeHot(c, _)
+                    | primitives::Certificate::ResignCommitteeCold(c, _)
+                    | primitives::Certificate::RegDRepCert(c, _, _)
+                    | primitives::Certificate::UnRegDRepCert(c, _)
+                    | primitives::Certificate::UpdateDRepCert(c, _) => c,
+                    _ => {
+                        return Err(Error::ConsistencyError(format!(
+                            "cert redeemer at index {}: certificate has no stake credential",
+                            index
+                        )))
+                    }
+                };
+                let script_hash = match cred {
+                    primitives::StakeCredential::ScriptHash(h) => *h,
+                    primitives::StakeCredential::AddrKeyhash(_) => {
+                        return Err(Error::ConsistencyError(format!(
+                            "cert redeemer at index {}: certificate is key-based, not a script",
+                            index
+                        )))
+                    }
+                };
+                let version = hash_to_version
+                    .get(&script_hash)
+                    .and_then(|v| v.to_plutus_version());
+                if version.is_none() {
+                    return Err(Error::ConsistencyError(format!(
+                        "script hash {} referenced by cert redeemer at index {} not found",
+                        hex::encode(script_hash.as_slice()),
+                        index
+                    )));
+                }
+                version
+            }
+            primitives::RedeemerTag::Vote | primitives::RedeemerTag::Propose => Some(2),
+        };
+
+        if let Some(v) = version_opt {
+            inferred.insert(v);
+        }
+    }
+
+    Ok(inferred)
+}
+
 fn compute_script_data_hash(
+    tx: &tir::Tx,
+    tx_body: &primitives::TransactionBody,
+    auxiliary_data: Option<&primitives::AuxiliaryData>,
     witness_set: &primitives::WitnessSet,
     pparams: &PParams,
-) -> Option<primitives::Hash<32>> {
-    let version = infer_plutus_version(witness_set);
+) -> Result<Option<primitives::Hash<32>>, Error> {
+    let hash_to_version = build_script_hash_to_version(witness_set, tx_body, auxiliary_data, tx);
+    let inferred_versions =
+        infer_plutus_versions_from_redeemers(tx, tx_body, witness_set, &hash_to_version)?;
 
-    let cost_model = pparams.cost_models.get(&version).unwrap();
+    if inferred_versions.is_empty() {
+        return Ok(None);
+    }
 
-    let language_view = primitives::LanguageView(version, cost_model.clone());
+    let language_views_entries: Vec<(PlutusVersion, _)> = inferred_versions
+        .into_iter()
+        .filter_map(|version| {
+            pparams
+                .cost_models
+                .get(&version)
+                .map(|cost_model| (version, cost_model.clone()))
+        })
+        .collect();
 
-    let data = primitives::ScriptData::build_for(witness_set, &Some(language_view));
+    if language_views_entries.is_empty() {
+        return Ok(None);
+    }
 
-    data.map(|x| x.hash())
+    let language_views = primitives::LanguageViews::from_iter(language_views_entries);
+
+    let data = primitives::ScriptData::build_for(witness_set, &Some(language_views));
+
+    Ok(data.map(|x| x.hash()))
 }
 
 pub fn entry_point(tx: &tir::Tx, pparams: &PParams) -> Result<primitives::Tx<'static>, Error> {
@@ -948,8 +1295,14 @@ pub fn entry_point(tx: &tir::Tx, pparams: &PParams) -> Result<primitives::Tx<'st
     let transaction_witness_set = compile_witness_set(tx, &transaction_body, pparams.network)?;
     let auxiliary_data = compile_auxiliary_data(tx)?;
 
-    transaction_body.script_data_hash = compute_script_data_hash(&transaction_witness_set, pparams);
     transaction_body.auxiliary_data_hash = auxiliary_data.as_ref().map(|x| x.compute_hash());
+    transaction_body.script_data_hash = compute_script_data_hash(
+        tx,
+        &transaction_body,
+        auxiliary_data.as_ref(),
+        &transaction_witness_set,
+        pparams,
+    )?;
 
     Ok(primitives::Tx {
         transaction_body: transaction_body.into(),

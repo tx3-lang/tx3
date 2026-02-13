@@ -257,6 +257,13 @@ impl Expression {
             _ => None,
         }
     }
+
+    pub fn as_utxo_set(&self) -> Option<&HashSet<Utxo>> {
+        match self {
+            Self::UtxoSet(x) => Some(x),
+            _ => None,
+        }
+    }
 }
 
 impl From<BuiltInOp> for Expression {
