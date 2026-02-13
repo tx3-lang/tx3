@@ -524,3 +524,23 @@ async fn min_utxo_compiler_op_test() {
         assert!(!assets.is_empty());
     }
 }
+
+#[pollster::test]
+async fn cardano_publish_min_utxo_test() {
+    let mut compiler = test_compiler(None);
+    let utxos = wildcard_utxos(None);
+    let protocol = load_protocol("cardano_publish_min_utxo");
+
+    let tx = protocol.tir("test_min_utxo_publish").unwrap().clone();
+
+    let args = BTreeMap::from([]);
+
+    let tx = test_compile(tx, &args, &mut compiler, utxos);
+
+    println!("{}", hex::encode(tx.payload));
+
+    assert_eq!(
+        hex::encode(tx.hash),
+        "2da0a42d6245f61d595f0acf77df1560fd3e4c5f553737caf606003804ea5014"
+    );
+}

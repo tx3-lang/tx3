@@ -586,6 +586,7 @@ pub struct CardanoPublishBlock {
     pub name: Option<Identifier>,
     pub fields: Vec<CardanoPublishBlockField>,
     pub span: Span,
+    pub declared_index: usize,
 }
 
 impl CardanoPublishBlock {
@@ -663,7 +664,12 @@ impl AstNode for CardanoPublishBlock {
             .map(|x| CardanoPublishBlockField::parse(x))
             .collect::<Result<Vec<_>, _>>()?;
 
-        Ok(CardanoPublishBlock { name, fields, span })
+        Ok(CardanoPublishBlock {
+            name,
+            fields,
+            span,
+            declared_index: 0,
+        })
     }
 
     fn span(&self) -> &Span {
@@ -711,9 +717,18 @@ impl IntoLower for CardanoPublishBlockField {
         ctx: &crate::lowering::Context,
     ) -> Result<Self::Output, crate::lowering::Error> {
         match self {
-            CardanoPublishBlockField::To(x) => Ok(("to".to_string(), x.into_lower(ctx)?)),
-            CardanoPublishBlockField::Amount(x) => Ok(("amount".to_string(), x.into_lower(ctx)?)),
-            CardanoPublishBlockField::Datum(x) => Ok(("datum".to_string(), x.into_lower(ctx)?)),
+            CardanoPublishBlockField::To(x) => {
+                let ctx = ctx.enter_address_expr();
+                Ok(("to".to_string(), x.into_lower(&ctx)?))
+            }
+            CardanoPublishBlockField::Amount(x) => {
+                let ctx = ctx.enter_asset_expr();
+                Ok(("amount".to_string(), x.into_lower(&ctx)?))
+            }
+            CardanoPublishBlockField::Datum(x) => {
+                let ctx = ctx.enter_datum_expr();
+                Ok(("datum".to_string(), x.into_lower(&ctx)?))
+            }
             CardanoPublishBlockField::Version(x) => Ok(("version".to_string(), x.into_lower(ctx)?)),
             CardanoPublishBlockField::Script(x) => Ok(("script".to_string(), x.into_lower(ctx)?)),
         }
@@ -727,11 +742,16 @@ impl IntoLower for CardanoPublishBlock {
         &self,
         ctx: &crate::lowering::Context,
     ) -> Result<Self::Output, crate::lowering::Error> {
-        let data = self
+        let mut data: HashMap<String, ir::Expression> = self
             .fields
             .iter()
             .map(|x| x.into_lower(ctx))
             .collect::<Result<_, _>>()?;
+
+        data.insert(
+            "declared_index".to_string(),
+            ir::Expression::Number(self.declared_index as i128),
+        );
 
         Ok(ir::AdHocDirective {
             name: "cardano_publish".to_string(),
@@ -938,6 +958,7 @@ mod tests {
                 ))),
             ],
             span: Span::DUMMY,
+            declared_index: 0,
         }
     );
 
@@ -967,6 +988,7 @@ mod tests {
                 ))),
             ],
             span: Span::DUMMY,
+            declared_index: 0,
         }
     );
 
