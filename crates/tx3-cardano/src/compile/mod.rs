@@ -926,7 +926,7 @@ fn compile_witness_set(
     Ok(witness_set)
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 enum ScriptVersion {
     V1,
     V2,
