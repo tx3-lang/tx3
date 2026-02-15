@@ -5,7 +5,7 @@ use crate::interop::{BytesEncoding, BytesEnvelope};
 
 pub type JsonArgMap = serde_json::Map<String, serde_json::Value>;
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TirEnvelope {
     pub content: String,
     pub encoding: BytesEncoding,
@@ -13,11 +13,18 @@ pub struct TirEnvelope {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum WitnessInput {
+    Object(SubmitWitness),
+    Hex(String),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SubmitParams {
     #[serde(rename = "tx")]
     pub tx: BytesEnvelope,
     #[serde(rename = "witnesses")]
-    pub witnesses: Vec<SubmitWitness>,
+    pub witnesses: Vec<WitnessInput>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -64,6 +71,8 @@ pub struct InputQueryDiagnostic {
 pub struct ResolveParams {
     #[serde(rename = "args")]
     pub args: JsonArgMap,
+    #[serde(rename = "env")]
+    pub env: JsonArgMap,
     #[serde(rename = "tir")]
     pub tir: TirEnvelope,
 }
