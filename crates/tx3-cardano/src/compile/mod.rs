@@ -912,19 +912,17 @@ fn compile_witness_set(
     Ok(witness_set)
 }
 
-fn infer_plutus_version(witness_set: &primitives::WitnessSet) -> PlutusVersion {
+fn infer_plutus_version(witness_set: &primitives::WitnessSet) -> Option<PlutusVersion> {
     // TODO: how do we handle this for reference scripts?
 
     if witness_set.plutus_v1_script.is_some() {
-        0
+        Some(0)
     } else if witness_set.plutus_v2_script.is_some() {
-        1
+        Some(1)
     } else if witness_set.plutus_v3_script.is_some() {
-        2
+        Some(2)
     } else {
-        // TODO: should we error here?
-        // Defaulting to Plutus V3 for now
-        2
+        None
     }
 }
 
@@ -932,15 +930,14 @@ fn compute_script_data_hash(
     witness_set: &primitives::WitnessSet,
     pparams: &PParams,
 ) -> Option<primitives::Hash<32>> {
-    let version = infer_plutus_version(witness_set);
+    let language_view = infer_plutus_version(witness_set).and_then(|version| {
+        pparams
+            .cost_models
+            .get(&version)
+            .map(|cost_model| primitives::LanguageView(version, cost_model.clone()))
+    });
 
-    let cost_model = pparams.cost_models.get(&version).unwrap();
-
-    let language_view = primitives::LanguageView(version, cost_model.clone());
-
-    let data = primitives::ScriptData::build_for(witness_set, &Some(language_view));
-
-    data.map(|x| x.hash())
+    primitives::ScriptData::build_for(witness_set, &language_view).map(|x| x.hash())
 }
 
 pub fn entry_point(tx: &tir::Tx, pparams: &PParams) -> Result<primitives::Tx<'static>, Error> {
