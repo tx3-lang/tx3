@@ -1,0 +1,7 @@
+[protocol]
+name = "_test_harness"
+version = "0.0.0"
+main = "main.tx3"
+
+[ledger]
+family = "cardano"
