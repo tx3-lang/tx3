@@ -1,9 +1,12 @@
 [workspace]
 resolver = "2"
+
 members = [
+  "bin/tx3c",
   "crates/tx3-cardano",
   "crates/tx3-lang",
   "crates/tx3-resolver",
+  "crates/tx3-tir",
   "crates/cip-57",
 ]
 
@@ -13,7 +16,7 @@ authors = ["TxPipe"]
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/tx3-lang/tx3"
-version = "0.13.0"
+version = "0.14.3"
 keywords = ["blockchain", "cardano", "utxo", "dsl"]
 documentation = "https://docs.rs/tx3-lang"
 homepage = "https://github.com/tx3-lang/tx3"
@@ -23,3 +26,9 @@ readme = "README.md"
 thiserror = "2.0.11"
 trait-variant = "0.1.2"
 hex = "0.4.3"
+serde = { version = "1.0.217", features = ["derive"] }
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"

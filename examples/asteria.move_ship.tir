@@ -228,11 +228,11 @@
       "redeemer": "None"
     },
     {
-      "name": "fees",
+      "name": "gas",
       "utxos": {
         "EvalParam": {
           "ExpectInput": [
-            "fees",
+            "gas",
             {
               "address": {
                 "EvalParam": {
@@ -1257,31 +1257,7 @@
               }
             },
             {
-              "EvalCoerce": {
-                "IntoAssets": {
-                  "EvalParam": {
-                    "ExpectInput": [
-                      "fees",
-                      {
-                        "address": {
-                          "EvalParam": {
-                            "ExpectValue": [
-                              "player",
-                              "Address"
-                            ]
-                          }
-                        },
-                        "min_amount": {
-                          "EvalParam": "ExpectFees"
-                        },
-                        "ref": "None",
-                        "many": false,
-                        "collateral": false
-                      }
-                    ]
-                  }
-                }
-              }
+              "EvalParam": "ExpectFees"
             }
           ]
         }

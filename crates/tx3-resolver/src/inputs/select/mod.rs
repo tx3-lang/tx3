@@ -1,8 +1,14 @@
 use std::collections::HashSet;
 
-use tx3_lang::{backend::UtxoStore, CanonicalAssets, Utxo, UtxoRef, UtxoSet};
+use tx3_tir::model::{
+    assets::CanonicalAssets,
+    core::{Utxo, UtxoRef, UtxoSet},
+};
 
-use crate::inputs::{CanonicalQuery, Error, SearchSpace};
+use crate::{
+    inputs::{CanonicalQuery, SearchSpace},
+    Error, UtxoStore,
+};
 
 pub mod naive;
 pub mod vector;
@@ -138,7 +144,7 @@ impl<'a, S: UtxoStore> InputSelector<'a, S> {
 
 #[cfg(test)]
 mod tests {
-    use tx3_lang::ir;
+    use tx3_tir::model::v1beta0 as tir;
 
     use crate::{inputs::narrow, mock};
 
@@ -151,27 +157,27 @@ mod tests {
         many: bool,
         collateral: bool,
     ) -> CanonicalQuery {
-        let naked_asset = naked_amount.map(|x| ir::AssetExpr {
-            policy: ir::Expression::None,
-            asset_name: ir::Expression::None,
-            amount: ir::Expression::Number(x as i128),
+        let naked_asset = naked_amount.map(|x| tir::AssetExpr {
+            policy: tir::Expression::None,
+            asset_name: tir::Expression::None,
+            amount: tir::Expression::Number(x as i128),
         });
 
-        let other_assets: Vec<ir::AssetExpr> = other_assets
+        let other_assets: Vec<tir::AssetExpr> = other_assets
             .into_iter()
-            .map(|(asset, amount)| ir::AssetExpr {
-                policy: ir::Expression::Bytes(asset.policy().as_slice().to_vec()),
-                asset_name: ir::Expression::Bytes(asset.name().to_vec()),
-                amount: ir::Expression::Number(amount as i128),
+            .map(|(asset, amount)| tir::AssetExpr {
+                policy: tir::Expression::Bytes(asset.policy().as_slice().to_vec()),
+                asset_name: tir::Expression::Bytes(asset.name().to_vec()),
+                amount: tir::Expression::Number(amount as i128),
             })
             .collect();
 
         let all_assets = naked_asset.into_iter().chain(other_assets).collect();
 
-        ir::InputQuery {
-            address: ir::Expression::Address(address.to_bytes()),
-            min_amount: ir::Expression::Assets(all_assets),
-            r#ref: ir::Expression::None,
+        tir::InputQuery {
+            address: tir::Expression::Address(address.to_bytes()),
+            min_amount: tir::Expression::Assets(all_assets),
+            r#ref: tir::Expression::None,
             many,
             collateral,
         }
@@ -216,10 +222,10 @@ mod tests {
             2..4,
         );
 
-        let empty_criteria = ir::InputQuery {
-            address: ir::Expression::None,
-            min_amount: ir::Expression::None,
-            r#ref: ir::Expression::None,
+        let empty_criteria = tir::InputQuery {
+            address: tir::Expression::None,
+            min_amount: tir::Expression::None,
+            r#ref: tir::Expression::None,
             many: false,
             collateral: false,
         }

@@ -13,12 +13,17 @@ homepage.workspace = true
 readme.workspace = true
 
 [dependencies]
-tx3-lang = { version = "0.13.0", path = "../tx3-lang" }
+tx3-tir = { version = "0.14.3", path = "../tx3-tir" }
 
 thiserror = { workspace = true }
 trait-variant = { workspace = true }
 hex = { workspace = true }
+serde = { workspace = true }
+
 approx = "0.5.1"
+serde_json = "1.0.137"
+base64 = "0.22.1"
+bech32 = "0.11.1"
 
 [dev-dependencies]
 pollster = { version = "0.4.0", features = ["macro"] }

@@ -119,10 +119,6 @@ type_def = _{
     alias_def
 }
 
-static_asset_constructor = {
-    identifier ~ "(" ~ data_expr ~ ("," ~ data_expr)? ~ ")"
-}
-
 any_asset_constructor = {
     "AnyAsset" ~ "(" ~ data_expr ~ "," ~ data_expr ~ "," ~ data_expr ~ ")"
 }
@@ -131,13 +127,9 @@ concat_constructor = {
     "concat" ~ "(" ~ data_expr ~ "," ~ data_expr ~ ")"
 }
 
-min_utxo = { "min_utxo" ~ "(" ~ identifier ~ ")" }
-
-tip_slot = { "tip_slot" ~ "(" ~ ")" }
-
-slot_to_time = { "slot_to_time" ~ "(" ~ data_expr ~ ")" }
-
-time_to_slot = { "time_to_slot" ~ "(" ~ data_expr ~ ")" }
+fn_call = {
+    identifier ~ "(" ~ (data_expr ~ ("," ~ data_expr)* ~ ","?)? ~ ")"
+}
 
 data_expr = { data_prefix* ~ data_primary ~ data_postfix* ~ (data_infix ~ data_prefix* ~ data_primary ~ data_postfix* )* }
 
@@ -159,16 +151,12 @@ data_expr = { data_prefix* ~ data_primary ~ data_postfix* ~ (data_infix ~ data_p
         number |
         bool |
         string |
-        min_utxo |
-        tip_slot |
-        slot_to_time |
-        time_to_slot |
         struct_constructor |
         list_constructor |
         map_constructor |
         concat_constructor |
         any_asset_constructor |
-        static_asset_constructor |
+        fn_call |
         identifier |
         "(" ~ data_expr ~ ")"
     }
@@ -451,6 +439,10 @@ tx_body_block = _{
     validity_block
 }
 
+import_def = {
+    "import" ~ string ~ ("as" ~ identifier)? ~ ";"
+}
+
 env_field = { identifier ~ ":" ~ type }
 
 env_def = {
@@ -462,23 +454,9 @@ tx_def = {
     "tx" ~ identifier ~ parameter_list ~ "{" ~ tx_body_block* ~ "}"
 }
 
-blueprint_import = {
-  "blueprint::import" ~ string ~ ";"
-}
-
-tx3_import = {
-  "tx3::import" ~ string ~ ";"
-}
-
-import = {
-  blueprint_import |
-  tx3_import
-}
-
 // Program
 program = {
     SOI ~
-    import* ~
-    (env_def | asset_def | party_def | policy_def | type_def | tx_def)* ~
+    (import_def | env_def | asset_def | party_def | policy_def | type_def | tx_def)* ~
     EOI
 }

@@ -1,4 +1,5 @@
 {
+  "imports": [],
   "env": {
     "fields": [
       {
@@ -209,8 +210,8 @@
               "MinAmount": {
                 "AddOp": {
                   "lhs": {
-                    "StaticAssetConstructor": {
-                      "type": {
+                    "FnCall": {
+                      "callee": {
                         "value": "Ada",
                         "span": {
                           "dummy": false,
@@ -218,16 +219,18 @@
                           "end": 705
                         }
                       },
-                      "amount": {
-                        "Identifier": {
-                          "value": "quantity",
-                          "span": {
-                            "dummy": false,
-                            "start": 706,
-                            "end": 714
+                      "args": [
+                        {
+                          "Identifier": {
+                            "value": "quantity",
+                            "span": {
+                              "dummy": false,
+                              "start": 706,
+                              "end": 714
+                            }
                           }
                         }
-                      },
+                      ],
                       "span": {
                         "dummy": false,
                         "start": 702,
@@ -236,12 +239,31 @@
                     }
                   },
                   "rhs": {
-                    "MinUtxo": {
-                      "value": "named_output",
+                    "FnCall": {
+                      "callee": {
+                        "value": "min_utxo",
+                        "span": {
+                          "dummy": false,
+                          "start": 718,
+                          "end": 726
+                        }
+                      },
+                      "args": [
+                        {
+                          "Identifier": {
+                            "value": "named_output",
+                            "span": {
+                              "dummy": false,
+                              "start": 727,
+                              "end": 739
+                            }
+                          }
+                        }
+                      ],
                       "span": {
                         "dummy": false,
-                        "start": 727,
-                        "end": 739
+                        "start": 718,
+                        "end": 740
                       }
                     }
                   },
@@ -754,8 +776,8 @@
                         }
                       },
                       "rhs": {
-                        "StaticAssetConstructor": {
-                          "type": {
+                        "FnCall": {
+                          "callee": {
                             "value": "Ada",
                             "span": {
                               "dummy": false,
@@ -763,9 +785,11 @@
                               "end": 1586
                             }
                           },
-                          "amount": {
-                            "Number": 40
-                          },
+                          "args": [
+                            {
+                              "Number": 40
+                            }
+                          ],
                           "span": {
                             "dummy": false,
                             "start": 1583,
@@ -781,12 +805,31 @@
                     }
                   },
                   "rhs": {
-                    "MinUtxo": {
-                      "value": "named_output",
+                    "FnCall": {
+                      "callee": {
+                        "value": "min_utxo",
+                        "span": {
+                          "dummy": false,
+                          "start": 1593,
+                          "end": 1601
+                        }
+                      },
+                      "args": [
+                        {
+                          "Identifier": {
+                            "value": "named_output",
+                            "span": {
+                              "dummy": false,
+                              "start": 1602,
+                              "end": 1614
+                            }
+                          }
+                        }
+                      ],
                       "span": {
                         "dummy": false,
-                        "start": 1602,
-                        "end": 1614
+                        "start": 1593,
+                        "end": 1615
                       }
                     }
                   },
@@ -809,7 +852,24 @@
       "validity": {
         "fields": [
           {
-            "SinceSlot": "ComputeTipSlot"
+            "SinceSlot": {
+              "FnCall": {
+                "callee": {
+                  "value": "tip_slot",
+                  "span": {
+                    "dummy": false,
+                    "start": 1765,
+                    "end": 1773
+                  }
+                },
+                "args": [],
+                "span": {
+                  "dummy": false,
+                  "start": 1765,
+                  "end": 1775
+                }
+              }
+            }
           },
           {
             "UntilSlot": {
@@ -835,8 +895,8 @@
           "fields": [
             {
               "Amount": {
-                "StaticAssetConstructor": {
-                  "type": {
+                "FnCall": {
+                  "callee": {
                     "value": "StaticAsset",
                     "span": {
                       "dummy": false,
@@ -844,9 +904,11 @@
                       "end": 924
                     }
                   },
-                  "amount": {
-                    "Number": 100
-                  },
+                  "args": [
+                    {
+                      "Number": 100
+                    }
+                  ],
                   "span": {
                     "dummy": false,
                     "start": 913,
@@ -917,8 +979,8 @@
           "fields": [
             {
               "Amount": {
-                "StaticAssetConstructor": {
-                  "type": {
+                "FnCall": {
+                  "callee": {
                     "value": "StaticAsset",
                     "span": {
                       "dummy": false,
@@ -926,9 +988,11 @@
                       "end": 1097
                     }
                   },
-                  "amount": {
-                    "Number": 50
-                  },
+                  "args": [
+                    {
+                      "Number": 50
+                    }
+                  ],
                   "span": {
                     "dummy": false,
                     "start": 1086,

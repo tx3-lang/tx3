@@ -1,5 +1,8 @@
 use std::collections::HashSet;
-use tx3_lang::{AssetClass, CanonicalAssets, Utxo, UtxoSet};
+use tx3_tir::model::{
+    assets::{AssetClass, CanonicalAssets},
+    core::{Utxo, UtxoSet},
+};
 
 use super::CoinSelection;
 
@@ -137,7 +140,7 @@ impl VectorSelector {
         let classes: Vec<_> = class_union!(search_space, target);
 
         let mut candidates = Vec::from_iter(search_space);
-        candidates.sort_by_cached_key(|utxo| utxo.assets.distance(&target, &classes));
+        candidates.sort_by_cached_key(|utxo| utxo.assets.distance(target, &classes));
         candidates.reverse();
 
         candidates

@@ -1,11 +1,8 @@
 use std::collections::HashSet;
 
-use tx3_lang::{
-    backend::{UtxoPattern, UtxoStore},
-    AssetClass, UtxoRef,
-};
+use tx3_tir::model::{assets::AssetClass, core::UtxoRef};
 
-use crate::inputs::CanonicalQuery;
+use crate::{inputs::CanonicalQuery, UtxoPattern, UtxoStore};
 
 use super::Error;
 
@@ -214,12 +211,14 @@ pub async fn narrow_search_space<T: UtxoStore>(
 mod tests {
     use std::collections::HashSet;
 
+    use tx3_tir::model::assets::CanonicalAssets;
+
     use super::*;
 
     use crate::mock;
 
-    fn assets_for(asset: mock::KnownAsset, amount: i128) -> tx3_lang::CanonicalAssets {
-        tx3_lang::CanonicalAssets::from_asset(
+    fn assets_for(asset: mock::KnownAsset, amount: i128) -> CanonicalAssets {
+        CanonicalAssets::from_asset(
             Some(asset.policy().as_ref()),
             Some(asset.name().as_ref()),
             amount,
@@ -228,7 +227,7 @@ mod tests {
 
     fn cq(
         address: Option<&mock::KnownAddress>,
-        min_assets: Option<tx3_lang::CanonicalAssets>,
+        min_assets: Option<CanonicalAssets>,
         refs: HashSet<UtxoRef>,
     ) -> CanonicalQuery {
         CanonicalQuery {
@@ -253,7 +252,7 @@ mod tests {
         )
     }
 
-    async fn assert_space_matches<T: tx3_lang::backend::UtxoStore>(
+    async fn assert_space_matches<T: UtxoStore>(
         store: &T,
         criteria: CanonicalQuery,
         expected: HashSet<UtxoRef>,
@@ -389,7 +388,7 @@ mod tests {
         // include a distractor ref that does not satisfy all dims
         let bob = mock::KnownAddress::Bob;
         let bob_refs = store
-            .narrow_refs(tx3_lang::backend::UtxoPattern::by_address(&bob.to_bytes()))
+            .narrow_refs(UtxoPattern::by_address(&bob.to_bytes()))
             .await
             .unwrap();
         let distractor = bob_refs.iter().next().unwrap().clone();

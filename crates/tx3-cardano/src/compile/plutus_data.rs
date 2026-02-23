@@ -1,7 +1,7 @@
 pub use pallas::codec::utils::Int;
 use pallas::codec::utils::KeyValuePairs;
 pub use pallas::ledger::primitives::{BigInt, BoundedBytes, Constr, MaybeIndefArray, PlutusData};
-use tx3_lang::ir;
+use tx3_tir::model::v1beta0 as tir;
 
 pub trait IntoData {
     fn as_data(&self) -> PlutusData;
@@ -89,7 +89,7 @@ impl IntoData for i128 {
     }
 }
 
-impl TryIntoData for Vec<ir::Expression> {
+impl TryIntoData for Vec<tir::Expression> {
     fn try_as_data(&self) -> Result<PlutusData, super::Error> {
         let items = self
             .iter()
@@ -100,7 +100,7 @@ impl TryIntoData for Vec<ir::Expression> {
     }
 }
 
-impl TryIntoData for Vec<(ir::Expression, ir::Expression)> {
+impl TryIntoData for Vec<(tir::Expression, tir::Expression)> {
     fn try_as_data(&self) -> Result<PlutusData, super::Error> {
         let items = self
             .iter()
@@ -111,7 +111,7 @@ impl TryIntoData for Vec<(ir::Expression, ir::Expression)> {
     }
 }
 
-impl TryIntoData for ir::StructExpr {
+impl TryIntoData for tir::StructExpr {
     fn try_as_data(&self) -> Result<PlutusData, super::Error> {
         let fields = self
             .fields
@@ -135,19 +135,19 @@ where
     }
 }
 
-impl TryIntoData for ir::Expression {
+impl TryIntoData for tir::Expression {
     fn try_as_data(&self) -> Result<PlutusData, super::Error> {
         match self {
-            ir::Expression::None => Ok(().as_data()),
-            ir::Expression::Struct(x) => x.try_as_data(),
-            ir::Expression::Bytes(x) => Ok(x.as_data()),
-            ir::Expression::Number(x) => Ok(x.as_data()),
-            ir::Expression::Bool(x) => Ok(x.as_data()),
-            ir::Expression::String(x) => Ok(x.as_bytes().as_data()),
-            ir::Expression::Address(x) => Ok(x.as_data()),
-            ir::Expression::Hash(x) => Ok(x.as_data()),
-            ir::Expression::List(x) => x.try_as_data(),
-            ir::Expression::Map(x) => x.try_as_data(),
+            tir::Expression::None => Ok(().as_data()),
+            tir::Expression::Struct(x) => x.try_as_data(),
+            tir::Expression::Bytes(x) => Ok(x.as_data()),
+            tir::Expression::Number(x) => Ok(x.as_data()),
+            tir::Expression::Bool(x) => Ok(x.as_data()),
+            tir::Expression::String(x) => Ok(x.as_bytes().as_data()),
+            tir::Expression::Address(x) => Ok(x.as_data()),
+            tir::Expression::Hash(x) => Ok(x.as_data()),
+            tir::Expression::List(x) => x.try_as_data(),
+            tir::Expression::Map(x) => x.try_as_data(),
             x => Err(super::Error::CoerceError(
                 format!("{x:?}"),
                 "PlutusData".to_string(),

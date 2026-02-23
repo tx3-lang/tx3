@@ -12,7 +12,7 @@ use crate::parsing::AstNode;
 
 const METADATA_MAX_SIZE_BYTES: usize = 64;
 
-#[derive(Debug, thiserror::Error, miette::Diagnostic, PartialEq, Eq)]
+#[derive(Debug, thiserror::Error, miette::Diagnostic, PartialEq, Eq, Clone)]
 #[error("not in scope: {name}")]
 #[diagnostic(code(tx3::not_in_scope))]
 pub struct NotInScopeError {
@@ -25,7 +25,7 @@ pub struct NotInScopeError {
     span: Span,
 }
 
-#[derive(Debug, thiserror::Error, miette::Diagnostic, PartialEq, Eq)]
+#[derive(Debug, thiserror::Error, miette::Diagnostic, PartialEq, Eq, Clone)]
 #[error("invalid symbol, expected {expected}, got {got}")]
 #[diagnostic(code(tx3::invalid_symbol))]
 pub struct InvalidSymbolError {
@@ -39,7 +39,7 @@ pub struct InvalidSymbolError {
     span: Span,
 }
 
-#[derive(Debug, thiserror::Error, miette::Diagnostic, PartialEq, Eq)]
+#[derive(Debug, thiserror::Error, miette::Diagnostic, PartialEq, Eq, Clone)]
 #[error("invalid type ({got}), expected: {expected}")]
 #[diagnostic(code(tx3::invalid_type))]
 pub struct InvalidTargetTypeError {
@@ -53,7 +53,7 @@ pub struct InvalidTargetTypeError {
     span: Span,
 }
 
-#[derive(Debug, thiserror::Error, miette::Diagnostic, PartialEq, Eq)]
+#[derive(Debug, thiserror::Error, miette::Diagnostic, PartialEq, Eq, Clone)]
 #[error("optional output ({name}) cannot have a datum")]
 #[diagnostic(code(tx3::optional_output_datum))]
 pub struct OptionalOutputError {
@@ -66,7 +66,7 @@ pub struct OptionalOutputError {
     span: Span,
 }
 
-#[derive(Debug, thiserror::Error, miette::Diagnostic, PartialEq, Eq)]
+#[derive(Debug, thiserror::Error, miette::Diagnostic, PartialEq, Eq, Clone)]
 #[error("metadata value exceeds 64 bytes: {size} bytes found")]
 #[diagnostic(code(tx3::metadata_size_limit_exceeded))]
 pub struct MetadataSizeLimitError {
@@ -79,7 +79,7 @@ pub struct MetadataSizeLimitError {
     span: Span,
 }
 
-#[derive(Debug, thiserror::Error, miette::Diagnostic, PartialEq, Eq)]
+#[derive(Debug, thiserror::Error, miette::Diagnostic, PartialEq, Eq, Clone)]
 #[error("metadata key must be an integer, got: {key_type}")]
 #[diagnostic(code(tx3::metadata_invalid_key_type))]
 pub struct MetadataInvalidKeyTypeError {
@@ -92,7 +92,7 @@ pub struct MetadataInvalidKeyTypeError {
     span: Span,
 }
 
-#[derive(thiserror::Error, Debug, miette::Diagnostic, PartialEq, Eq)]
+#[derive(thiserror::Error, Debug, miette::Diagnostic, PartialEq, Eq, Clone)]
 pub enum Error {
     #[error("duplicate definition: {0}")]
     #[diagnostic(code(tx3::duplicate_definition))]
@@ -169,6 +169,7 @@ impl Error {
             Symbol::AssetDef(asset) => format!("AssetDef({})", asset.name.value),
             Symbol::EnvVar(name, _) => format!("EnvVar({})", name),
             Symbol::ParamVar(name, _) => format!("ParamVar({})", name),
+            Symbol::Function(name) => format!("Function({})", name),
             Symbol::LocalExpr(_) => "LocalExpr".to_string(),
             Symbol::Input(_) => "Input".to_string(),
             Symbol::Output(_) => "Output".to_string(),
@@ -203,7 +204,7 @@ impl Error {
     }
 }
 
-#[derive(Debug, Default, thiserror::Error, Diagnostic)]
+#[derive(Debug, Default, thiserror::Error, Diagnostic, Clone)]
 pub struct AnalyzeReport {
     #[related]
     pub errors: Vec<Error>,
@@ -302,6 +303,8 @@ macro_rules! bail_report {
         { return AnalyzeReport::from(vec![$($args),*]); }
     };
 }
+
+const BUILTIN_FUNCTIONS: &[&str] = &["min_utxo", "tip_slot", "slot_to_time", "time_to_slot"];
 
 impl Scope {
     pub fn new(parent: Option<Rc<Scope>>) -> Self {
@@ -407,6 +410,8 @@ impl Scope {
             Some(symbol.clone())
         } else if let Some(parent) = &self.parent {
             parent.resolve(name)
+        } else if BUILTIN_FUNCTIONS.contains(&name) {
+            Some(Symbol::Function(name.to_string()))
         } else {
             None
         }
@@ -697,8 +702,8 @@ impl Analyzable for DataExpr {
             DataExpr::SubOp(x) => x.analyze(parent),
             DataExpr::NegateOp(x) => x.analyze(parent),
             DataExpr::PropertyOp(x) => x.analyze(parent),
-            DataExpr::StaticAssetConstructor(x) => x.analyze(parent),
             DataExpr::AnyAssetConstructor(x) => x.analyze(parent),
+            DataExpr::FnCall(x) => x.analyze(parent),
             DataExpr::MinUtxo(x) => x.analyze(parent),
             DataExpr::SlotToTime(x) => x.analyze(parent),
             DataExpr::TimeToSlot(x) => x.analyze(parent),
@@ -717,8 +722,8 @@ impl Analyzable for DataExpr {
             DataExpr::SubOp(x) => x.is_resolved(),
             DataExpr::NegateOp(x) => x.is_resolved(),
             DataExpr::PropertyOp(x) => x.is_resolved(),
-            DataExpr::StaticAssetConstructor(x) => x.is_resolved(),
             DataExpr::AnyAssetConstructor(x) => x.is_resolved(),
+            DataExpr::FnCall(x) => x.is_resolved(),
             DataExpr::MinUtxo(x) => x.is_resolved(),
             DataExpr::SlotToTime(x) => x.is_resolved(),
             DataExpr::TimeToSlot(x) => x.is_resolved(),
@@ -728,16 +733,21 @@ impl Analyzable for DataExpr {
     }
 }
 
-impl Analyzable for StaticAssetConstructor {
+impl Analyzable for crate::ast::FnCall {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        let amount = self.amount.analyze(parent.clone());
-        let r#type = self.r#type.analyze(parent.clone());
+        let callee = self.callee.analyze(parent.clone());
 
-        amount + r#type
+        let mut args_report = AnalyzeReport::default();
+
+        for arg in &mut self.args {
+            args_report = args_report + arg.analyze(parent.clone());
+        }
+
+        callee + args_report
     }
 
     fn is_resolved(&self) -> bool {
-        self.amount.is_resolved() && self.r#type.is_resolved()
+        self.callee.is_resolved() && self.args.iter().all(|arg| arg.is_resolved())
     }
 }
 
@@ -1220,81 +1230,69 @@ impl Analyzable for ParameterList {
     }
 }
 
+impl TxDef {
+    // best effort to analyze artifacts that might be circularly dependent on each other
+    fn best_effort_analyze_circular_dependencies(&mut self, mut scope: Scope) -> Scope {
+        if let Some(locals) = &self.locals {
+            for assign in locals.assigns.iter() {
+                scope.track_local_expr(&assign.name.value, assign.value.clone());
+            }
+        }
+
+        for (_, input) in self.inputs.iter().enumerate() {
+            scope.track_input(&input.name, input.clone())
+        }
+
+        for (index, output) in self.outputs.iter().enumerate() {
+            scope.track_output(index, output.clone())
+        }
+
+        let scope_snapshot = Rc::new(scope);
+        let _ = self.locals.analyze(Some(scope_snapshot.clone()));
+        let _ = self.inputs.analyze(Some(scope_snapshot.clone()));
+        let _ = self.outputs.analyze(Some(scope_snapshot.clone()));
+
+        Scope::new(Some(scope_snapshot))
+    }
+}
+
 impl Analyzable for TxDef {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
         // analyze static types before anything else
-
         let params = self.parameters.analyze(parent.clone());
 
         // create the new scope and populate its symbols
 
-        let parent = {
-            let mut current = Scope::new(parent.clone());
+        let mut scope = Scope::new(parent.clone());
 
-            current.symbols.insert("fees".to_string(), Symbol::Fees);
+        scope.symbols.insert("fees".to_string(), Symbol::Fees);
 
-            for param in self.parameters.parameters.iter() {
-                current.track_param_var(&param.name.value, param.r#type.clone());
-            }
-            Rc::new(current)
-        };
+        for param in self.parameters.parameters.iter() {
+            scope.track_param_var(&param.name.value, param.r#type.clone());
+        }
 
-        let mut locals = self.locals.take().unwrap_or_default();
+        for _ in 0..9 {
+            scope = self.best_effort_analyze_circular_dependencies(scope);
+        }
 
-        let locals_report = locals.analyze(Some(parent.clone()));
+        let final_scope = Rc::new(scope);
 
-        let parent = {
-            let mut current = Scope::new(Some(parent.clone()));
+        let locals = self.locals.analyze(Some(final_scope.clone()));
+        let inputs = self.inputs.analyze(Some(final_scope.clone()));
+        let outputs = self.outputs.analyze(Some(final_scope.clone()));
+        let mints = self.mints.analyze(Some(final_scope.clone()));
+        let burns = self.burns.analyze(Some(final_scope.clone()));
+        let adhoc = self.adhoc.analyze(Some(final_scope.clone()));
+        let validity = self.validity.analyze(Some(final_scope.clone()));
+        let metadata = self.metadata.analyze(Some(final_scope.clone()));
+        let signers = self.signers.analyze(Some(final_scope.clone()));
+        let references = self.references.analyze(Some(final_scope.clone()));
+        let collateral = self.collateral.analyze(Some(final_scope.clone()));
 
-            for assign in locals.assigns.iter() {
-                current.track_local_expr(&assign.name.value, assign.value.clone());
-            }
-
-            for (index, output) in self.outputs.iter().enumerate() {
-                current.track_output(index, output.clone())
-            }
-
-            Rc::new(current)
-        };
-
-        let inputs = self.inputs.analyze(Some(parent.clone()));
-
-        let parent = {
-            let mut current = Scope::new(Some(parent.clone()));
-
-            for input in self.inputs.iter() {
-                current.track_input(&input.name, input.clone());
-            }
-
-            for (index, output) in self.outputs.iter().enumerate() {
-                current.track_output(index, output.clone())
-            }
-
-            Rc::new(current)
-        };
-
-        let outputs = self.outputs.analyze(Some(parent.clone()));
-
-        let mints = self.mints.analyze(Some(parent.clone()));
-
-        let burns = self.burns.analyze(Some(parent.clone()));
-
-        let adhoc = self.adhoc.analyze(Some(parent.clone()));
-
-        let validity = self.validity.analyze(Some(parent.clone()));
-
-        let metadata = self.metadata.analyze(Some(parent.clone()));
-
-        let signers = self.signers.analyze(Some(parent.clone()));
-
-        let references = self.references.analyze(Some(parent.clone()));
-
-        let collateral = self.collateral.analyze(Some(parent.clone()));
-
-        self.scope = Some(parent);
+        self.scope = Some(final_scope);
 
         params
-            + locals_report
+            + locals
             + inputs
             + outputs
             + mints
@@ -1368,7 +1366,7 @@ impl Analyzable for Program {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
         let mut scope = Scope::new(parent);
 
-        if let Some(env) = self.env.take() {
+        if let Some(env) = self.env.as_ref() {
             for field in env.fields.iter() {
                 scope.track_env_var(&field.name, field.r#type.clone());
             }

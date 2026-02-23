@@ -41,6 +41,7 @@ pub enum Symbol {
     AliasDef(Box<AliasDef>),
     RecordField(Box<RecordField>),
     VariantCase(Box<VariantCase>),
+    Function(String),
     Fees,
 }
 
@@ -186,15 +187,10 @@ pub enum ImportKind {
     Tx3,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct Import {
-    pub span: Span,
-    pub path: String,
-    pub kind: ImportKind,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct Program {
+    #[serde(default)]
+    pub imports: Vec<ImportDef>,
     pub env: Option<EnvDef>,
     pub txs: Vec<TxDef>,
     pub types: Vec<TypeDef>,
@@ -202,7 +198,6 @@ pub struct Program {
     pub assets: Vec<AssetDef>,
     pub parties: Vec<PartyDef>,
     pub policies: Vec<PolicyDef>,
-    pub imports: Vec<Import>,
     pub span: Span,
 
     // analysis
@@ -214,6 +209,13 @@ impl Program {
     pub fn scope(&self) -> Option<&Rc<Scope>> {
         self.scope.as_ref()
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ImportDef {
+    pub path: StringLiteral,
+    pub alias: Option<Identifier>,
+    pub span: Span,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -567,19 +569,6 @@ pub enum PolicyValue {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct StaticAssetConstructor {
-    pub r#type: Identifier,
-    pub amount: Box<DataExpr>,
-    pub span: Span,
-}
-
-impl StaticAssetConstructor {
-    pub fn target_type(&self) -> Option<Type> {
-        Some(Type::AnyAsset)
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AnyAssetConstructor {
     pub policy: Box<DataExpr>,
     pub asset_name: Box<DataExpr>,
@@ -757,6 +746,13 @@ impl ConcatOp {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct FnCall {
+    pub callee: Identifier,
+    pub args: Vec<DataExpr>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum DataExpr {
     None,
     Unit,
@@ -767,7 +763,6 @@ pub enum DataExpr {
     StructConstructor(StructConstructor),
     ListConstructor(ListConstructor),
     MapConstructor(MapConstructor),
-    StaticAssetConstructor(StaticAssetConstructor),
     AnyAssetConstructor(AnyAssetConstructor),
     Identifier(Identifier),
     MinUtxo(Identifier),
@@ -780,6 +775,7 @@ pub enum DataExpr {
     NegateOp(NegateOp),
     PropertyOp(PropertyOp),
     UtxoRef(UtxoRef),
+    FnCall(FnCall),
 }
 
 impl DataExpr {
@@ -810,13 +806,13 @@ impl DataExpr {
             DataExpr::ConcatOp(x) => x.target_type(),
             DataExpr::NegateOp(x) => x.target_type(),
             DataExpr::PropertyOp(x) => x.target_type(),
-            DataExpr::StaticAssetConstructor(x) => x.target_type(),
             DataExpr::AnyAssetConstructor(x) => x.target_type(),
             DataExpr::UtxoRef(_) => Some(Type::UtxoRef),
             DataExpr::MinUtxo(_) => Some(Type::AnyAsset),
             DataExpr::ComputeTipSlot => Some(Type::Int),
             DataExpr::SlotToTime(_) => Some(Type::Int),
             DataExpr::TimeToSlot(_) => Some(Type::Int),
+            DataExpr::FnCall(_) => None, // Function call return type determined by symbol resolution
         }
     }
 }
@@ -976,6 +972,28 @@ impl TypeDef {
     pub(crate) fn find_case(&self, case: &str) -> Option<&VariantCase> {
         self.cases.iter().find(|x| x.name.value == case)
     }
+
+    pub fn to_tx3_source(&self) -> String {
+        let name = &self.name.value;
+        // Implicit cases don't have an explicit constructor on its usage
+        if self.cases.len() == 1 && self.cases[0].name.value == "Default" {
+            let fields = &self.cases[0].fields;
+            let fields_str = fields
+                .iter()
+                .map(|f| format!("{}: {}", f.name.value, f.r#type))
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!("type {} {{ {} }}", name, fields_str)
+        } else {
+            let cases_str = self
+                .cases
+                .iter()
+                .map(VariantCase::to_tx3_source)
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!("type {} {{ {} }}", name, cases_str)
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -994,6 +1012,21 @@ impl VariantCase {
     #[allow(dead_code)]
     pub(crate) fn find_field(&self, field: &str) -> Option<&RecordField> {
         self.fields.iter().find(|x| x.name.value == field)
+    }
+
+    fn to_tx3_source(&self) -> String {
+        let name = &self.name.value;
+        if self.fields.is_empty() {
+            name.clone()
+        } else {
+            let fields_str = self
+                .fields
+                .iter()
+                .map(|f| format!("{}: {}", f.name.value, f.r#type))
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!("{} {{ {} }}", name, fields_str)
+        }
     }
 }
 

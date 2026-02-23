@@ -1,0 +1,63 @@
+import "../crates/cip-57/examples/plutus.json" as plutus;
+
+party Admin;
+
+tx create_settings(
+    now: Int,
+) {
+    input fee_source {
+        from: Admin,
+        min_amount: 1000000,
+    }
+
+    output settings {
+        to: Admin,
+        datum: plutus_types_SettingsDatum {
+            githoney_address: plutus_cardano_address_Address {
+                payment_credential: plutus_cardano_address_PaymentCredential::VerificationKey {
+                    field: 0x12345678901234567890123456789012345678901234567890123456,
+                },
+                stake_credential: plutus_Option_cardano_address_StakeCredential::None {},
+            },
+            bounty_creation_fee: 500,
+            bounty_reward_fee: 100,
+        },
+        amount: 2000000,
+    }
+}
+
+
+// blueprint::import "imports/plutus.json";
+
+// party Sender;
+
+// party Receiver;
+
+// tx transfer_with_imports(
+//     quantity: Int
+// ) {
+//     input source {
+//         from: Sender,
+//         min_amount: Ada(quantity),
+//     }
+
+//     output {
+//         to: Receiver,
+//         amount: Ada(quantity),
+//     }
+
+//     output {
+//         to: Sender,
+//         amount: source - Ada(quantity) - fees,
+//         datum: SettingsDatum::SettingsDatum {
+//           githoney_address: Address::Address{
+//             payment_credential: PaymentCredential::VerificationKey {
+//               field_0: 0x123123,
+//             },
+//             stake_credential: OptionStakeCredential::None {},
+//           },
+//           bounty_creation_fee: 0,
+//           bounty_reward_fee: 0,
+//         },
+//     }
+// }

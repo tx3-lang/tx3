@@ -1,10 +1,68 @@
-use crate::{ir::Type, UtxoRef};
 use base64::Engine as _;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Number, Value};
+use serde_json::{Number, Value};
 use thiserror::Error;
 
-pub use crate::ArgValue;
+use tx3_tir::model::core::{Type, UtxoRef};
+pub use tx3_tir::reduce::ArgValue;
+
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error("invalid base64: {0}")]
+    InvalidBase64(#[from] base64::DecodeError),
+
+    #[error("invalid hex: {0}")]
+    InvalidHex(#[from] hex::FromHexError),
+
+    #[error("invalid bech32: {0}")]
+    InvalidBech32(#[from] bech32::DecodeError),
+
+    #[error("value is not a valid number: {0}")]
+    InvalidBytesForNumber(String),
+
+    #[error("value is null")]
+    ValueIsNull,
+
+    #[error("can't infer type for value: {0}")]
+    CantInferTypeForValue(Value),
+
+    #[error("value is not a number: {0}")]
+    ValueIsNotANumber(Value),
+
+    #[error("value can't fit: {0}")]
+    NumberCantFit(Number),
+
+    #[error("value is not a bool: {0}")]
+    ValueIsNotABool(Value),
+
+    #[error("value is not a string")]
+    ValueIsNotAString,
+
+    #[error("value is not bytes: {0}")]
+    ValueIsNotBytes(Value),
+
+    #[error("value is not a utxo ref: {0}")]
+    ValueIsNotUtxoRef(Value),
+
+    #[error("invalid bytes envelope: {0}")]
+    InvalidBytesEnvelope(serde_json::Error),
+
+    #[error("value is not an address: {0}")]
+    ValueIsNotAnAddress(Value),
+
+    #[error("invalid utxo ref: {0}")]
+    InvalidUtxoRef(String),
+
+    #[error("target type not supported: {0:?}")]
+    TargetTypeNotSupported(Type),
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(rename_all = "lowercase")]
+pub enum BytesEncoding {
+    Base64,
+    Hex,
+}
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct BytesEnvelope {
@@ -30,44 +88,60 @@ impl From<BytesEnvelope> for Vec<u8> {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
-#[serde(rename_all = "lowercase")]
-pub enum BytesEncoding {
-    Base64,
-    Hex,
+fn has_hex_prefix(s: &str) -> bool {
+    s.starts_with("0x")
 }
 
-fn utxoref_to_value(x: UtxoRef) -> Value {
-    Value::String(format!("{}#{}", hex::encode(x.txid), x.index))
-}
-
-fn bigint_to_value(i: i128) -> Value {
-    if i >= i64::MIN as i128 && i <= i64::MAX as i128 {
-        Value::Number((i as i64).into())
+pub fn string_to_bigint(s: String) -> Result<i128, Error> {
+    if has_hex_prefix(&s) {
+        let bytes = hex_to_bytes(&s)?;
+        let bytes = <[u8; 16]>::try_from(bytes)
+            .map_err(|x| Error::InvalidBytesForNumber(hex::encode(x)))?;
+        Ok(i128::from_be_bytes(bytes))
     } else {
-        let ashex = hex::encode(i.to_be_bytes());
-        Value::String(format!("0x{ashex}"))
+        let i = i128::from_str_radix(&s, 10)
+            .map_err(|x| Error::InvalidBytesForNumber(x.to_string()))?;
+        Ok(i)
     }
+}
+
+pub fn hex_to_bytes(s: &str) -> Result<Vec<u8>, Error> {
+    let s = if has_hex_prefix(s) {
+        s.trim_start_matches("0x")
+    } else {
+        s
+    };
+
+    let out = hex::decode(s)?;
+
+    Ok(out)
+}
+
+pub fn base64_to_bytes(s: &str) -> Result<Vec<u8>, Error> {
+    let out = base64::engine::general_purpose::STANDARD.decode(s)?;
+
+    Ok(out)
+}
+
+pub fn bech32_to_bytes(s: &str) -> Result<Vec<u8>, Error> {
+    let (_, data) = bech32::decode(s)?;
+
+    Ok(data)
 }
 
 fn number_to_bigint(x: Number) -> Result<i128, Error> {
     x.as_i128().ok_or(Error::NumberCantFit(x))
 }
 
-fn string_to_bigint(s: String) -> Result<i128, Error> {
-    let bytes = hex_to_bytes(&s)?;
-    let bytes =
-        <[u8; 16]>::try_from(bytes).map_err(|x| Error::InvalidBytesForNumber(hex::encode(x)))?;
-    Ok(i128::from_be_bytes(bytes))
-}
-
 fn value_to_bigint(value: Value) -> Result<i128, Error> {
-    match value {
-        Value::Number(n) => number_to_bigint(n),
-        Value::String(s) => string_to_bigint(s),
-        Value::Null => Err(Error::ValueIsNull),
-        x => Err(Error::ValueIsNotANumber(x)),
-    }
+    let out = match value {
+        Value::Number(n) => number_to_bigint(n)?,
+        Value::String(s) => string_to_bigint(s)?,
+        Value::Null => return Err(Error::ValueIsNull),
+        x => return Err(Error::ValueIsNotANumber(x)),
+    };
+
+    Ok(out)
 }
 
 fn value_to_bool(value: Value) -> Result<bool, Error> {
@@ -81,51 +155,34 @@ fn value_to_bool(value: Value) -> Result<bool, Error> {
     }
 }
 
-fn hex_to_bytes(s: &str) -> Result<Vec<u8>, Error> {
-    let s = if s.starts_with("0x") {
-        s.trim_start_matches("0x")
-    } else {
-        s
-    };
-
-    hex::decode(s).map_err(Error::InvalidHex)
-}
-
-fn base64_to_bytes(s: &str) -> Result<Vec<u8>, Error> {
-    base64::engine::general_purpose::STANDARD
-        .decode(s)
-        .map_err(Error::InvalidBase64)
-}
-
 fn value_to_bytes(value: Value) -> Result<Vec<u8>, Error> {
-    match value {
-        Value::String(s) => hex_to_bytes(&s),
+    let out = match value {
+        Value::String(s) => hex_to_bytes(&s)?,
         Value::Object(_) => {
             let envelope: BytesEnvelope =
                 serde_json::from_value(value).map_err(Error::InvalidBytesEnvelope)?;
 
             match envelope.encoding {
-                BytesEncoding::Base64 => base64_to_bytes(&envelope.content),
-                BytesEncoding::Hex => hex_to_bytes(&envelope.content),
+                BytesEncoding::Base64 => base64_to_bytes(&envelope.content)?,
+                BytesEncoding::Hex => hex_to_bytes(&envelope.content)?,
             }
         }
-        x => Err(Error::ValueIsNotBytes(x)),
-    }
-}
+        x => return Err(Error::ValueIsNotBytes(x)),
+    };
 
-fn bech32_to_bytes(s: &str) -> Result<Vec<u8>, Error> {
-    let (_, data) = bech32::decode(s).map_err(Error::InvalidBech32)?;
-    Ok(data)
+    Ok(out)
 }
 
 fn value_to_address(value: Value) -> Result<Vec<u8>, Error> {
-    match value {
+    let out = match value {
         Value::String(s) => match bech32_to_bytes(&s) {
-            Ok(data) => Ok(data),
-            Err(_) => hex_to_bytes(&s),
+            Ok(data) => data,
+            Err(_) => hex_to_bytes(&s)?,
         },
-        x => Err(Error::ValueIsNotAnAddress(x)),
-    }
+        x => return Err(Error::ValueIsNotAnAddress(x)),
+    };
+
+    Ok(out)
 }
 
 fn value_to_underfined(value: Value) -> Result<ArgValue, Error> {
@@ -154,72 +211,6 @@ fn value_to_utxo_ref(value: Value) -> Result<UtxoRef, Error> {
     match value {
         Value::String(s) => string_to_utxo_ref(&s),
         x => Err(Error::ValueIsNotUtxoRef(x)),
-    }
-}
-
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("value is null")]
-    ValueIsNull,
-
-    #[error("can't infer type for value: {0}")]
-    CantInferTypeForValue(Value),
-
-    #[error("value is not a number: {0}")]
-    ValueIsNotANumber(Value),
-
-    #[error("value can't fit: {0}")]
-    NumberCantFit(Number),
-
-    #[error("value is not a valid number: {0}")]
-    InvalidBytesForNumber(String),
-
-    #[error("value is not a bool: {0}")]
-    ValueIsNotABool(Value),
-
-    #[error("value is not a string")]
-    ValueIsNotAString,
-
-    #[error("value is not bytes: {0}")]
-    ValueIsNotBytes(Value),
-
-    #[error("value is not a utxo ref: {0}")]
-    ValueIsNotUtxoRef(Value),
-
-    #[error("invalid bytes envelope: {0}")]
-    InvalidBytesEnvelope(serde_json::Error),
-
-    #[error("invalid base64: {0}")]
-    InvalidBase64(base64::DecodeError),
-
-    #[error("invalid hex: {0}")]
-    InvalidHex(hex::FromHexError),
-
-    #[error("invalid bech32: {0}")]
-    InvalidBech32(bech32::DecodeError),
-
-    #[error("value is not an address: {0}")]
-    ValueIsNotAnAddress(Value),
-
-    #[error("invalid utxo ref: {0}")]
-    InvalidUtxoRef(String),
-
-    #[error("target type not supported: {0:?}")]
-    TargetTypeNotSupported(Type),
-}
-
-pub fn to_json(value: ArgValue) -> Value {
-    match value {
-        ArgValue::Int(i) => bigint_to_value(i),
-        ArgValue::Bool(b) => Value::Bool(b),
-        ArgValue::String(s) => Value::String(s),
-        ArgValue::Bytes(b) => Value::String(format!("0x{}", hex::encode(b))),
-        ArgValue::Address(a) => Value::String(hex::encode(a)),
-        ArgValue::UtxoSet(x) => {
-            let v = x.into_iter().map(|x| json!(x)).collect();
-            Value::Array(v)
-        }
-        ArgValue::UtxoRef(x) => utxoref_to_value(x),
     }
 }
 
@@ -253,6 +244,7 @@ pub fn from_json(value: Value, target: &Type) -> Result<ArgValue, Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
 
     // TODO: derive PartialEq in upstream tx3-lang
     fn partial_eq(a: ArgValue, b: ArgValue) -> bool {
@@ -293,38 +285,43 @@ mod tests {
         assert!(partial_eq(value, expected));
     }
 
-    fn round_trip_test(value: ArgValue, target: Type) {
-        let json = to_json(value.clone());
-        dbg!(&json);
-        let value2 = from_json(json, &target).unwrap();
-        assert!(partial_eq(value, value2));
-    }
-
     #[test]
     fn test_round_trip_small_int() {
-        round_trip_test(ArgValue::Int(123456789), Type::Int);
+        json_to_value_test(json!(123456789), Type::Int, ArgValue::Int(123456789));
     }
 
     #[test]
     fn test_round_trip_negative_int() {
-        round_trip_test(ArgValue::Int(-123456789), Type::Int);
+        json_to_value_test(json!(-123456789), Type::Int, ArgValue::Int(-123456789));
     }
 
     #[test]
     fn test_round_trip_big_int() {
-        round_trip_test(ArgValue::Int(12345678901234567890), Type::Int);
+        json_to_value_test(
+            json!("12345678901234567890"),
+            Type::Int,
+            ArgValue::Int(12345678901234567890),
+        );
     }
 
     #[test]
     fn test_round_trip_int_overflow() {
-        round_trip_test(ArgValue::Int(i128::MIN), Type::Int);
-        round_trip_test(ArgValue::Int(i128::MAX), Type::Int);
+        json_to_value_test(
+            json!(i128::MIN.to_string()),
+            Type::Int,
+            ArgValue::Int(i128::MIN),
+        );
+        json_to_value_test(
+            json!(i128::MAX.to_string()),
+            Type::Int,
+            ArgValue::Int(i128::MAX),
+        );
     }
 
     #[test]
     fn test_round_trip_bool() {
-        round_trip_test(ArgValue::Bool(true), Type::Bool);
-        round_trip_test(ArgValue::Bool(false), Type::Bool);
+        json_to_value_test(json!(true), Type::Bool, ArgValue::Bool(true));
+        json_to_value_test(json!(false), Type::Bool, ArgValue::Bool(false));
     }
 
     #[test]
@@ -341,7 +338,17 @@ mod tests {
 
     #[test]
     fn test_round_trip_bytes() {
-        round_trip_test(ArgValue::Bytes(b"hello".to_vec()), Type::Bytes);
+        json_to_value_test(
+            json!(hex::encode("hello")),
+            Type::Bytes,
+            ArgValue::Bytes(b"hello".to_vec()),
+        );
+
+        json_to_value_test(
+            json!(format!("0x{}", hex::encode("hello"))),
+            Type::Bytes,
+            ArgValue::Bytes(b"hello".to_vec()),
+        );
     }
 
     #[test]
@@ -366,7 +373,11 @@ mod tests {
 
     #[test]
     fn test_round_trip_address() {
-        round_trip_test(ArgValue::Address(b"abc123".to_vec()), Type::Address);
+        json_to_value_test(
+            json!(hex::encode("abc123")),
+            Type::Address,
+            ArgValue::Address(b"abc123".to_vec()),
+        );
     }
 
     #[test]

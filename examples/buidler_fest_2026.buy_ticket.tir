@@ -1,0 +1,632 @@
+{
+  "fees": {
+    "EvalParam": "ExpectFees"
+  },
+  "references": [
+    {
+      "EvalParam": {
+        "ExpectValue": [
+          "issuer_script_ref",
+          "UtxoRef"
+        ]
+      }
+    }
+  ],
+  "inputs": [
+    {
+      "name": "funds",
+      "utxos": {
+        "EvalParam": {
+          "ExpectInput": [
+            "funds",
+            {
+              "address": {
+                "EvalParam": {
+                  "ExpectValue": [
+                    "buyer",
+                    "Address"
+                  ]
+                }
+              },
+              "min_amount": {
+                "EvalBuiltIn": {
+                  "Add": [
+                    {
+                      "EvalBuiltIn": {
+                        "Add": [
+                          {
+                            "EvalParam": "ExpectFees"
+                          },
+                          {
+                            "Assets": [
+                              {
+                                "policy": "None",
+                                "asset_name": "None",
+                                "amount": {
+                                  "EvalParam": {
+                                    "ExpectValue": [
+                                      "ticket_price",
+                                      "Int"
+                                    ]
+                                  }
+                                }
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "EvalCompiler": {
+                        "ComputeMinUtxo": {
+                          "Number": 0
+                        }
+                      }
+                    }
+                  ]
+                }
+              },
+              "ref": "None",
+              "many": true,
+              "collateral": false
+            }
+          ]
+        }
+      },
+      "redeemer": "None"
+    },
+    {
+      "name": "current_state",
+      "utxos": {
+        "EvalParam": {
+          "ExpectInput": [
+            "current_state",
+            {
+              "address": {
+                "EvalParam": {
+                  "ExpectValue": [
+                    "issuer",
+                    "Address"
+                  ]
+                }
+              },
+              "min_amount": {
+                "Assets": [
+                  {
+                    "policy": {
+                      "EvalParam": {
+                        "ExpectValue": [
+                          "issuer_beacon_policy",
+                          "Bytes"
+                        ]
+                      }
+                    },
+                    "asset_name": {
+                      "EvalParam": {
+                        "ExpectValue": [
+                          "issuer_beacon_name",
+                          "Bytes"
+                        ]
+                      }
+                    },
+                    "amount": {
+                      "Number": 1
+                    }
+                  }
+                ]
+              },
+              "ref": "None",
+              "many": false,
+              "collateral": false
+            }
+          ]
+        }
+      },
+      "redeemer": {
+        "Struct": {
+          "constructor": 0,
+          "fields": []
+        }
+      }
+    }
+  ],
+  "outputs": [
+    {
+      "address": {
+        "EvalParam": {
+          "ExpectValue": [
+            "buyer",
+            "Address"
+          ]
+        }
+      },
+      "datum": "None",
+      "amount": {
+        "EvalBuiltIn": {
+          "Add": [
+            {
+              "EvalBuiltIn": {
+                "Sub": [
+                  {
+                    "EvalBuiltIn": {
+                      "Sub": [
+                        {
+                          "EvalCoerce": {
+                            "IntoAssets": {
+                              "EvalParam": {
+                                "ExpectInput": [
+                                  "funds",
+                                  {
+                                    "address": {
+                                      "EvalParam": {
+                                        "ExpectValue": [
+                                          "buyer",
+                                          "Address"
+                                        ]
+                                      }
+                                    },
+                                    "min_amount": {
+                                      "EvalBuiltIn": {
+                                        "Add": [
+                                          {
+                                            "EvalBuiltIn": {
+                                              "Add": [
+                                                {
+                                                  "EvalParam": "ExpectFees"
+                                                },
+                                                {
+                                                  "Assets": [
+                                                    {
+                                                      "policy": "None",
+                                                      "asset_name": "None",
+                                                      "amount": {
+                                                        "EvalParam": {
+                                                          "ExpectValue": [
+                                                            "ticket_price",
+                                                            "Int"
+                                                          ]
+                                                        }
+                                                      }
+                                                    }
+                                                  ]
+                                                }
+                                              ]
+                                            }
+                                          },
+                                          {
+                                            "EvalCompiler": {
+                                              "ComputeMinUtxo": {
+                                                "Number": 0
+                                              }
+                                            }
+                                          }
+                                        ]
+                                      }
+                                    },
+                                    "ref": "None",
+                                    "many": true,
+                                    "collateral": false
+                                  }
+                                ]
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "EvalParam": "ExpectFees"
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "Assets": [
+                      {
+                        "policy": "None",
+                        "asset_name": "None",
+                        "amount": {
+                          "EvalParam": {
+                            "ExpectValue": [
+                              "ticket_price",
+                              "Int"
+                            ]
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "Assets": [
+                {
+                  "policy": {
+                    "EvalParam": {
+                      "ExpectValue": [
+                        "ticket_policy",
+                        "Bytes"
+                      ]
+                    }
+                  },
+                  "asset_name": {
+                    "EvalBuiltIn": {
+                      "Concat": [
+                        {
+                          "String": "TICKET"
+                        },
+                        {
+                          "EvalBuiltIn": {
+                            "Property": [
+                              {
+                                "EvalCoerce": {
+                                  "IntoDatum": {
+                                    "EvalParam": {
+                                      "ExpectInput": [
+                                        "current_state",
+                                        {
+                                          "address": {
+                                            "EvalParam": {
+                                              "ExpectValue": [
+                                                "issuer",
+                                                "Address"
+                                              ]
+                                            }
+                                          },
+                                          "min_amount": {
+                                            "Assets": [
+                                              {
+                                                "policy": {
+                                                  "EvalParam": {
+                                                    "ExpectValue": [
+                                                      "issuer_beacon_policy",
+                                                      "Bytes"
+                                                    ]
+                                                  }
+                                                },
+                                                "asset_name": {
+                                                  "EvalParam": {
+                                                    "ExpectValue": [
+                                                      "issuer_beacon_name",
+                                                      "Bytes"
+                                                    ]
+                                                  }
+                                                },
+                                                "amount": {
+                                                  "Number": 1
+                                                }
+                                              }
+                                            ]
+                                          },
+                                          "ref": "None",
+                                          "many": false,
+                                          "collateral": false
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              {
+                                "Number": 0
+                              }
+                            ]
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  "amount": {
+                    "Number": 1
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "optional": false
+    },
+    {
+      "address": {
+        "EvalParam": {
+          "ExpectValue": [
+            "issuer",
+            "Address"
+          ]
+        }
+      },
+      "datum": {
+        "Struct": {
+          "constructor": 0,
+          "fields": [
+            {
+              "EvalBuiltIn": {
+                "Add": [
+                  {
+                    "EvalBuiltIn": {
+                      "Property": [
+                        {
+                          "EvalCoerce": {
+                            "IntoDatum": {
+                              "EvalParam": {
+                                "ExpectInput": [
+                                  "current_state",
+                                  {
+                                    "address": {
+                                      "EvalParam": {
+                                        "ExpectValue": [
+                                          "issuer",
+                                          "Address"
+                                        ]
+                                      }
+                                    },
+                                    "min_amount": {
+                                      "Assets": [
+                                        {
+                                          "policy": {
+                                            "EvalParam": {
+                                              "ExpectValue": [
+                                                "issuer_beacon_policy",
+                                                "Bytes"
+                                              ]
+                                            }
+                                          },
+                                          "asset_name": {
+                                            "EvalParam": {
+                                              "ExpectValue": [
+                                                "issuer_beacon_name",
+                                                "Bytes"
+                                              ]
+                                            }
+                                          },
+                                          "amount": {
+                                            "Number": 1
+                                          }
+                                        }
+                                      ]
+                                    },
+                                    "ref": "None",
+                                    "many": false,
+                                    "collateral": false
+                                  }
+                                ]
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "Number": 0
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "Number": 1
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "amount": {
+        "EvalCoerce": {
+          "IntoAssets": {
+            "EvalParam": {
+              "ExpectInput": [
+                "current_state",
+                {
+                  "address": {
+                    "EvalParam": {
+                      "ExpectValue": [
+                        "issuer",
+                        "Address"
+                      ]
+                    }
+                  },
+                  "min_amount": {
+                    "Assets": [
+                      {
+                        "policy": {
+                          "EvalParam": {
+                            "ExpectValue": [
+                              "issuer_beacon_policy",
+                              "Bytes"
+                            ]
+                          }
+                        },
+                        "asset_name": {
+                          "EvalParam": {
+                            "ExpectValue": [
+                              "issuer_beacon_name",
+                              "Bytes"
+                            ]
+                          }
+                        },
+                        "amount": {
+                          "Number": 1
+                        }
+                      }
+                    ]
+                  },
+                  "ref": "None",
+                  "many": false,
+                  "collateral": false
+                }
+              ]
+            }
+          }
+        }
+      },
+      "optional": false
+    },
+    {
+      "address": {
+        "EvalParam": {
+          "ExpectValue": [
+            "treasury",
+            "Address"
+          ]
+        }
+      },
+      "datum": "None",
+      "amount": {
+        "Assets": [
+          {
+            "policy": "None",
+            "asset_name": "None",
+            "amount": {
+              "EvalParam": {
+                "ExpectValue": [
+                  "ticket_price",
+                  "Int"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "optional": false
+    }
+  ],
+  "validity": {
+    "since": "None",
+    "until": {
+      "EvalBuiltIn": {
+        "Add": [
+          {
+            "EvalCompiler": "ComputeTipSlot"
+          },
+          {
+            "Number": 600
+          }
+        ]
+      }
+    }
+  },
+  "mints": [
+    {
+      "amount": {
+        "Assets": [
+          {
+            "policy": {
+              "EvalParam": {
+                "ExpectValue": [
+                  "ticket_policy",
+                  "Bytes"
+                ]
+              }
+            },
+            "asset_name": {
+              "EvalBuiltIn": {
+                "Concat": [
+                  {
+                    "String": "TICKET"
+                  },
+                  {
+                    "EvalBuiltIn": {
+                      "Property": [
+                        {
+                          "EvalCoerce": {
+                            "IntoDatum": {
+                              "EvalParam": {
+                                "ExpectInput": [
+                                  "current_state",
+                                  {
+                                    "address": {
+                                      "EvalParam": {
+                                        "ExpectValue": [
+                                          "issuer",
+                                          "Address"
+                                        ]
+                                      }
+                                    },
+                                    "min_amount": {
+                                      "Assets": [
+                                        {
+                                          "policy": {
+                                            "EvalParam": {
+                                              "ExpectValue": [
+                                                "issuer_beacon_policy",
+                                                "Bytes"
+                                              ]
+                                            }
+                                          },
+                                          "asset_name": {
+                                            "EvalParam": {
+                                              "ExpectValue": [
+                                                "issuer_beacon_name",
+                                                "Bytes"
+                                              ]
+                                            }
+                                          },
+                                          "amount": {
+                                            "Number": 1
+                                          }
+                                        }
+                                      ]
+                                    },
+                                    "ref": "None",
+                                    "many": false,
+                                    "collateral": false
+                                  }
+                                ]
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "Number": 0
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            },
+            "amount": {
+              "Number": 1
+            }
+          }
+        ]
+      },
+      "redeemer": {
+        "Struct": {
+          "constructor": 0,
+          "fields": []
+        }
+      }
+    }
+  ],
+  "burns": [],
+  "adhoc": [],
+  "collateral": [
+    {
+      "utxos": {
+        "EvalParam": {
+          "ExpectInput": [
+            "collateral",
+            {
+              "address": {
+                "EvalParam": {
+                  "ExpectValue": [
+                    "buyer",
+                    "Address"
+                  ]
+                }
+              },
+              "min_amount": {
+                "EvalParam": "ExpectFees"
+              },
+              "ref": "None",
+              "many": false,
+              "collateral": true
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "signers": null,
+  "metadata": []
+}

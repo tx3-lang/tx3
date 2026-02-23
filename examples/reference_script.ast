@@ -1,4 +1,5 @@
 {
+  "imports": [],
   "env": null,
   "txs": [
     {
@@ -51,8 +52,8 @@
             },
             {
               "MinAmount": {
-                "StaticAssetConstructor": {
-                  "type": {
+                "FnCall": {
+                  "callee": {
                     "value": "Ada",
                     "span": {
                       "dummy": false,
@@ -60,16 +61,18 @@
                       "end": 137
                     }
                   },
-                  "amount": {
-                    "Identifier": {
-                      "value": "quantity",
-                      "span": {
-                        "dummy": false,
-                        "start": 138,
-                        "end": 146
+                  "args": [
+                    {
+                      "Identifier": {
+                        "value": "quantity",
+                        "span": {
+                          "dummy": false,
+                          "start": 138,
+                          "end": 146
+                        }
                       }
                     }
-                  },
+                  ],
                   "span": {
                     "dummy": false,
                     "start": 134,
@@ -119,8 +122,8 @@
                         }
                       },
                       "rhs": {
-                        "StaticAssetConstructor": {
-                          "type": {
+                        "FnCall": {
+                          "callee": {
                             "value": "Ada",
                             "span": {
                               "dummy": false,
@@ -128,16 +131,18 @@
                               "end": 380
                             }
                           },
-                          "amount": {
-                            "Identifier": {
-                              "value": "quantity",
-                              "span": {
-                                "dummy": false,
-                                "start": 381,
-                                "end": 389
+                          "args": [
+                            {
+                              "Identifier": {
+                                "value": "quantity",
+                                "span": {
+                                  "dummy": false,
+                                  "start": 381,
+                                  "end": 389
+                                }
                               }
                             }
-                          },
+                          ],
                           "span": {
                             "dummy": false,
                             "start": 377,
@@ -202,8 +207,8 @@
                 },
                 {
                   "Amount": {
-                    "StaticAssetConstructor": {
-                      "type": {
+                    "FnCall": {
+                      "callee": {
                         "value": "Ada",
                         "span": {
                           "dummy": false,
@@ -211,16 +216,18 @@
                           "end": 224
                         }
                       },
-                      "amount": {
-                        "Identifier": {
-                          "value": "quantity",
-                          "span": {
-                            "dummy": false,
-                            "start": 225,
-                            "end": 233
+                      "args": [
+                        {
+                          "Identifier": {
+                            "value": "quantity",
+                            "span": {
+                              "dummy": false,
+                              "start": 225,
+                              "end": 233
+                            }
                           }
                         }
-                      },
+                      ],
                       "span": {
                         "dummy": false,
                         "start": 221,
@@ -314,8 +321,8 @@
             },
             {
               "MinAmount": {
-                "StaticAssetConstructor": {
-                  "type": {
+                "FnCall": {
+                  "callee": {
                     "value": "Ada",
                     "span": {
                       "dummy": false,
@@ -323,16 +330,18 @@
                       "end": 513
                     }
                   },
-                  "amount": {
-                    "Identifier": {
-                      "value": "quantity",
-                      "span": {
-                        "dummy": false,
-                        "start": 514,
-                        "end": 522
+                  "args": [
+                    {
+                      "Identifier": {
+                        "value": "quantity",
+                        "span": {
+                          "dummy": false,
+                          "start": 514,
+                          "end": 522
+                        }
                       }
                     }
-                  },
+                  ],
                   "span": {
                     "dummy": false,
                     "start": 510,
@@ -382,8 +391,8 @@
                         }
                       },
                       "rhs": {
-                        "StaticAssetConstructor": {
-                          "type": {
+                        "FnCall": {
+                          "callee": {
                             "value": "Ada",
                             "span": {
                               "dummy": false,
@@ -391,16 +400,18 @@
                               "end": 732
                             }
                           },
-                          "amount": {
-                            "Identifier": {
-                              "value": "quantity",
-                              "span": {
-                                "dummy": false,
-                                "start": 733,
-                                "end": 741
+                          "args": [
+                            {
+                              "Identifier": {
+                                "value": "quantity",
+                                "span": {
+                                  "dummy": false,
+                                  "start": 733,
+                                  "end": 741
+                                }
                               }
                             }
-                          },
+                          ],
                           "span": {
                             "dummy": false,
                             "start": 729,
@@ -465,8 +476,8 @@
                 },
                 {
                   "Amount": {
-                    "StaticAssetConstructor": {
-                      "type": {
+                    "FnCall": {
+                      "callee": {
                         "value": "Ada",
                         "span": {
                           "dummy": false,
@@ -474,16 +485,18 @@
                           "end": 600
                         }
                       },
-                      "amount": {
-                        "Identifier": {
-                          "value": "quantity",
-                          "span": {
-                            "dummy": false,
-                            "start": 601,
-                            "end": 609
+                      "args": [
+                        {
+                          "Identifier": {
+                            "value": "quantity",
+                            "span": {
+                              "dummy": false,
+                              "start": 601,
+                              "end": 609
+                            }
                           }
                         }
-                      },
+                      ],
                       "span": {
                         "dummy": false,
                         "start": 597,

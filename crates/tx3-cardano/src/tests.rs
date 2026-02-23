@@ -1,8 +1,12 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
-use tx3_lang::{
-    applying, backend::Compiler as _, ir::Node as _, ArgValue, Protocol, Utxo, UtxoRef,
-};
+use tx3_lang::Workspace;
+use tx3_tir::compile::{CompiledTx, Compiler as _};
+use tx3_tir::model::assets::CanonicalAssets;
+use tx3_tir::model::core::{Utxo, UtxoRef};
+use tx3_tir::model::v1beta0 as tir;
+use tx3_tir::reduce::{self, Apply as _, ArgValue};
+use tx3_tir::Node as _;
 
 use super::*;
 
@@ -59,10 +63,12 @@ fn test_compiler(config: Option<Config>) -> Compiler {
     )
 }
 
-fn load_protocol(example_name: &str) -> Protocol {
+fn load_protocol(example_name: &str) -> Workspace {
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
     let code = format!("{manifest_dir}/../../examples/{example_name}.tx3");
-    Protocol::from_file(&code).load().unwrap()
+    let mut ws = tx3_lang::Workspace::from_file(&code).unwrap();
+    ws.lower().unwrap();
+    ws
 }
 
 fn address_to_bytes(address: &str) -> ArgValue {
@@ -73,7 +79,7 @@ fn address_to_bytes(address: &str) -> ArgValue {
     )
 }
 
-fn wildcard_utxos(datum: Option<tx3_lang::ir::Expression>) -> HashSet<Utxo> {
+fn wildcard_utxos(datum: Option<tir::Expression>) -> HashSet<Utxo> {
     let tx_hash = hex::decode("267aae354f0d14d82877fa5720f7ddc9b0e3eea3cd2a0757af77db4d975ba81c")
         .unwrap()
         .try_into()
@@ -87,55 +93,97 @@ fn wildcard_utxos(datum: Option<tx3_lang::ir::Expression>) -> HashSet<Utxo> {
             index: 0,
         },
         address,
-        datum: Some(datum.unwrap_or(tx3_lang::ir::Expression::None)),
-        assets: tx3_lang::CanonicalAssets::from_naked_amount(500_000_000),
+        datum: Some(datum.unwrap_or(tir::Expression::None)),
+        assets: CanonicalAssets::from_naked_amount(500_000_000),
         script: None,
     };
 
     HashSet::from([utxo])
 }
 
-fn fill_inputs(tx: tx3_lang::ir::Tx, utxos: HashSet<Utxo>) -> tx3_lang::ir::Tx {
+fn fill_inputs(tx: tir::Tx, utxos: HashSet<Utxo>) -> tir::Tx {
     let mut tx = tx;
 
-    for (name, _) in applying::find_queries(&tx) {
+    for (name, _) in reduce::find_queries(&tx) {
         let utxos = utxos.clone();
         let args = BTreeMap::from([(name.to_string(), utxos)]);
-        tx = tx3_lang::applying::apply_inputs(tx, &args).unwrap();
+        tx = reduce::apply_inputs(tx, &args).unwrap();
     }
 
-    tx = applying::reduce(tx).unwrap();
+    tx = reduce::reduce(tx).unwrap();
 
     tx
 }
 
 fn compile_tx_round(
-    mut tx: tx3_lang::ir::Tx,
+    mut tx: tir::Tx,
+    args: &BTreeMap<String, ArgValue>,
     fees: u64,
     compiler: &mut Compiler,
     utxos: HashSet<Utxo>,
-) -> TxEval {
-    tx = applying::apply_fees(tx, fees).unwrap();
-    tx = applying::reduce(tx).unwrap();
+) -> CompiledTx {
+    tx = reduce::apply_args(tx, args).unwrap();
+    tx = reduce::apply_fees(tx, fees).unwrap();
+    tx = reduce::reduce(tx).unwrap();
     tx = tx.apply(compiler).unwrap();
 
     tx = fill_inputs(tx, utxos);
 
-    compiler.compile(&tx).unwrap()
+    assert!(tx.is_constant());
+
+    compiler.compile(&AnyTir::V1Beta0(tx)).unwrap()
 }
 
-fn test_compile(tx: tx3_lang::ir::Tx, compiler: &mut Compiler, utxos: HashSet<Utxo>) -> TxEval {
+fn test_compile(
+    tx: tir::Tx,
+    args: &BTreeMap<String, ArgValue>,
+    compiler: &mut Compiler,
+    utxos: HashSet<Utxo>,
+) -> CompiledTx {
     let mut fees = 0;
     let mut rounds = 0;
     let mut tx_eval = None;
 
     while rounds < 3 {
-        tx_eval = Some(compile_tx_round(tx.clone(), fees, compiler, utxos.clone()));
+        tx_eval = Some(compile_tx_round(
+            tx.clone(),
+            args,
+            fees,
+            compiler,
+            utxos.clone(),
+        ));
         fees = tx_eval.as_ref().unwrap().fee;
         rounds += 1;
     }
 
     tx_eval.unwrap()
+}
+
+macro_rules! arg_value {
+    ($name:expr, "address", $value:expr) => {
+        ($name.to_string(), address_to_bytes($value))
+    };
+    ($name:expr, "int", $value:expr) => {
+        ($name.to_string(), ArgValue::Int($value))
+    };
+    ($name:expr, "bytes_hex", $value:expr) => {
+        (
+            $name.to_string(),
+            ArgValue::Bytes(hex::decode($value).unwrap()),
+        )
+    };
+    ($name:expr, "bool", $value:expr) => {
+        ($name.to_string(), ArgValue::Bool($value))
+    };
+    ($name:expr, "utxo_ref", $txid:expr, $index:expr) => {
+        (
+            $name.to_string(),
+            ArgValue::UtxoRef(UtxoRef {
+                txid: hex::decode($txid).unwrap(),
+                index: $index,
+            }),
+        )
+    };
 }
 
 #[pollster::test]
@@ -144,15 +192,15 @@ async fn smoke_test_transfer() {
     let utxos = wildcard_utxos(None);
     let protocol = load_protocol("transfer");
 
-    let tx = protocol.new_tx("transfer")
-            .unwrap()
-            .with_arg("Sender", address_to_bytes("addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"))
-            .with_arg("Receiver", address_to_bytes("addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"))
-            .with_arg("quantity", ArgValue::Int(100_000_000))
-            .apply()
-            .unwrap();
+    let tx = protocol.tir("transfer").unwrap().clone();
 
-    let tx = test_compile(tx.into(), &mut compiler, utxos);
+    let args = BTreeMap::from([
+        arg_value!("sender", "address", "addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"),
+        arg_value!("receiver", "address", "addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"),
+        arg_value!("quantity", "int", 100_000_000),
+    ]);
+
+    let tx = test_compile(tx, &args, &mut compiler, utxos);
 
     println!("{}", hex::encode(tx.payload));
     println!("{}", tx.fee);
@@ -164,16 +212,16 @@ async fn smoke_test_vesting() {
     let utxos = wildcard_utxos(None);
     let protocol = load_protocol("vesting");
 
-    let tx = protocol.new_tx("lock")
-            .unwrap()
-            .with_arg("Owner", address_to_bytes("addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"))
-            .with_arg("Beneficiary", address_to_bytes("addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"))
-            .with_arg("quantity", ArgValue::Int(100_000_000))
-            .with_arg("until", ArgValue::Int(1713288000))
-            .apply()
-            .unwrap();
+    let tx = protocol.tir("lock").unwrap().clone();
 
-    let tx = test_compile(tx.into(), &mut compiler, utxos);
+    let args = BTreeMap::from([
+        arg_value!("owner", "address", "addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"),
+        arg_value!("beneficiary", "address", "addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"),
+        arg_value!("quantity", "int", 100_000_000),
+        arg_value!("until", "int", 1713288000),
+    ]);
+
+    let tx = test_compile(tx, &args, &mut compiler, utxos);
 
     println!("{}", hex::encode(tx.payload));
 
@@ -189,27 +237,21 @@ async fn smoke_test_vesting_unlock() {
     let utxos = wildcard_utxos(None);
     let protocol = load_protocol("vesting");
 
-    let tx = protocol.new_tx("unlock")
-            .unwrap()
-            .with_arg("beneficiary", address_to_bytes("addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"))
-            .with_arg("locked_utxo", ArgValue::UtxoRef(tx3_lang::UtxoRef {
-                txid: hex::decode("682d6d95495403b491737b95dae5c1f060498d9efc91a592962134f880398be2").unwrap(),
-                index: 1,
-            }))
-            .with_arg("timelock_script", ArgValue::UtxoRef(tx3_lang::UtxoRef {
-                txid: hex::decode("682d6d95495403b491737b95dae5c1f060498d9efc91a592962134f880398be2").unwrap(),
-                index: 0,
-            }))
-            .apply()
-            .unwrap();
+    let tx = protocol.tir("unlock").unwrap().clone();
 
-    let tx = test_compile(tx.into(), &mut compiler, utxos);
+    let args = BTreeMap::from([
+        arg_value!("beneficiary", "address", "addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"),
+        arg_value!("locked_utxo", "utxo_ref", "682d6d95495403b491737b95dae5c1f060498d9efc91a592962134f880398be2", 1),
+        arg_value!("timelock_script", "utxo_ref", "682d6d95495403b491737b95dae5c1f060498d9efc91a592962134f880398be2", 0),
+    ]);
+
+    let tx = test_compile(tx, &args, &mut compiler, utxos);
 
     println!("{}", hex::encode(tx.payload));
 
     assert_eq!(
         hex::encode(tx.hash),
-        "a720d363d4cc1afa7be67eb4e0a8ddc5e7effe40316d2a49cc19836b9e04c0d4"
+        "6aba778b2e7525c09dde45c87e1ac6e4ecabc694278bb63d6ef9d9078290617e"
     );
 }
 
@@ -219,42 +261,39 @@ async fn faucet_test() {
     let utxos = wildcard_utxos(None);
     let protocol = load_protocol("faucet");
 
-    let mut tx = protocol
-        .new_tx("claim_with_password")
-        .unwrap()
-        .apply()
-        .unwrap();
+    let tx = protocol.tir("claim_with_password").unwrap().clone();
+    let args = BTreeMap::from([
+        arg_value!("quantity", "int", 1),
+        arg_value!("password", "bytes_hex", "abc1"),
+        arg_value!("requester", "address", "addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"),
+    ]);
 
-    tx.set_arg("quantity", 1.into());
-    tx.set_arg("password", hex::decode("abc1").unwrap().into());
-    tx.set_arg("requester", address_to_bytes("addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"));
-
-    let tx = tx.apply().unwrap();
-
-    let tx = test_compile(tx.into(), &mut compiler, utxos);
+    let tx = test_compile(tx, &args, &mut compiler, utxos);
 
     assert_eq!(
         hex::encode(tx.hash),
-        "0c699a172b9166f85f21229e47a7d7e24bc0de62f977fe9796795226293647e4"
+        "1094415ab4aaeac622ed90a992ba2f506d9f7f98a529e46f595a2603d800f039"
     );
 }
 
 #[pollster::test]
 async fn list_concat_test() {
     let mut compiler = test_compiler(None);
-    let datum = Some(ir::Expression::Struct(ir::StructExpr {
+    let datum = Some(tir::Expression::Struct(tir::StructExpr {
         constructor: 0,
-        fields: vec![ir::Expression::List(vec![])],
+        fields: vec![tir::Expression::List(vec![])],
     }));
     let utxos = wildcard_utxos(datum);
+
     let protocol = load_protocol("list_concat");
-    let mut tx = protocol.new_tx("concat_list").unwrap().apply().unwrap();
 
-    tx.set_arg("myparty", address_to_bytes("addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"));
+    let tx = protocol.tir("concat_list").unwrap().clone();
 
-    let tx = tx.apply().unwrap();
+    let args = BTreeMap::from([
+        arg_value!("myparty", "address", "addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"),
+    ]);
 
-    let tx = test_compile(tx.into(), &mut compiler, utxos);
+    let tx = test_compile(tx, &args, &mut compiler, utxos);
 
     assert_eq!(
         hex::encode(tx.hash),
@@ -266,29 +305,23 @@ async fn list_concat_test() {
 async fn input_datum_test() {
     let mut compiler = test_compiler(None);
 
-    let utxos = wildcard_utxos(Some(tx3_lang::ir::Expression::Struct(
-        tx3_lang::ir::StructExpr {
-            constructor: 0,
-            fields: vec![
-                tx3_lang::ir::Expression::Number(1),
-                tx3_lang::ir::Expression::Bytes(b"abc".to_vec()),
-            ],
-        },
-    )));
+    let utxos = wildcard_utxos(Some(tir::Expression::Struct(tir::StructExpr {
+        constructor: 0,
+        fields: vec![
+            tir::Expression::Number(1),
+            tir::Expression::Bytes(b"abc".to_vec()),
+        ],
+    })));
 
     let protocol = load_protocol("input_datum");
 
-    let mut tx = protocol
-        .new_tx("increase_counter")
-        .unwrap()
-        .apply()
-        .unwrap();
+    let tx = protocol.tir("increase_counter").unwrap().clone();
 
-    tx.set_arg("myparty", address_to_bytes("addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"));
+    let args = BTreeMap::from([
+        arg_value!("myparty", "address", "addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"),
+    ]);
 
-    let tx = tx.apply().unwrap();
-
-    let tx = test_compile(tx.into(), &mut compiler, utxos);
+    let tx = test_compile(tx, &args, &mut compiler, utxos);
 
     println!("{}", hex::encode(tx.payload));
 
@@ -304,31 +337,19 @@ async fn env_vars_test() {
     let utxos = wildcard_utxos(None);
     let protocol = load_protocol("env_vars");
 
-    let mut tx = protocol.new_tx("mint_from_env").unwrap().apply().unwrap();
+    let tx = protocol.tir("mint_from_env").unwrap().clone();
 
-    tx.set_arg("minter", address_to_bytes("addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"));
-    tx.set_arg(
-        "mint_policy",
-        hex::decode("682d6d95495403b491737b95dae5c1f060498d9efc91a592962134f8")
-            .unwrap()
-            .into(),
-    );
-    tx.set_arg(
-        "mint_script",
-        ArgValue::UtxoRef(UtxoRef {
-            txid: hex::decode("682d6d95495403b491737b95dae5c1f060498d9efc91a592962134f880398be2")
-                .unwrap(),
-            index: 1,
-        }),
-    );
+    let args = BTreeMap::from([
+        arg_value!("minter", "address", "addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"),
+        arg_value!("mint_policy", "bytes_hex", "682d6d95495403b491737b95dae5c1f060498d9efc91a592962134f8"),
+        arg_value!("mint_script", "utxo_ref", "682d6d95495403b491737b95dae5c1f060498d9efc91a592962134f880398be2", 1),
+    ]);
 
-    let tx = tx.apply().unwrap();
-
-    let tx = test_compile(tx.into(), &mut compiler, utxos);
+    let tx = test_compile(tx, &args, &mut compiler, utxos);
 
     assert_eq!(
         hex::encode(tx.hash),
-        "90f90b26589228954a9d3aeda823b4b74d296bc153e6427d9706537881967c6a"
+        "964218c7acc56aa1f6bb422820853063de03ceff981b5ef510d2c4b41b1e3ae8"
     );
 }
 
@@ -338,24 +359,19 @@ async fn local_vars_test() {
     let utxos = wildcard_utxos(None);
     let protocol = load_protocol("local_vars");
 
-    let mut tx = protocol.new_tx("mint_from_local").unwrap().apply().unwrap();
+    let tx = protocol.tir("mint_from_local").unwrap().clone();
 
-    tx.set_arg("minter", address_to_bytes("addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"));
-    tx.set_arg(
-        "mint_policy",
-        hex::decode("682d6d95495403b491737b95dae5c1f060498d9efc91a592962134f8")
-            .unwrap()
-            .into(),
-    );
-    tx.set_arg("quantity", ArgValue::Int(100_000_000));
+    let args = BTreeMap::from([
+        arg_value!("minter", "address", "addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"),
+            arg_value!("mint_policy", "bytes_hex", "682d6d95495403b491737b95dae5c1f060498d9efc91a592962134f8"),
+        arg_value!("quantity", "int", 100_000_000),
+    ]);
 
-    let tx = tx.apply().unwrap();
-
-    let tx = test_compile(tx.into(), &mut compiler, utxos);
+    let tx = test_compile(tx, &args, &mut compiler, utxos);
 
     assert_eq!(
         hex::encode(tx.hash),
-        "cb1978d0177fd1a36c282c60d0318766497cc597a17a3483db1c8ff54a547626"
+        "cc3d44de45863d85cd2429131349d5f71c492e7dac3530c2d2c47d4233d0db97"
     );
 }
 
@@ -365,22 +381,18 @@ async fn adhoc_plutus_witness_test() {
     let utxos = wildcard_utxos(None);
     let protocol = load_protocol("cardano_witness");
 
-    let mut tx = protocol
-        .new_tx("mint_from_plutus")
-        .unwrap()
-        .apply()
-        .unwrap();
+    let tx = protocol.tir("mint_from_plutus").unwrap().clone();
 
-    tx.set_arg("minter", address_to_bytes("addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"));
-    tx.set_arg("quantity", ArgValue::Int(100_000_000));
+    let args = BTreeMap::from([
+        arg_value!("minter", "address", "addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"),
+        arg_value!("quantity", "int", 100_000_000),
+    ]);
 
-    let tx = tx.apply().unwrap();
-
-    let tx = test_compile(tx.into(), &mut compiler, utxos);
+    let tx = test_compile(tx, &args, &mut compiler, utxos);
 
     assert_eq!(
         hex::encode(tx.hash),
-        "dc2f396b205fe4e5bee3ecbf1d259e8db295c3a7775c9026958d60c3beec5d08"
+        "ee73ab26bb548493e48fd3b9426e82b103a4684483019ce70bd24413f692267a"
     );
 }
 
@@ -390,20 +402,20 @@ async fn burn_test() {
     let utxos = wildcard_utxos(None);
     let protocol = load_protocol("burn");
 
-    let mut tx = protocol.new_tx("burn_stuff").unwrap().apply().unwrap();
+    let tx = protocol.tir("burn_stuff").unwrap().clone();
 
-    tx.set_arg("burner", address_to_bytes("addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"));
-    tx.set_arg("quantity", ArgValue::Int(100_000_000));
+    let args = BTreeMap::from([
+        arg_value!("burner", "address", "addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"),
+        arg_value!("quantity", "int", 100_000_000),
+    ]);
 
-    let tx = tx.apply().unwrap();
-
-    let tx = test_compile(tx.into(), &mut compiler, utxos);
+    let tx = test_compile(tx, &args, &mut compiler, utxos);
 
     println!("{}", hex::encode(tx.payload));
 
     assert_eq!(
         hex::encode(tx.hash),
-        "48b172526c29ac9f2193f8bcb276f5fa48acfa27498dfc0dd0faa8df6299e363"
+        "a1e391ff221f922814e349a1cd425c146534ca771900e74563ddab56928bb93c"
     );
 }
 
@@ -413,18 +425,14 @@ async fn adhoc_native_witness_test() {
     let utxos = wildcard_utxos(None);
     let protocol = load_protocol("cardano_witness");
 
-    let mut tx = protocol
-        .new_tx("mint_from_native_script")
-        .unwrap()
-        .apply()
-        .unwrap();
+    let tx = protocol.tir("mint_from_native_script").unwrap().clone();
 
-    tx.set_arg("minter", address_to_bytes("addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"));
-    tx.set_arg("quantity", ArgValue::Int(100_000_000));
+    let args = BTreeMap::from([
+        arg_value!("minter", "address", "addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"),
+        arg_value!("quantity", "int", 100_000_000),
+    ]);
 
-    let tx = tx.apply().unwrap();
-
-    let tx = test_compile(tx.into(), &mut compiler, utxos);
+    let tx = test_compile(tx, &args, &mut compiler, utxos);
 
     println!("{}", hex::encode(&tx.payload));
 
@@ -445,15 +453,15 @@ async fn extra_fees_test() {
 
     let protocol = load_protocol("transfer");
 
-    let tx = protocol.new_tx("transfer")
-            .unwrap()
-            .with_arg("Sender", address_to_bytes("addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"))
-            .with_arg("Receiver", address_to_bytes("addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"))
-            .with_arg("quantity", ArgValue::Int(100_000_000))
-            .apply()
-            .unwrap();
+    let tx = protocol.tir("transfer").unwrap().clone();
 
-    let tx = test_compile(tx.into(), &mut compiler, utxos);
+    let args = BTreeMap::from([
+        arg_value!("sender", "address", "addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"),
+        arg_value!("receiver", "address", "addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"),
+        arg_value!("quantity", "int", 100_000_000),
+    ]);
+
+    let tx = test_compile(tx, &args, &mut compiler, utxos);
 
     assert!(tx.fee >= extra_fees);
 }
@@ -468,15 +476,15 @@ async fn extra_fees_zero_test() {
 
     let protocol = load_protocol("transfer");
 
-    let tx = protocol.new_tx("transfer")
-            .unwrap()
-            .with_arg("Sender", address_to_bytes("addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"))
-            .with_arg("Receiver", address_to_bytes("addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"))
-            .with_arg("quantity", ArgValue::Int(100_000_000))
-            .apply()
-            .unwrap();
+    let tx = protocol.tir("transfer").unwrap().clone();
 
-    let tx = test_compile(tx.into(), &mut compiler, utxos);
+    let args = BTreeMap::from([
+        arg_value!("sender", "address", "addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"),
+        arg_value!("receiver", "address", "addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"),
+        arg_value!("quantity", "int", 100_000_000),
+    ]);
+
+    let tx = test_compile(tx, &args, &mut compiler, utxos);
 
     assert!(!tx.payload.is_empty());
     assert!(tx.fee < DEFAULT_EXTRA_FEES);
@@ -488,14 +496,14 @@ async fn min_utxo_test() {
     let utxos = wildcard_utxos(None);
     let protocol = load_protocol("min_utxo");
 
-    let tx = protocol.new_tx("transfer_min")
-        .unwrap()
-        .with_arg("Sender", address_to_bytes("addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"))
-        .with_arg("Receiver", address_to_bytes("addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"))
-        .apply()
-        .unwrap();
+    let tx = protocol.tir("transfer_min").unwrap().clone();
 
-    let tx = test_compile(tx.into(), &mut compiler, utxos);
+    let args = BTreeMap::from([
+        arg_value!("sender", "address", "addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"),
+        arg_value!("receiver", "address", "addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"),
+    ]);
+
+    let tx = test_compile(tx, &args, &mut compiler, utxos);
 
     // 224 is the min amount of ada of the first utxo (why? (64 bytes + 160 fixed
     // byets) * 1 coin_per_utxo_byte)
@@ -509,10 +517,10 @@ async fn min_utxo_test() {
 async fn min_utxo_compiler_op_test() {
     let compiler = test_compiler(None);
 
-    let result = compiler.execute(ir::CompilerOp::ComputeMinUtxo(ir::Expression::Number(0)));
+    let result = compiler.reduce_op(tir::CompilerOp::ComputeMinUtxo(tir::Expression::Number(0)));
 
     assert!(result.is_ok());
-    if let Ok(ir::Expression::Assets(assets)) = result {
+    if let Ok(tir::Expression::Assets(assets)) = result {
         assert!(!assets.is_empty());
     }
 }
