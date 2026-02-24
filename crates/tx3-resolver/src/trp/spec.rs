@@ -8,6 +8,8 @@ pub type JsonArgMap = serde_json::Map<String, serde_json::Value>;
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct TirEnvelope {
+    // Aliases for backward compatibility
+    #[serde(alias = "bytecode", alias = "payload")]
     pub content: String,
     pub encoding: BytesEncoding,
     pub version: String,

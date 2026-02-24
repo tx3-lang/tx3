@@ -66,6 +66,8 @@ pub enum BytesEncoding {
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct BytesEnvelope {
+    // Aliases for backward compatibility
+    #[serde(alias = "bytecode", alias = "payload")]
     pub content: String,
     pub encoding: BytesEncoding,
 }
