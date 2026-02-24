@@ -20,43 +20,299 @@
   ],
   "components": {
     "schemas": {
-      "tir": {
+      "BytesEnvelope": {
         "type": "object",
-        "required": ["bytecode", "encoding", "version"],
+        "required": ["payload", "encoding", "version"],
         "properties": {
-          "bytecode": {
+          "payload": {
             "type": "string",
-            "title": "Tx3 bytecode"
+            "title": "Byte content",
+            "description": "The encoded byte content"
           },
           "encoding": {
             "type": "string",
-            "title": "Encode type",
-            "description": "hex,base64",
+            "title": "Encoding type",
+            "description": "hex, base64",
             "examples": ["hex", "base64"]
           },
           "version": {
             "type": "string",
-            "title": "Tx3 version",
-            "examples": ["v1alpha3"]
+            "title": "Version",
+            "description": "Protocol version for byte encoding",
+            "examples": ["v1"]
           }
         }
       },
-      "args": {
+      "TIREnvelope": {
         "type": "object",
+        "required": ["content", "encoding", "version"],
+        "properties": {
+          "content": {
+            "type": "string",
+            "title": "TIR content",
+            "description": "The TIR content encoded as specified"
+          },
+          "encoding": {
+            "type": "string",
+            "title": "Encoding type",
+            "description": "hex, base64",
+            "examples": ["hex", "base64"]
+          },
+          "version": {
+            "type": "string",
+            "title": "TIR version",
+            "description": "Version of the Transaction Intermediate Representation format",
+            "examples": ["v1alpha3", "v1beta0"]
+          }
+        }
+      },
+      "TxWitness": {
+        "type": "object",
+        "required": ["key", "signature", "type"],
+        "properties": {
+          "key": {
+            "$ref": "#/components/schemas/BytesEnvelope"
+          },
+          "signature": {
+            "$ref": "#/components/schemas/BytesEnvelope"
+          },
+          "type": {
+            "type": "string",
+            "title": "Witness type",
+            "description": "Type of witness (e.g., vkey)",
+            "examples": ["vkey"]
+          }
+        }
+      },
+      "TxEnvelope": {
+        "type": "object",
+        "required": ["tx", "hash"],
         "properties": {
           "tx": {
             "type": "string",
-            "title": "tx cbor",
-            "description": "hex encoded"
+            "title": "Transaction CBOR",
+            "description": "Hex-encoded transaction bytes"
+          },
+          "hash": {
+            "type": "string",
+            "title": "Transaction hash",
+            "description": "Hex-encoded transaction hash"
           }
         }
+      },
+      "SubmitResponse": {
+        "type": "object",
+        "required": ["hash"],
+        "properties": {
+          "hash": {
+            "type": "string",
+            "title": "Transaction hash",
+            "description": "Hash of the submitted transaction"
+          }
+        }
+      },
+      "ChainPoint": {
+        "type": "object",
+        "required": ["slot", "blockHash"],
+        "properties": {
+          "slot": {
+            "type": "integer",
+            "title": "Slot",
+            "description": "Slot number when transaction was confirmed"
+          },
+          "blockHash": {
+            "type": "string",
+            "title": "Block hash",
+            "description": "Hash of the block containing the transaction"
+          }
+        }
+      },
+      "TxStatus": {
+        "type": "object",
+        "required": ["stage", "confirmations", "nonConfirmations"],
+        "properties": {
+          "stage": {
+            "type": "string",
+            "title": "Transaction stage",
+            "description": "Current stage in the mempool lifecycle",
+            "enum": ["pending", "propagated", "acknowledged", "confirmed", "finalized", "dropped", "rolled_back", "unknown"]
+          },
+          "confirmations": {
+            "type": "integer",
+            "title": "Number of confirmations"
+          },
+          "nonConfirmations": {
+            "type": "integer",
+            "title": "Number of non-confirmations"
+          },
+          "confirmedAt": {
+            "$ref": "#/components/schemas/ChainPoint"
+          }
+        }
+      },
+      "CheckStatusResponse": {
+        "type": "object",
+        "required": ["statuses"],
+        "properties": {
+          "statuses": {
+            "$ref": "#/components/schemas/TxStatusMap"
+          }
+        }
+      },
+      "TxStatusMap": {
+        "type": "object",
+        "description": "Map of transaction hashes to their status information",
+        "additionalProperties": {
+          "$ref": "#/components/schemas/TxStatus"
+        }
+      },
+      "TxLog": {
+        "type": "object",
+        "required": ["hash", "stage", "confirmations", "nonConfirmations"],
+        "properties": {
+          "hash": {
+            "type": "string",
+            "title": "Transaction hash"
+          },
+          "stage": {
+            "type": "string",
+            "title": "Transaction stage",
+            "enum": ["pending", "propagated", "acknowledged", "confirmed", "finalized", "dropped", "rolled_back", "unknown"]
+          },
+          "payload": {
+            "type": "string",
+            "title": "Transaction payload",
+            "description": "Hex-encoded transaction CBOR"
+          },
+          "confirmations": {
+            "type": "integer",
+            "title": "Number of confirmations"
+          },
+          "nonConfirmations": {
+            "type": "integer",
+            "title": "Number of non-confirmations"
+          },
+          "confirmedAt": {
+            "$ref": "#/components/schemas/ChainPoint"
+          }
+        }
+      },
+      "DumpLogsResponse": {
+        "type": "object",
+        "required": ["entries"],
+        "properties": {
+          "entries": {
+            "type": "array",
+            "title": "Log entries",
+            "items": {
+              "$ref": "#/components/schemas/TxLog"
+            }
+          },
+          "nextCursor": {
+            "type": "integer",
+            "title": "Next cursor",
+            "description": "Cursor for pagination"
+          }
+        }
+      },
+      "PendingTx": {
+        "type": "object",
+        "required": ["hash"],
+        "properties": {
+          "hash": {
+            "type": "string",
+            "title": "Transaction hash"
+          },
+          "payload": {
+            "type": "string",
+            "title": "Transaction payload",
+            "description": "Hex-encoded transaction CBOR"
+          }
+        }
+      },
+      "PeekPendingResponse": {
+        "type": "object",
+        "required": ["entries", "hasMore"],
+        "properties": {
+          "entries": {
+            "type": "array",
+            "title": "Pending transactions",
+            "items": {
+              "$ref": "#/components/schemas/PendingTx"
+            }
+          },
+          "hasMore": {
+            "type": "boolean",
+            "title": "Has more",
+            "description": "Whether there are more pending transactions"
+          }
+        }
+      },
+      "InflightTx": {
+        "type": "object",
+        "required": ["hash", "stage", "confirmations", "nonConfirmations"],
+        "properties": {
+          "hash": {
+            "type": "string",
+            "title": "Transaction hash"
+          },
+          "stage": {
+            "type": "string",
+            "title": "Transaction stage",
+            "enum": ["pending", "propagated", "acknowledged", "confirmed", "finalized", "dropped", "rolled_back", "unknown"]
+          },
+          "confirmations": {
+            "type": "integer",
+            "title": "Number of confirmations"
+          },
+          "nonConfirmations": {
+            "type": "integer",
+            "title": "Number of non-confirmations"
+          },
+          "confirmedAt": {
+            "$ref": "#/components/schemas/ChainPoint"
+          },
+          "payload": {
+            "type": "string",
+            "title": "Transaction payload",
+            "description": "Hex-encoded transaction CBOR"
+          }
+        }
+      },
+      "PeekInflightResponse": {
+        "type": "object",
+        "required": ["entries", "hasMore"],
+        "properties": {
+          "entries": {
+            "type": "array",
+            "title": "Inflight transactions",
+            "items": {
+              "$ref": "#/components/schemas/InflightTx"
+            }
+          },
+          "hasMore": {
+            "type": "boolean",
+            "title": "Has more",
+            "description": "Whether there are more inflight transactions"
+          }
+        }
+      },
+      "ArgMap": {
+        "type": "object",
+        "description": "Flexible key-value arguments for transaction execution",
+        "additionalProperties": true
+      },
+      "EnvMap": {
+        "type": "object",
+        "description": "Environment variables for transaction execution context",
+        "additionalProperties": true
       }
     },
     "examples": {
       "tir": {
         "name": "tir",
         "value": {
-          "bytecode": "11000000000000000000000001000000000000000600000000000000736f7572636501010c000000060000000000000073656e64657205000000010b000000010000000000000000000000000000000c00000008000000000000007175616e746974790200000000000000000000000000000200000000000000010c000000080000000000000072656365697665720500000000010b000000010000000000000000000000000000000c00000008000000000000007175616e7469747902000000010c000000060000000000000073656e64657205000000000110000000100000000f0000000600000000000000736f757263650b000000010000000000000000000000000000000c00000008000000000000007175616e74697479020000000100000011000000010000000000000000000000000000000000000000",
+          "content": "ab6466656573a169457...",
           "encoding": "hex",
           "version": "v1alpha3"
         }
@@ -69,6 +325,10 @@
           "quantity": 5000000
         }
       },
+      "env": {
+        "name": "env",
+        "value": {}
+      },
       "tx": {
         "name": "tx",
         "value": {
@@ -76,57 +336,83 @@
           "encoding": "hex",
           "version": "v1alpha1"
         }
+      },
+      "witness": {
+        "name": "witness",
+        "value": {
+          "key": {
+            "payload": "aabbccdd...",
+            "encoding": "hex",
+            "version": "v1"
+          },
+          "signature": {
+            "payload": "11223344...",
+            "encoding": "hex",
+            "version": "v1"
+          },
+          "type": "vkey"
+        }
       }
     }
   },
   "methods": [
     {
       "name": "trp.resolve",
-      "description": "Resolve transaction",
+      "description": "Resolve a transaction template into a concrete transaction",
       "params": [
         {
           "name": "tir",
-          "description": "Intermediate representation (IR) for the transaction that will be executed.",
+          "description": "Transaction Intermediate Representation (TIR) envelope",
           "required": true,
           "schema": {
-            "$ref": "#/components/schemas/tir"
+            "$ref": "#/components/schemas/TIREnvelope"
           }
         },
         {
           "name": "args",
-          "description": "A json object of args to be passed into the tx execution.",
+          "description": "JSON object of arguments to pass into the transaction execution",
           "required": true,
           "schema": {
-            "title": "Arguments for tx",
-            "description": "Any json",
-            "type": "object"
+            "$ref": "#/components/schemas/ArgMap"
+          }
+        },
+        {
+          "name": "env",
+          "description": "Environment variables for transaction execution",
+          "required": false,
+          "schema": {
+            "$ref": "#/components/schemas/EnvMap"
           }
         }
       ],
       "result": {
         "name": "tx",
-        "description": "Transaction cbor resolved",
+        "description": "Resolved transaction envelope",
         "schema": {
-          "$ref": "#/components/schemas/args"
+          "$ref": "#/components/schemas/TxEnvelope"
         }
       },
       "examples": [
         {
           "name": "transfer",
-          "description": "Simple transaction to transfer coin",
+          "description": "Simple transaction to transfer coins",
           "params": [
             {
               "$ref": "#/components/examples/tir"
             },
             {
               "$ref": "#/components/examples/args"
+            },
+            {
+              "$ref": "#/components/examples/env"
             }
           ],
           "result": {
             "name": "transferResult",
-            "description": "Return the transaction cbor",
+            "description": "Resolved transaction with CBOR payload and hash",
             "value": {
-              "tx": "84a600d90102818258205663c3e28539f4b847043..."
+              "tx": "84a600d90102818258205663c3e28539f4b847043cf2b1d87e5e4bd3e070a76dcfb3fd8170218486eff1000181a200581d607d2c43c7a0f627eef2ea856a32d511d016b8ea91b060b4644a894ec4011a02f56480021a00058c0109a1581c4471174f9a61d7de7e9e2e3f6bb6e490796a84cc4143ccb98262759ea1474d79546f6b656e010b5820003511b2fd5ed61f48885d63bcbff79a06446d216d40bcc3045fd1e24b9a02b00f00a200d90102818258201c38965e73acce4b27c2b86fcfb389329ae62240d84d0531fe93f806fba69f7a58406541739e86340b3a20ad5a9f9e3347e4eefca1aa5bb888d5649961fe64e0cdc95dabb6602e99a6771c3fe60d7ea0b5d4346cfd4f6ca137be7ba7af3b8784ba0c0581840100d87980821907d01a00030d40f5f6",
+              "hash": "5663c3e28539f4b847043cf2b1d87e5e4bd3e070..."
             }
           }
         }
@@ -134,64 +420,211 @@
     },
     {
       "name": "trp.submit",
-      "description": "Submit a transaction",
+      "description": "Submit a signed transaction to the network",
       "params": [
         {
           "name": "tx",
-          "description": "A transaction to be submitted",
+          "description": "Signed transaction to submit",
           "required": true,
           "schema": {
-            "type": "object",
-            "properties": {
-              "encoding": {
-                "type": "string",
-                "title": "Encode type",
-                "description": "hex,base64"
-              },
-              "payload": {
-                "type": "string",
-                "title": "Cbor transaction"
-              },
-
-              "version": {
-                "type": "string",
-                "title": "Version"
-              }
+            "$ref": "#/components/schemas/BytesEnvelope"
+          }
+        },
+        {
+          "name": "witnesses",
+          "description": "Additional witnesses to apply to the transaction",
+          "required": false,
+          "schema": {
+            "type": "array",
+            "title": "Transaction witnesses",
+            "items": {
+              "$ref": "#/components/schemas/TxWitness"
             }
           }
         }
       ],
       "result": {
-        "name": "tx",
-        "description": "Transaction submitted",
+        "name": "submitResponse",
+        "description": "Transaction submission result",
         "schema": {
-          "type": "object",
-          "properties": {
-            "hash": {
-              "type": "string",
-              "title": "tx hash"
-            }
-          }
+          "$ref": "#/components/schemas/SubmitResponse"
         }
       },
       "examples": [
         {
           "name": "transfer",
-          "description": "Simple transaction to transfer coin",
+          "description": "Submit a signed transfer transaction",
           "params": [
             {
               "$ref": "#/components/examples/tx"
+            },
+            {
+              "name": "witnesses",
+              "value": []
             }
           ],
           "result": {
-            "name": "transferResult",
-            "description": "Return the transaction hash",
+            "name": "submitResult",
+            "description": "Transaction hash after submission",
             "value": {
               "hash": "5663c3e28539f4b847043cf2b1d87e5e4bd3e070..."
             }
           }
         }
       ]
+    },
+    {
+      "name": "trp.checkStatus",
+      "description": "Check the status of transactions in the mempool",
+      "params": [
+        {
+          "name": "hashes",
+          "description": "Array of transaction hashes to check (hex encoded)",
+          "required": true,
+          "schema": {
+            "type": "array",
+            "title": "Transaction hashes",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      ],
+      "result": {
+        "name": "checkStatusResponse",
+        "description": "Status information for each transaction hash",
+        "schema": {
+          "$ref": "#/components/schemas/CheckStatusResponse"
+        }
+      },
+      "examples": [
+        {
+          "name": "checkStatus",
+          "description": "Check status of a transaction",
+          "params": [
+            {
+              "name": "hashes",
+              "value": ["5663c3e28539f4b847043cf2b1d87e5e4bd3e070..."]
+            }
+          ],
+          "result": {
+            "name": "statusResult",
+            "description": "Transaction status information",
+            "value": {
+              "statuses": {
+                "5663c3e28539f4b847043cf2b1d87e5e4bd3e070...": {
+                  "stage": "pending",
+                  "confirmations": 0,
+                  "nonConfirmations": 0,
+                  "confirmedAt": null
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "trp.dumpLogs",
+      "description": "Dump finalized transaction logs with pagination",
+      "params": [
+        {
+          "name": "cursor",
+          "description": "Cursor for pagination (defaults to 0)",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "title": "Pagination cursor"
+          }
+        },
+        {
+          "name": "limit",
+          "description": "Maximum number of entries to return (defaults to 50)",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "title": "Page limit"
+          }
+        },
+        {
+          "name": "includePayload",
+          "description": "Whether to include transaction payload CBOR (defaults to false)",
+          "required": false,
+          "schema": {
+            "type": "boolean",
+            "title": "Include payload"
+          }
+        }
+      ],
+      "result": {
+        "name": "dumpLogsResponse",
+        "description": "Paginated log entries",
+        "schema": {
+          "$ref": "#/components/schemas/DumpLogsResponse"
+        }
+      }
+    },
+    {
+      "name": "trp.peekPending",
+      "description": "Peek at pending transactions in the mempool",
+      "params": [
+        {
+          "name": "limit",
+          "description": "Maximum number of entries to return (defaults to 50)",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "title": "Page limit"
+          }
+        },
+        {
+          "name": "includePayload",
+          "description": "Whether to include transaction payload CBOR (defaults to false)",
+          "required": false,
+          "schema": {
+            "type": "boolean",
+            "title": "Include payload"
+          }
+        }
+      ],
+      "result": {
+        "name": "peekPendingResponse",
+        "description": "Pending transactions with pagination info",
+        "schema": {
+          "$ref": "#/components/schemas/PeekPendingResponse"
+        }
+      }
+    },
+    {
+      "name": "trp.peekInflight",
+      "description": "Peek at inflight transactions (propagated/acknowledged) in the mempool",
+      "params": [
+        {
+          "name": "limit",
+          "description": "Maximum number of entries to return (defaults to 50)",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "title": "Page limit"
+          }
+        },
+        {
+          "name": "includePayload",
+          "description": "Whether to include transaction payload CBOR (defaults to false)",
+          "required": false,
+          "schema": {
+            "type": "boolean",
+            "title": "Include payload"
+          }
+        }
+      ],
+      "result": {
+        "name": "peekInflightResponse",
+        "description": "Inflight transactions with pagination info",
+        "schema": {
+          "$ref": "#/components/schemas/PeekInflightResponse"
+        }
+      }
     }
   ]
 }
