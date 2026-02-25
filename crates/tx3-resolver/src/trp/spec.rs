@@ -3,10 +3,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::interop::{BytesEncoding, BytesEnvelope};
 
+pub type EnvMap = serde_json::Map<String, serde_json::Value>;
 pub type JsonArgMap = serde_json::Map<String, serde_json::Value>;
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct TirEnvelope {
+    // Aliases for backward compatibility
+    #[serde(alias = "bytecode", alias = "payload")]
     pub content: String,
     pub encoding: BytesEncoding,
     pub version: String,
@@ -17,7 +20,7 @@ pub struct SubmitParams {
     #[serde(rename = "tx")]
     pub tx: BytesEnvelope,
     #[serde(rename = "witnesses")]
-    pub witnesses: Vec<SubmitWitness>,
+    pub witnesses: Vec<TxWitness>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -66,10 +69,12 @@ pub struct ResolveParams {
     pub args: JsonArgMap,
     #[serde(rename = "tir")]
     pub tir: TirEnvelope,
+    #[serde(rename = "env")]
+    pub env: Option<EnvMap>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SubmitWitness {
+pub struct TxWitness {
     #[serde(rename = "key")]
     pub key: BytesEnvelope,
     #[serde(rename = "signature")]
@@ -108,4 +113,96 @@ pub struct MissingTxArgDiagnostic {
 pub struct TxScriptFailureDiagnostic {
     #[serde(rename = "logs")]
     pub logs: Vec<String>,
+}
+
+// Additional types from OpenRPC spec
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChainPoint {
+    #[serde(rename = "slot")]
+    pub slot: u64,
+    #[serde(rename = "blockHash")]
+    pub block_hash: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TxStatus {
+    #[serde(rename = "stage")]
+    pub stage: String,
+    #[serde(rename = "confirmations")]
+    pub confirmations: u64,
+    #[serde(rename = "nonConfirmations")]
+    pub non_confirmations: u64,
+    #[serde(rename = "confirmedAt")]
+    pub confirmed_at: Option<ChainPoint>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CheckStatusResponse {
+    #[serde(rename = "statuses")]
+    pub statuses: std::collections::HashMap<String, TxStatus>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TxLog {
+    #[serde(rename = "hash")]
+    pub hash: String,
+    #[serde(rename = "stage")]
+    pub stage: String,
+    #[serde(rename = "payload")]
+    pub payload: Option<String>,
+    #[serde(rename = "confirmations")]
+    pub confirmations: u64,
+    #[serde(rename = "nonConfirmations")]
+    pub non_confirmations: u64,
+    #[serde(rename = "confirmedAt")]
+    pub confirmed_at: Option<ChainPoint>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DumpLogsResponse {
+    #[serde(rename = "entries")]
+    pub entries: Vec<TxLog>,
+    #[serde(rename = "nextCursor")]
+    pub next_cursor: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PendingTx {
+    #[serde(rename = "hash")]
+    pub hash: String,
+    #[serde(rename = "payload")]
+    pub payload: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PeekPendingResponse {
+    #[serde(rename = "entries")]
+    pub entries: Vec<PendingTx>,
+    #[serde(rename = "hasMore")]
+    pub has_more: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InflightTx {
+    #[serde(rename = "hash")]
+    pub hash: String,
+    #[serde(rename = "stage")]
+    pub stage: String,
+    #[serde(rename = "confirmations")]
+    pub confirmations: u64,
+    #[serde(rename = "nonConfirmations")]
+    pub non_confirmations: u64,
+    #[serde(rename = "confirmedAt")]
+    pub confirmed_at: Option<ChainPoint>,
+    #[serde(rename = "payload")]
+    pub payload: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PeekInflightResponse {
+    #[serde(rename = "entries")]
+    pub entries: Vec<InflightTx>,
+    #[serde(rename = "hasMore")]
+    pub has_more: bool,
 }

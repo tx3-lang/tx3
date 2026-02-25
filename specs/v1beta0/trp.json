@@ -2,13 +2,26 @@
   "openrpc": "1.3.2",
   "info": {
     "title": "Transaction Resolver Protocol",
-    "version": "0.1.0",
-    "description": "OpenRPC schema inferred from the TRP Rust client implementation."
+    "version": "1.0.0",
+    "description": "OpenRPC schema for the Transaction Resolver Protocol (TRP). TRP is a backend for tx3.",
+    "contact": {
+      "url": "https://txpipe.io"
+    }
   },
   "servers": [
     {
       "name": "default",
       "url": "http://localhost:8545"
+    },
+    {
+      "name": "Demeter Preview",
+      "description": "Free Demeter TRP",
+      "url": "https://cardano-preview.trp-m1.demeter.run",
+      "variables": {
+        "dmtr-api-key": {
+          "default": "trp1ffyf88ugcyg6j6n3yuh"
+        }
+      }
     }
   ],
   "methods": [
@@ -73,6 +86,106 @@
           "$ref": "#/components/schemas/SubmitResponse"
         }
       }
+    },
+    {
+      "name": "trp.checkStatus",
+      "summary": "Check the status of transactions in the mempool.",
+      "params": {
+        "name": "CheckStatusParams",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "hashes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": ["hashes"]
+        }
+      },
+      "result": {
+        "name": "CheckStatusResponse",
+        "schema": {
+          "$ref": "#/components/schemas/CheckStatusResponse"
+        }
+      }
+    },
+    {
+      "name": "trp.dumpLogs",
+      "summary": "Dump finalized transaction logs with pagination.",
+      "params": {
+        "name": "DumpLogsParams",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "cursor": {
+              "type": "integer"
+            },
+            "limit": {
+              "type": "integer"
+            },
+            "includePayload": {
+              "type": "boolean"
+            }
+          }
+        }
+      },
+      "result": {
+        "name": "DumpLogsResponse",
+        "schema": {
+          "$ref": "#/components/schemas/DumpLogsResponse"
+        }
+      }
+    },
+    {
+      "name": "trp.peekPending",
+      "summary": "Peek at pending transactions in the mempool.",
+      "params": {
+        "name": "PeekPendingParams",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "limit": {
+              "type": "integer"
+            },
+            "includePayload": {
+              "type": "boolean"
+            }
+          }
+        }
+      },
+      "result": {
+        "name": "PeekPendingResponse",
+        "schema": {
+          "$ref": "#/components/schemas/PeekPendingResponse"
+        }
+      }
+    },
+    {
+      "name": "trp.peekInflight",
+      "summary": "Peek at inflight transactions (propagated/acknowledged) in the mempool.",
+      "params": {
+        "name": "PeekInflightParams",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "limit": {
+              "type": "integer"
+            },
+            "includePayload": {
+              "type": "boolean"
+            }
+          }
+        }
+      },
+      "result": {
+        "name": "PeekInflightResponse",
+        "schema": {
+          "$ref": "#/components/schemas/PeekInflightResponse"
+        }
+      }
     }
   ],
   "components": {
@@ -81,29 +194,27 @@
         "title": "BytesEnvelope",
         "type": "object",
         "properties": {
-          "encoding": {
-            "type": "string"
+          "content": {
+            "type": "string",
+            "description": "The encoded byte content"
           },
-          "payload": {
-            "type": "string"
+          "contentType": {
+            "type": "string",
+            "description": "MIME type or format identifier for the content"
           }
         },
-        "required": [
-          "encoding",
-          "payload"
-        ]
+        "required": ["content", "contentType"]
       },
       "SubmitResponse": {
         "title": "SubmitResponse",
         "type": "object",
         "properties": {
           "hash": {
-            "type": "string"
+            "type": "string",
+            "description": "Transaction hash"
           }
         },
-        "required": [
-          "hash"
-        ]
+        "required": ["hash"]
       },
       "TxEnvelope": {
         "title": "TxEnvelope",
@@ -118,10 +229,7 @@
             "description": "Transaction hash"
           }
         },
-        "required": [
-          "tx",
-          "hash"
-        ]
+        "required": ["tx", "hash"]
       },
       "SubmitWitness": {
         "title": "SubmitWitness",
@@ -129,9 +237,7 @@
         "properties": {
           "type": {
             "type": "string",
-            "enum": [
-              "vkey"
-            ]
+            "enum": ["vkey"]
           },
           "key": {
             "$ref": "#/components/schemas/BytesEnvelope"
@@ -140,11 +246,7 @@
             "$ref": "#/components/schemas/BytesEnvelope"
           }
         },
-        "required": [
-          "type",
-          "key",
-          "signature"
-        ]
+        "required": ["type", "key", "signature"]
       },
       "UnsupportedTirDiagnostic": {
         "title": "UnsupportedTirDiagnostic",
@@ -157,10 +259,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "provided",
-          "expected"
-        ]
+        "required": ["provided", "expected"]
       },
       "MissingTxArgDiagnostic": {
         "title": "MissingTxArgDiagnostic",
@@ -173,10 +272,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "key",
-          "type"
-        ]
+        "required": ["key", "type"]
       },
       "SearchSpaceDiagnostic": {
         "title": "SearchSpaceDiagnostic",
@@ -189,37 +285,23 @@
             }
           },
           "by_address_count": {
-            "type": [
-              "integer",
-              "null"
-            ]
+            "type": ["integer", "null"]
           },
           "by_asset_class_count": {
-            "type": [
-              "integer",
-              "null"
-            ]
+            "type": ["integer", "null"]
           },
           "by_ref_count": {
-            "type": [
-              "integer",
-              "null"
-            ]
+            "type": ["integer", "null"]
           }
         },
-        "required": [
-          "matched"
-        ]
+        "required": ["matched"]
       },
       "InputQueryDiagnostic": {
         "title": "InputQueryDiagnostic",
         "type": "object",
         "properties": {
           "address": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           },
           "min_amount": {
             "type": "object",
@@ -240,12 +322,7 @@
             "type": "boolean"
           }
         },
-        "required": [
-          "min_amount",
-          "refs",
-          "support_many",
-          "collateral"
-        ]
+        "required": ["min_amount", "refs", "support_many", "collateral"]
       },
       "InputNotResolvedDiagnostic": {
         "title": "InputNotResolvedDiagnostic",
@@ -261,11 +338,7 @@
             "$ref": "#/components/schemas/SearchSpaceDiagnostic"
           }
         },
-        "required": [
-          "name",
-          "query",
-          "search_space"
-        ]
+        "required": ["name", "query", "search_space"]
       },
       "TxScriptFailureDiagnostic": {
         "title": "TxScriptFailureDiagnostic",
@@ -278,9 +351,7 @@
             }
           }
         },
-        "required": [
-          "logs"
-        ]
+        "required": ["logs"]
       },
       "SubmitParams": {
         "title": "SubmitParams",
@@ -296,30 +367,282 @@
             }
           }
         },
-        "required": [
-          "tx",
-          "witnesses"
-        ]
+        "required": ["tx", "witnesses"]
       },
       "ResolveParams": {
         "title": "ResolveParams",
         "type": "object",
         "properties": {
           "tir": {
-            "$ref": "core.json#/tirEnvelope"
+            "$ref": "core.json#/$defs/TirEnvelope"
           },
           "args": {
-            "type": "object"
+            "$ref": "core.json#/$defs/ArgMap"
           },
           "env": {
-            "type": "object"
+            "$ref": "core.json#/$defs/EnvMap"
           }
         },
-        "required": [
-          "tir",
-          "args",
-          "env"
-        ]
+        "required": ["tir", "args"]
+      },
+      "ChainPoint": {
+        "type": "object",
+        "required": ["slot", "blockHash"],
+        "properties": {
+          "slot": {
+            "type": "integer",
+            "title": "Slot",
+            "description": "Slot number when transaction was confirmed"
+          },
+          "blockHash": {
+            "type": "string",
+            "title": "Block hash",
+            "description": "Hash of the block containing the transaction"
+          }
+        }
+      },
+      "TxStatus": {
+        "type": "object",
+        "required": ["stage", "confirmations", "nonConfirmations"],
+        "properties": {
+          "stage": {
+            "type": "string",
+            "title": "Transaction stage",
+            "description": "Current stage in the mempool lifecycle",
+            "enum": [
+              "pending",
+              "propagated",
+              "acknowledged",
+              "confirmed",
+              "finalized",
+              "dropped",
+              "rolled_back",
+              "unknown"
+            ]
+          },
+          "confirmations": {
+            "type": "integer",
+            "title": "Number of confirmations"
+          },
+          "nonConfirmations": {
+            "type": "integer",
+            "title": "Number of non-confirmations"
+          },
+          "confirmedAt": {
+            "$ref": "#/components/schemas/ChainPoint"
+          }
+        }
+      },
+      "CheckStatusResponse": {
+        "type": "object",
+        "required": ["statuses"],
+        "properties": {
+          "statuses": {
+            "$ref": "#/components/schemas/TxStatusMap"
+          }
+        }
+      },
+      "TxStatusMap": {
+        "type": "object",
+        "description": "Map of transaction hashes to their status information",
+        "additionalProperties": {
+          "$ref": "#/components/schemas/TxStatus"
+        }
+      },
+      "TxLog": {
+        "type": "object",
+        "required": ["hash", "stage", "confirmations", "nonConfirmations"],
+        "properties": {
+          "hash": {
+            "type": "string",
+            "title": "Transaction hash"
+          },
+          "stage": {
+            "type": "string",
+            "title": "Transaction stage",
+            "enum": [
+              "pending",
+              "propagated",
+              "acknowledged",
+              "confirmed",
+              "finalized",
+              "dropped",
+              "rolled_back",
+              "unknown"
+            ]
+          },
+          "payload": {
+            "type": "string",
+            "title": "Transaction payload",
+            "description": "Hex-encoded transaction CBOR"
+          },
+          "confirmations": {
+            "type": "integer",
+            "title": "Number of confirmations"
+          },
+          "nonConfirmations": {
+            "type": "integer",
+            "title": "Number of non-confirmations"
+          },
+          "confirmedAt": {
+            "$ref": "#/components/schemas/ChainPoint"
+          }
+        }
+      },
+      "DumpLogsResponse": {
+        "type": "object",
+        "required": ["entries"],
+        "properties": {
+          "entries": {
+            "type": "array",
+            "title": "Log entries",
+            "items": {
+              "$ref": "#/components/schemas/TxLog"
+            }
+          },
+          "nextCursor": {
+            "type": "integer",
+            "title": "Next cursor",
+            "description": "Cursor for pagination"
+          }
+        }
+      },
+      "PendingTx": {
+        "type": "object",
+        "required": ["hash"],
+        "properties": {
+          "hash": {
+            "type": "string",
+            "title": "Transaction hash"
+          },
+          "payload": {
+            "type": "string",
+            "title": "Transaction payload",
+            "description": "Hex-encoded transaction CBOR"
+          }
+        }
+      },
+      "PeekPendingResponse": {
+        "type": "object",
+        "required": ["entries", "hasMore"],
+        "properties": {
+          "entries": {
+            "type": "array",
+            "title": "Pending transactions",
+            "items": {
+              "$ref": "#/components/schemas/PendingTx"
+            }
+          },
+          "hasMore": {
+            "type": "boolean",
+            "title": "Has more",
+            "description": "Whether there are more pending transactions"
+          }
+        }
+      },
+      "InflightTx": {
+        "type": "object",
+        "required": ["hash", "stage", "confirmations", "nonConfirmations"],
+        "properties": {
+          "hash": {
+            "type": "string",
+            "title": "Transaction hash"
+          },
+          "stage": {
+            "type": "string",
+            "title": "Transaction stage",
+            "enum": [
+              "pending",
+              "propagated",
+              "acknowledged",
+              "confirmed",
+              "finalized",
+              "dropped",
+              "rolled_back",
+              "unknown"
+            ]
+          },
+          "confirmations": {
+            "type": "integer",
+            "title": "Number of confirmations"
+          },
+          "nonConfirmations": {
+            "type": "integer",
+            "title": "Number of non-confirmations"
+          },
+          "confirmedAt": {
+            "$ref": "#/components/schemas/ChainPoint"
+          },
+          "payload": {
+            "type": "string",
+            "title": "Transaction payload",
+            "description": "Hex-encoded transaction CBOR"
+          }
+        }
+      },
+      "PeekInflightResponse": {
+        "type": "object",
+        "required": ["entries", "hasMore"],
+        "properties": {
+          "entries": {
+            "type": "array",
+            "title": "Inflight transactions",
+            "items": {
+              "$ref": "#/components/schemas/InflightTx"
+            }
+          },
+          "hasMore": {
+            "type": "boolean",
+            "title": "Has more",
+            "description": "Whether there are more inflight transactions"
+          }
+        }
+      }
+    },
+    "examples": {
+      "tir": {
+        "name": "tir",
+        "value": {
+          "content": "ab6466656573a169457...",
+          "encoding": "hex",
+          "version": "v1alpha3"
+        }
+      },
+      "args": {
+        "name": "args",
+        "value": {
+          "sender": "addr_test1qqxfzzm8cl05gssccyt3dtcp25fgrcfw6akjp9r4wtx09ujl8vdgga5pvrmprvd67asp7tr6vrwwnjku5l7ly4xhq9esagp6ag",
+          "receiver": "addr_test1qqxfzzm8cl05gssccyt3dtcp25fgrcfw6akjp9r4wtx09ujl8vdgga5pvrmprvd67asp7tr6vrwwnjku5l7ly4xhq9esagp6ag",
+          "quantity": 5000000
+        }
+      },
+      "env": {
+        "name": "env",
+        "value": {}
+      },
+      "tx": {
+        "name": "tx",
+        "value": {
+          "payload": "84a600d90102818258205663c3e28539f4b847043cf2b1d87e5e4bd3e070a76dcfb3fd8170218486eff1000181a200581d607d2c43c7a0f627eef2ea856a32d511d016b8ea91b060b4644a894ec4011a02f56480021a00058c0109a1581c4471174f9a61d7de7e9e2e3f6bb6e490796a84cc4143ccb98262759ea1474d79546f6b656e010b5820003511b2fd5ed61f48885d63bcbff79a06446d216d40bcc3045fd1e24b9a02b00f00a200d90102818258201c38965e73acce4b27c2b86fcfb389329ae62240d84d0531fe93f806fba69f7a58406541739e86340b3a20ad5a9f9e3347e4eefca1aa5bb888d5649961fe64e0cdc95dabb6602e99a6771c3fe60d7ea0b5d4346cfd4f6ca137be7ba7af3b8784ba0c0581840100d87980821907d01a00030d40f5f6",
+          "encoding": "hex",
+          "version": "v1alpha1"
+        }
+      },
+      "witness": {
+        "name": "witness",
+        "value": {
+          "key": {
+            "payload": "aabbccdd...",
+            "encoding": "hex",
+            "version": "v1"
+          },
+          "signature": {
+            "payload": "11223344...",
+            "encoding": "hex",
+            "version": "v1"
+          },
+          "type": "vkey"
+        }
       }
     }
   }
