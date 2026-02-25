@@ -459,6 +459,82 @@ fn compile_collateral(tx: &tir::Tx) -> Result<Vec<TransactionInput>, Error> {
         .collect())
 }
 
+fn compile_collateral_return(tx: &tir::Tx) -> Result<Option<primitives::TransactionOutput<'static>>, Error> {
+    if tx.collateral.is_empty() {
+        return Ok(None);
+    }
+
+    // Is it okay to sum all collateral UTxOs amounts?
+    let collateral_amount = tx
+        .collateral
+        .iter()
+        .filter_map(|collateral| collateral.utxos.as_option())
+        .flat_map(coercion::expr_into_utxo)
+        .flatten()
+        .map(|x| x.assets.naked_amount().unwrap_or(0))
+        .reduce(|acc, x| acc + x)
+        .unwrap_or(0);
+
+    let fees = coercion::expr_into_number(&tx.fees)?;
+
+    // We should substract the min_amount from the collateral block
+    let return_amount = collateral_amount - fees;
+
+    if return_amount <= 0 {
+        return Ok(None);
+    }
+
+    // Is it okay to take the address from the first collateral UTxO?
+    let address = tx
+        .collateral
+        .iter()
+        .filter_map(|collateral| collateral.utxos.as_option())
+        .flat_map(coercion::expr_into_utxo)
+        .flatten()
+        .next()
+        .ok_or(Error::MissingExpression(
+            "collateral return address".to_string(),
+        ))?.address.clone();
+
+    return Ok(Some(primitives::TransactionOutput::PostAlonzo(
+        primitives::PostAlonzoTransactionOutput {
+            address: crate::compile::primitives::Bytes::from(address),
+            value: value!(return_amount as u64),
+            datum_option: None,
+            script_ref: None,
+        }
+        .into(),
+    )));
+}
+
+fn compile_total_collateral(tx: &tir::Tx) -> Result<Option<u64>, Error> {
+    if tx.collateral.is_empty() {
+        return Ok(None);
+    }
+
+    // Is it okay to sum all collateral UTxOs amounts?
+    let collateral_amount = tx
+        .collateral
+        .iter()
+        .filter_map(|collateral| collateral.utxos.as_option())
+        .flat_map(coercion::expr_into_utxo)
+        .flatten()
+        .map(|x| x.assets.naked_amount().unwrap_or(0))
+        .reduce(|acc, x| acc + x)
+        .unwrap_or(0);
+
+    let fees = coercion::expr_into_number(&tx.fees)?;
+
+    // We should substract the min_amount from the collateral block
+    let return_amount = collateral_amount - fees;
+
+    if return_amount <= 0 {
+        return Ok(None);
+    }
+
+    return Ok(Some(return_amount as u64));
+}
+
 fn compile_required_signers(tx: &tir::Tx) -> Result<Option<primitives::RequiredSigners>, Error> {
     let Some(signers) = &tx.signers else {
         return Ok(None);
@@ -528,8 +604,9 @@ fn compile_tx_body(
         script_data_hash: None,
         collateral: primitives::NonEmptySet::from_vec(compile_collateral(tx)?),
         required_signers: compile_required_signers(tx)?,
-        collateral_return: None,
-        total_collateral: None,
+        // I don't think it's necessary to declare the collateral return, with the total collateral looks like it's enough?
+        collateral_return: compile_collateral_return(tx)?,
+        total_collateral: compile_total_collateral(tx)?,
         voting_procedures: None,
         proposal_procedures: None,
         treasury_value: None,
