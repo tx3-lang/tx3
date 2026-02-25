@@ -86,12 +86,39 @@ fn key_to_normalized_name(key: &str) -> String {
     key.replace('/', "_").replace('$', "_")
 }
 
-fn import_type_name(key: &str, alias: Option<&str>) -> String {
-    let base = key_to_normalized_name(key);
-    match alias {
-        Some(a) => format!("{}_{}", a, base),
-        None => base,
+fn import_type_name(key: &str) -> String {
+    friendly_import_type_alias_name(key).unwrap_or_else(|| key_to_normalized_name(key))
+}
+
+fn sanitize_identifier_part(raw: &str) -> String {
+    raw.chars()
+        .filter(|c| c.is_ascii_alphanumeric() || *c == '_')
+        .collect()
+}
+
+fn friendly_import_type_alias_name(key: &str) -> Option<String> {
+    let (base_key, generic_key) = match key.split_once('$') {
+        Some((base, generic)) => (base, Some(generic)),
+        None => (key, None),
+    };
+
+    let base = base_key.rsplit('/').next().unwrap_or(base_key);
+    let base = sanitize_identifier_part(base);
+
+    if base.is_empty() || !base.chars().next()?.is_ascii_alphabetic() {
+        return None;
     }
+
+    let mut suffix = String::new();
+
+    if let Some(generic_key) = generic_key {
+        for generic_part in generic_key.split('_').filter(|x| !x.is_empty()) {
+            let segment = generic_part.rsplit('/').next().unwrap_or(generic_part);
+            suffix.push_str(&sanitize_identifier_part(segment));
+        }
+    }
+
+    Some(format!("{}{}", base, suffix))
 }
 
 fn resolve_ref_to_type(
@@ -149,15 +176,20 @@ fn resolve_ref_to_type(
         }
     }
 
-    Ok(Type::Custom(Identifier::new(import_type_name(&key, alias))))
+    Ok(Type::Custom(Identifier::new(import_type_name(&key))))
 }
 
 fn field_to_record_field(
     f: &Field,
+    index: usize,
     definitions: &Definitions,
     alias: Option<&str>,
 ) -> Result<RecordField, Error> {
-    let name = f.title.as_deref().unwrap_or("field").to_string();
+    let name = f
+        .title
+        .as_deref()
+        .map(ToString::to_string)
+        .unwrap_or_else(|| format!("field_{}", index));
     let r#type = resolve_ref_to_type(&f.reference, definitions, alias)?;
     Ok(RecordField {
         name: Identifier::new(name),
@@ -175,7 +207,8 @@ fn schema_to_variant_case(
     let fields: Vec<RecordField> = schema
         .fields
         .iter()
-        .map(|f| field_to_record_field(f, definitions, alias))
+        .enumerate()
+        .map(|(i, f)| field_to_record_field(f, i, definitions, alias))
         .collect::<Result<Vec<_>, _>>()?;
     Ok(VariantCase {
         name: Identifier::new(name),
@@ -208,7 +241,7 @@ fn definition_to_type_def(
         // TODO: There is no Any for our type system, so for now we'll just import it as a single empty variant case.
         if key == "Data" {
             return Ok(Some(TypeDef {
-                name: Identifier::new(import_type_name(key, alias)),
+                name: Identifier::new(import_type_name(key)),
                 cases: vec![VariantCase {
                     name: Identifier::new("Default"),
                     fields: vec![],
@@ -229,7 +262,7 @@ fn definition_to_type_def(
         cases[0].name = Identifier::new("Default");
     }
 
-    let type_name = import_type_name(key, alias);
+    let type_name = import_type_name(key);
     Ok(Some(TypeDef {
         name: Identifier::new(type_name),
         cases,
@@ -374,8 +407,8 @@ mod tests {
 
         let type_names: Vec<String> = program.types.iter().map(|t| t.name.value.clone()).collect();
         assert!(
-            type_names.contains(&"types_Bool".to_string()),
-            "expected types_Bool in program.types, got: {:?}",
+            type_names.contains(&"Bool".to_string()),
+            "expected Bool in program.types, got: {:?}",
             type_names
         );
     }
@@ -394,8 +427,8 @@ mod tests {
 
         let type_names: Vec<String> = program.types.iter().map(|t| t.name.value.clone()).collect();
         assert!(
-            type_names.iter().any(|n| n.starts_with("types_")),
-            "expected at least one type prefixed with 'types_', got: {:?}",
+            type_names.contains(&"SettingsDatum".to_string()),
+            "expected friendly imported type names (e.g. SettingsDatum), got: {:?}",
             type_names
         );
     }
@@ -515,7 +548,7 @@ mod tests {
         let src = r#"
             import "test.json" as types;
             party Alice;
-            tx test(outref: types_OutputReference) {
+            tx test(outref: OutputReference) {
                 output my_output {
                     to: Alice,
                     amount: 1000000,
@@ -532,8 +565,8 @@ mod tests {
         let output_ref_type = program
             .types
             .iter()
-            .find(|t| t.name.value == "types_OutputReference")
-            .expect("types_OutputReference should be imported");
+            .find(|t| t.name.value == "OutputReference")
+            .expect("OutputReference should be imported");
         assert_eq!(output_ref_type.cases.len(), 1);
         assert_eq!(output_ref_type.cases[0].name.value, "Default");
 

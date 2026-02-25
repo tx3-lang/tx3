@@ -12,15 +12,15 @@ tx create_settings(
 
     output settings {
         to: Admin,
-        datum: plutus_types_SettingsDatum {
-            githoney_address: plutus_cardano_address_Address {
-                payment_credential: plutus_cardano_address_PaymentCredential::VerificationKey {
-                    field: 0x12345678901234567890123456789012345678901234567890123456,
-                },
-                stake_credential: plutus_Option_cardano_address_StakeCredential::None {},
+        datum: SettingsDatum::SettingsDatum {
+          githoney_address: Address::Address{
+            payment_credential: PaymentCredential::VerificationKey {
+              field: 0x12345678901234567890123456789012345678901234567890123456,
             },
-            bounty_creation_fee: 500,
-            bounty_reward_fee: 100,
+            stake_credential: OptionStakeCredential::None {},
+          },
+          bounty_creation_fee: 500,
+          bounty_reward_fee: 100,
         },
         amount: 2000000,
     }
