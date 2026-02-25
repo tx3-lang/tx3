@@ -147,6 +147,17 @@
             0
           ]
         },
+        "to": {
+          "EvalParam": {
+            "ExpectValue": [
+              "receiver",
+              "Address"
+            ]
+          }
+        },
+        "version": {
+          "Number": 0
+        },
         "amount": {
           "Assets": [
             {
@@ -162,17 +173,6 @@
               }
             }
           ]
-        },
-        "to": {
-          "EvalParam": {
-            "ExpectValue": [
-              "receiver",
-              "Address"
-            ]
-          }
-        },
-        "version": {
-          "Number": 0
         }
       }
     }

@@ -439,6 +439,10 @@ tx_body_block = _{
     validity_block
 }
 
+import_def = {
+    "import" ~ string ~ ("as" ~ identifier)? ~ ";"
+}
+
 env_field = { identifier ~ ":" ~ type }
 
 env_def = {
@@ -453,6 +457,6 @@ tx_def = {
 // Program
 program = {
     SOI ~
-    (env_def | asset_def | party_def | policy_def | type_def | tx_def)* ~
+    (import_def | env_def | asset_def | party_def | policy_def | type_def | tx_def)* ~
     EOI
 }
