@@ -66,22 +66,25 @@ pub enum BytesEncoding {
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct BytesEnvelope {
+    // Aliases for backward compatibility
+    #[serde(alias = "bytecode", alias = "payload")]
     pub content: String,
-    pub encoding: BytesEncoding,
+    #[serde(rename = "contentType", alias = "encoding")]
+    pub content_type: BytesEncoding,
 }
 
 impl BytesEnvelope {
     pub fn from_hex(hex: &str) -> Result<Self, Error> {
         Ok(Self {
             content: hex.to_string(),
-            encoding: BytesEncoding::Hex,
+            content_type: BytesEncoding::Hex,
         })
     }
 }
 
 impl From<BytesEnvelope> for Vec<u8> {
     fn from(envelope: BytesEnvelope) -> Self {
-        match envelope.encoding {
+        match envelope.content_type {
             BytesEncoding::Base64 => base64_to_bytes(&envelope.content).unwrap(),
             BytesEncoding::Hex => hex_to_bytes(&envelope.content).unwrap(),
         }
@@ -162,7 +165,7 @@ fn value_to_bytes(value: Value) -> Result<Vec<u8>, Error> {
             let envelope: BytesEnvelope =
                 serde_json::from_value(value).map_err(Error::InvalidBytesEnvelope)?;
 
-            match envelope.encoding {
+            match envelope.content_type {
                 BytesEncoding::Base64 => base64_to_bytes(&envelope.content)?,
                 BytesEncoding::Hex => hex_to_bytes(&envelope.content)?,
             }
@@ -355,7 +358,7 @@ mod tests {
     fn test_round_trip_bytes_base64() {
         let json = json!(BytesEnvelope {
             content: "aGVsbG8=".to_string(),
-            encoding: BytesEncoding::Base64,
+            content_type: BytesEncoding::Base64,
         });
 
         json_to_value_test(json, Type::Bytes, ArgValue::Bytes(b"hello".to_vec()));
@@ -365,7 +368,7 @@ mod tests {
     fn test_round_trip_bytes_hex() {
         let json = json!(BytesEnvelope {
             content: "68656c6c6f".to_string(),
-            encoding: BytesEncoding::Hex,
+            content_type: BytesEncoding::Hex,
         });
 
         json_to_value_test(json, Type::Bytes, ArgValue::Bytes(b"hello".to_vec()));
