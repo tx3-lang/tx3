@@ -195,7 +195,8 @@
             "dummy": false,
             "start": 302,
             "end": 366
-          }
+          },
+          "declared_index": 0
         }
       ],
       "validity": null,

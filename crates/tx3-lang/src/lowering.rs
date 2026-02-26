@@ -697,12 +697,14 @@ impl IntoLower for ast::OutputBlock {
         let address = self.find("to").into_lower(ctx)?.unwrap_or_default();
         let datum = self.find("datum").into_lower(ctx)?.unwrap_or_default();
         let amount = self.find("amount").into_lower(ctx)?.unwrap_or_default();
+        let declared_ix = self.declared_index.unwrap();
 
         Ok(ir::Output {
             address,
             datum,
             amount,
             optional: self.optional,
+            declared_index: ir::Expression::Number(declared_ix as i128),
         })
     }
 }

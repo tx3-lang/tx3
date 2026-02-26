@@ -1159,6 +1159,7 @@ impl Composite for Output {
             datum: f(self.datum)?,
             amount: f(self.amount)?,
             optional: self.optional,
+            declared_index: self.declared_index,
         })
     }
 }
