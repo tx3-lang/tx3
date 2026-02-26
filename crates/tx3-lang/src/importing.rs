@@ -1,6 +1,6 @@
 //! Resolves plutus.json (CIP-57) imports and maps blueprint definitions to tx3 types.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
 use cip_57::{Blueprint, DataType, Definition, Definitions, Field, ReferencesArray, Schema};
@@ -86,8 +86,11 @@ fn key_to_normalized_name(key: &str) -> String {
     key.replace('/', "_").replace('$', "_")
 }
 
-fn import_type_name(key: &str) -> String {
-    friendly_import_type_alias_name(key).unwrap_or_else(|| key_to_normalized_name(key))
+fn import_type_name(key: &str, type_name_mapping: &HashMap<String, String>) -> String {
+    type_name_mapping
+        .get(key)
+        .cloned()
+        .unwrap_or_else(|| key_to_normalized_name(key))
 }
 
 fn sanitize_identifier_part(raw: &str) -> String {
@@ -96,35 +99,113 @@ fn sanitize_identifier_part(raw: &str) -> String {
         .collect()
 }
 
-fn friendly_import_type_alias_name(key: &str) -> Option<String> {
-    let (base_key, generic_key) = match key.split_once('$') {
-        Some((base, generic)) => (base, Some(generic)),
-        None => (key, None),
-    };
+fn decode_json_pointer_escapes(name: &str) -> String {
+    name.replace("~1", "/").replace("~0", "~")
+}
 
-    let base = base_key.rsplit('/').next().unwrap_or(base_key);
-    let base = sanitize_identifier_part(base);
+fn extract_last_segment(name: &str) -> String {
+    let segment = name.rsplit('/').next().unwrap_or(name);
+    sanitize_identifier_part(segment)
+}
 
-    if base.is_empty() || !base.chars().next()?.is_ascii_alphabetic() {
-        return None;
-    }
-
-    let mut suffix = String::new();
-
-    if let Some(generic_key) = generic_key {
-        for generic_part in generic_key.split('_').filter(|x| !x.is_empty()) {
-            let segment = generic_part.rsplit('/').next().unwrap_or(generic_part);
-            suffix.push_str(&sanitize_identifier_part(segment));
+fn path_to_upper_camel(key: &str) -> String {
+    let mut output = String::new();
+    for part in key
+        .split(|c: char| !c.is_ascii_alphanumeric())
+        .filter(|part| !part.is_empty())
+    {
+        let mut chars = part.chars();
+        if let Some(first) = chars.next() {
+            output.push(first.to_ascii_uppercase());
+            output.extend(chars);
         }
     }
 
-    Some(format!("{}{}", base, suffix))
+    if output.is_empty() {
+        sanitize_identifier_part(key)
+    } else {
+        output
+    }
+}
+
+fn aiken_prettify_name(name: &str) -> String {
+    let decoded = decode_json_pointer_escapes(name);
+
+    if let Some(inner) = decoded.strip_prefix("Option$") {
+        let inner_pretty = aiken_prettify_name(inner);
+        return format!("Option{}", inner_pretty);
+    }
+
+    if let Some(inner) = decoded.strip_prefix("Option<") {
+        let inner = inner.strip_suffix('>').unwrap_or(inner);
+        let inner_pretty = aiken_prettify_name(inner);
+        return format!("Option{}", inner_pretty);
+    }
+
+    if let Some(inner) = decoded.strip_prefix("Pairs$") {
+        let prettified: Vec<String> = inner
+            .split('_')
+            .filter(|x| !x.is_empty())
+            .map(aiken_prettify_name)
+            .collect();
+        return format!("Pairs{}", prettified.join(""));
+    }
+
+    if let Some(inner) = decoded.strip_prefix("Pairs<") {
+        let inner = inner.strip_suffix('>').unwrap_or(inner);
+        let prettified: Vec<String> = inner
+            .split(',')
+            .map(|p| aiken_prettify_name(p.trim()))
+            .collect();
+        return format!("Pairs{}", prettified.join(""));
+    }
+
+    extract_last_segment(&decoded)
+}
+
+fn build_aiken_name_mapping(definition_keys: &[&str]) -> HashMap<String, String> {
+    let mut simple_to_originals: HashMap<String, Vec<String>> = HashMap::new();
+
+    for &key in definition_keys {
+        let simple = aiken_prettify_name(key);
+        simple_to_originals
+            .entry(simple)
+            .or_default()
+            .push(key.to_string());
+    }
+
+    let mut result = HashMap::new();
+    let mut used_names: HashSet<String> = HashSet::new();
+
+    for &key in definition_keys {
+        let simple = aiken_prettify_name(key);
+        let originals = simple_to_originals.get(&simple).unwrap();
+
+        let final_name = if originals.len() == 1 {
+            simple
+        } else {
+            path_to_upper_camel(key)
+        };
+
+        let mut unique_name = final_name.clone();
+        let mut counter = 1;
+        while used_names.contains(&unique_name) {
+            unique_name = format!("{}{}", final_name, counter);
+            counter += 1;
+        }
+
+        used_names.insert(unique_name.clone());
+        result.insert(key.to_string(), unique_name);
+    }
+
+    result
 }
 
 fn resolve_ref_to_type(
     ref_str: &str,
     definitions: &Definitions,
     alias: Option<&str>,
+    type_name_mapping: &HashMap<String, String>,
 ) -> Result<Type, Error> {
     let key = ref_to_key_owned(ref_str);
     let def = definitions.inner.get(&key).ok_or_else(|| Error::Schema {
@@ -140,11 +221,11 @@ fn resolve_ref_to_type(
                     Some(ReferencesArray::Single(r)) => r
                         .reference
                         .as_ref()
-                        .map(|s| resolve_ref_to_type(s, definitions, alias)),
+                        .map(|s| resolve_ref_to_type(s, definitions, alias, type_name_mapping)),
                     Some(ReferencesArray::Array(arr)) => arr.first().and_then(|r| {
                         r.reference
                             .as_ref()
-                            .map(|s| resolve_ref_to_type(s, definitions, alias))
+                            .map(|s| resolve_ref_to_type(s, definitions, alias, type_name_mapping))
                     }),
                     None => None,
                 };
@@ -168,15 +249,18 @@ fn resolve_ref_to_type(
                     .ok_or_else(|| Error::Schema {
                         message: "map without values".to_string(),
                     })?;
-                let key_ty = resolve_ref_to_type(k, definitions, alias)?;
-                let val_ty = resolve_ref_to_type(v, definitions, alias)?;
+                let key_ty = resolve_ref_to_type(k, definitions, alias, type_name_mapping)?;
+                let val_ty = resolve_ref_to_type(v, definitions, alias, type_name_mapping)?;
                 return Ok(Type::Map(Box::new(key_ty), Box::new(val_ty)));
             }
             DataType::Constructor => {}
         }
     }
 
-    Ok(Type::Custom(Identifier::new(import_type_name(&key))))
+    Ok(Type::Custom(Identifier::new(import_type_name(
+        &key,
+        type_name_mapping,
+    ))))
 }
 
 fn field_to_record_field(
@@ -184,13 +268,14 @@ fn field_to_record_field(
     index: usize,
     definitions: &Definitions,
     alias: Option<&str>,
+    type_name_mapping: &HashMap<String, String>,
 ) -> Result<RecordField, Error> {
     let name = f
         .title
         .as_deref()
         .map(ToString::to_string)
         .unwrap_or_else(|| format!("field_{}", index));
-    let r#type = resolve_ref_to_type(&f.reference, definitions, alias)?;
+    let r#type = resolve_ref_to_type(&f.reference, definitions, alias, type_name_mapping)?;
     Ok(RecordField {
         name: Identifier::new(name),
         r#type,
@@ -202,13 +287,14 @@ fn schema_to_variant_case(
     schema: &Schema,
     definitions: &Definitions,
     alias: Option<&str>,
+    type_name_mapping: &HashMap<String, String>,
 ) -> Result<VariantCase, Error> {
     let name = schema.title.as_deref().unwrap_or("Variant").to_string();
     let fields: Vec<RecordField> = schema
         .fields
         .iter()
         .enumerate()
-        .map(|(i, f)| field_to_record_field(f, i, definitions, alias))
+        .map(|(i, f)| field_to_record_field(f, i, definitions, alias, type_name_mapping))
         .collect::<Result<Vec<_>, _>>()?;
     Ok(VariantCase {
         name: Identifier::new(name),
@@ -222,6 +308,7 @@ fn definition_to_type_def(
     def: &Definition,
     definitions: &Definitions,
     alias: Option<&str>,
+    type_name_mapping: &HashMap<String, String>,
 ) -> Result<Option<TypeDef>, Error> {
     if let Some(dt) = &def.data_type {
         match dt {
@@ -234,14 +321,14 @@ fn definition_to_type_def(
     let cases = if let Some(any_of) = &def.any_of {
         any_of
             .iter()
-            .map(|s| schema_to_variant_case(s, definitions, alias))
+            .map(|s| schema_to_variant_case(s, definitions, alias, type_name_mapping))
             .collect::<Result<Vec<_>, _>>()?
     } else {
         // Data type has no structure but should still be imported.
         // TODO: There is no Any for our type system, so for now we'll just import it as a single empty variant case.
         if key == "Data" {
             return Ok(Some(TypeDef {
-                name: Identifier::new(import_type_name(key)),
+                name: Identifier::new(import_type_name(key, type_name_mapping)),
                 cases: vec![VariantCase {
                     name: Identifier::new("Default"),
                     fields: vec![],
@@ -262,7 +349,7 @@ fn definition_to_type_def(
         cases[0].name = Identifier::new("Default");
     }
 
-    let type_name = import_type_name(key);
+    let type_name = import_type_name(key, type_name_mapping);
     Ok(Some(TypeDef {
         name: Identifier::new(type_name),
         cases,
@@ -279,9 +366,14 @@ pub fn type_defs_from_blueprint(
         None => return Ok(vec![]),
     };
 
+    let definition_keys: Vec<&str> = definitions.inner.keys().map(String::as_str).collect();
+    let type_name_mapping = build_aiken_name_mapping(&definition_keys);
+
     let mut type_defs = Vec::new();
     for (key, def) in &definitions.inner {
-        if let Some(type_def) = definition_to_type_def(key, def, definitions, alias)? {
+        if let Some(type_def) =
+            definition_to_type_def(key, def, definitions, alias, &type_name_mapping)?
+        {
             type_defs.push(type_def);
         }
     }
