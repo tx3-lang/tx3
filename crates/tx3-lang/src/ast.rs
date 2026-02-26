@@ -949,6 +949,9 @@ impl TypeDef {
         // Implicit cases don't have an explicit constructor on its usage
         if self.cases.len() == 1 && self.cases[0].name.value == "Default" {
             let fields = &self.cases[0].fields;
+            if fields.is_empty() {
+                return format!("type {}", name);
+            }
             let fields_str = fields
                 .iter()
                 .map(|f| format!("{}: {}", f.name.value, f.r#type))
@@ -998,6 +1001,44 @@ impl VariantCase {
                 .join(", ");
             format!("{} {{ {} }}", name, fields_str)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn to_tx3_source_omits_braces_for_empty_default_case() {
+        let type_def = TypeDef {
+            name: Identifier::new("Data"),
+            cases: vec![VariantCase {
+                name: Identifier::new("Default"),
+                fields: vec![],
+                span: Span::DUMMY,
+            }],
+            span: Span::DUMMY,
+        };
+
+        assert_eq!(type_def.to_tx3_source(), "type Data");
+    }
+
+    #[test]
+    fn to_tx3_source_keeps_braces_for_default_with_fields() {
+        let type_def = TypeDef {
+            name: Identifier::new("OutputReference"),
+            cases: vec![VariantCase {
+                name: Identifier::new("Default"),
+                fields: vec![RecordField::new("transaction_id", Type::Bytes)],
+                span: Span::DUMMY,
+            }],
+            span: Span::DUMMY,
+        };
+
+        assert_eq!(
+            type_def.to_tx3_source(),
+            "type OutputReference { transaction_id: Bytes }"
+        );
     }
 }
 
