@@ -949,9 +949,6 @@ impl TypeDef {
         // Implicit cases don't have an explicit constructor on its usage
         if self.cases.len() == 1 && self.cases[0].name.value == "Default" {
             let fields = &self.cases[0].fields;
-            if fields.is_empty() {
-                return format!("type {}", name);
-            }
             let fields_str = fields
                 .iter()
                 .map(|f| format!("{}: {}", f.name.value, f.r#type))
