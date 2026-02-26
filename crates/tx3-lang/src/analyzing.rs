@@ -1243,8 +1243,21 @@ impl TxDef {
             scope.track_input(&input.name, input.clone())
         }
 
-        for (index, output) in self.outputs.iter().enumerate() {
-            scope.track_output(index, output.clone())
+        for output in self.outputs.iter() {
+            scope.track_output(output.declared_index, output.clone())
+        }
+
+        for adhoc in self.adhoc.iter() {
+            match adhoc {
+                ChainSpecificBlock::Cardano(crate::cardano::CardanoBlock::Publish(pb)) => {
+                    if let Some(n) = &pb.name {
+                        scope
+                            .symbols
+                            .insert(n.value.clone(), Symbol::Output(pb.declared_index));
+                    }
+                }
+                _ => {}
+            }
         }
 
         let scope_snapshot = Rc::new(scope);
