@@ -1,0 +1,257 @@
+{
+  "fees": {
+    "EvalParam": "ExpectFees"
+  },
+  "references": [
+    {
+      "name": "pool",
+      "utxos": {
+        "UtxoRefs": [
+          {
+            "txid": [
+              18,
+              52,
+              86,
+              120,
+              144,
+              18,
+              52,
+              86,
+              120,
+              144,
+              18,
+              52,
+              86,
+              120,
+              144,
+              18,
+              52,
+              86,
+              120,
+              144,
+              18,
+              52,
+              86,
+              120,
+              144,
+              18,
+              52,
+              86,
+              120,
+              144,
+              18,
+              52
+            ],
+            "index": 0
+          }
+        ]
+      }
+    }
+  ],
+  "inputs": [
+    {
+      "name": "user_input",
+      "utxos": {
+        "EvalParam": {
+          "ExpectInput": [
+            "user_input",
+            {
+              "address": {
+                "EvalParam": {
+                  "ExpectValue": [
+                    "user",
+                    "Address"
+                  ]
+                }
+              },
+              "min_amount": {
+                "Assets": [
+                  {
+                    "policy": "None",
+                    "asset_name": "None",
+                    "amount": {
+                      "Number": 1000000
+                    }
+                  }
+                ]
+              },
+              "ref": "None",
+              "many": false,
+              "collateral": false
+            }
+          ]
+        }
+      },
+      "redeemer": "None"
+    }
+  ],
+  "outputs": [
+    {
+      "address": {
+        "EvalParam": {
+          "ExpectValue": [
+            "user",
+            "Address"
+          ]
+        }
+      },
+      "datum": "None",
+      "amount": {
+        "Assets": [
+          {
+            "policy": "None",
+            "asset_name": "None",
+            "amount": {
+              "EvalBuiltIn": {
+                "Add": [
+                  {
+                    "EvalBuiltIn": {
+                      "Property": [
+                        {
+                          "EvalCoerce": {
+                            "IntoAssets": {
+                              "EvalParam": {
+                                "ExpectInput": [
+                                  "pool",
+                                  {
+                                    "address": "None",
+                                    "min_amount": "None",
+                                    "ref": {
+                                      "UtxoRefs": [
+                                        {
+                                          "txid": [
+                                            18,
+                                            52,
+                                            86,
+                                            120,
+                                            144,
+                                            18,
+                                            52,
+                                            86,
+                                            120,
+                                            144,
+                                            18,
+                                            52,
+                                            86,
+                                            120,
+                                            144,
+                                            18,
+                                            52,
+                                            86,
+                                            120,
+                                            144,
+                                            18,
+                                            52,
+                                            86,
+                                            120,
+                                            144,
+                                            18,
+                                            52,
+                                            86,
+                                            120,
+                                            144,
+                                            18,
+                                            52
+                                          ],
+                                          "index": 0
+                                        }
+                                      ]
+                                    },
+                                    "many": false,
+                                    "collateral": false
+                                  }
+                                ]
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "Number": 0
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "EvalBuiltIn": {
+                      "Property": [
+                        {
+                          "EvalCoerce": {
+                            "IntoAssets": {
+                              "EvalParam": {
+                                "ExpectInput": [
+                                  "pool",
+                                  {
+                                    "address": "None",
+                                    "min_amount": "None",
+                                    "ref": {
+                                      "UtxoRefs": [
+                                        {
+                                          "txid": [
+                                            18,
+                                            52,
+                                            86,
+                                            120,
+                                            144,
+                                            18,
+                                            52,
+                                            86,
+                                            120,
+                                            144,
+                                            18,
+                                            52,
+                                            86,
+                                            120,
+                                            144,
+                                            18,
+                                            52,
+                                            86,
+                                            120,
+                                            144,
+                                            18,
+                                            52,
+                                            86,
+                                            120,
+                                            144,
+                                            18,
+                                            52,
+                                            86,
+                                            120,
+                                            144,
+                                            18,
+                                            52
+                                          ],
+                                          "index": 0
+                                        }
+                                      ]
+                                    },
+                                    "many": false,
+                                    "collateral": false
+                                  }
+                                ]
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "Number": 1
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "optional": false
+    }
+  ],
+  "validity": null,
+  "mints": [],
+  "burns": [],
+  "adhoc": [],
+  "collateral": [],
+  "signers": null,
+  "metadata": []
+}

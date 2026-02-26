@@ -193,6 +193,27 @@ impl IntoLower for ast::Identifier {
 
                 Ok(out)
             }
+            ast::Symbol::Reference(ref_block) => {
+                let ref_expr = ref_block.r#ref.into_lower(ctx)?;
+                let query = ir::InputQuery {
+                    address: ir::Expression::None,
+                    min_amount: ir::Expression::None,
+                    r#ref: ref_expr,
+                    many: false,
+                    collateral: false,
+                };
+                let inner =
+                    ir::Param::ExpectInput(ref_block.name.to_lowercase().clone(), query).into();
+                let out = if ctx.is_asset_expr() {
+                    ir::Coerce::IntoAssets(inner).into()
+                } else if ctx.is_datum_expr() {
+                    ir::Coerce::IntoDatum(inner).into()
+                } else {
+                    inner
+                };
+
+                Ok(out)
+            }
             ast::Symbol::Fees => Ok(ir::Param::ExpectFees.into()),
             ast::Symbol::EnvVar(n, ty) => {
                 Ok(ir::Param::ExpectValue(n.to_lowercase().clone(), ty.into_lower(ctx)?).into())
@@ -786,10 +807,13 @@ impl IntoLower for ast::ChainSpecificBlock {
 }
 
 impl IntoLower for ast::ReferenceBlock {
-    type Output = ir::Expression;
+    type Output = ir::Reference;
 
     fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
-        self.r#ref.into_lower(ctx)
+        Ok(ir::Reference {
+            name: self.name.to_lowercase().clone(),
+            utxos: self.r#ref.into_lower(ctx)?,
+        })
     }
 }
 
@@ -1018,6 +1042,7 @@ mod tests {
     test_lowering!(cardano_witness);
 
     test_lowering!(reference_script);
+    test_lowering!(reference_input_datum);
 
     test_lowering!(withdrawal);
     test_lowering!(map);

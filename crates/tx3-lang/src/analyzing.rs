@@ -172,6 +172,7 @@ impl Error {
             Symbol::Function(name) => format!("Function({})", name),
             Symbol::LocalExpr(_) => "LocalExpr".to_string(),
             Symbol::Input(_) => "Input".to_string(),
+            Symbol::Reference(_) => "Reference".to_string(),
             Symbol::Output(_) => "Output".to_string(),
             Symbol::Fees => "Fees".to_string(),
         }
@@ -385,6 +386,11 @@ impl Scope {
     pub fn track_input(&mut self, name: &str, input: InputBlock) {
         self.symbols
             .insert(name.to_string(), Symbol::Input(Box::new(input)));
+    }
+
+    pub fn track_reference(&mut self, name: &str, reference: ReferenceBlock) {
+        self.symbols
+            .insert(name.to_string(), Symbol::Reference(Box::new(reference)));
     }
 
     pub fn track_output(&mut self, index: usize, output: OutputBlock) {
@@ -1140,11 +1146,13 @@ impl Analyzable for SignersBlock {
 
 impl Analyzable for ReferenceBlock {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        self.r#ref.analyze(parent)
+        let ref_report = self.r#ref.analyze(parent.clone());
+        let datum_report = self.datum_is.analyze(parent);
+        ref_report + datum_report
     }
 
     fn is_resolved(&self) -> bool {
-        self.r#ref.is_resolved()
+        self.r#ref.is_resolved() && self.datum_is.is_resolved()
     }
 }
 
@@ -1243,6 +1251,10 @@ impl TxDef {
             scope.track_input(&input.name, input.clone())
         }
 
+        for reference in self.references.iter() {
+            scope.track_reference(&reference.name, reference.clone());
+        }
+
         for (index, output) in self.outputs.iter().enumerate() {
             scope.track_output(index, output.clone())
         }
@@ -1250,6 +1262,7 @@ impl TxDef {
         let scope_snapshot = Rc::new(scope);
         let _ = self.locals.analyze(Some(scope_snapshot.clone()));
         let _ = self.inputs.analyze(Some(scope_snapshot.clone()));
+        let _ = self.references.analyze(Some(scope_snapshot.clone()));
         let _ = self.outputs.analyze(Some(scope_snapshot.clone()));
 
         Scope::new(Some(scope_snapshot))

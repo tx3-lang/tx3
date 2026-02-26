@@ -24,6 +24,7 @@ pub enum Symbol {
     LocalExpr(Box<DataExpr>),
     Output(usize),
     Input(Box<InputBlock>),
+    Reference(Box<ReferenceBlock>),
     PartyDef(Box<PartyDef>),
     PolicyDef(Box<PolicyDef>),
     AssetDef(Box<AssetDef>),
@@ -124,6 +125,7 @@ impl Symbol {
             Symbol::ParamVar(_, ty) => Some(ty.as_ref().clone()),
             Symbol::RecordField(x) => Some(x.r#type.clone()),
             Symbol::Input(x) => x.datum_is().cloned(),
+            Symbol::Reference(x) => x.datum_is().cloned(),
             x => {
                 dbg!(x);
                 None
@@ -347,7 +349,14 @@ impl InputBlockField {
 pub struct ReferenceBlock {
     pub name: String,
     pub r#ref: DataExpr,
+    pub datum_is: Option<Type>,
     pub span: Span,
+}
+
+impl ReferenceBlock {
+    pub(crate) fn datum_is(&self) -> Option<&Type> {
+        self.datum_is.as_ref()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
