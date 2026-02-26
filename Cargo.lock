@@ -379,6 +379,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "cip-57"
+version = "0.15.1"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "clap"
 version = "4.5.53"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2350,6 +2358,7 @@ version = "0.15.1"
 dependencies = [
  "assert-json-diff",
  "ciborium",
+ "cip-57",
  "hex",
  "miette",
  "paste",

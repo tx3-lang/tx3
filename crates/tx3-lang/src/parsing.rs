@@ -12,10 +12,7 @@ use pest::{
 };
 use pest_derive::Parser;
 
-use crate::{
-    ast::*,
-    cardano::{PlutusWitnessBlock, PlutusWitnessField},
-};
+use crate::ast::*;
 #[derive(Parser)]
 #[grammar = "tx3.pest"]
 pub(crate) struct Tx3Grammar;
@@ -87,6 +84,7 @@ impl AstNode for Program {
         let inner = pair.into_inner();
 
         let mut program = Self {
+            imports: Vec::new(),
             env: None,
             txs: Vec::new(),
             assets: Vec::new(),
@@ -100,6 +98,7 @@ impl AstNode for Program {
 
         for pair in inner {
             match pair.as_rule() {
+                Rule::import_def => program.imports.push(ImportDef::parse(pair)?),
                 Rule::env_def => program.env = Some(EnvDef::parse(pair)?),
                 Rule::tx_def => program.txs.push(TxDef::parse(pair)?),
                 Rule::asset_def => program.assets.push(AssetDef::parse(pair)?),
@@ -114,6 +113,22 @@ impl AstNode for Program {
         }
 
         Ok(program)
+    }
+
+    fn span(&self) -> &Span {
+        &self.span
+    }
+}
+
+impl AstNode for ImportDef {
+    const RULE: Rule = Rule::import_def;
+
+    fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
+        let span = pair.as_span().into();
+        let mut inner = pair.into_inner();
+        let path = StringLiteral::parse(inner.next().unwrap())?;
+        let alias = inner.next().map(Identifier::parse).transpose()?;
+        Ok(ImportDef { path, alias, span })
     }
 
     fn span(&self) -> &Span {
@@ -2587,6 +2602,7 @@ mod tests {
         "basic",
         "party Abc; tx my_tx() {}",
         Program {
+            imports: vec![],
             parties: vec![PartyDef {
                 name: Identifier::new("Abc"),
                 span: Span::DUMMY,
@@ -2817,4 +2833,6 @@ mod tests {
     test_parsing!(list_concat);
 
     test_parsing!(buidler_fest_2026);
+
+    test_parsing!(imported_datum);
 }
