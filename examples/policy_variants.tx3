@@ -1,0 +1,141 @@
+// Policy definition styles and how each is used in practice.
+//
+// A policy name resolves to its hash when used in expressions. This means
+// you can use a policy name anywhere a policy hash (Bytes) is expected:
+// in AnyAsset(), output addresses, etc.
+//
+// The script and ref fields provide metadata for the compiler and TII
+// output but are not currently accessible as sub-properties (e.g.,
+// MyPolicy.script is not supported — this is a known limitation).
+
+// Assign syntax — just a policy hash.
+policy HashOnly = 0xABCDEF1234;
+
+// Constructor with only hash — equivalent to assign, constructor form.
+policy HashConstructor {
+    hash: 0xABCDEF1234,
+}
+
+// Hash + inline native script CBOR. The compiler knows about the script,
+// but you must still attach it as a native witness in the transaction.
+policy NativeScriptPolicy {
+    hash: 0xbd3ae991b5aafccafe5ca70758bd36a9b2f872f57f6d3a1ffa0eb777,
+    script: 0x820181820400,
+}
+
+// Hash + reference UTxO. The compiler knows where the script lives on-chain,
+// but you must still include the reference input in the transaction.
+policy RefScriptPolicy {
+    hash: 0xef7a1cebb2dc7de884ddf82f8fcbc91fe9750dcd8c12ec7643a99bbe,
+    ref: 0xDEADBEEF1234,
+}
+
+// Named assets bind a readable name to a policy hash + asset name.
+asset NativeToken = 0xbd3ae991b5aafccafe5ca70758bd36a9b2f872f57f6d3a1ffa0eb777."NATIVE";
+asset RefToken = 0xef7a1cebb2dc7de884ddf82f8fcbc91fe9750dcd8c12ec7643a99bbe."REFTOKEN";
+
+party Minter;
+
+// Using a policy name directly in AnyAsset — NativeScriptPolicy resolves to
+// its hash, so AnyAsset(NativeScriptPolicy, ...) works like
+// AnyAsset(0xbd3a..., ...).
+tx mint_native_named(quantity: Int) {
+    input source {
+        from: Minter,
+        min_amount: fees,
+    }
+
+    mint {
+        amount: AnyAsset(NativeScriptPolicy, "NATIVE", quantity),
+    }
+
+    output {
+        to: Minter,
+        amount: source + AnyAsset(NativeScriptPolicy, "NATIVE", quantity) - fees,
+    }
+
+    // Native scripts must be provided as a witness. Since we can't yet
+    // reference NativeScriptPolicy.script, the CBOR must be repeated here.
+    cardano::native_witness {
+        script: 0x820181820400,
+    }
+}
+
+// Using a named asset with its matching policy. NativeToken is bound to
+// the same policy hash as NativeScriptPolicy, so this is equivalent to
+// the AnyAsset form above but more readable.
+tx mint_native_asset(quantity: Int) {
+    input source {
+        from: Minter,
+        min_amount: fees,
+    }
+
+    mint {
+        amount: NativeToken(quantity),
+    }
+
+    output {
+        to: Minter,
+        amount: source + NativeToken(quantity) - fees,
+    }
+
+    cardano::native_witness {
+        script: 0x820181820400,
+    }
+}
+
+// Minting via a plutus policy whose script lives in a reference UTxO.
+// Using RefScriptPolicy in AnyAsset resolves to its hash. The reference
+// input must point to the same UTxO declared in the policy's ref field.
+tx mint_with_ref_dynamic(quantity: Int) {
+    input source {
+        from: Minter,
+        min_amount: fees,
+    }
+
+    reference policy_script {
+        ref: 0xDEADBEEF1234#0,
+    }
+
+    collateral {
+        from: Minter,
+        min_amount: fees,
+    }
+
+    mint {
+        amount: AnyAsset(RefScriptPolicy, "REFTOKEN", quantity),
+        redeemer: (),
+    }
+
+    output {
+        to: Minter,
+        amount: source + AnyAsset(RefScriptPolicy, "REFTOKEN", quantity) - fees,
+    }
+}
+
+// Same as above but using the named asset RefToken instead of AnyAsset.
+tx mint_with_ref_asset(quantity: Int) {
+    input source {
+        from: Minter,
+        min_amount: fees,
+    }
+
+    reference policy_script {
+        ref: 0xDEADBEEF1234#0,
+    }
+
+    collateral {
+        from: Minter,
+        min_amount: fees,
+    }
+
+    mint {
+        amount: RefToken(quantity),
+        redeemer: (),
+    }
+
+    output {
+        to: Minter,
+        amount: source + RefToken(quantity) - fees,
+    }
+}
