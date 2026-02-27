@@ -17,6 +17,16 @@ pub struct Scope {
     pub(crate) parent: Option<Rc<Scope>>,
 }
 
+impl Scope {
+    pub fn symbols(&self) -> &HashMap<String, Symbol> {
+        &self.symbols
+    }
+
+    pub fn parent(&self) -> Option<&Rc<Scope>> {
+        self.parent.as_ref()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Symbol {
     EnvVar(String, Box<Type>),
@@ -185,6 +195,12 @@ pub struct Program {
     // analysis
     #[serde(skip)]
     pub(crate) scope: Option<Rc<Scope>>,
+}
+
+impl Program {
+    pub fn scope(&self) -> Option<&Rc<Scope>> {
+        self.scope.as_ref()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
