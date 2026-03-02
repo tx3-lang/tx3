@@ -1,0 +1,27 @@
+import "../crates/cip-57/examples/plutus.json" as plutus;
+
+party Admin;
+
+tx create_settings(
+    now: Int,
+) {
+    input fee_source {
+        from: Admin,
+        min_amount: 1000000,
+    }
+
+    output settings {
+        to: Admin,
+        datum: SettingsDatum::SettingsDatum {
+          githoney_address: Address::Address{
+            payment_credential: PaymentCredential::VerificationKey {
+              field: 0x12345678901234567890123456789012345678901234567890123456,
+            },
+            stake_credential: OptionStakeCredential::None {},
+          },
+          bounty_creation_fee: 500,
+          bounty_reward_fee: 100,
+        },
+        amount: 2000000,
+    }
+}

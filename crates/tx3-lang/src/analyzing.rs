@@ -645,6 +645,15 @@ impl Analyzable for StructConstructor {
             _ => unreachable!(),
         };
 
+        if type_def.cases.len() == 1 {
+            let only_case_name = type_def.cases[0].name.value.clone();
+            let requested_case = self.case.name.value.clone();
+
+            if requested_case == "Default" || requested_case == self.r#type.value {
+                self.case.name.value = only_case_name;
+            }
+        }
+
         for case in type_def.cases.iter() {
             scope.track_variant_case(case);
         }

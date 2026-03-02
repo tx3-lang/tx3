@@ -173,6 +173,8 @@ impl AsRef<str> for Identifier {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct Program {
+    #[serde(default)]
+    pub imports: Vec<ImportDef>,
     pub env: Option<EnvDef>,
     pub txs: Vec<TxDef>,
     pub types: Vec<TypeDef>,
@@ -185,6 +187,13 @@ pub struct Program {
     // analysis
     #[serde(skip)]
     pub(crate) scope: Option<Rc<Scope>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ImportDef {
+    pub path: StringLiteral,
+    pub alias: Option<Identifier>,
+    pub span: Span,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -934,6 +943,28 @@ impl TypeDef {
     pub(crate) fn find_case(&self, case: &str) -> Option<&VariantCase> {
         self.cases.iter().find(|x| x.name.value == case)
     }
+
+    pub fn to_tx3_source(&self) -> String {
+        let name = &self.name.value;
+        // Implicit cases don't have an explicit constructor on its usage
+        if self.cases.len() == 1 && self.cases[0].name.value == "Default" {
+            let fields = &self.cases[0].fields;
+            let fields_str = fields
+                .iter()
+                .map(|f| format!("{}: {}", f.name.value, f.r#type))
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!("type {} {{ {} }}", name, fields_str)
+        } else {
+            let cases_str = self
+                .cases
+                .iter()
+                .map(VariantCase::to_tx3_source)
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!("type {} {{ {} }}", name, cases_str)
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -952,6 +983,59 @@ impl VariantCase {
     #[allow(dead_code)]
     pub(crate) fn find_field(&self, field: &str) -> Option<&RecordField> {
         self.fields.iter().find(|x| x.name.value == field)
+    }
+
+    fn to_tx3_source(&self) -> String {
+        let name = &self.name.value;
+        if self.fields.is_empty() {
+            name.clone()
+        } else {
+            let fields_str = self
+                .fields
+                .iter()
+                .map(|f| format!("{}: {}", f.name.value, f.r#type))
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!("{} {{ {} }}", name, fields_str)
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn to_tx3_source_omits_braces_for_empty_default_case() {
+        let type_def = TypeDef {
+            name: Identifier::new("Data"),
+            cases: vec![VariantCase {
+                name: Identifier::new("Default"),
+                fields: vec![],
+                span: Span::DUMMY,
+            }],
+            span: Span::DUMMY,
+        };
+
+        assert_eq!(type_def.to_tx3_source(), "type Data");
+    }
+
+    #[test]
+    fn to_tx3_source_keeps_braces_for_default_with_fields() {
+        let type_def = TypeDef {
+            name: Identifier::new("OutputReference"),
+            cases: vec![VariantCase {
+                name: Identifier::new("Default"),
+                fields: vec![RecordField::new("transaction_id", Type::Bytes)],
+                span: Span::DUMMY,
+            }],
+            span: Span::DUMMY,
+        };
+
+        assert_eq!(
+            type_def.to_tx3_source(),
+            "type OutputReference { transaction_id: Bytes }"
+        );
     }
 }
 

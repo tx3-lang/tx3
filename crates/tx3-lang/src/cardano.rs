@@ -854,10 +854,7 @@ impl IntoLower for CardanoBlock {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        analyzing::analyze,
-        ast::{self, *},
-    };
+    use crate::{analyzing::analyze, ast::*};
     use pest::Parser;
 
     macro_rules! input_to_ast_check {
