@@ -18,6 +18,7 @@ primitive_type = {
     "Bool" |
     "Bytes" |
     "AnyAsset" |
+    "AnyData" |
     "Address" |
     "UtxoRef"
 }

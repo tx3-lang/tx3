@@ -1288,6 +1288,7 @@ impl AstNode for Type {
                 "Int" => Ok(Type::Int),
                 "Bool" => Ok(Type::Bool),
                 "Bytes" => Ok(Type::Bytes),
+                "AnyData" => Ok(Type::AnyData),
                 "Address" => Ok(Type::Address),
                 "UtxoRef" => Ok(Type::UtxoRef),
                 "AnyAsset" => Ok(Type::AnyAsset),
@@ -1574,6 +1575,8 @@ mod tests {
     input_to_ast_check!(Type, "bool", "Bool", Type::Bool);
 
     input_to_ast_check!(Type, "bytes", "Bytes", Type::Bytes);
+
+    input_to_ast_check!(Type, "any_data", "AnyData", Type::AnyData);
 
     input_to_ast_check!(Type, "address", "Address", Type::Address);
 
