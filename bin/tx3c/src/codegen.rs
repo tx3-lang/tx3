@@ -13,9 +13,9 @@ pub struct Args {
     #[arg(long)]
     pub tii: PathBuf,
 
-    /// Path to the templates directory
+    /// Path to the template directory
     #[arg(long)]
-    pub templates: PathBuf,
+    pub template: PathBuf,
 
     /// Output directory for rendered templates
     #[arg(short, long)]
@@ -160,7 +160,7 @@ fn register_helpers(handlebars: &mut Handlebars<'_>) {
     let helpers: &[(&str, fn(&str) -> String)] = &[
         ("pascalCase", |s| s.to_case(Case::Pascal)),
         ("camelCase", |s| s.to_case(Case::Camel)),
-        ("constantCase", |s| s.to_case(Case::Constant)),
+        ("constantCase", |s| s.to_case(Case::UpperSnake)),
         ("snakeCase", |s| s.to_case(Case::Snake)),
         ("lowerCase", |s| s.to_case(Case::Lower)),
     ];
@@ -198,18 +198,18 @@ fn register_helpers(handlebars: &mut Handlebars<'_>) {
 
 fn register_templates(
     handlebars: &mut Handlebars<'_>,
-    templates_dir: &Path,
+    template_dir: &Path,
 ) -> Result<Vec<(PathBuf, PathBuf)>> {
     let mut static_files = Vec::new();
 
-    for entry in WalkDir::new(templates_dir) {
+    for entry in WalkDir::new(template_dir) {
         let entry = entry?;
         if !entry.file_type().is_file() {
             continue;
         }
 
         let path = entry.path();
-        let relative = path.strip_prefix(templates_dir).context("template path")?;
+        let relative = path.strip_prefix(template_dir).context("template path")?;
         let relative_str = relative.to_string_lossy();
 
         if relative_str.ends_with(".hbs") {
@@ -266,7 +266,7 @@ pub fn run(args: Args) -> Result<()> {
     let mut handlebars = Handlebars::new();
     register_helpers(&mut handlebars);
 
-    let static_files = register_templates(&mut handlebars, &args.templates)?;
+    let static_files = register_templates(&mut handlebars, &args.template)?;
 
     std::fs::create_dir_all(&args.output)
         .with_context(|| format!("creating output dir {}", args.output.display()))?;
