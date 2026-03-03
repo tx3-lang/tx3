@@ -69,7 +69,7 @@ pub struct ResolveParams {
     pub args: JsonArgMap,
     #[serde(rename = "tir")]
     pub tir: TirEnvelope,
-    #[serde(rename = "env")]
+    #[serde(rename = "env", skip_serializing_if = "Option::is_none")]
     pub env: Option<EnvMap>,
 }
 
@@ -84,9 +84,10 @@ pub struct TxSignature {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
 pub enum TxWitness {
     Signature(TxSignature),
-    RawWitness(String),
+    RawWitness(BytesEnvelope),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -139,7 +140,7 @@ pub struct TxStatus {
     pub confirmations: u64,
     #[serde(rename = "nonConfirmations")]
     pub non_confirmations: u64,
-    #[serde(rename = "confirmedAt")]
+    #[serde(rename = "confirmedAt", skip_serializing_if = "Option::is_none")]
     pub confirmed_at: Option<ChainPoint>,
 }
 
@@ -155,13 +156,13 @@ pub struct TxLog {
     pub hash: String,
     #[serde(rename = "stage")]
     pub stage: String,
-    #[serde(rename = "payload")]
+    #[serde(rename = "payload", skip_serializing_if = "Option::is_none")]
     pub payload: Option<String>,
     #[serde(rename = "confirmations")]
     pub confirmations: u64,
     #[serde(rename = "nonConfirmations")]
     pub non_confirmations: u64,
-    #[serde(rename = "confirmedAt")]
+    #[serde(rename = "confirmedAt", skip_serializing_if = "Option::is_none")]
     pub confirmed_at: Option<ChainPoint>,
 }
 
@@ -169,7 +170,7 @@ pub struct TxLog {
 pub struct DumpLogsResponse {
     #[serde(rename = "entries")]
     pub entries: Vec<TxLog>,
-    #[serde(rename = "nextCursor")]
+    #[serde(rename = "nextCursor", skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<u64>,
 }
 
@@ -177,7 +178,7 @@ pub struct DumpLogsResponse {
 pub struct PendingTx {
     #[serde(rename = "hash")]
     pub hash: String,
-    #[serde(rename = "payload")]
+    #[serde(rename = "payload", skip_serializing_if = "Option::is_none")]
     pub payload: Option<String>,
 }
 
@@ -197,9 +198,9 @@ pub struct InflightTx {
     pub confirmations: u64,
     #[serde(rename = "nonConfirmations")]
     pub non_confirmations: u64,
-    #[serde(rename = "confirmedAt")]
+    #[serde(rename = "confirmedAt", skip_serializing_if = "Option::is_none")]
     pub confirmed_at: Option<ChainPoint>,
-    #[serde(rename = "payload")]
+    #[serde(rename = "payload", skip_serializing_if = "Option::is_none")]
     pub payload: Option<String>,
 }
 

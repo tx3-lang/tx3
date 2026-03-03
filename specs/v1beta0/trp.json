@@ -245,24 +245,10 @@
         "title": "TxWitness",
         "oneOf": [
           {
-            "type": "object",
-            "properties": {
-              "Signature": {
-                "$ref": "#/components/schemas/TxSignature"
-              }
-            },
-            "required": ["Signature"],
-            "additionalProperties": false
+            "$ref": "#/components/schemas/TxSignature"
           },
           {
-            "type": "object",
-            "properties": {
-              "RawWitness": {
-                "type": "string"
-              }
-            },
-            "required": ["RawWitness"],
-            "additionalProperties": false
+            "$ref": "#/components/schemas/BytesEnvelope"
           }
         ]
       },
