@@ -74,13 +74,19 @@ pub struct ResolveParams {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TxWitness {
+pub struct TxSignature {
     #[serde(rename = "key")]
     pub key: BytesEnvelope,
     #[serde(rename = "signature")]
     pub signature: BytesEnvelope,
     #[serde(rename = "type")]
     pub ty: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum TxWitness {
+    Signature(TxSignature),
+    RawWitness(String),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -179,8 +185,6 @@ pub struct PendingTx {
 pub struct PeekPendingResponse {
     #[serde(rename = "entries")]
     pub entries: Vec<PendingTx>,
-    #[serde(rename = "hasMore")]
-    pub has_more: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -203,6 +207,4 @@ pub struct InflightTx {
 pub struct PeekInflightResponse {
     #[serde(rename = "entries")]
     pub entries: Vec<InflightTx>,
-    #[serde(rename = "hasMore")]
-    pub has_more: bool,
 }
