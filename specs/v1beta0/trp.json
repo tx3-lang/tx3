@@ -147,9 +147,6 @@
         "schema": {
           "type": "object",
           "properties": {
-            "limit": {
-              "type": "integer"
-            },
             "includePayload": {
               "type": "boolean"
             }
@@ -171,9 +168,6 @@
         "schema": {
           "type": "object",
           "properties": {
-            "limit": {
-              "type": "integer"
-            },
             "includePayload": {
               "type": "boolean"
             }
@@ -231,22 +225,46 @@
         },
         "required": ["tx", "hash"]
       },
-      "SubmitWitness": {
-        "title": "SubmitWitness",
+      "TxSignature": {
+        "title": "TxSignature",
         "type": "object",
         "properties": {
-          "type": {
-            "type": "string",
-            "enum": ["vkey"]
-          },
           "key": {
             "$ref": "#/components/schemas/BytesEnvelope"
           },
           "signature": {
             "$ref": "#/components/schemas/BytesEnvelope"
+          },
+          "type": {
+            "type": "string"
           }
         },
-        "required": ["type", "key", "signature"]
+        "required": ["key", "signature", "type"]
+      },
+      "TxWitness": {
+        "title": "TxWitness",
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "Signature": {
+                "$ref": "#/components/schemas/TxSignature"
+              }
+            },
+            "required": ["Signature"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "RawWitness": {
+                "type": "string"
+              }
+            },
+            "required": ["RawWitness"],
+            "additionalProperties": false
+          }
+        ]
       },
       "UnsupportedTirDiagnostic": {
         "title": "UnsupportedTirDiagnostic",
@@ -363,7 +381,7 @@
           "witnesses": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/SubmitWitness"
+              "$ref": "#/components/schemas/TxWitness"
             }
           }
         },
@@ -524,7 +542,7 @@
       },
       "PeekPendingResponse": {
         "type": "object",
-        "required": ["entries", "hasMore"],
+        "required": ["entries"],
         "properties": {
           "entries": {
             "type": "array",
@@ -532,11 +550,6 @@
             "items": {
               "$ref": "#/components/schemas/PendingTx"
             }
-          },
-          "hasMore": {
-            "type": "boolean",
-            "title": "Has more",
-            "description": "Whether there are more pending transactions"
           }
         }
       },
@@ -582,7 +595,7 @@
       },
       "PeekInflightResponse": {
         "type": "object",
-        "required": ["entries", "hasMore"],
+        "required": ["entries"],
         "properties": {
           "entries": {
             "type": "array",
@@ -590,11 +603,6 @@
             "items": {
               "$ref": "#/components/schemas/InflightTx"
             }
-          },
-          "hasMore": {
-            "type": "boolean",
-            "title": "Has more",
-            "description": "Whether there are more inflight transactions"
           }
         }
       }
@@ -631,17 +639,19 @@
       "witness": {
         "name": "witness",
         "value": {
-          "key": {
-            "payload": "aabbccdd...",
-            "encoding": "hex",
-            "version": "v1"
-          },
-          "signature": {
-            "payload": "11223344...",
-            "encoding": "hex",
-            "version": "v1"
-          },
-          "type": "vkey"
+          "Signature": {
+            "key": {
+              "payload": "aabbccdd...",
+              "encoding": "hex",
+              "version": "v1"
+            },
+            "signature": {
+              "payload": "11223344...",
+              "encoding": "hex",
+              "version": "v1"
+            },
+            "type": "vkey"
+          }
         }
       }
     }
