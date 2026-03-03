@@ -300,6 +300,7 @@ fn arg_value_into_expr(arg: ArgValue) -> Expression {
         ArgValue::Bool(x) => Expression::Bool(x),
         ArgValue::String(x) => Expression::String(x),
         ArgValue::Bytes(x) => Expression::Bytes(x),
+        ArgValue::Data(x) => x,
         ArgValue::UtxoSet(x) => Expression::UtxoSet(x),
         ArgValue::UtxoRef(x) => Expression::UtxoRefs(vec![x]),
     }
@@ -1386,17 +1387,17 @@ impl Apply for Tx {
 
     fn reduce(self) -> Result<Self, Error> {
         Ok(Self {
-            references: self.references.reduce()?,
-            inputs: self.inputs.reduce()?,
-            outputs: self.outputs.reduce()?,
-            validity: self.validity.reduce()?,
-            mints: self.mints.reduce()?,
-            burns: self.burns.reduce()?,
-            fees: self.fees.reduce()?,
-            adhoc: self.adhoc.reduce()?,
-            collateral: self.collateral.reduce()?,
-            signers: self.signers.reduce()?,
-            metadata: self.metadata.reduce()?,
+            references: Apply::reduce(self.references)?,
+            inputs: Apply::reduce(self.inputs)?,
+            outputs: Apply::reduce(self.outputs)?,
+            validity: Apply::reduce(self.validity)?,
+            mints: Apply::reduce(self.mints)?,
+            burns: Apply::reduce(self.burns)?,
+            fees: Apply::reduce(self.fees)?,
+            adhoc: Apply::reduce(self.adhoc)?,
+            collateral: Apply::reduce(self.collateral)?,
+            signers: Apply::reduce(self.signers)?,
+            metadata: Apply::reduce(self.metadata)?,
         })
     }
 }
@@ -1408,6 +1409,7 @@ pub enum ArgValue {
     String(String),
     Bytes(Vec<u8>),
     Address(Vec<u8>),
+    Data(Expression),
     UtxoSet(UtxoSet),
     UtxoRef(UtxoRef),
 }
