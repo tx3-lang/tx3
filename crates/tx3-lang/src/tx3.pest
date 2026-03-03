@@ -247,11 +247,13 @@ reference_block = {
 output_block_to = { "to" ~ ":" ~ data_expr }
 output_block_amount = { "amount" ~ ":" ~ data_expr }
 output_block_datum = { "datum" ~ ":" ~ data_expr }
+output_block_index = { "index" ~ ":" ~ data_expr }
 
 output_block_field = _{
     output_block_to |
     output_block_amount |
-    output_block_datum
+    output_block_datum |
+    output_block_index
 }
 
 output_block = {
@@ -374,6 +376,7 @@ cardano_publish_block_amount = { "amount" ~ ":" ~ data_expr }
 cardano_publish_block_datum = { "datum" ~ ":" ~ data_expr }
 cardano_publish_block_version = { "version" ~ ":" ~ data_expr }
 cardano_publish_block_script = { "script" ~ ":" ~ data_expr }
+cardano_publish_block_index = { "index" ~ ":" ~ data_expr }
 
 
 cardano_publish_block_field = _{
@@ -381,7 +384,8 @@ cardano_publish_block_field = _{
     cardano_publish_block_amount |
     cardano_publish_block_datum |
     cardano_publish_block_version |
-    cardano_publish_block_script
+    cardano_publish_block_script |
+    cardano_publish_block_index
 }
 
 cardano_publish_block = {
