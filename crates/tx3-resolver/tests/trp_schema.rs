@@ -128,6 +128,21 @@ fn serialize_submit_params_matches_schema() {
 }
 
 #[test]
+fn serialize_submit_params_with_signature_witness_matches_schema() {
+    let params = SubmitParams {
+        tx: sample_bytes_envelope(),
+        witnesses: vec![TxWitness::Signature(TxSignature {
+            key: sample_bytes_envelope(),
+            signature: sample_bytes_envelope(),
+            ty: "vkey".to_string(),
+        })],
+    };
+
+    let value = serde_json::to_value(params).expect("serialize SubmitParams");
+    assert_schema("SubmitParams", value);
+}
+
+#[test]
 fn serialize_tx_envelope_matches_schema() {
     let value = serde_json::to_value(TxEnvelope {
         hash: "abcd".to_string(),
