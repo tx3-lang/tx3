@@ -288,38 +288,67 @@ fn compile_outputs(
     tx: &tir::Tx,
     network: Network,
 ) -> Result<Vec<primitives::TransactionOutput<'static>>, Error> {
-    let outputs = tx.outputs.iter().filter_map(|out| {
+    let regular_outputs = tx.outputs.iter().filter_map(|out| {
         let compiled = compile_output_block(out, network);
 
         if out.optional && !output_has_assets(&compiled) {
             return None;
         }
 
-        let idx = out.declared_index.as_number().map(|n| n as usize);
+        let idx = out.index.as_number().map(|n| n as usize);
         Some(compiled.map(|o| (idx, o)))
     });
 
-    let cardano_outputs = tx
+    let publish_outputs = tx
         .adhoc
         .iter()
         .filter(|x| x.name.as_str() == "cardano_publish")
         .map(|adhoc| {
             let idx = adhoc
                 .data
-                .get("declared_index")
+                .get("index")
                 .and_then(|expr| expr.as_number())
                 .map(|n| n as usize);
 
             compile_cardano_publish_directive(adhoc, network).map(|o| (idx, o))
         });
 
-    let mut all_outputs: Vec<_> = outputs
-        .chain(cardano_outputs)
+    let all: Vec<_> = publish_outputs
+        .chain(regular_outputs)
         .collect::<Result<Vec<_>, _>>()?;
 
-    all_outputs.sort_by_key(|(idx, _)| idx.unwrap_or(usize::MAX));
+    order_by_index(all)
+}
 
-    Ok(all_outputs.into_iter().map(|(_, out)| out).collect())
+fn order_by_index(
+    outputs: Vec<(Option<usize>, primitives::TransactionOutput<'static>)>,
+) -> Result<Vec<primitives::TransactionOutput<'static>>, Error> {
+    let total = outputs.len();
+    let mut slots: Vec<Option<primitives::TransactionOutput<'static>>> = vec![None; total];
+    let mut non_indexed = Vec::new();
+
+    for (idx, compiled) in outputs {
+        match idx {
+            Some(pos) => {
+                if pos >= total {
+                    return Err(Error::ConsistencyError(format!(
+                        "output index {pos} is out of range (total outputs: {total})"
+                    )));
+                }
+                slots[pos] = Some(compiled);
+            }
+            None => non_indexed.push(compiled),
+        }
+    }
+
+    let mut filler = non_indexed.into_iter();
+    for slot in &mut slots {
+        if slot.is_none() {
+            *slot = filler.next();
+        }
+    }
+
+    Ok(slots.into_iter().flatten().collect())
 }
 
 pub fn compile_cardano_publish_directive(
