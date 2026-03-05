@@ -208,32 +208,16 @@ impl AstNode for TxDef {
         let mut signers = None;
         let mut metadata = None;
 
-        let mut declared_index: usize = 0;
-
         for item in inner {
             match item.as_rule() {
                 Rule::locals_block => locals = Some(LocalsBlock::parse(item)?),
                 Rule::reference_block => references.push(ReferenceBlock::parse(item)?),
                 Rule::input_block => inputs.push(InputBlock::parse(item)?),
-                Rule::output_block => {
-                    let mut ob = OutputBlock::parse(item)?;
-                    ob.declared_index = Some(declared_index);
-                    declared_index += 1;
-                    outputs.push(ob);
-                }
+                Rule::output_block => outputs.push(OutputBlock::parse(item)?),
                 Rule::validity_block => validity = Some(ValidityBlock::parse(item)?),
                 Rule::mint_block => mints.push(MintBlock::parse(item)?),
                 Rule::burn_block => burns.push(MintBlock::parse(item)?),
-                Rule::chain_specific_block => {
-                    let mut csb = ChainSpecificBlock::parse(item)?;
-                    let ChainSpecificBlock::Cardano(cardano_block) = &mut csb;
-                    if let crate::cardano::CardanoBlock::Publish(pb) = cardano_block {
-                        pb.declared_index = Some(declared_index);
-                        declared_index += 1;
-                    }
-
-                    adhoc.push(csb);
-                }
+                Rule::chain_specific_block => adhoc.push(ChainSpecificBlock::parse(item)?),
                 Rule::collateral_block => collateral.push(CollateralBlock::parse(item)?),
                 Rule::signers_block => signers = Some(SignersBlock::parse(item)?),
                 Rule::metadata_block => metadata = Some(MetadataBlock::parse(item)?),
@@ -585,6 +569,11 @@ impl AstNode for OutputBlockField {
                 let x = OutputBlockField::Datum(DataExpr::parse(pair)?.into());
                 Ok(x)
             }
+            Rule::output_block_index => {
+                let pair = pair.into_inner().next().unwrap();
+                let x = OutputBlockField::Index(DataExpr::parse(pair)?.into());
+                Ok(x)
+            }
             x => unreachable!("Unexpected rule in output_block_field: {:?}", x),
         }
     }
@@ -594,6 +583,7 @@ impl AstNode for OutputBlockField {
             Self::To(x) => x.span(),
             Self::Amount(x) => x.span(),
             Self::Datum(x) => x.span(),
+            Self::Index(x) => x.span(),
         }
     }
 }
@@ -633,7 +623,6 @@ impl AstNode for OutputBlock {
             optional,
             fields,
             span,
-            declared_index: None,
         })
     }
 
@@ -2481,7 +2470,6 @@ mod tests {
                 }))),
             ],
             span: Span::DUMMY,
-            declared_index: None,
         }
     );
 

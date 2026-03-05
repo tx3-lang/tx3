@@ -567,6 +567,7 @@ pub enum CardanoPublishBlockField {
     Datum(Box<DataExpr>),
     Version(Box<DataExpr>),
     Script(Box<DataExpr>),
+    Index(Box<DataExpr>),
 }
 
 impl CardanoPublishBlockField {
@@ -577,6 +578,7 @@ impl CardanoPublishBlockField {
             CardanoPublishBlockField::Datum(_) => "datum",
             CardanoPublishBlockField::Version(_) => "version",
             CardanoPublishBlockField::Script(_) => "script",
+            CardanoPublishBlockField::Index(_) => "index",
         }
     }
 }
@@ -586,7 +588,6 @@ pub struct CardanoPublishBlock {
     pub name: Option<Identifier>,
     pub fields: Vec<CardanoPublishBlockField>,
     pub span: Span,
-    pub declared_index: Option<usize>,
 }
 
 impl CardanoPublishBlock {
@@ -628,6 +629,12 @@ impl AstNode for CardanoPublishBlockField {
                     DataExpr::parse(pair)?.into(),
                 ))
             }
+            Rule::cardano_publish_block_index => {
+                let pair = pair.into_inner().next().unwrap();
+                Ok(CardanoPublishBlockField::Index(
+                    DataExpr::parse(pair)?.into(),
+                ))
+            }
             x => unreachable!("Unexpected rule in cardano_publish_block_field: {:?}", x),
         }
     }
@@ -639,6 +646,7 @@ impl AstNode for CardanoPublishBlockField {
             Self::Datum(x) => x.span(),
             Self::Version(x) => x.span(),
             Self::Script(x) => x.span(),
+            Self::Index(x) => x.span(),
         }
     }
 }
@@ -664,12 +672,7 @@ impl AstNode for CardanoPublishBlock {
             .map(|x| CardanoPublishBlockField::parse(x))
             .collect::<Result<Vec<_>, _>>()?;
 
-        Ok(CardanoPublishBlock {
-            name,
-            fields,
-            span,
-            declared_index: None,
-        })
+        Ok(CardanoPublishBlock { name, fields, span })
     }
 
     fn span(&self) -> &Span {
@@ -685,6 +688,7 @@ impl Analyzable for CardanoPublishBlockField {
             CardanoPublishBlockField::Datum(x) => x.analyze(parent),
             CardanoPublishBlockField::Version(x) => x.analyze(parent),
             CardanoPublishBlockField::Script(x) => x.analyze(parent),
+            CardanoPublishBlockField::Index(x) => x.analyze(parent),
         }
     }
 
@@ -695,6 +699,7 @@ impl Analyzable for CardanoPublishBlockField {
             CardanoPublishBlockField::Datum(x) => x.is_resolved(),
             CardanoPublishBlockField::Version(x) => x.is_resolved(),
             CardanoPublishBlockField::Script(x) => x.is_resolved(),
+            CardanoPublishBlockField::Index(x) => x.is_resolved(),
         }
     }
 }
@@ -722,6 +727,7 @@ impl IntoLower for CardanoPublishBlockField {
             CardanoPublishBlockField::Datum(x) => Ok(("datum".to_string(), x.into_lower(ctx)?)),
             CardanoPublishBlockField::Version(x) => Ok(("version".to_string(), x.into_lower(ctx)?)),
             CardanoPublishBlockField::Script(x) => Ok(("script".to_string(), x.into_lower(ctx)?)),
+            CardanoPublishBlockField::Index(x) => Ok(("index".to_string(), x.into_lower(ctx)?)),
         }
     }
 }
@@ -733,20 +739,11 @@ impl IntoLower for CardanoPublishBlock {
         &self,
         ctx: &crate::lowering::Context,
     ) -> Result<Self::Output, crate::lowering::Error> {
-        let mut data: HashMap<String, ir::Expression> = self
+        let data: HashMap<String, ir::Expression> = self
             .fields
             .iter()
             .map(|x| x.into_lower(ctx))
             .collect::<Result<_, _>>()?;
-
-        data.insert(
-            "declared_index".to_string(),
-            ir::Expression::Number(
-                self.declared_index
-                    .map(|x| x as i128)
-                    .expect("Publish block must have a declaration index"),
-            ),
-        );
 
         Ok(ir::AdHocDirective {
             name: "cardano_publish".to_string(),
@@ -953,7 +950,6 @@ mod tests {
                 ))),
             ],
             span: Span::DUMMY,
-            declared_index: None,
         }
     );
 
@@ -983,7 +979,6 @@ mod tests {
                 ))),
             ],
             span: Span::DUMMY,
-            declared_index: None,
         }
     );
 
