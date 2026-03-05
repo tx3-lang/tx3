@@ -69,6 +69,10 @@ pub struct Args {
         action = clap::ArgAction::Append
     )]
     pub profile_env_files: Vec<ProfileKV<PathBuf>>,
+
+    /// Force inclusion of a profile in the TII output (even without env vars)
+    #[arg(long = "profile", action = clap::ArgAction::Append)]
+    pub profiles: Vec<String>,
 }
 
 pub fn run(args: Args) -> anyhow::Result<()> {

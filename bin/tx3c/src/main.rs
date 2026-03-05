@@ -1,6 +1,7 @@
 use clap::{Parser, Subcommand};
 
 mod build;
+mod codegen;
 mod tii;
 
 #[derive(Parser)]
@@ -15,6 +16,8 @@ struct Cli {
 enum Commands {
     /// Build and compile Tx3 source files
     Build(build::Args),
+    /// Render codegen templates from a TII file
+    Codegen(codegen::Args),
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -22,6 +25,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     match cli.command {
         Commands::Build(args) => build::run(args)?,
+        Commands::Codegen(args) => codegen::run(args)?,
     }
 
     Ok(())
