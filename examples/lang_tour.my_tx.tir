@@ -535,9 +535,7 @@
         }
       },
       "optional": false,
-      "declared_index": {
-        "Number": 0
-      }
+      "index": "None"
     }
   ],
   "validity": {
@@ -669,9 +667,6 @@
     {
       "name": "withdrawal",
       "data": {
-        "amount": {
-          "Number": 100
-        },
         "redeemer": {
           "Struct": {
             "constructor": 0,
@@ -685,6 +680,9 @@
               "Address"
             ]
           }
+        },
+        "amount": {
+          "Number": 100
         }
       }
     },

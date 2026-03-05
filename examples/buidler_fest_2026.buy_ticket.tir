@@ -325,9 +325,7 @@
         }
       },
       "optional": false,
-      "declared_index": {
-        "Number": 0
-      }
+      "index": "None"
     },
     {
       "address": {
@@ -462,9 +460,7 @@
         }
       },
       "optional": false,
-      "declared_index": {
-        "Number": 1
-      }
+      "index": "None"
     },
     {
       "address": {
@@ -493,9 +489,7 @@
         ]
       },
       "optional": false,
-      "declared_index": {
-        "Number": 2
-      }
+      "index": "None"
     }
   ],
   "validity": {

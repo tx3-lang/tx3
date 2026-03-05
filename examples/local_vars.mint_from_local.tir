@@ -78,9 +78,7 @@
         }
       },
       "optional": false,
-      "declared_index": {
-        "Number": 0
-      }
+      "index": "None"
     }
   ],
   "validity": null,

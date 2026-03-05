@@ -73,9 +73,7 @@
         ]
       },
       "optional": false,
-      "declared_index": {
-        "Number": 0
-      }
+      "index": "None"
     },
     {
       "address": {
@@ -159,9 +157,7 @@
         }
       },
       "optional": false,
-      "declared_index": {
-        "Number": 1
-      }
+      "index": "None"
     }
   ],
   "validity": null,

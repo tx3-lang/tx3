@@ -73,9 +73,7 @@
         ]
       },
       "optional": false,
-      "declared_index": {
-        "Number": 0
-      }
+      "index": "None"
     },
     {
       "address": {
@@ -159,9 +157,7 @@
         }
       },
       "optional": false,
-      "declared_index": {
-        "Number": 1
-      }
+      "index": "None"
     }
   ],
   "validity": null,
@@ -171,6 +167,12 @@
     {
       "name": "withdrawal",
       "data": {
+        "redeemer": {
+          "Struct": {
+            "constructor": 0,
+            "fields": []
+          }
+        },
         "credential": {
           "EvalParam": {
             "ExpectValue": [
@@ -181,12 +183,6 @@
         },
         "amount": {
           "Number": 0
-        },
-        "redeemer": {
-          "Struct": {
-            "constructor": 0,
-            "fields": []
-          }
         }
       }
     }
