@@ -1,11 +1,7 @@
 use serde_json::json;
 use tx3_tir::encoding;
 
-use crate::{
-    inputs::{CanonicalQuery, SearchSpace},
-    trp::spec,
-    Error,
-};
+use crate::{inputs::CanonicalQuery, trp::spec, Error};
 
 pub const CODE_UNSUPPORTED_TIR: i32 = -32000;
 pub const CODE_MISSING_TX_ARG: i32 = -32001;
@@ -52,23 +48,6 @@ impl IntoErrorData for CanonicalQuery {
                 .collect::<Vec<_>>(),
             support_many: self.support_many,
             collateral: self.collateral,
-        }
-    }
-}
-
-impl IntoErrorData for SearchSpace {
-    type Output = spec::SearchSpaceDiagnostic;
-
-    fn into_error_data(self) -> Self::Output {
-        spec::SearchSpaceDiagnostic {
-            matched: self
-                .take(Some(10))
-                .iter()
-                .map(ToString::to_string)
-                .collect::<Vec<_>>(),
-            by_address_count: self.by_address_count,
-            by_asset_class_count: self.by_asset_class_count,
-            by_ref_count: self.by_ref_count,
         }
     }
 }
@@ -136,11 +115,16 @@ impl TrpError for crate::Error {
 
                 Some(json!(data))
             }
-            Error::InputNotResolved(name, q, ss) => {
+            Error::InputNotResolved(name, q, pool) => {
                 let data = spec::InputNotResolvedDiagnostic {
                     name: name.to_string(),
                     query: q.clone().into_error_data(),
-                    search_space: ss.clone().into_error_data(),
+                    search_space: spec::SearchSpaceDiagnostic {
+                        matched: pool.iter().map(ToString::to_string).collect(),
+                        by_address_count: None,
+                        by_asset_class_count: None,
+                        by_ref_count: None,
+                    },
                 };
 
                 Some(json!(data))

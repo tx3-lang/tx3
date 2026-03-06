@@ -1,13 +1,12 @@
 //! Tx input selection algorithms
 
-use std::collections::{BTreeMap, HashSet};
+use std::collections::HashSet;
 
 use tx3_tir::encoding::AnyTir;
 use tx3_tir::model::core::UtxoSet;
 use tx3_tir::model::v1beta0 as tir;
 use tx3_tir::model::{assets::CanonicalAssets, core::UtxoRef};
 
-pub use crate::inputs::narrow::SearchSpace;
 use crate::{Error, UtxoStore};
 
 mod narrow;
@@ -115,23 +114,14 @@ impl TryFrom<tir::InputQuery> for CanonicalQuery {
 }
 
 pub async fn resolve<T: UtxoStore>(tx: AnyTir, utxos: &T) -> Result<AnyTir, Error> {
-    let mut all_inputs = BTreeMap::new();
-
     let mut selector = select::InputSelector::new(utxos);
 
     for (name, query) in tx3_tir::reduce::find_queries(&tx) {
         let query = CanonicalQuery::try_from(query)?;
-
-        let space = narrow::narrow_search_space(utxos, &query).await?;
-
-        let utxos = selector.select(&space, &query).await?;
-
-        if utxos.is_empty() {
-            return Err(Error::InputNotResolved(name.to_string(), query, space));
-        }
-
-        all_inputs.insert(name, utxos);
+        selector.add(name, query).await?;
     }
+
+    let all_inputs = selector.select_all()?;
 
     let out = tx3_tir::reduce::apply_inputs(tx, &all_inputs)?;
 

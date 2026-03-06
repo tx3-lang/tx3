@@ -266,7 +266,7 @@ fn serialize_input_not_resolved_diagnostic_matches_schema() {
             by_address_count: None,
             by_asset_class_count: None,
             by_ref_count: None,
-            matched: vec![],
+            matched: vec!["0xdeadbeef#0".to_string()],
         },
     })
     .expect("serialize InputNotResolvedDiagnostic");

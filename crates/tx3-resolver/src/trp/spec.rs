@@ -37,17 +37,6 @@ pub struct SubmitResponse {
     pub hash: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SearchSpaceDiagnostic {
-    #[serde(rename = "by_address_count")]
-    pub by_address_count: Option<usize>,
-    #[serde(rename = "by_asset_class_count")]
-    pub by_asset_class_count: Option<usize>,
-    #[serde(rename = "by_ref_count")]
-    pub by_ref_count: Option<usize>,
-    #[serde(rename = "matched")]
-    pub matched: Vec<String>,
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InputQueryDiagnostic {
@@ -96,6 +85,18 @@ pub struct UnsupportedTirDiagnostic {
     pub expected: String,
     #[serde(rename = "provided")]
     pub provided: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SearchSpaceDiagnostic {
+    #[serde(rename = "by_address_count")]
+    pub by_address_count: Option<usize>,
+    #[serde(rename = "by_asset_class_count")]
+    pub by_asset_class_count: Option<usize>,
+    #[serde(rename = "by_ref_count")]
+    pub by_ref_count: Option<usize>,
+    #[serde(rename = "matched")]
+    pub matched: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

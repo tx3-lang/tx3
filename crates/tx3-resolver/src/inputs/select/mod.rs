@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use tx3_tir::model::{
     assets::CanonicalAssets,
@@ -6,12 +6,15 @@ use tx3_tir::model::{
 };
 
 use crate::{
-    inputs::{CanonicalQuery, SearchSpace},
+    inputs::{narrow, CanonicalQuery},
     Error, UtxoStore,
 };
 
 pub mod naive;
 pub mod vector;
+
+#[cfg(test)]
+mod tests;
 
 pub trait CoinSelection {
     fn pick_many(search_space: UtxoSet, target: &CanonicalAssets) -> UtxoSet;
@@ -50,514 +53,143 @@ pub type Strategy = vector::VectorSelector;
 #[cfg(feature = "naive_selector")]
 pub type Strategy = naive::NaiveSelector;
 
+/// How tightly constrained a query is, from most to least specific.
+/// Lower values get priority during selection so that the most constrained
+/// queries pick UTxOs first.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum Specificity {
+    SingleCollateral = 0,
+    Single = 1,
+    ManyCollateral = 2,
+    Many = 3,
+}
+
+struct PendingQuery {
+    name: String,
+    query: CanonicalQuery,
+    candidates: Vec<Utxo>,
+}
+
+impl PendingQuery {
+    fn specificity(&self) -> Specificity {
+        match (self.query.support_many, self.query.collateral) {
+            (false, true) => Specificity::SingleCollateral,
+            (false, false) => Specificity::Single,
+            (true, true) => Specificity::ManyCollateral,
+            (true, false) => Specificity::Many,
+        }
+    }
+
+    fn build_candidates(&mut self, pool: &HashMap<UtxoRef, Utxo>) {
+        let target = self.query.min_amount.clone().unwrap_or(CanonicalAssets::empty());
+
+        let pool_set: UtxoSet = pool
+            .values()
+            .filter(|utxo| !self.query.collateral || utxo.assets.is_only_naked())
+            .cloned()
+            .collect();
+
+        let ordered = vector::VectorSelector::sorted_candidates(pool_set, &target);
+
+        self.candidates = if self.query.support_many {
+            ordered
+                .into_iter()
+                .filter(|utxo| utxo.assets.contains_some(&target))
+                .collect()
+        } else {
+            ordered
+                .into_iter()
+                .filter(|utxo| utxo.assets.contains_total(&target))
+                .collect()
+        };
+    }
+
+    fn constraint_tightness(&self) -> (usize, Specificity, &str) {
+        (self.candidates.len(), self.specificity(), &self.name)
+    }
+
+    fn pick(self, used: &HashSet<UtxoRef>) -> (String, CanonicalQuery, UtxoSet) {
+        let available: UtxoSet = self
+            .candidates
+            .into_iter()
+            .filter(|utxo| !used.contains(&utxo.r#ref))
+            .collect();
+
+        let target = self
+            .query
+            .min_amount
+            .clone()
+            .unwrap_or(CanonicalAssets::empty());
+
+        let selection = if self.query.support_many {
+            Strategy::pick_many(available, &target)
+        } else {
+            Strategy::pick_single(available, &target)
+        };
+
+        (self.name, self.query, selection)
+    }
+}
+
 pub struct InputSelector<'a, S: UtxoStore> {
     store: &'a S,
-    ignore: HashSet<UtxoRef>,
-    ignore_collateral: HashSet<UtxoRef>,
+    pending: Vec<PendingQuery>,
+    pool: HashMap<UtxoRef, Utxo>,
 }
 
 impl<'a, S: UtxoStore> InputSelector<'a, S> {
     pub fn new(store: &'a S) -> Self {
         Self {
             store,
-            ignore: HashSet::new(),
-            ignore_collateral: HashSet::new(),
+            pending: Vec::new(),
+            pool: HashMap::new(),
         }
     }
 
-    fn pick_from_set(utxos: UtxoSet, criteria: &CanonicalQuery) -> UtxoSet {
-        let target = criteria
-            .min_amount
-            .clone()
-            .unwrap_or(CanonicalAssets::empty());
-
-        if criteria.support_many {
-            Strategy::pick_many(utxos, &target)
-        } else {
-            Strategy::pick_single(utxos, &target)
-        }
-    }
-
-    pub async fn select_collateral(
-        &mut self,
-        search_space: &SearchSpace,
-        criteria: &CanonicalQuery,
-    ) -> Result<UtxoSet, Error> {
-        let refs = search_space
-            .take(Some(super::MAX_SEARCH_SPACE_SIZE))
-            .into_iter()
-            .filter(|x| !self.ignore_collateral.contains(x))
-            .collect();
-
+    pub async fn add(&mut self, name: String, query: CanonicalQuery) -> Result<(), Error> {
+        let space = narrow::narrow_search_space(self.store, &query).await?;
+        let refs = space.take(Some(super::MAX_SEARCH_SPACE_SIZE));
         let utxos = self.store.fetch_utxos(refs).await?;
-
-        // Collateral has the extra constraint that it must be a naked utxo
-        // so we need to filter out any utxos that are not naked.
-        //
-        // TODO: this seems like a ledger specific constraint, we should somehow
-        // abstract it away. Maybe as a different call in the UtxoStore trait.
-        let utxos = utxos
-            .into_iter()
-            .filter(|x| x.assets.is_only_naked())
-            .collect();
-
-        let matched = Self::pick_from_set(utxos, criteria);
-
-        self.ignore_collateral
-            .extend(matched.iter().map(|x| x.r#ref.clone()));
-
-        Ok(matched)
-    }
-
-    pub async fn select_input(
-        &mut self,
-        search_space: &SearchSpace,
-        criteria: &CanonicalQuery,
-    ) -> Result<UtxoSet, Error> {
-        let refs = search_space
-            .take(Some(super::MAX_SEARCH_SPACE_SIZE))
-            .into_iter()
-            .filter(|x| !self.ignore.contains(x))
-            .collect();
-
-        let utxos = self.store.fetch_utxos(refs).await?;
-
-        let matched = Self::pick_from_set(utxos, criteria);
-
-        self.ignore.extend(matched.iter().map(|x| x.r#ref.clone()));
-
-        Ok(matched)
-    }
-
-    pub async fn select(
-        &mut self,
-        search_space: &SearchSpace,
-        criteria: &CanonicalQuery,
-    ) -> Result<UtxoSet, Error> {
-        if criteria.collateral {
-            self.select_collateral(search_space, criteria).await
-        } else {
-            self.select_input(search_space, criteria).await
+        for utxo in utxos.iter() {
+            self.pool
+                .entry(utxo.r#ref.clone())
+                .or_insert_with(|| utxo.clone());
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use tx3_tir::model::v1beta0 as tir;
-
-    use crate::{inputs::narrow, mock};
-
-    use super::*;
-
-    pub fn new_input_query(
-        address: &mock::KnownAddress,
-        naked_amount: Option<u64>,
-        other_assets: Vec<(mock::KnownAsset, u64)>,
-        many: bool,
-        collateral: bool,
-    ) -> CanonicalQuery {
-        let naked_asset = naked_amount.map(|x| tir::AssetExpr {
-            policy: tir::Expression::None,
-            asset_name: tir::Expression::None,
-            amount: tir::Expression::Number(x as i128),
+        self.pending.push(PendingQuery {
+            name,
+            query,
+            candidates: Vec::new(),
         });
-
-        let other_assets: Vec<tir::AssetExpr> = other_assets
-            .into_iter()
-            .map(|(asset, amount)| tir::AssetExpr {
-                policy: tir::Expression::Bytes(asset.policy().as_slice().to_vec()),
-                asset_name: tir::Expression::Bytes(asset.name().to_vec()),
-                amount: tir::Expression::Number(amount as i128),
-            })
-            .collect();
-
-        let all_assets = naked_asset.into_iter().chain(other_assets).collect();
-
-        tir::InputQuery {
-            address: tir::Expression::Address(address.to_bytes()),
-            min_amount: tir::Expression::Assets(all_assets),
-            r#ref: tir::Expression::None,
-            many,
-            collateral,
-        }
-        .try_into()
-        .unwrap()
+        Ok(())
     }
 
-    #[pollster::test]
-    async fn test_select_by_address() {
-        let store = mock::seed_random_memory_store(
-            |_: &mock::FuzzTxoRef, x: &mock::KnownAddress, _: u64| {
-                mock::utxo_with_random_amount(x, 4_000_000..5_000_000)
-            },
-            2..4,
-        );
+    pub fn select_all(mut self) -> Result<BTreeMap<String, UtxoSet>, Error> {
+        let pool_refs: Vec<UtxoRef> = self.pool.keys().cloned().collect();
 
-        let mut selector = InputSelector::new(&store);
+        for pq in &mut self.pending {
+            pq.build_candidates(&self.pool);
+        }
 
-        for subject in mock::KnownAddress::everyone() {
-            let criteria = new_input_query(&subject, None, vec![], false, false);
+        self.pending
+            .sort_by(|a, b| a.constraint_tightness().cmp(&b.constraint_tightness()));
 
-            let space = narrow::narrow_search_space(&store, &criteria)
-                .await
-                .unwrap();
+        let mut assignments: BTreeMap<String, UtxoSet> = BTreeMap::new();
+        let mut used: HashSet<UtxoRef> = HashSet::new();
 
-            let utxos = selector.select(&space, &criteria).await.unwrap();
+        for pq in self.pending {
+            let (name, query, selection) = pq.pick(&used);
 
-            assert_eq!(utxos.len(), 1);
-
-            for utxo in utxos {
-                assert_eq!(utxo.address, subject.to_bytes());
+            if selection.is_empty() {
+                return Err(Error::InputNotResolved(name, query, pool_refs));
             }
+
+            for utxo in selection.iter() {
+                used.insert(utxo.r#ref.clone());
+            }
+
+            assignments.insert(name, selection);
         }
-    }
 
-    #[pollster::test]
-    async fn test_input_query_too_broad() {
-        let store = mock::seed_random_memory_store(
-            |_: &mock::FuzzTxoRef, x: &mock::KnownAddress, _: u64| {
-                mock::utxo_with_random_amount(x, 4_000_000..5_000_000)
-            },
-            2..4,
-        );
-
-        let empty_criteria = tir::InputQuery {
-            address: tir::Expression::None,
-            min_amount: tir::Expression::None,
-            r#ref: tir::Expression::None,
-            many: false,
-            collateral: false,
-        }
-        .try_into()
-        .unwrap();
-
-        let space = narrow::narrow_search_space(&store, &empty_criteria)
-            .await
-            .unwrap_err();
-
-        assert!(matches!(space, Error::InputQueryTooBroad));
-    }
-
-    #[pollster::test]
-    async fn test_select_anything() {
-        let store = mock::seed_random_memory_store(
-            |_: &mock::FuzzTxoRef, x: &mock::KnownAddress, seq: u64| {
-                if seq % 2 == 0 {
-                    mock::utxo_with_random_amount(x, 4_000_000..5_000_000)
-                } else {
-                    mock::utxo_with_random_asset(x, mock::KnownAsset::Hosky, 500..1000)
-                }
-            },
-            2..3, // exclusive range, this means always two utxos per address
-        );
-
-        let mut selector = InputSelector::new(&store);
-
-        let criteria = new_input_query(&mock::KnownAddress::Alice, None, vec![], true, false);
-
-        let space = narrow::narrow_search_space(&store, &criteria)
-            .await
-            .unwrap();
-
-        let utxos = selector.select(&space, &criteria).await.unwrap();
-        assert_eq!(utxos.len(), 1);
-    }
-
-    #[pollster::test]
-    async fn test_select_by_naked_amount() {
-        let store = mock::seed_random_memory_store(
-            |_: &mock::FuzzTxoRef, x: &mock::KnownAddress, _: u64| {
-                mock::utxo_with_random_amount(x, 4_000_000..5_000_000)
-            },
-            2..4,
-        );
-
-        let mut selector = InputSelector::new(&store);
-
-        let criteria = new_input_query(
-            &mock::KnownAddress::Alice,
-            Some(6_000_000),
-            vec![],
-            false,
-            false,
-        );
-
-        let space = narrow::narrow_search_space(&store, &criteria)
-            .await
-            .unwrap();
-
-        let utxos = selector.select(&space, &criteria).await.unwrap();
-        assert!(utxos.is_empty());
-
-        let criteria = new_input_query(
-            &mock::KnownAddress::Alice,
-            Some(4_000_000),
-            vec![],
-            false,
-            false,
-        );
-
-        let utxos = selector.select(&space, &criteria).await.unwrap();
-
-        let match_count = dbg!(utxos.len());
-        assert_eq!(match_count, 1);
-    }
-
-    #[pollster::test]
-    async fn test_select_by_asset_amount() {
-        let store = mock::seed_random_memory_store(
-            |_: &mock::FuzzTxoRef, x: &mock::KnownAddress, _: u64| {
-                mock::utxo_with_random_asset(x, mock::KnownAsset::Hosky, 500..1000)
-            },
-            2..4,
-        );
-
-        for address in mock::KnownAddress::everyone() {
-            // test negative case where we ask for a single utxo with more than available
-            // amount
-
-            let criteria = new_input_query(
-                &address,
-                None,
-                vec![(mock::KnownAsset::Hosky, 1001)],
-                false,
-                false,
-            );
-
-            let space = narrow::narrow_search_space(&store, &criteria)
-                .await
-                .unwrap();
-
-            let mut selector = InputSelector::new(&store);
-            let utxos = selector.select(&space, &criteria).await.unwrap();
-            assert!(utxos.is_empty());
-
-            // test positive case where we ask for any number of utxo adding to the target
-            // amount
-
-            let criteria = new_input_query(
-                &address,
-                None,
-                vec![(mock::KnownAsset::Hosky, 1001)],
-                true,
-                false,
-            );
-
-            let space = narrow::narrow_search_space(&store, &criteria)
-                .await
-                .unwrap();
-
-            let mut selector = InputSelector::new(&store);
-            let utxos = selector.select(&space, &criteria).await.unwrap();
-            assert!(utxos.len() > 1);
-
-            // test negative case where we ask for any number of utxo adding to the target
-            // amount that is not possible
-
-            let criteria = new_input_query(
-                &address,
-                None,
-                vec![(mock::KnownAsset::Hosky, 4001)],
-                true,
-                false,
-            );
-
-            let space = narrow::narrow_search_space(&store, &criteria)
-                .await
-                .unwrap();
-
-            let mut selector = InputSelector::new(&store);
-            let utxos = selector.select(&space, &criteria).await.unwrap();
-            assert!(utxos.is_empty());
-
-            // test negative case where we ask for a different asset
-
-            let criteria = new_input_query(
-                &address,
-                None,
-                vec![(mock::KnownAsset::Snek, 500)],
-                false,
-                false,
-            );
-
-            let space = narrow::narrow_search_space(&store, &criteria)
-                .await
-                .unwrap();
-
-            let mut selector = InputSelector::new(&store);
-            let utxos = selector.select(&space, &criteria).await.unwrap();
-            assert!(utxos.is_empty());
-
-            // test positive case where we ask for the present asset and amount within range
-
-            let criteria = new_input_query(
-                &address,
-                None,
-                vec![(mock::KnownAsset::Hosky, 500)],
-                false,
-                false,
-            );
-
-            let space = narrow::narrow_search_space(&store, &criteria)
-                .await
-                .unwrap();
-
-            let mut selector = InputSelector::new(&store);
-            let utxos = selector.select(&space, &criteria).await.unwrap();
-            assert_eq!(utxos.len(), 1);
-        }
-    }
-
-    #[pollster::test]
-    async fn test_select_by_collateral() {
-        let store = mock::seed_random_memory_store(
-            |_: &mock::FuzzTxoRef, x: &mock::KnownAddress, sequence: u64| {
-                if sequence % 2 == 0 {
-                    mock::utxo_with_random_amount(x, 4_000_000..5_000_000)
-                } else {
-                    mock::utxo_with_random_asset(x, mock::KnownAsset::Hosky, 500..1000)
-                }
-            },
-            2..4,
-        );
-
-        let mut selector = InputSelector::new(&store);
-
-        for address in mock::KnownAddress::everyone() {
-            let criteria = new_input_query(&address, Some(1_000_000), vec![], false, true);
-
-            let space = narrow::narrow_search_space(&store, &criteria)
-                .await
-                .unwrap();
-
-            let utxos = selector.select(&space, &criteria).await.unwrap();
-
-            assert_eq!(utxos.len(), 1);
-            let utxo = utxos.iter().next().unwrap();
-            assert_eq!(utxo.assets.keys().len(), 1);
-            assert_eq!(utxo.assets.keys().next().unwrap().is_naked(), true);
-        }
-    }
-
-    #[pollster::test]
-    async fn test_select_same_collateral_and_input() {
-        let store = mock::seed_random_memory_store(
-            |_: &mock::FuzzTxoRef, x: &mock::KnownAddress, _: u64| {
-                mock::utxo_with_random_amount(x, 4_000_000..5_000_000)
-            },
-            1..2, // exclusive range, this means only one utxo per address
-        );
-
-        let mut selector = InputSelector::new(&store);
-
-        for address in mock::KnownAddress::everyone() {
-            // we select the only utxo availabel as an input
-            let criteria = new_input_query(&address, Some(1_000_000), vec![], false, false);
-
-            let space = narrow::narrow_search_space(&store, &criteria)
-                .await
-                .unwrap();
-
-            let utxos = selector.select(&space, &criteria).await.unwrap();
-            assert_eq!(utxos.len(), 1);
-
-            // try to select the same utxo as collateral
-            let criteria = new_input_query(&address, Some(1_000_000), vec![], false, true);
-
-            let space = narrow::narrow_search_space(&store, &criteria)
-                .await
-                .unwrap();
-
-            let utxos = selector.select(&space, &criteria).await.unwrap();
-            assert_eq!(utxos.len(), 1);
-        }
-    }
-
-    #[pollster::test]
-    async fn test_resolve_ignores_selected_utxos() {
-        let store = mock::seed_random_memory_store(
-            |_: &mock::FuzzTxoRef, x: &mock::KnownAddress, seq: u64| {
-                if seq % 2 == 0 {
-                    mock::utxo_with_random_amount(x, 1_000..1_500)
-                } else {
-                    mock::utxo_with_random_amount(x, 100..150)
-                }
-            },
-            2..3, // exclusive range, this means only two utxos per address
-        );
-
-        for address in mock::KnownAddress::everyone() {
-            let mut selector = InputSelector::new(&store);
-
-            // we ask for a large amount utxo knowing that we have one of those
-            let query1 = new_input_query(&address, Some(1_000), vec![], true, false);
-
-            let space = narrow::narrow_search_space(&store, &query1).await.unwrap();
-
-            let utxos1 = selector.select(&space, &query1).await.unwrap();
-            assert_eq!(utxos1.len(), 1);
-
-            // we ask for a large amount utxo again knowing that we already selected one of
-            // those
-            let query2 = new_input_query(&address, Some(1_000), vec![], true, false);
-
-            let space = narrow::narrow_search_space(&store, &query2).await.unwrap();
-
-            let utxos2 = selector.select(&space, &query2).await.unwrap();
-            assert_eq!(utxos2.len(), 0);
-
-            // we ask for a small amount utxo knowing that we have one of those
-            let query3 = new_input_query(&address, Some(100), vec![], true, false);
-
-            let space = narrow::narrow_search_space(&store, &query3).await.unwrap();
-
-            let utxos3 = selector.select(&space, &query3).await.unwrap();
-            assert_eq!(utxos3.len(), 1);
-
-            // we ask for a small amount utxo again knowing that we already selected one of
-            // those
-            let query4 = new_input_query(&address, Some(100), vec![], true, false);
-
-            let space = narrow::narrow_search_space(&store, &query4).await.unwrap();
-
-            let utxos4 = selector.select(&space, &query4).await.unwrap();
-            assert_eq!(utxos4.len(), 0);
-
-            // we ensure that selected utxos are not the same
-            utxos1.is_disjoint(&utxos3);
-        }
-    }
-
-    #[pollster::test]
-    async fn test_select_by_naked_and_asset_amount() {
-        let store = mock::seed_random_memory_store(
-            |_: &mock::FuzzTxoRef, x: &mock::KnownAddress, sequence: u64| {
-                if sequence % 2 == 0 {
-                    mock::utxo_with_random_amount(x, 4_000_000..5_000_000)
-                } else {
-                    mock::utxo_with_random_asset(x, mock::KnownAsset::Hosky, 500..1000)
-                }
-            },
-            2..3,
-        );
-
-        let mut selector = InputSelector::new(&store);
-
-        let criteria = new_input_query(
-            &mock::KnownAddress::Alice,
-            Some(4_000_000),
-            vec![(mock::KnownAsset::Hosky, 500)],
-            true,
-            false,
-        );
-
-        let space = narrow::narrow_search_space(&store, &criteria)
-            .await
-            .unwrap();
-
-        let utxos = selector.select(&space, &criteria).await.unwrap();
-
-        assert!(utxos.len() == 2);
+        Ok(assignments)
     }
 }

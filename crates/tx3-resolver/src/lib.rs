@@ -42,7 +42,7 @@ pub enum Error {
     InputQueryTooBroad,
 
     #[error("input not resolved: {0}")]
-    InputNotResolved(String, CanonicalQuery, inputs::SearchSpace),
+    InputNotResolved(String, CanonicalQuery, Vec<UtxoRef>),
 
     #[error("missing argument `{key}` of type {ty:?}")]
     MissingTxArg {

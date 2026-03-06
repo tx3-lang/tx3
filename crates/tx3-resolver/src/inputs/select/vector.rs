@@ -136,7 +136,7 @@ impl VectorSpace for UtxoSet {
 pub struct VectorSelector;
 
 impl VectorSelector {
-    fn sort_candidates(search_space: UtxoSet, target: &CanonicalAssets) -> Vec<Utxo> {
+    pub(crate) fn sorted_candidates(search_space: UtxoSet, target: &CanonicalAssets) -> Vec<Utxo> {
         let classes: Vec<_> = class_union!(search_space, target);
 
         let mut candidates = Vec::from_iter(search_space);
@@ -152,7 +152,7 @@ impl CoinSelection for VectorSelector {
         let mut matched = HashSet::new();
         let mut pending = target.clone();
 
-        let candidates = Self::sort_candidates(search_space, target);
+        let candidates = Self::sorted_candidates(search_space, target);
 
         for candidate in candidates {
             if candidate.assets.contains_some(&pending) {
@@ -180,7 +180,7 @@ impl CoinSelection for VectorSelector {
     }
 
     fn pick_single(search_space: UtxoSet, target: &CanonicalAssets) -> UtxoSet {
-        let candidates = Self::sort_candidates(search_space, target);
+        let candidates = Self::sorted_candidates(search_space, target);
 
         let first_match = candidates
             .iter()
