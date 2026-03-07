@@ -249,7 +249,8 @@
           }
         }
       },
-      "optional": false
+      "optional": false,
+      "index": "None"
     },
     {
       "address": {
@@ -339,7 +340,8 @@
           ]
         }
       },
-      "optional": false
+      "optional": false,
+      "index": "None"
     }
   ],
   "validity": null,

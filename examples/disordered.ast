@@ -160,7 +160,8 @@
             "dummy": false,
             "start": 58,
             "end": 125
-          }
+          },
+          "declared_index": 0
         },
         {
           "name": null,
@@ -252,7 +253,8 @@
             "dummy": false,
             "start": 214,
             "end": 295
-          }
+          },
+          "declared_index": 1
         }
       ],
       "validity": null,

@@ -72,7 +72,8 @@
           }
         ]
       },
-      "optional": false
+      "optional": false,
+      "index": "None"
     },
     {
       "address": {
@@ -155,7 +156,8 @@
           ]
         }
       },
-      "optional": false
+      "optional": false,
+      "index": "None"
     }
   ],
   "validity": null,
@@ -165,6 +167,12 @@
     {
       "name": "withdrawal",
       "data": {
+        "redeemer": {
+          "Struct": {
+            "constructor": 0,
+            "fields": []
+          }
+        },
         "credential": {
           "EvalParam": {
             "ExpectValue": [
@@ -175,12 +183,6 @@
         },
         "amount": {
           "Number": 0
-        },
-        "redeemer": {
-          "Struct": {
-            "constructor": 0,
-            "fields": []
-          }
         }
       }
     }

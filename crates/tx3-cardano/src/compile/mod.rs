@@ -288,24 +288,67 @@ fn compile_outputs(
     tx: &tir::Tx,
     network: Network,
 ) -> Result<Vec<primitives::TransactionOutput<'static>>, Error> {
-    let mut resolved: Vec<_> = tx
-        .outputs
-        .iter()
-        .map(|out| (out.optional, compile_output_block(out, network)))
-        .filter(|(optional, output)| !optional || output_has_assets(output))
-        .map(|(_, output)| output)
-        .collect::<Result<Vec<_>, _>>()?;
+    let regular_outputs = tx.outputs.iter().filter_map(|out| {
+        let compiled = compile_output_block(out, network);
 
-    let cardano_outputs = tx
+        if out.optional && !output_has_assets(&compiled) {
+            return None;
+        }
+
+        let idx = out.index.as_number().map(|n| n as usize);
+        Some(compiled.map(|o| (idx, o)))
+    });
+
+    let publish_outputs = tx
         .adhoc
         .iter()
         .filter(|x| x.name.as_str() == "cardano_publish")
-        .map(|adhoc| compile_cardano_publish_directive(adhoc, network))
+        .map(|adhoc| {
+            let idx = adhoc
+                .data
+                .get("index")
+                .and_then(|expr| expr.as_number())
+                .map(|n| n as usize);
+
+            compile_cardano_publish_directive(adhoc, network).map(|o| (idx, o))
+        });
+
+    let all: Vec<_> = publish_outputs
+        .chain(regular_outputs)
         .collect::<Result<Vec<_>, _>>()?;
 
-    resolved.extend(cardano_outputs);
+    order_by_index(all)
+}
 
-    Ok(resolved)
+fn order_by_index(
+    outputs: Vec<(Option<usize>, primitives::TransactionOutput<'static>)>,
+) -> Result<Vec<primitives::TransactionOutput<'static>>, Error> {
+    let total = outputs.len();
+    let mut slots: Vec<Option<primitives::TransactionOutput<'static>>> = vec![None; total];
+    let mut non_indexed = Vec::new();
+
+    for (idx, compiled) in outputs {
+        match idx {
+            Some(pos) => {
+                if pos >= total {
+                    return Err(Error::ConsistencyError(format!(
+                        "output index {pos} is out of range (total outputs: {total})"
+                    )));
+                }
+                slots[pos] = Some(compiled);
+            }
+            None => non_indexed.push(compiled),
+        }
+    }
+
+    let mut filler = non_indexed.into_iter();
+    for slot in &mut slots {
+        if slot.is_none() {
+            *slot = filler.next();
+        }
+    }
+
+    Ok(slots.into_iter().flatten().collect())
 }
 
 pub fn compile_cardano_publish_directive(

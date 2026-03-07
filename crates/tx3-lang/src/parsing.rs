@@ -569,6 +569,11 @@ impl AstNode for OutputBlockField {
                 let x = OutputBlockField::Datum(DataExpr::parse(pair)?.into());
                 Ok(x)
             }
+            Rule::output_block_index => {
+                let pair = pair.into_inner().next().unwrap();
+                let x = OutputBlockField::Index(DataExpr::parse(pair)?.into());
+                Ok(x)
+            }
             x => unreachable!("Unexpected rule in output_block_field: {:?}", x),
         }
     }
@@ -578,6 +583,7 @@ impl AstNode for OutputBlockField {
             Self::To(x) => x.span(),
             Self::Amount(x) => x.span(),
             Self::Datum(x) => x.span(),
+            Self::Index(x) => x.span(),
         }
     }
 }

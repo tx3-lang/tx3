@@ -127,7 +127,8 @@
           ]
         }
       },
-      "optional": false
+      "optional": false,
+      "index": "None"
     }
   ],
   "validity": null,
@@ -147,6 +148,14 @@
             0
           ]
         },
+        "to": {
+          "EvalParam": {
+            "ExpectValue": [
+              "receiver",
+              "Address"
+            ]
+          }
+        },
         "amount": {
           "Assets": [
             {
@@ -162,14 +171,6 @@
               }
             }
           ]
-        },
-        "to": {
-          "EvalParam": {
-            "ExpectValue": [
-              "receiver",
-              "Address"
-            ]
-          }
         },
         "version": {
           "Number": 0
