@@ -344,6 +344,7 @@ impl IntoLower for ast::Type {
             ast::Type::Int => Ok(Type::Int),
             ast::Type::Bool => Ok(Type::Bool),
             ast::Type::Bytes => Ok(Type::Bytes),
+            ast::Type::AnyData => Ok(Type::AnyData),
             ast::Type::Address => Ok(Type::Address),
             ast::Type::Utxo => Ok(Type::Utxo),
             ast::Type::UtxoRef => Ok(Type::UtxoRef),

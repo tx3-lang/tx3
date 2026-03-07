@@ -4,6 +4,7 @@ use serde_json::{Number, Value};
 use thiserror::Error;
 
 use tx3_tir::model::core::{Type, UtxoRef};
+use tx3_tir::model::v1beta0::Expression;
 pub use tx3_tir::reduce::ArgValue;
 
 #[derive(Debug, Error)]
@@ -188,12 +189,32 @@ fn value_to_address(value: Value) -> Result<Vec<u8>, Error> {
     Ok(out)
 }
 
-fn value_to_underfined(value: Value) -> Result<ArgValue, Error> {
+fn value_to_undefined(value: Value) -> Result<ArgValue, Error> {
     match value {
         Value::Bool(b) => Ok(ArgValue::Bool(b)),
         Value::Number(x) => Ok(ArgValue::Int(number_to_bigint(x)?)),
         Value::String(s) => Ok(ArgValue::String(s)),
         x => Err(Error::CantInferTypeForValue(x)),
+    }
+}
+
+fn value_to_data_expr(value: Value) -> Result<Expression, Error> {
+    match value {
+        Value::Null => Ok(Expression::None),
+        Value::Bool(b) => Ok(Expression::Bool(b)),
+        Value::Number(n) => Ok(Expression::Number(number_to_bigint(n)?)),
+        Value::String(s) => Ok(Expression::String(s)),
+        Value::Array(items) => Ok(Expression::List(
+            items
+                .into_iter()
+                .map(value_to_data_expr)
+                .collect::<Result<Vec<_>, _>>()?,
+        )),
+        Value::Object(map) => Ok(Expression::Map(
+            map.into_iter()
+                .map(|(key, value)| Ok((Expression::String(key), value_to_data_expr(value)?)))
+                .collect::<Result<Vec<_>, Error>>()?,
+        )),
     }
 }
 
@@ -239,7 +260,11 @@ pub fn from_json(value: Value, target: &Type) -> Result<ArgValue, Error> {
             let x = value_to_utxo_ref(value)?;
             Ok(ArgValue::UtxoRef(x))
         }
-        Type::Undefined => value_to_underfined(value),
+        Type::AnyData => {
+            let x = value_to_data_expr(value)?;
+            Ok(ArgValue::Data(x))
+        }
+        Type::Undefined => value_to_undefined(value),
         x => Err(Error::TargetTypeNotSupported(x.clone())),
     }
 }
@@ -278,6 +303,10 @@ mod tests {
             },
             ArgValue::UtxoRef(utxo_ref) => match b {
                 ArgValue::UtxoRef(b) => utxo_ref == b,
+                _ => false,
+            },
+            ArgValue::Data(a) => match b {
+                ArgValue::Data(b) => a == b,
                 _ => false,
             },
         }
@@ -402,5 +431,14 @@ mod tests {
         };
 
         json_to_value_test(json, Type::UtxoRef, ArgValue::UtxoRef(utxo_ref));
+    }
+
+    #[test]
+    fn test_round_trip_any_data_bool() {
+        json_to_value_test(
+            json!(true),
+            Type::AnyData,
+            ArgValue::Data(Expression::Bool(true)),
+        );
     }
 }

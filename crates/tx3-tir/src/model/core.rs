@@ -57,6 +57,7 @@ pub enum Type {
     Int,
     Bool,
     Bytes,
+    AnyData,
     Address,
     Utxo,
     UtxoRef,
