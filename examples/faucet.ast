@@ -171,8 +171,7 @@
             "dummy": false,
             "start": 429,
             "end": 523
-          },
-          "declared_index": 0
+          }
         }
       ],
       "validity": null,

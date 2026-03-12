@@ -148,6 +148,9 @@
             0
           ]
         },
+        "version": {
+          "Number": 0
+        },
         "to": {
           "EvalParam": {
             "ExpectValue": [
@@ -171,9 +174,6 @@
               }
             }
           ]
-        },
-        "version": {
-          "Number": 0
         }
       }
     }

@@ -179,8 +179,7 @@
             "dummy": false,
             "start": 323,
             "end": 404
-          },
-          "declared_index": 1
+          }
         }
       ],
       "validity": null,
@@ -258,8 +257,7 @@
                 "dummy": false,
                 "start": 173,
                 "end": 317
-              },
-              "declared_index": 0
+              }
             }
           }
         }
@@ -450,8 +448,7 @@
             "dummy": false,
             "start": 675,
             "end": 756
-          },
-          "declared_index": 1
+          }
         }
       ],
       "validity": null,
@@ -529,8 +526,7 @@
                 "dummy": false,
                 "start": 549,
                 "end": 669
-              },
-              "declared_index": 0
+              }
             }
           }
         }

@@ -267,8 +267,7 @@
             "dummy": false,
             "start": 187,
             "end": 286
-          },
-          "declared_index": 0
+          }
         }
       ],
       "validity": null,

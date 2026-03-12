@@ -845,8 +845,7 @@
             "dummy": false,
             "start": 1243,
             "end": 1622
-          },
-          "declared_index": 0
+          }
         }
       ],
       "validity": {

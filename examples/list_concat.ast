@@ -214,8 +214,7 @@
             "dummy": false,
             "start": 156,
             "end": 303
-          },
-          "declared_index": 0
+          }
         }
       ],
       "validity": null,
