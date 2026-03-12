@@ -1,0 +1,31 @@
+party Sender;
+
+party Receiver;
+
+tx sorted_publish_plutus(
+    quantity: Int
+) {
+    input source {
+        from: Sender,
+        min_amount: Ada(quantity) + min_utxo(funds) + min_utxo(funds_rep) + fees,
+    }
+
+    cardano::publish {
+        to: Receiver,
+        amount: Ada(quantity),
+        version: 3,
+        script: 0x5101010023259800a518a4d136564004ae69,
+        index: 1,
+    }
+
+    output funds {
+        to: Sender,
+        amount: min_utxo(funds),
+        index: 0,
+    }
+
+    output funds_rep {
+        to: Sender,
+        amount: source - Ada(quantity) - fees,
+    }
+}
