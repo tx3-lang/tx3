@@ -1,0 +1,46 @@
+party Sender;
+party Receiver;
+
+type PoolState {
+    pair_a: Int,
+    pair_b: Int,
+}
+
+fn double(x: Int) -> Int {
+    x + x
+}
+
+fn complex(a: Int, b: Int) -> Int {
+    let base = a + b;
+    let adjusted = base - 100;
+    adjusted + adjusted
+}
+
+fn adjust_pool(pool: PoolState, delta_a: Int, delta_b: Int) -> PoolState {
+    PoolState {
+        pair_a: pool.pair_a + delta_a,
+        pair_b: pool.pair_b - delta_b,
+    }
+}
+
+tx use_double(amount: Int) {
+    input source {
+        from: Sender,
+        min_amount: Ada(amount),
+    }
+    output {
+        to: Receiver,
+        amount: Ada(double(amount)),
+    }
+}
+
+tx use_complex() {
+    input source {
+        from: Sender,
+        min_amount: Ada(2000000),
+    }
+    output {
+        to: Receiver,
+        amount: Ada(complex(50, 75)),
+    }
+}
