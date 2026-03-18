@@ -81,11 +81,24 @@ impl PendingQuery {
     }
 
     fn build_candidates(&mut self, pool: &HashMap<UtxoRef, Utxo>) {
-        let target = self.query.min_amount.clone().unwrap_or(CanonicalAssets::empty());
+        let target = self
+            .query
+            .min_amount
+            .clone()
+            .unwrap_or(CanonicalAssets::empty());
 
         let pool_set: UtxoSet = pool
             .values()
-            .filter(|utxo| !self.query.collateral || utxo.assets.is_only_naked())
+            .filter(|utxo| {
+                let collateral_ok = !self.query.collateral || utxo.assets.is_only_naked();
+                let address_ok = self
+                    .query
+                    .address
+                    .as_ref()
+                    .map_or(true, |a| utxo.address == *a);
+                let refs_ok = self.query.refs.is_empty() || self.query.refs.contains(&utxo.r#ref);
+                collateral_ok && address_ok && refs_ok
+            })
             .cloned()
             .collect();
 
