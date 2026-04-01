@@ -4,7 +4,7 @@ use tx3_tir::model::{
     core::{Utxo, UtxoSet},
 };
 
-use super::CoinSelection;
+use super::Rank;
 
 const MISMATCH_PENALTY: f64 = 3.0;
 
@@ -133,10 +133,10 @@ impl VectorSpace for UtxoSet {
     }
 }
 
-pub struct VectorSelector;
+pub struct VectorRanker;
 
-impl VectorSelector {
-    pub(crate) fn sorted_candidates(search_space: UtxoSet, target: &CanonicalAssets) -> Vec<Utxo> {
+impl Rank for VectorRanker {
+    fn sorted_candidates(search_space: UtxoSet, target: &CanonicalAssets) -> Vec<Utxo> {
         let classes: Vec<_> = class_union!(search_space, target);
 
         let mut candidates = Vec::from_iter(search_space);
@@ -146,127 +146,14 @@ impl VectorSelector {
     }
 }
 
-impl CoinSelection for VectorSelector {
-    fn pick_many(search_space: UtxoSet, target: &CanonicalAssets) -> HashSet<Utxo> {
-        let mut matched = HashSet::new();
-        let mut pending = target.clone();
-
-        let candidates = Self::sorted_candidates(search_space, target);
-
-        for candidate in candidates {
-            if candidate.assets.contains_some(&pending) {
-                matched.insert(candidate.clone());
-                let to_include = candidate.assets.clone();
-                pending = pending - to_include;
-            }
-
-            if pending.is_empty_or_negative() {
-                break;
-            }
-        }
-
-        if !pending.is_empty_or_negative() {
-            // if we didn't accumulate enough by the end of the search space,
-            // then we didn't find a match
-            return HashSet::new();
-        }
-
-        while let Some(utxo) = super::find_first_excess_utxo(&matched, target) {
-            matched.remove(&utxo);
-        }
-
-        matched
-    }
-
-    fn pick_single(search_space: UtxoSet, target: &CanonicalAssets) -> UtxoSet {
-        let candidates = Self::sorted_candidates(search_space, target);
-
-        let first_match = candidates
-            .iter()
-            .filter(|utxo| utxo.assets.contains_total(target))
-            .next();
-
-        HashSet::from_iter(first_match.into_iter().cloned())
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use proptest::prelude::*;
 
-    prop_compose! {
-      fn any_positive_amount() (
-        amount in 1..=i128::MAX,
-      ) -> i128 {
-        amount as i128
-      }
-    }
-
-    prop_compose! {
-      fn any_policy() (
-        policy in any::<[u8; 32]>(),
-      ) -> Vec<u8> {
-        Vec::from(policy)
-      }
-    }
-
-    prop_compose! {
-      fn any_name() (
-        name in any::<[u8; 16]>(),
-      ) -> Vec<u8> {
-        Vec::from(name)
-      }
-    }
-
-    prop_compose! {
-      fn any_asset_class() (
-        policy in any_policy(),
-        name in any_name(),
-      ) -> AssetClass {
-        AssetClass::Defined(policy, name)
-      }
-    }
-
-    prop_compose! {
-      fn any_defined_asset() (
-        policy in any_policy(),
-        name in any_name(),
-        amount in any_positive_amount(),
-      ) -> CanonicalAssets {
-        CanonicalAssets::from_defined_asset(&policy, &name, amount)
-      }
-    }
-
-    prop_compose! {
-      fn any_naked_asset() (
-        amount in any_positive_amount(),
-      ) -> CanonicalAssets {
-        CanonicalAssets::from_naked_amount(amount)
-      }
-    }
-
-    prop_compose! {
-      fn any_composite_asset() (
-        naked in any_naked_asset(),
-        defined in any_defined_asset(),
-      ) -> CanonicalAssets {
-        naked + defined
-      }
-    }
-
-    pub struct AssetConstraint {
-        range: std::ops::RangeInclusive<i128>,
-        class: AssetClass,
-    }
-
-    prop_compose! {
-      fn any_constrained_asset(constraint: AssetConstraint) (
-        amount in constraint.range,
-      ) -> CanonicalAssets {
-        CanonicalAssets::from_class_and_amount(constraint.class.clone(), amount)
-      }
-    }
+    use crate::inputs::test_utils::{
+        any_composite_asset, any_defined_asset, any_naked_asset,
+    };
 
     proptest! {
         #[test]
