@@ -50,87 +50,29 @@ pub fn matches_aggregate_constraints(
 mod tests {
     use std::collections::HashSet;
 
-    use tx3_tir::model::{
-        assets::CanonicalAssets,
-        core::{Utxo, UtxoRef},
-    };
+    use proptest::prelude::*;
+    use tx3_tir::model::{assets::CanonicalAssets, core::UtxoRef};
 
-    use crate::inputs::canonical::CanonicalQuery;
+    use crate::inputs::test_utils::{
+        self, any_address, any_utxo, any_utxo_at, query, utxo, utxo_with_asset, utxo_with_ref,
+    };
 
     use super::*;
 
-    fn utxo(address: &[u8], naked: i128) -> Utxo {
-        Utxo {
-            r#ref: UtxoRef {
-                txid: vec![0; 32],
-                index: 0,
-            },
-            address: address.to_vec(),
-            assets: CanonicalAssets::from_naked_amount(naked),
-            datum: None,
-            script: None,
-        }
-    }
-
-    fn utxo_with_ref(address: &[u8], naked: i128, txid: u8, index: u32) -> Utxo {
-        Utxo {
-            r#ref: UtxoRef {
-                txid: vec![txid; 32],
-                index,
-            },
-            address: address.to_vec(),
-            assets: CanonicalAssets::from_naked_amount(naked),
-            datum: None,
-            script: None,
-        }
-    }
-
-    fn utxo_with_asset(address: &[u8], naked: i128, policy: &[u8], name: &[u8], amount: i128) -> Utxo {
-        let assets = CanonicalAssets::from_naked_amount(naked)
-            + CanonicalAssets::from_asset(Some(policy), Some(name), amount);
-
-        Utxo {
-            r#ref: UtxoRef {
-                txid: vec![0; 32],
-                index: 0,
-            },
-            address: address.to_vec(),
-            assets,
-            datum: None,
-            script: None,
-        }
-    }
-
-    fn query(
-        address: Option<&[u8]>,
-        min_amount: Option<CanonicalAssets>,
-        refs: HashSet<UtxoRef>,
-        many: bool,
-        collateral: bool,
-    ) -> CanonicalQuery {
-        CanonicalQuery {
-            address: address.map(|a| a.to_vec()),
-            min_amount,
-            refs,
-            support_many: many,
-            collateral,
-        }
-    }
-
-    // -- hard constraints --
+    // -- hard constraints: scenario tests --
 
     #[test]
     fn hard_no_constraints_matches_anything() {
         let q = query(None, None, HashSet::new(), false, false);
-        let u = utxo(b"alice", 5_000_000);
+        let u = utxo(0, 0, b"alice", 5_000_000);
         assert!(matches_hard_constraints(&q, &u));
     }
 
     #[test]
     fn hard_address_match() {
         let q = query(Some(b"alice"), None, HashSet::new(), false, false);
-        assert!(matches_hard_constraints(&q, &utxo(b"alice", 1)));
-        assert!(!matches_hard_constraints(&q, &utxo(b"bob", 1)));
+        assert!(matches_hard_constraints(&q, &utxo(0, 0, b"alice", 1)));
+        assert!(!matches_hard_constraints(&q, &utxo(0, 0, b"bob", 1)));
     }
 
     #[test]
@@ -144,8 +86,8 @@ mod tests {
     #[test]
     fn hard_collateral_requires_naked() {
         let q = query(Some(b"alice"), None, HashSet::new(), false, true);
-        let naked = utxo(b"alice", 5_000_000);
-        let with_token = utxo_with_asset(b"alice", 5_000_000, b"policy", b"name", 100);
+        let naked = utxo(0, 0, b"alice", 5_000_000);
+        let with_token = utxo_with_asset(0, 0, b"alice", 5_000_000, b"policy", b"name", 100);
         assert!(matches_hard_constraints(&q, &naked));
         assert!(!matches_hard_constraints(&q, &with_token));
     }
@@ -155,23 +97,20 @@ mod tests {
         let target_ref = UtxoRef { txid: vec![1; 32], index: 0 };
         let q = query(Some(b"alice"), None, HashSet::from([target_ref]), false, true);
 
-        // right address, right ref, naked → pass
         assert!(matches_hard_constraints(&q, &utxo_with_ref(b"alice", 1, 1, 0)));
-        // wrong address → fail
         assert!(!matches_hard_constraints(&q, &utxo_with_ref(b"bob", 1, 1, 0)));
-        // wrong ref → fail
         assert!(!matches_hard_constraints(&q, &utxo_with_ref(b"alice", 1, 2, 0)));
     }
 
-    // -- aggregate constraints --
+    // -- aggregate constraints: scenario tests --
 
     #[test]
     fn aggregate_single_requires_total() {
         let target = CanonicalAssets::from_naked_amount(5_000_000);
         let q = query(None, Some(target.clone()), HashSet::new(), false, false);
 
-        let enough = utxo(b"alice", 5_000_000);
-        let not_enough = utxo(b"alice", 3_000_000);
+        let enough = utxo(0, 0, b"alice", 5_000_000);
+        let not_enough = utxo(0, 0, b"alice", 3_000_000);
 
         assert!(matches_aggregate_constraints(&q, &enough, &target));
         assert!(!matches_aggregate_constraints(&q, &not_enough, &target));
@@ -182,7 +121,55 @@ mod tests {
         let target = CanonicalAssets::from_naked_amount(5_000_000);
         let q = query(None, Some(target.clone()), HashSet::new(), true, false);
 
-        let partial = utxo(b"alice", 3_000_000);
+        let partial = utxo(0, 0, b"alice", 3_000_000);
         assert!(matches_aggregate_constraints(&q, &partial, &target));
+    }
+
+    // -- property-based tests --
+
+    proptest! {
+        #[test]
+        fn hard_address_mismatch_always_rejects(
+            addr_a in any_address(),
+            addr_b in any_address(),
+            u in any_utxo(),
+        ) {
+            prop_assume!(addr_a != addr_b);
+
+            let mut u = u;
+            u.address = addr_a.clone();
+
+            let q = query(Some(&addr_b), None, HashSet::new(), false, false);
+            prop_assert!(!matches_hard_constraints(&q, &u));
+        }
+
+        #[test]
+        fn hard_no_constraints_accepts_any_utxo(u in any_utxo()) {
+            let q = query(None, None, HashSet::new(), false, false);
+            prop_assert!(matches_hard_constraints(&q, &u));
+        }
+
+        #[test]
+        fn hard_address_match_accepts_same_address(
+            addr in any_address(),
+            u in any_utxo(),
+        ) {
+            let mut u = u;
+            u.address = addr.clone();
+            // non-collateral so custom assets don't matter
+            let q = query(Some(&addr), None, HashSet::new(), false, false);
+            prop_assert!(matches_hard_constraints(&q, &u));
+        }
+
+        #[test]
+        fn aggregate_total_implies_some(
+            u in any_utxo(),
+            target in test_utils::any_composite_asset(),
+        ) {
+            // if a UTxO passes contains_total, it must also pass contains_some
+            if u.assets.contains_total(&target) {
+                prop_assert!(u.assets.contains_some(&target));
+            }
+        }
     }
 }

@@ -151,65 +151,9 @@ mod tests {
     use super::*;
     use proptest::prelude::*;
 
-    prop_compose! {
-      fn any_positive_amount() (
-        amount in 1..=i128::MAX,
-      ) -> i128 {
-        amount as i128
-      }
-    }
-
-    prop_compose! {
-      fn any_policy() (
-        policy in any::<[u8; 32]>(),
-      ) -> Vec<u8> {
-        Vec::from(policy)
-      }
-    }
-
-    prop_compose! {
-      fn any_name() (
-        name in any::<[u8; 16]>(),
-      ) -> Vec<u8> {
-        Vec::from(name)
-      }
-    }
-
-    prop_compose! {
-      fn any_asset_class() (
-        policy in any_policy(),
-        name in any_name(),
-      ) -> AssetClass {
-        AssetClass::Defined(policy, name)
-      }
-    }
-
-    prop_compose! {
-      fn any_defined_asset() (
-        policy in any_policy(),
-        name in any_name(),
-        amount in any_positive_amount(),
-      ) -> CanonicalAssets {
-        CanonicalAssets::from_defined_asset(&policy, &name, amount)
-      }
-    }
-
-    prop_compose! {
-      fn any_naked_asset() (
-        amount in any_positive_amount(),
-      ) -> CanonicalAssets {
-        CanonicalAssets::from_naked_amount(amount)
-      }
-    }
-
-    prop_compose! {
-      fn any_composite_asset() (
-        naked in any_naked_asset(),
-        defined in any_defined_asset(),
-      ) -> CanonicalAssets {
-        naked + defined
-      }
-    }
+    use crate::inputs::test_utils::{
+        any_composite_asset, any_defined_asset, any_naked_asset,
+    };
 
     proptest! {
         #[test]

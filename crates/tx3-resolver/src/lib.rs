@@ -18,9 +18,6 @@ pub use tx3_tir::model::core::{Type, Utxo, UtxoRef, UtxoSet};
 // TODO: we need to re-export this because some of the UtxoStore interface depends ond them, but this is tech debt. We should remove any dependency to versioned IR artifacts.
 pub use tx3_tir::model::v1beta0::{Expression, StructExpr};
 
-#[cfg(test)]
-pub mod mock;
-
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("can't compile non-constant tir")]

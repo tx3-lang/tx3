@@ -1,481 +1,320 @@
-use chainfuzz::utxos::UtxoBuilder;
-use tx3_tir::model::{assets::CanonicalAssets, core::UtxoRef, v1beta0 as tir};
+use std::collections::HashSet;
 
-use crate::{
-    inputs::{approximate, canonical::CanonicalQuery, narrow},
-    mock, Error, UtxoStore,
-};
+use proptest::prelude::*;
+use tx3_tir::model::{assets::CanonicalAssets, core::UtxoRef};
+
+use crate::inputs::test_utils::{self, utxo, utxo_with_asset};
 
 use super::*;
 
-pub fn new_input_query(
-    address: &mock::KnownAddress,
-    naked_amount: Option<u64>,
-    other_assets: Vec<(mock::KnownAsset, u64)>,
-    many: bool,
-    collateral: bool,
-) -> CanonicalQuery {
-    let naked_asset = naked_amount.map(|x| tir::AssetExpr {
-        policy: tir::Expression::None,
-        asset_name: tir::Expression::None,
-        amount: tir::Expression::Number(x as i128),
-    });
+// ---------------------------------------------------------------------------
+// Helpers for unit tests
+// ---------------------------------------------------------------------------
 
-    let other_assets: Vec<tir::AssetExpr> = other_assets
-        .into_iter()
-        .map(|(asset, amount)| tir::AssetExpr {
-            policy: tir::Expression::Bytes(asset.policy().as_slice().to_vec()),
-            asset_name: tir::Expression::Bytes(asset.name().to_vec()),
-            amount: tir::Expression::Number(amount as i128),
-        })
-        .collect();
-
-    let all_assets = naked_asset.into_iter().chain(other_assets).collect();
-
-    tir::InputQuery {
-        address: tir::Expression::Address(address.to_bytes()),
-        min_amount: tir::Expression::Assets(all_assets),
-        r#ref: tir::Expression::None,
-        many,
-        collateral,
-    }
-    .try_into()
-    .unwrap()
+fn simple_query(many: bool, collateral: bool, min_amount: Option<CanonicalAssets>) -> CanonicalQuery {
+    test_utils::query(None, min_amount, HashSet::new(), many, collateral)
 }
 
-/// Run the full pipeline (narrow → approximate → assign) for a list of named
-/// queries, mirroring what `inputs::resolve` does without the TIR layer.
-async fn run_pipeline<S: UtxoStore>(
-    store: &S,
-    queries: Vec<(String, CanonicalQuery)>,
-) -> Result<std::collections::BTreeMap<String, UtxoSet>, Error> {
-    let pool = narrow::build_utxo_pool(store, &queries).await?;
-    let prepared = approximate::approximate_queries(&pool, queries);
-    let assignments = assign_all(prepared);
+fn prepared(name: &str, q: CanonicalQuery, candidates: Vec<Utxo>) -> PreparedQuery {
+    PreparedQuery { name: name.to_string(), query: q, candidates }
+}
 
-    let pool_refs: Vec<UtxoRef> = pool.keys().cloned().collect();
-    let mut result = std::collections::BTreeMap::new();
+// ---------------------------------------------------------------------------
+// pick_single
+// ---------------------------------------------------------------------------
 
-    for entry in assignments {
-        if entry.selection.is_empty() {
-            return Err(Error::InputNotResolved(entry.name, entry.query, pool_refs));
+#[test]
+fn pick_single_returns_first_sufficient_match() {
+    let target = CanonicalAssets::from_naked_amount(3_000_000);
+    let candidates = vec![
+        utxo(1, 0, b"a", 2_000_000), // insufficient
+        utxo(2, 0, b"a", 5_000_000), // sufficient — should be picked
+        utxo(3, 0, b"a", 9_000_000), // also sufficient but later
+    ];
+
+    let result = pick_single(candidates, &target);
+    assert_eq!(result.len(), 1);
+    assert_eq!(result.iter().next().unwrap().r#ref.txid[0], 2);
+}
+
+#[test]
+fn pick_single_returns_empty_when_none_sufficient() {
+    let target = CanonicalAssets::from_naked_amount(10_000_000);
+    let candidates = vec![
+        utxo(1, 0, b"a", 3_000_000),
+        utxo(2, 0, b"a", 5_000_000),
+    ];
+
+    let result = pick_single(candidates, &target);
+    assert!(result.is_empty());
+}
+
+#[test]
+fn pick_single_empty_candidates() {
+    let target = CanonicalAssets::from_naked_amount(1);
+    assert!(pick_single(vec![], &target).is_empty());
+}
+
+// ---------------------------------------------------------------------------
+// pick_many
+// ---------------------------------------------------------------------------
+
+#[test]
+fn pick_many_accumulates_until_target_met() {
+    let target = CanonicalAssets::from_naked_amount(7_000_000);
+    let candidates = vec![
+        utxo(1, 0, b"a", 3_000_000),
+        utxo(2, 0, b"a", 3_000_000),
+        utxo(3, 0, b"a", 3_000_000),
+    ];
+
+    let result = pick_many(candidates, &target);
+    assert!(result.len() >= 2);
+
+    let total: i128 = result.iter().map(|u| u.assets.naked_amount().unwrap_or(0)).sum();
+    assert!(total >= 7_000_000);
+}
+
+#[test]
+fn pick_many_returns_empty_when_insufficient() {
+    let target = CanonicalAssets::from_naked_amount(100_000_000);
+    let candidates = vec![
+        utxo(1, 0, b"a", 3_000_000),
+        utxo(2, 0, b"a", 3_000_000),
+    ];
+
+    let result = pick_many(candidates, &target);
+    assert!(result.is_empty());
+}
+
+#[test]
+fn pick_many_trims_excess() {
+    let target = CanonicalAssets::from_naked_amount(5_000_000);
+    let candidates = vec![
+        utxo(1, 0, b"a", 5_000_000), // alone covers target
+        utxo(2, 0, b"a", 3_000_000), // would be excess
+        utxo(3, 0, b"a", 3_000_000), // would be excess
+    ];
+
+    let result = pick_many(candidates, &target);
+    assert_eq!(result.len(), 1);
+}
+
+#[test]
+fn pick_many_empty_candidates() {
+    let target = CanonicalAssets::from_naked_amount(1);
+    assert!(pick_many(vec![], &target).is_empty());
+}
+
+#[test]
+fn pick_many_with_multi_asset_target() {
+    let policy = b"policy01";
+    let name = b"token";
+    let target = CanonicalAssets::from_naked_amount(2_000_000)
+        + CanonicalAssets::from_asset(Some(policy), Some(name), 100);
+
+    let candidates = vec![
+        utxo(1, 0, b"a", 3_000_000),                                   // has ADA only
+        utxo_with_asset(2, 0, b"a", 1_000_000, policy, name, 100),     // has token only
+    ];
+
+    let result = pick_many(candidates, &target);
+    assert_eq!(result.len(), 2);
+}
+
+// ---------------------------------------------------------------------------
+// find_first_excess_utxo
+// ---------------------------------------------------------------------------
+
+#[test]
+fn excess_returns_none_for_single_utxo() {
+    let target = CanonicalAssets::from_naked_amount(1_000_000);
+    let utxos = HashSet::from([utxo(1, 0, b"a", 5_000_000)]);
+    assert!(find_first_excess_utxo(&utxos, &target).is_none());
+}
+
+#[test]
+fn excess_returns_none_when_exactly_covered() {
+    let target = CanonicalAssets::from_naked_amount(6_000_000);
+    let utxos = HashSet::from([
+        utxo(1, 0, b"a", 3_000_000),
+        utxo(2, 0, b"a", 3_000_000),
+    ]);
+    assert!(find_first_excess_utxo(&utxos, &target).is_none());
+}
+
+#[test]
+fn excess_finds_removable_utxo() {
+    let target = CanonicalAssets::from_naked_amount(3_000_000);
+    let utxos = HashSet::from([
+        utxo(1, 0, b"a", 5_000_000),
+        utxo(2, 0, b"a", 2_000_000),
+    ]);
+    // 5M + 2M = 7M, excess = 4M, utxo(2) with 2M fits in excess
+    let excess = find_first_excess_utxo(&utxos, &target);
+    assert!(excess.is_some());
+}
+
+// ---------------------------------------------------------------------------
+// assign_all
+// ---------------------------------------------------------------------------
+
+#[test]
+fn assign_all_single_query_resolved() {
+    let q = simple_query(false, false, Some(CanonicalAssets::from_naked_amount(1_000_000)));
+    let candidates = vec![utxo(1, 0, b"a", 5_000_000)];
+
+    let result = assign_all(vec![prepared("input", q, candidates)]);
+    assert_eq!(result.len(), 1);
+    assert_eq!(result[0].selection.len(), 1);
+}
+
+#[test]
+fn assign_all_single_query_unresolved() {
+    let q = simple_query(false, false, Some(CanonicalAssets::from_naked_amount(10_000_000)));
+    let candidates = vec![utxo(1, 0, b"a", 5_000_000)]; // insufficient
+
+    let result = assign_all(vec![prepared("input", q, candidates)]);
+    assert_eq!(result.len(), 1);
+    assert!(result[0].selection.is_empty());
+}
+
+#[test]
+fn assign_all_tighter_query_picks_first() {
+    // "tight" has 1 candidate, "loose" has 2 — tight should pick first
+    let u1 = utxo(1, 0, b"a", 5_000_000);
+    let u2 = utxo(2, 0, b"a", 5_000_000);
+    let target = CanonicalAssets::from_naked_amount(1_000_000);
+
+    let tight = prepared("tight", simple_query(false, false, Some(target.clone())), vec![u1.clone()]);
+    let loose = prepared("loose", simple_query(false, false, Some(target)), vec![u1, u2]);
+
+    let result = assign_all(vec![loose, tight]); // order shouldn't matter
+    let by_name: std::collections::HashMap<_, _> =
+        result.iter().map(|a| (a.name.as_str(), &a.selection)).collect();
+
+    assert_eq!(by_name["tight"].len(), 1);
+    assert_eq!(by_name["loose"].len(), 1);
+    // tight got u1, loose got u2 (the only remaining)
+    assert!(by_name["tight"].is_disjoint(by_name["loose"]));
+}
+
+#[test]
+fn assign_all_exclusivity_second_query_fails_when_utxo_taken() {
+    let u1 = utxo(1, 0, b"a", 5_000_000);
+    let target = CanonicalAssets::from_naked_amount(1_000_000);
+
+    let q1 = prepared("a", simple_query(false, false, Some(target.clone())), vec![u1.clone()]);
+    let q2 = prepared("b", simple_query(false, false, Some(target)), vec![u1]); // same sole candidate
+
+    let result = assign_all(vec![q1, q2]);
+    let resolved: Vec<_> = result.iter().filter(|a| !a.selection.is_empty()).collect();
+    let unresolved: Vec<_> = result.iter().filter(|a| a.selection.is_empty()).collect();
+
+    assert_eq!(resolved.len(), 1);
+    assert_eq!(unresolved.len(), 1);
+}
+
+#[test]
+fn assign_all_collateral_has_priority_over_regular() {
+    // Both want the same UTxO, collateral should win (higher priority)
+    let u1 = utxo(1, 0, b"a", 5_000_000);
+    let target = CanonicalAssets::from_naked_amount(1_000_000);
+
+    let regular = prepared("regular", simple_query(false, false, Some(target.clone())), vec![u1.clone()]);
+    let collateral = prepared("collateral", simple_query(false, true, Some(target)), vec![u1]);
+
+    let result = assign_all(vec![regular, collateral]);
+    let by_name: std::collections::HashMap<_, _> =
+        result.iter().map(|a| (a.name.as_str(), &a.selection)).collect();
+
+    assert_eq!(by_name["collateral"].len(), 1);
+    assert!(by_name["regular"].is_empty());
+}
+
+#[test]
+fn assign_all_many_query_accumulates() {
+    let target = CanonicalAssets::from_naked_amount(8_000_000);
+    let candidates = vec![
+        utxo(1, 0, b"a", 3_000_000),
+        utxo(2, 0, b"a", 3_000_000),
+        utxo(3, 0, b"a", 3_000_000),
+    ];
+
+    let result = assign_all(vec![prepared("input", simple_query(true, false, Some(target)), candidates)]);
+    assert_eq!(result.len(), 1);
+    assert!(result[0].selection.len() >= 2);
+}
+
+// ---------------------------------------------------------------------------
+// Property-based tests
+// ---------------------------------------------------------------------------
+
+proptest! {
+    #[test]
+    fn pick_single_returns_at_most_one(
+        candidates in proptest::collection::vec(test_utils::any_utxo(), 0..10),
+        target in test_utils::any_composite_asset(),
+    ) {
+        let result = pick_single(candidates, &target);
+        prop_assert!(result.len() <= 1);
+    }
+
+    #[test]
+    fn pick_single_result_covers_target(
+        candidates in proptest::collection::vec(test_utils::any_utxo(), 0..10),
+        target in test_utils::any_composite_asset(),
+    ) {
+        let result = pick_single(candidates, &target);
+        if let Some(selected) = result.iter().next() {
+            prop_assert!(selected.assets.contains_total(&target));
         }
-        result.insert(entry.name, entry.selection);
     }
 
-    Ok(result)
-}
-
-async fn resolve_single<S: UtxoStore>(
-    store: &S,
-    name: &str,
-    criteria: &CanonicalQuery,
-) -> UtxoSet {
-    match run_pipeline(store, vec![(name.to_string(), criteria.clone())]).await {
-        Ok(selected) => selected.get(name).cloned().unwrap_or_default(),
-        Err(Error::InputNotResolved(..)) => UtxoSet::default(),
-        Err(e) => panic!("unexpected error: {e:?}"),
-    }
-}
-
-#[pollster::test]
-async fn test_select_by_address() {
-    let store = mock::seed_random_memory_store(
-        |_: &mock::FuzzTxoRef, x: &mock::KnownAddress, _: u64| {
-            mock::utxo_with_random_amount(x, 4_000_000..5_000_000)
-        },
-        2..4,
-    );
-
-    for subject in mock::KnownAddress::everyone() {
-        let criteria = new_input_query(&subject, None, vec![], false, false);
-
-        let utxos = resolve_single(&store, "q", &criteria).await;
-
-        assert_eq!(utxos.len(), 1);
-
-        for utxo in utxos {
-            assert_eq!(utxo.address, subject.to_bytes());
+    #[test]
+    fn pick_many_result_covers_target(
+        candidates in proptest::collection::vec(test_utils::any_utxo(), 0..10),
+        target in test_utils::any_composite_asset(),
+    ) {
+        let result = pick_many(candidates, &target);
+        if !result.is_empty() {
+            let total = result
+                .iter()
+                .fold(CanonicalAssets::empty(), |acc, u| acc + u.assets.clone());
+            prop_assert!(total.contains_total(&target));
         }
     }
-}
 
-#[pollster::test]
-async fn test_input_query_too_broad() {
-    let store = mock::seed_random_memory_store(
-        |_: &mock::FuzzTxoRef, x: &mock::KnownAddress, _: u64| {
-            mock::utxo_with_random_amount(x, 4_000_000..5_000_000)
-        },
-        2..4,
-    );
+    #[test]
+    fn assign_all_preserves_exclusivity(
+        candidates in proptest::collection::vec(test_utils::any_utxo(), 1..8),
+        target in test_utils::any_naked_asset(),
+    ) {
+        let q1 = prepared("a", simple_query(false, false, Some(target.clone())), candidates.clone());
+        let q2 = prepared("b", simple_query(false, false, Some(target)), candidates);
 
-    let empty_criteria: CanonicalQuery = tir::InputQuery {
-        address: tir::Expression::None,
-        min_amount: tir::Expression::None,
-        r#ref: tir::Expression::None,
-        many: false,
-        collateral: false,
+        let result = assign_all(vec![q1, q2]);
+
+        let mut all_refs: Vec<UtxoRef> = Vec::new();
+        for a in &result {
+            for u in a.selection.iter() {
+                all_refs.push(u.r#ref.clone());
+            }
+        }
+
+        let unique: HashSet<_> = all_refs.iter().collect();
+        prop_assert_eq!(all_refs.len(), unique.len(), "UTxO refs must be exclusive across assignments");
     }
-    .try_into()
-    .unwrap();
 
-    let result = narrow::build_utxo_pool(
-        &store,
-        &[("q".to_string(), empty_criteria)],
-    )
-    .await;
+    #[test]
+    fn assign_all_returns_entry_per_query(
+        candidates in proptest::collection::vec(test_utils::any_utxo(), 0..5),
+        target in test_utils::any_naked_asset(),
+    ) {
+        let q1 = prepared("a", simple_query(false, false, Some(target.clone())), candidates.clone());
+        let q2 = prepared("b", simple_query(true, false, Some(target)), candidates);
 
-    assert!(matches!(result, Err(Error::InputQueryTooBroad)));
-}
-
-#[pollster::test]
-async fn test_select_anything() {
-    let store = mock::seed_random_memory_store(
-        |_: &mock::FuzzTxoRef, x: &mock::KnownAddress, seq: u64| {
-            if seq % 2 == 0 {
-                mock::utxo_with_random_amount(x, 4_000_000..5_000_000)
-            } else {
-                mock::utxo_with_random_asset(x, mock::KnownAsset::Hosky, 500..1000)
-            }
-        },
-        2..3,
-    );
-
-    let criteria = new_input_query(&mock::KnownAddress::Alice, None, vec![], true, false);
-
-    let utxos = resolve_single(&store, "q", &criteria).await;
-    assert_eq!(utxos.len(), 1);
-}
-
-#[pollster::test]
-async fn test_select_by_naked_amount() {
-    let store = mock::seed_random_memory_store(
-        |_: &mock::FuzzTxoRef, x: &mock::KnownAddress, _: u64| {
-            mock::utxo_with_random_amount(x, 4_000_000..5_000_000)
-        },
-        2..4,
-    );
-
-    let criteria = new_input_query(
-        &mock::KnownAddress::Alice,
-        Some(6_000_000),
-        vec![],
-        false,
-        false,
-    );
-
-    let utxos = resolve_single(&store, "q", &criteria).await;
-    assert!(utxos.is_empty());
-
-    let criteria = new_input_query(
-        &mock::KnownAddress::Alice,
-        Some(4_000_000),
-        vec![],
-        false,
-        false,
-    );
-
-    let utxos = resolve_single(&store, "q", &criteria).await;
-
-    let match_count = dbg!(utxos.len());
-    assert_eq!(match_count, 1);
-}
-
-#[pollster::test]
-async fn test_select_by_asset_amount() {
-    let store = mock::seed_random_memory_store(
-        |_: &mock::FuzzTxoRef, x: &mock::KnownAddress, _: u64| {
-            mock::utxo_with_random_asset(x, mock::KnownAsset::Hosky, 500..1000)
-        },
-        2..4,
-    );
-
-    for address in mock::KnownAddress::everyone() {
-        let criteria = new_input_query(
-            &address,
-            None,
-            vec![(mock::KnownAsset::Hosky, 1001)],
-            false,
-            false,
-        );
-
-        let utxos = resolve_single(&store, "q", &criteria).await;
-        assert!(utxos.is_empty());
-
-        let criteria = new_input_query(
-            &address,
-            None,
-            vec![(mock::KnownAsset::Hosky, 1001)],
-            true,
-            false,
-        );
-
-        let utxos = resolve_single(&store, "q", &criteria).await;
-        assert!(utxos.len() > 1);
-
-        let criteria = new_input_query(
-            &address,
-            None,
-            vec![(mock::KnownAsset::Hosky, 4001)],
-            true,
-            false,
-        );
-
-        let utxos = resolve_single(&store, "q", &criteria).await;
-        assert!(utxos.is_empty());
-
-        let criteria = new_input_query(
-            &address,
-            None,
-            vec![(mock::KnownAsset::Snek, 500)],
-            false,
-            false,
-        );
-
-        let utxos = resolve_single(&store, "q", &criteria).await;
-        assert!(utxos.is_empty());
-
-        let criteria = new_input_query(
-            &address,
-            None,
-            vec![(mock::KnownAsset::Hosky, 500)],
-            false,
-            false,
-        );
-
-        let utxos = resolve_single(&store, "q", &criteria).await;
-        assert_eq!(utxos.len(), 1);
+        let result = assign_all(vec![q1, q2]);
+        prop_assert_eq!(result.len(), 2, "every query gets an entry");
     }
-}
-
-#[pollster::test]
-async fn test_select_by_collateral() {
-    let store = mock::seed_random_memory_store(
-        |_: &mock::FuzzTxoRef, x: &mock::KnownAddress, sequence: u64| {
-            if sequence % 2 == 0 {
-                mock::utxo_with_random_amount(x, 4_000_000..5_000_000)
-            } else {
-                mock::utxo_with_random_asset(x, mock::KnownAsset::Hosky, 500..1000)
-            }
-        },
-        2..4,
-    );
-
-    for address in mock::KnownAddress::everyone() {
-        let criteria = new_input_query(&address, Some(1_000_000), vec![], false, true);
-
-        let utxos = resolve_single(&store, "q", &criteria).await;
-
-        assert_eq!(utxos.len(), 1);
-        let utxo = utxos.iter().next().unwrap();
-        assert_eq!(utxo.assets.keys().len(), 1);
-        assert_eq!(utxo.assets.keys().next().unwrap().is_naked(), true);
-    }
-}
-
-#[pollster::test]
-async fn test_assign_same_collateral_and_input() {
-    let store = mock::seed_random_memory_store(
-        |_: &mock::FuzzTxoRef, x: &mock::KnownAddress, _: u64| {
-            mock::utxo_with_random_amount(x, 4_000_000..5_000_000)
-        },
-        1..2,
-    );
-
-    for address in mock::KnownAddress::everyone() {
-        let input_query = new_input_query(&address, Some(1_000_000), vec![], false, false);
-        let collateral_query = new_input_query(&address, Some(1_000_000), vec![], false, true);
-
-        let result = run_pipeline(
-            &store,
-            vec![
-                ("input".to_string(), input_query),
-                ("collateral".to_string(), collateral_query),
-            ],
-        )
-        .await;
-
-        assert!(result.is_err());
-    }
-}
-
-#[pollster::test]
-async fn test_assign_all_exclusive_assignments() {
-    let store = mock::seed_random_memory_store(
-        |_: &mock::FuzzTxoRef, x: &mock::KnownAddress, seq: u64| {
-            if seq % 2 == 0 {
-                mock::utxo_with_random_amount(x, 1_000..1_500)
-            } else {
-                mock::utxo_with_random_amount(x, 100..150)
-            }
-        },
-        2..3,
-    );
-
-    for address in mock::KnownAddress::everyone() {
-        let large_query = new_input_query(&address, Some(1_000), vec![], false, false);
-        let small_query = new_input_query(&address, Some(100), vec![], false, false);
-
-        let selected = run_pipeline(
-            &store,
-            vec![
-                ("large".to_string(), large_query),
-                ("small".to_string(), small_query),
-            ],
-        )
-        .await
-        .unwrap();
-
-        let large_utxos = selected.get("large").cloned().unwrap_or_default();
-        let small_utxos = selected.get("small").cloned().unwrap_or_default();
-
-        assert_eq!(large_utxos.len(), 1);
-        assert_eq!(small_utxos.len(), 1);
-        assert!(large_utxos.is_disjoint(&small_utxos));
-    }
-}
-
-#[pollster::test]
-async fn test_assign_all_competing_queries() {
-    let store = mock::seed_random_memory_store(
-        |_: &mock::FuzzTxoRef, x: &mock::KnownAddress, seq: u64| {
-            if seq % 2 == 0 {
-                UtxoBuilder::new()
-                    .with_address(x)
-                    .with_naked_value(4_000_000)
-                    .with_random_asset(mock::KnownAsset::Hosky, 500..501)
-                    .build()
-            } else {
-                UtxoBuilder::new()
-                    .with_address(x)
-                    .with_naked_value(4_000_000)
-                    .with_random_asset(mock::KnownAsset::Snek, 500..501)
-                    .build()
-            }
-        },
-        2..3,
-    );
-
-    let address = mock::KnownAddress::Alice;
-    let asset_query =
-        new_input_query(&address, None, vec![(mock::KnownAsset::Hosky, 1)], false, false);
-    let naked_query = new_input_query(&address, Some(1), vec![], false, false);
-
-    let selected = run_pipeline(
-        &store,
-        vec![
-            ("asset".to_string(), asset_query),
-            ("naked".to_string(), naked_query),
-        ],
-    )
-    .await
-    .unwrap();
-
-    let asset_utxos = selected.get("asset").cloned().unwrap_or_default();
-    let naked_utxos = selected.get("naked").cloned().unwrap_or_default();
-
-    assert_eq!(asset_utxos.len(), 1);
-    assert_eq!(naked_utxos.len(), 1);
-    assert!(asset_utxos.is_disjoint(&naked_utxos));
-
-    let target_asset = CanonicalAssets::from_asset(
-        Some(mock::KnownAsset::Hosky.policy().as_ref()),
-        Some(mock::KnownAsset::Hosky.name().as_ref()),
-        1,
-    );
-
-    let asset_utxo = asset_utxos.iter().next().unwrap();
-    assert!(asset_utxo.assets.contains_total(&target_asset));
-}
-
-#[pollster::test]
-async fn test_assign_all_competing_queries_no_solution() {
-    let store = mock::seed_random_memory_store(
-        |_: &mock::FuzzTxoRef, x: &mock::KnownAddress, _seq: u64| {
-            UtxoBuilder::new()
-                .with_address(x)
-                .with_naked_value(4_000_000)
-                .with_random_asset(mock::KnownAsset::Hosky, 500..501)
-                .build()
-        },
-        1..2,
-    );
-
-    let address = mock::KnownAddress::Alice;
-    let query_a =
-        new_input_query(&address, None, vec![(mock::KnownAsset::Hosky, 1)], false, false);
-    let query_b =
-        new_input_query(&address, None, vec![(mock::KnownAsset::Hosky, 1)], false, false);
-
-    let result = run_pipeline(
-        &store,
-        vec![
-            ("a".to_string(), query_a),
-            ("b".to_string(), query_b),
-        ],
-    )
-    .await;
-
-    assert!(result.is_err());
-}
-
-#[pollster::test]
-async fn test_assign_by_naked_and_asset_amount() {
-    let store = mock::seed_random_memory_store(
-        |_: &mock::FuzzTxoRef, x: &mock::KnownAddress, sequence: u64| {
-            if sequence % 2 == 0 {
-                mock::utxo_with_random_amount(x, 4_000_000..5_000_000)
-            } else {
-                mock::utxo_with_random_asset(x, mock::KnownAsset::Hosky, 500..1000)
-            }
-        },
-        2..3,
-    );
-
-    let criteria = new_input_query(
-        &mock::KnownAddress::Alice,
-        Some(4_000_000),
-        vec![(mock::KnownAsset::Hosky, 500)],
-        true,
-        false,
-    );
-
-    let utxos = resolve_single(&store, "q", &criteria).await;
-
-    assert!(utxos.len() == 2);
-}
-
-#[pollster::test]
-async fn test_cross_query_pool_doesnt_leak_wrong_address() {
-    let store = mock::seed_random_memory_store(
-        |_: &mock::FuzzTxoRef, x: &mock::KnownAddress, seq: u64| {
-            if x.to_bytes() == mock::KnownAddress::Bob.to_bytes() && seq % 2 == 0 {
-                UtxoBuilder::new()
-                    .with_address(x)
-                    .with_naked_value(4_000_000)
-                    .with_random_asset(mock::KnownAsset::Hosky, 1..2)
-                    .build()
-            } else {
-                mock::utxo_with_random_amount(x, 4_000_000..5_000_000)
-            }
-        },
-        2..3,
-    );
-
-    let addr_a = mock::KnownAddress::Alice;
-    let addr_b = mock::KnownAddress::Bob;
-
-    let query_a = new_input_query(&addr_a, None, vec![(mock::KnownAsset::Hosky, 1)], false, false);
-    let query_b = new_input_query(&addr_b, Some(1_000_000), vec![], false, false);
-
-    let result = run_pipeline(
-        &store,
-        vec![
-            ("a".to_string(), query_a),
-            ("b".to_string(), query_b),
-        ],
-    )
-    .await;
-
-    assert!(result.is_err());
 }
