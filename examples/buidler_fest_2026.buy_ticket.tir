@@ -324,7 +324,10 @@
           ]
         }
       },
-      "optional": false
+      "optional": false,
+      "declared_index": {
+        "Number": 0
+      }
     },
     {
       "address": {
@@ -458,7 +461,10 @@
           }
         }
       },
-      "optional": false
+      "optional": false,
+      "declared_index": {
+        "Number": 1
+      }
     },
     {
       "address": {
@@ -486,7 +492,10 @@
           }
         ]
       },
-      "optional": false
+      "optional": false,
+      "declared_index": {
+        "Number": 2
+      }
     }
   ],
   "validity": {
