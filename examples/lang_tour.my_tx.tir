@@ -4,16 +4,19 @@
   },
   "references": [
     {
-      "UtxoRefs": [
-        {
-          "txid": [
-            171,
-            205,
-            239
-          ],
-          "index": 2
-        }
-      ]
+      "name": "ref_block",
+      "utxos": {
+        "UtxoRefs": [
+          {
+            "txid": [
+              171,
+              205,
+              239
+            ],
+            "index": 2
+          }
+        ]
+      }
     }
   ],
   "inputs": [

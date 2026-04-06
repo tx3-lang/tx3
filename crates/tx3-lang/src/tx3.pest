@@ -238,9 +238,14 @@ collateral_block = {
     "}"
 }
 
+reference_block_field = _{
+    input_block_ref |
+    input_block_datum_is
+}
+
 reference_block = {
-    "reference" ~ identifier ~ ("*")? ~ "{" ~
-    input_block_ref ~ "," ~
+    "reference" ~ identifier ~ "{" ~
+    (reference_block_field ~ ",")* ~
     "}"
 }
 

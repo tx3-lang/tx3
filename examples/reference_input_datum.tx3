@@ -1,0 +1,23 @@
+type PoolState {
+    reserve_a: Int,
+    reserve_b: Int,
+}
+
+party User;
+
+tx swap() {
+    reference pool {
+        ref: 0x1234567890123456789012345678901234567890123456789012345678901234#0,
+        datum_is: PoolState,
+    }
+
+    input user_input {
+        from: User,
+        min_amount: Ada(1000000),
+    }
+
+    output {
+        to: User,
+        amount: Ada(pool.reserve_a + pool.reserve_b),
+    }
+}
