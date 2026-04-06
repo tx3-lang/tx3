@@ -169,7 +169,7 @@ impl Error {
             Symbol::AssetDef(asset) => format!("AssetDef({})", asset.name.value),
             Symbol::EnvVar(name, _) => format!("EnvVar({})", name),
             Symbol::ParamVar(name, _) => format!("ParamVar({})", name),
-            Symbol::Function(name) => format!("Function({})", name),
+            Symbol::FunctionDef(fn_def) => format!("FunctionDef({})", fn_def.name.value),
             Symbol::LocalExpr(_) => "LocalExpr".to_string(),
             Symbol::Input(_) => "Input".to_string(),
             Symbol::Output(_) => "Output".to_string(),
@@ -304,7 +304,63 @@ macro_rules! bail_report {
     };
 }
 
-const BUILTIN_FUNCTIONS: &[&str] = &["min_utxo", "tip_slot", "slot_to_time", "time_to_slot"];
+fn builtin_fn_defs() -> Vec<FnDef> {
+    vec![
+        FnDef {
+            name: Identifier::new("min_utxo"),
+            parameters: ParameterList {
+                parameters: vec![ParamDef {
+                    name: Identifier::new("output"),
+                    r#type: Type::Int,
+                }],
+                span: Span::DUMMY,
+            },
+            return_type: Type::AnyAsset,
+            body: None,
+            span: Span::DUMMY,
+            scope: None,
+        },
+        FnDef {
+            name: Identifier::new("tip_slot"),
+            parameters: ParameterList {
+                parameters: vec![],
+                span: Span::DUMMY,
+            },
+            return_type: Type::Int,
+            body: None,
+            span: Span::DUMMY,
+            scope: None,
+        },
+        FnDef {
+            name: Identifier::new("slot_to_time"),
+            parameters: ParameterList {
+                parameters: vec![ParamDef {
+                    name: Identifier::new("slot"),
+                    r#type: Type::Int,
+                }],
+                span: Span::DUMMY,
+            },
+            return_type: Type::Int,
+            body: None,
+            span: Span::DUMMY,
+            scope: None,
+        },
+        FnDef {
+            name: Identifier::new("time_to_slot"),
+            parameters: ParameterList {
+                parameters: vec![ParamDef {
+                    name: Identifier::new("time"),
+                    r#type: Type::Int,
+                }],
+                span: Span::DUMMY,
+            },
+            return_type: Type::Int,
+            body: None,
+            span: Span::DUMMY,
+            scope: None,
+        },
+    ]
+}
 
 impl Scope {
     pub fn new(parent: Option<Rc<Scope>>) -> Self {
@@ -377,6 +433,13 @@ impl Scope {
         );
     }
 
+    pub fn track_fn_def(&mut self, fn_def: &FnDef) {
+        self.symbols.insert(
+            fn_def.name.value.clone(),
+            Symbol::FunctionDef(Box::new(fn_def.clone())),
+        );
+    }
+
     pub fn track_local_expr(&mut self, name: &str, expr: DataExpr) {
         self.symbols
             .insert(name.to_string(), Symbol::LocalExpr(Box::new(expr)));
@@ -410,8 +473,6 @@ impl Scope {
             Some(symbol.clone())
         } else if let Some(parent) = &self.parent {
             parent.resolve(name)
-        } else if BUILTIN_FUNCTIONS.contains(&name) {
-            Some(Symbol::Function(name.to_string()))
         } else {
             None
         }
@@ -704,9 +765,6 @@ impl Analyzable for DataExpr {
             DataExpr::PropertyOp(x) => x.analyze(parent),
             DataExpr::AnyAssetConstructor(x) => x.analyze(parent),
             DataExpr::FnCall(x) => x.analyze(parent),
-            DataExpr::MinUtxo(x) => x.analyze(parent),
-            DataExpr::SlotToTime(x) => x.analyze(parent),
-            DataExpr::TimeToSlot(x) => x.analyze(parent),
             DataExpr::ConcatOp(x) => x.analyze(parent),
             _ => AnalyzeReport::default(),
         }
@@ -724,9 +782,6 @@ impl Analyzable for DataExpr {
             DataExpr::PropertyOp(x) => x.is_resolved(),
             DataExpr::AnyAssetConstructor(x) => x.is_resolved(),
             DataExpr::FnCall(x) => x.is_resolved(),
-            DataExpr::MinUtxo(x) => x.is_resolved(),
-            DataExpr::SlotToTime(x) => x.is_resolved(),
-            DataExpr::TimeToSlot(x) => x.is_resolved(),
             DataExpr::ConcatOp(x) => x.is_resolved(),
             _ => true,
         }
@@ -1210,6 +1265,77 @@ impl Analyzable for LocalsBlock {
     }
 }
 
+impl Analyzable for LetBinding {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+        self.value.analyze(parent)
+    }
+
+    fn is_resolved(&self) -> bool {
+        self.value.is_resolved()
+    }
+}
+
+impl Analyzable for FnBody {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+        let mut report = AnalyzeReport::default();
+
+        for binding in &mut self.let_bindings {
+            report = report + binding.analyze(parent.clone());
+        }
+
+        report = report + self.result.analyze(parent);
+
+        report
+    }
+
+    fn is_resolved(&self) -> bool {
+        self.let_bindings.is_resolved() && self.result.is_resolved()
+    }
+}
+
+impl Analyzable for FnDef {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+        let params_report = self.parameters.analyze(parent.clone());
+        let return_type_report = self.return_type.analyze(parent.clone());
+
+        // Built-in functions have no body — nothing more to analyze
+        let body = match &mut self.body {
+            Some(body) => body,
+            None => return params_report + return_type_report,
+        };
+
+        let mut scope = Scope::new(parent);
+
+        for param in self.parameters.parameters.iter() {
+            scope.track_param_var(&param.name.value, param.r#type.clone());
+        }
+
+        // Add let-bindings sequentially - each binding creates a new scope layer
+        let mut current_scope = Rc::new(scope);
+
+        let mut bindings_report = AnalyzeReport::default();
+
+        for binding in &mut body.let_bindings {
+            bindings_report = bindings_report + binding.analyze(Some(current_scope.clone()));
+            // Create a new scope layer with this binding available
+            let mut next_scope = Scope::new(Some(current_scope));
+            next_scope.track_local_expr(&binding.name.value, binding.value.clone());
+            current_scope = Rc::new(next_scope);
+        }
+
+        let result_report = body.result.analyze(Some(current_scope.clone()));
+
+        self.scope = Some(current_scope);
+
+        params_report + return_type_report + bindings_report + result_report
+    }
+
+    fn is_resolved(&self) -> bool {
+        self.parameters.is_resolved()
+            && self.body.as_ref().map_or(true, |b| b.is_resolved())
+    }
+}
+
 impl Analyzable for ParamDef {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
         self.r#type.analyze(parent)
@@ -1394,6 +1520,14 @@ impl Analyzable for Program {
             scope.track_alias_def(alias_def);
         }
 
+        for builtin in builtin_fn_defs().iter() {
+            scope.track_fn_def(builtin);
+        }
+
+        for fn_def in self.functions.iter() {
+            scope.track_fn_def(fn_def);
+        }
+
         self.scope = Some(Rc::new(scope));
 
         let parties = self.parties.analyze(self.scope.clone());
@@ -1409,15 +1543,26 @@ impl Analyzable for Program {
 
         let (types, aliases) = resolve_types_and_aliases(scope_rc, &mut types, &mut aliases);
 
+        let functions = self.functions.analyze(self.scope.clone());
+
+        // Re-register analyzed FnDefs so txs resolve to analyzed versions
+        // (the originals in the scope are pre-analysis clones)
+        let mut fn_scope = Scope::new(self.scope.take());
+        for fn_def in self.functions.iter() {
+            fn_scope.track_fn_def(fn_def);
+        }
+        self.scope = Some(Rc::new(fn_scope));
+
         let txs = self.txs.analyze(self.scope.clone());
 
-        parties + policies + types + aliases + txs + assets
+        parties + policies + types + aliases + functions + txs + assets
     }
 
     fn is_resolved(&self) -> bool {
         self.policies.is_resolved()
             && self.types.is_resolved()
             && self.aliases.is_resolved()
+            && self.functions.is_resolved()
             && self.txs.is_resolved()
             && self.assets.is_resolved()
     }

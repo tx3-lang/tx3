@@ -31,7 +31,7 @@ pub enum Symbol {
     AliasDef(Box<AliasDef>),
     RecordField(Box<RecordField>),
     VariantCase(Box<VariantCase>),
-    Function(String),
+    FunctionDef(Box<FnDef>),
     Fees,
 }
 
@@ -119,6 +119,13 @@ impl Symbol {
         }
     }
 
+    pub fn as_fn_def(&self) -> Option<&FnDef> {
+        match self {
+            Symbol::FunctionDef(x) => Some(x.as_ref()),
+            _ => None,
+        }
+    }
+
     pub fn target_type(&self) -> Option<Type> {
         match self {
             Symbol::ParamVar(_, ty) => Some(ty.as_ref().clone()),
@@ -180,6 +187,8 @@ pub struct Program {
     pub assets: Vec<AssetDef>,
     pub parties: Vec<PartyDef>,
     pub policies: Vec<PolicyDef>,
+    #[serde(default)]
+    pub functions: Vec<FnDef>,
     pub span: Span,
 
     // analysis
@@ -734,10 +743,6 @@ pub enum DataExpr {
     MapConstructor(MapConstructor),
     AnyAssetConstructor(AnyAssetConstructor),
     Identifier(Identifier),
-    MinUtxo(Identifier),
-    ComputeTipSlot,
-    SlotToTime(Box<DataExpr>),
-    TimeToSlot(Box<DataExpr>),
     AddOp(AddOp),
     SubOp(SubOp),
     ConcatOp(ConcatOp),
@@ -777,11 +782,12 @@ impl DataExpr {
             DataExpr::PropertyOp(x) => x.target_type(),
             DataExpr::AnyAssetConstructor(x) => x.target_type(),
             DataExpr::UtxoRef(_) => Some(Type::UtxoRef),
-            DataExpr::MinUtxo(_) => Some(Type::AnyAsset),
-            DataExpr::ComputeTipSlot => Some(Type::Int),
-            DataExpr::SlotToTime(_) => Some(Type::Int),
-            DataExpr::TimeToSlot(_) => Some(Type::Int),
-            DataExpr::FnCall(_) => None, // Function call return type determined by symbol resolution
+            DataExpr::FnCall(call) => call
+                .callee
+                .symbol
+                .as_ref()
+                .and_then(|s| s.as_fn_def())
+                .map(|fn_def| fn_def.return_type.clone()),
         }
     }
 }
@@ -961,6 +967,33 @@ pub struct AssetDef {
     pub policy: DataExpr,
     pub asset_name: DataExpr,
     pub span: Span,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct LetBinding {
+    pub name: Identifier,
+    pub value: DataExpr,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct FnBody {
+    pub let_bindings: Vec<LetBinding>,
+    pub result: Box<DataExpr>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct FnDef {
+    pub name: Identifier,
+    pub parameters: ParameterList,
+    pub return_type: Type,
+    pub body: Option<FnBody>,
+    pub span: Span,
+
+    // analysis
+    #[serde(skip)]
+    pub(crate) scope: Option<Rc<Scope>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

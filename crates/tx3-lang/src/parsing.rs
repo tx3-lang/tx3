@@ -12,10 +12,8 @@ use pest::{
 };
 use pest_derive::Parser;
 
-use crate::{
-    ast::*,
-    cardano::{PlutusWitnessBlock, PlutusWitnessField},
-};
+use crate::ast::*;
+
 #[derive(Parser)]
 #[grammar = "tx3.pest"]
 pub(crate) struct Tx3Grammar;
@@ -94,6 +92,7 @@ impl AstNode for Program {
             aliases: Vec::new(),
             parties: Vec::new(),
             policies: Vec::new(),
+            functions: Vec::new(),
             scope: None,
             span,
         };
@@ -108,6 +107,7 @@ impl AstNode for Program {
                 Rule::alias_def => program.aliases.push(AliasDef::parse(pair)?),
                 Rule::party_def => program.parties.push(PartyDef::parse(pair)?),
                 Rule::policy_def => program.policies.push(PolicyDef::parse(pair)?),
+                Rule::fn_def => program.functions.push(FnDef::parse(pair)?),
                 Rule::EOI => break,
                 x => unreachable!("Unexpected rule in program: {:?}", x),
             }
@@ -911,6 +911,81 @@ impl AstNode for crate::ast::FnCall {
     }
 }
 
+impl AstNode for LetBinding {
+    const RULE: Rule = Rule::let_binding;
+
+    fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
+        let span = pair.as_span().into();
+        let mut inner = pair.into_inner();
+
+        let name = Identifier::parse(inner.next().unwrap())?;
+        let value = DataExpr::parse(inner.next().unwrap())?;
+
+        Ok(LetBinding { name, value, span })
+    }
+
+    fn span(&self) -> &Span {
+        &self.span
+    }
+}
+
+impl AstNode for FnBody {
+    const RULE: Rule = Rule::fn_body;
+
+    fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
+        let span = pair.as_span().into();
+        let inner = pair.into_inner();
+
+        let mut let_bindings = Vec::new();
+        let mut result_expr = None;
+
+        for pair in inner {
+            match pair.as_rule() {
+                Rule::let_binding => let_bindings.push(LetBinding::parse(pair)?),
+                Rule::data_expr => result_expr = Some(DataExpr::parse(pair)?),
+                x => unreachable!("Unexpected rule in fn_body: {:?}", x),
+            }
+        }
+
+        Ok(FnBody {
+            let_bindings,
+            result: Box::new(result_expr.expect("fn_body must have a result expression")),
+            span,
+        })
+    }
+
+    fn span(&self) -> &Span {
+        &self.span
+    }
+}
+
+impl AstNode for FnDef {
+    const RULE: Rule = Rule::fn_def;
+
+    fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
+        let span = pair.as_span().into();
+        let mut inner = pair.into_inner();
+
+        let name = Identifier::parse(inner.next().unwrap())?;
+        let parameters = ParameterList::parse(inner.next().unwrap())?;
+        let return_type = Type::parse(inner.next().unwrap())?;
+        let body = FnBody::parse(inner.next().unwrap())?;
+
+        Ok(FnDef {
+            name,
+            parameters,
+            return_type,
+            body: Some(body),
+            span,
+            scope: None,
+        })
+    }
+
+    fn span(&self) -> &Span {
+        &self.span
+    }
+}
+
 impl AstNode for RecordConstructorField {
     const RULE: Rule = Rule::record_constructor_field;
 
@@ -1268,10 +1343,6 @@ impl AstNode for DataExpr {
             DataExpr::NegateOp(x) => &x.span,
             DataExpr::PropertyOp(x) => &x.span,
             DataExpr::UtxoRef(x) => x.span(),
-            DataExpr::MinUtxo(x) => x.span(),
-            DataExpr::SlotToTime(x) => x.span(),
-            DataExpr::TimeToSlot(x) => x.span(),
-            DataExpr::ComputeTipSlot => &Span::DUMMY, // TODO
             DataExpr::FnCall(x) => &x.span,
         }
     }
@@ -2616,6 +2687,7 @@ mod tests {
             env: None,
             assets: vec![],
             policies: vec![],
+            functions: vec![],
             span: Span::DUMMY,
             scope: None,
         }
@@ -2817,4 +2889,6 @@ mod tests {
     test_parsing!(list_concat);
 
     test_parsing!(buidler_fest_2026);
+
+    test_parsing!(functions);
 }
