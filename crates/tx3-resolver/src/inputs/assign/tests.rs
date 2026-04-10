@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use proptest::prelude::*;
 use tx3_tir::model::{assets::CanonicalAssets, core::UtxoRef};
 
-use crate::inputs::test_utils::{self, utxo, utxo_with_asset};
+use crate::test_utils::{self, utxo, utxo_with_asset};
 
 use crate::inputs::canonical::CanonicalQuery;
 use crate::job::{QueryResolution, ResolveJob};
@@ -14,12 +14,21 @@ use super::*;
 // Helpers for unit tests
 // ---------------------------------------------------------------------------
 
-fn simple_query(many: bool, collateral: bool, min_amount: Option<CanonicalAssets>) -> CanonicalQuery {
+fn simple_query(
+    many: bool,
+    collateral: bool,
+    min_amount: Option<CanonicalAssets>,
+) -> CanonicalQuery {
     test_utils::query(None, min_amount, HashSet::new(), many, collateral)
 }
 
 fn qr(name: &str, q: CanonicalQuery, candidates: Vec<Utxo>) -> QueryResolution {
-    QueryResolution { name: name.to_string(), query: q, candidates, selection: None }
+    QueryResolution {
+        name: name.to_string(),
+        query: q,
+        candidates,
+        selection: None,
+    }
 }
 
 fn make_job(queries: Vec<QueryResolution>) -> ResolveJob {
@@ -47,10 +56,7 @@ fn pick_single_returns_first_sufficient_match() {
 #[test]
 fn pick_single_returns_empty_when_none_sufficient() {
     let target = CanonicalAssets::from_naked_amount(10_000_000);
-    let candidates = vec![
-        utxo(1, 0, b"a", 3_000_000),
-        utxo(2, 0, b"a", 5_000_000),
-    ];
+    let candidates = vec![utxo(1, 0, b"a", 3_000_000), utxo(2, 0, b"a", 5_000_000)];
 
     let result = pick_single(candidates, &target);
     assert!(result.is_empty());
@@ -78,17 +84,17 @@ fn pick_many_accumulates_until_target_met() {
     let result = pick_many(candidates, &target);
     assert!(result.len() >= 2);
 
-    let total: i128 = result.iter().map(|u| u.assets.naked_amount().unwrap_or(0)).sum();
+    let total: i128 = result
+        .iter()
+        .map(|u| u.assets.naked_amount().unwrap_or(0))
+        .sum();
     assert!(total >= 7_000_000);
 }
 
 #[test]
 fn pick_many_returns_empty_when_insufficient() {
     let target = CanonicalAssets::from_naked_amount(100_000_000);
-    let candidates = vec![
-        utxo(1, 0, b"a", 3_000_000),
-        utxo(2, 0, b"a", 3_000_000),
-    ];
+    let candidates = vec![utxo(1, 0, b"a", 3_000_000), utxo(2, 0, b"a", 3_000_000)];
 
     let result = pick_many(candidates, &target);
     assert!(result.is_empty());
@@ -121,8 +127,8 @@ fn pick_many_with_multi_asset_target() {
         + CanonicalAssets::from_asset(Some(policy), Some(name), 100);
 
     let candidates = vec![
-        utxo(1, 0, b"a", 3_000_000),                                   // has ADA only
-        utxo_with_asset(2, 0, b"a", 1_000_000, policy, name, 100),     // has token only
+        utxo(1, 0, b"a", 3_000_000),                               // has ADA only
+        utxo_with_asset(2, 0, b"a", 1_000_000, policy, name, 100), // has token only
     ];
 
     let result = pick_many(candidates, &target);
@@ -143,20 +149,14 @@ fn excess_returns_none_for_single_utxo() {
 #[test]
 fn excess_returns_none_when_exactly_covered() {
     let target = CanonicalAssets::from_naked_amount(6_000_000);
-    let utxos = HashSet::from([
-        utxo(1, 0, b"a", 3_000_000),
-        utxo(2, 0, b"a", 3_000_000),
-    ]);
+    let utxos = HashSet::from([utxo(1, 0, b"a", 3_000_000), utxo(2, 0, b"a", 3_000_000)]);
     assert!(find_first_excess_utxo(&utxos, &target).is_none());
 }
 
 #[test]
 fn excess_finds_removable_utxo() {
     let target = CanonicalAssets::from_naked_amount(3_000_000);
-    let utxos = HashSet::from([
-        utxo(1, 0, b"a", 5_000_000),
-        utxo(2, 0, b"a", 2_000_000),
-    ]);
+    let utxos = HashSet::from([utxo(1, 0, b"a", 5_000_000), utxo(2, 0, b"a", 2_000_000)]);
     // 5M + 2M = 7M, excess = 4M, utxo(2) with 2M fits in excess
     let excess = find_first_excess_utxo(&utxos, &target);
     assert!(excess.is_some());
@@ -176,7 +176,11 @@ fn selection<'a>(job: &'a ResolveJob, name: &str) -> &'a UtxoSet {
 
 #[test]
 fn assign_all_single_query_resolved() {
-    let q = simple_query(false, false, Some(CanonicalAssets::from_naked_amount(1_000_000)));
+    let q = simple_query(
+        false,
+        false,
+        Some(CanonicalAssets::from_naked_amount(1_000_000)),
+    );
     let candidates = vec![utxo(1, 0, b"a", 5_000_000)];
 
     let mut job = make_job(vec![qr("input", q, candidates)]);
@@ -186,7 +190,11 @@ fn assign_all_single_query_resolved() {
 
 #[test]
 fn assign_all_single_query_unresolved() {
-    let q = simple_query(false, false, Some(CanonicalAssets::from_naked_amount(10_000_000)));
+    let q = simple_query(
+        false,
+        false,
+        Some(CanonicalAssets::from_naked_amount(10_000_000)),
+    );
     let candidates = vec![utxo(1, 0, b"a", 5_000_000)]; // insufficient
 
     let mut job = make_job(vec![qr("input", q, candidates)]);
@@ -200,8 +208,16 @@ fn assign_all_tighter_query_picks_first() {
     let u2 = utxo(2, 0, b"a", 5_000_000);
     let target = CanonicalAssets::from_naked_amount(1_000_000);
 
-    let tight = qr("tight", simple_query(false, false, Some(target.clone())), vec![u1.clone()]);
-    let loose = qr("loose", simple_query(false, false, Some(target)), vec![u1, u2]);
+    let tight = qr(
+        "tight",
+        simple_query(false, false, Some(target.clone())),
+        vec![u1.clone()],
+    );
+    let loose = qr(
+        "loose",
+        simple_query(false, false, Some(target)),
+        vec![u1, u2],
+    );
 
     let mut job = make_job(vec![loose, tight]); // order shouldn't matter
     job.assign_all().unwrap();
@@ -217,7 +233,11 @@ fn assign_all_exclusivity_second_query_fails_when_utxo_taken() {
     let u1 = utxo(1, 0, b"a", 5_000_000);
     let target = CanonicalAssets::from_naked_amount(1_000_000);
 
-    let q1 = qr("a", simple_query(false, false, Some(target.clone())), vec![u1.clone()]);
+    let q1 = qr(
+        "a",
+        simple_query(false, false, Some(target.clone())),
+        vec![u1.clone()],
+    );
     let q2 = qr("b", simple_query(false, false, Some(target)), vec![u1]); // same sole candidate
 
     let mut job = make_job(vec![q1, q2]);
@@ -230,8 +250,16 @@ fn assign_all_collateral_has_priority_over_regular() {
     let u1 = utxo(1, 0, b"a", 5_000_000);
     let target = CanonicalAssets::from_naked_amount(1_000_000);
 
-    let regular = qr("regular", simple_query(false, false, Some(target.clone())), vec![u1.clone()]);
-    let collateral = qr("collateral", simple_query(false, true, Some(target)), vec![u1]);
+    let regular = qr(
+        "regular",
+        simple_query(false, false, Some(target.clone())),
+        vec![u1.clone()],
+    );
+    let collateral = qr(
+        "collateral",
+        simple_query(false, true, Some(target)),
+        vec![u1],
+    );
 
     let mut job = make_job(vec![regular, collateral]);
     // Collateral wins the only UTxO, regular fails
@@ -247,7 +275,11 @@ fn assign_all_many_query_accumulates() {
         utxo(3, 0, b"a", 3_000_000),
     ];
 
-    let mut job = make_job(vec![qr("input", simple_query(true, false, Some(target)), candidates)]);
+    let mut job = make_job(vec![qr(
+        "input",
+        simple_query(true, false, Some(target)),
+        candidates,
+    )]);
     job.assign_all().unwrap();
     assert!(selection(&job, "input").len() >= 2);
 }

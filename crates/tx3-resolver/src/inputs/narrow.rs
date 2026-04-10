@@ -245,7 +245,7 @@ mod tests {
 
     use super::*;
 
-    use crate::inputs::test_utils as mock;
+    use crate::test_utils as mock;
 
     fn assets_for(asset: mock::KnownAsset, amount: i128) -> CanonicalAssets {
         CanonicalAssets::from_asset(

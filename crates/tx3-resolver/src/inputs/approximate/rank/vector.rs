@@ -151,9 +151,7 @@ mod tests {
     use super::*;
     use proptest::prelude::*;
 
-    use crate::inputs::test_utils::{
-        any_composite_asset, any_defined_asset, any_naked_asset,
-    };
+    use crate::test_utils::{any_composite_asset, any_defined_asset, any_naked_asset};
 
     proptest! {
         #[test]

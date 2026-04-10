@@ -33,12 +33,6 @@ macro_rules! data_or_bail {
     };
 }
 
-pub struct Diagnostic {
-    pub query: tir::InputQuery,
-    pub utxos: UtxoSet,
-    pub selected: UtxoSet,
-}
-
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct CanonicalQuery {
     pub address: Option<Vec<u8>>,

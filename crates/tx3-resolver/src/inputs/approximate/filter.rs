@@ -53,7 +53,7 @@ mod tests {
     use proptest::prelude::*;
     use tx3_tir::model::{assets::CanonicalAssets, core::UtxoRef};
 
-    use crate::inputs::test_utils::{
+    use crate::test_utils::{
         self, any_address, any_utxo, query, utxo, utxo_with_asset, utxo_with_ref,
     };
 

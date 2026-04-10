@@ -32,6 +32,7 @@ pollster = { version = "0.4.0", features = ["macro"] }
 chainfuzz = { version = "0.2.0" }
 proptest = "1.7.0"
 jsonschema = "0.17.1"
+tx3-cardano = { path = "../tx3-cardano" }
 
 [features]
 naive_selector = []

@@ -8,7 +8,7 @@ use tx3_tir::model::{
     core::{Utxo, UtxoRef},
 };
 
-use super::canonical::CanonicalQuery;
+use crate::inputs::CanonicalQuery;
 
 // ---------------------------------------------------------------------------
 // proptest strategies — primitives
