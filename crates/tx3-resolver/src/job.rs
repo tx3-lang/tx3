@@ -2,13 +2,15 @@ use std::collections::{BTreeMap, HashMap};
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};
-use tx3_tir::compile::CompiledTx;
+use tx3_tir::compile::{CompiledTx, Compiler};
 use tx3_tir::encoding::AnyTir;
 use tx3_tir::model::core::{Utxo, UtxoRef, UtxoSet};
-use tx3_tir::reduce::ArgMap;
+use tx3_tir::model::v1beta0 as tir;
+use tx3_tir::reduce::{Apply as _, ArgMap};
+use tx3_tir::Node as _;
 
 use crate::inputs::CanonicalQuery;
-use crate::Error;
+use crate::{Error, UtxoStore};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ResolveLog {
@@ -145,4 +147,113 @@ impl ResolveJob {
             })
             .collect()
     }
+
+    fn apply_args(&mut self) -> Result<(), Error> {
+        let params = tx3_tir::reduce::find_params(&self.original_tir);
+
+        for (key, ty) in params.iter() {
+            if !self.args.contains_key(key) {
+                return Err(Error::MissingTxArg {
+                    key: key.to_string(),
+                    ty: ty.clone(),
+                });
+            };
+        }
+
+        let tir = tx3_tir::reduce::apply_args(self.original_tir.clone(), &self.args)?;
+        self.record(ResolveLog::ArgsApplied(tir));
+
+        Ok(())
+    }
+
+    async fn eval_pass<C, S>(&mut self, compiler: &mut C, utxos: &S) -> Result<(), Error>
+    where
+        C: Compiler<Expression = tir::Expression, CompilerOp = tir::CompilerOp>,
+        S: UtxoStore,
+    {
+        let base_tir = self.resolved_tir().clone();
+        let fees = self.last_eval.as_ref().map(|e| e.fee).unwrap_or(0);
+
+        let attempt = tx3_tir::reduce::apply_fees(base_tir, fees)?;
+        self.record(ResolveLog::FeesApplied(attempt.clone()));
+
+        let attempt = attempt.apply(compiler)?;
+        self.record(ResolveLog::CompilerApplied(attempt.clone()));
+
+        let attempt = tx3_tir::reduce::reduce(attempt)?;
+        self.record(ResolveLog::Reduced(attempt.clone()));
+
+        let attempt = self.resolve_inputs(attempt, utxos).await?;
+        self.record(ResolveLog::InputsResolved(attempt.clone()));
+
+        let attempt = tx3_tir::reduce::reduce(attempt)?;
+        self.record(ResolveLog::FinalReduced(attempt.clone()));
+
+        if !attempt.is_constant() {
+            return Err(Error::CantCompileNonConstantTir);
+        }
+
+        let eval = compiler.compile(&attempt)?;
+
+        let converged = self.last_eval.as_ref().map_or(false, |prev| eval == *prev);
+
+        self.record(ResolveLog::Compiled(eval.clone()));
+        self.last_eval = Some(eval);
+
+        if converged {
+            self.converged = true;
+            self.record(ResolveLog::Converged);
+        }
+
+        self.round += 1;
+
+        Ok(())
+    }
+
+    pub async fn execute<C, S>(
+        &mut self,
+        compiler: &mut C,
+        utxos: &S,
+        max_optimize_rounds: usize,
+    ) -> Result<CompiledTx, Error>
+    where
+        C: Compiler<Expression = tir::Expression, CompilerOp = tir::CompilerOp>,
+        S: UtxoStore,
+    {
+        let max_optimize_rounds = max_optimize_rounds.max(3);
+
+        self.apply_args()?;
+
+        loop {
+            self.eval_pass(compiler, utxos).await?;
+
+            if self.converged || self.round > max_optimize_rounds {
+                break;
+            }
+        }
+
+        Ok(self.last_eval.clone().unwrap())
+    }
+}
+
+pub async fn resolve_tx<C, S>(
+    tx: AnyTir,
+    args: &ArgMap,
+    compiler: &mut C,
+    utxos: &S,
+    max_optimize_rounds: usize,
+) -> Result<CompiledTx, Error>
+where
+    C: Compiler<Expression = tir::Expression, CompilerOp = tir::CompilerOp>,
+    S: UtxoStore,
+{
+    let mut job = ResolveJob::new(tx, args.clone());
+
+    let result = job.execute(compiler, utxos, max_optimize_rounds).await;
+
+    if let Ok(dir) = std::env::var("TX3_DIAGNOSTIC_DUMP") {
+        let _ = job.dump_to_dir(Path::new(&dir));
+    }
+
+    result
 }
