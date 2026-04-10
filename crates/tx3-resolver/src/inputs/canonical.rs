@@ -39,7 +39,7 @@ pub struct Diagnostic {
     pub selected: UtxoSet,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct CanonicalQuery {
     pub address: Option<Vec<u8>>,
     pub min_amount: Option<CanonicalAssets>,

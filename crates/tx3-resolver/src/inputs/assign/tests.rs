@@ -5,6 +5,8 @@ use tx3_tir::model::{assets::CanonicalAssets, core::UtxoRef};
 
 use crate::inputs::test_utils::{self, utxo, utxo_with_asset};
 
+use crate::job::InputResolutionJob;
+
 use super::*;
 
 // ---------------------------------------------------------------------------
@@ -17,6 +19,16 @@ fn simple_query(many: bool, collateral: bool, min_amount: Option<CanonicalAssets
 
 fn prepared(name: &str, q: CanonicalQuery, candidates: Vec<Utxo>) -> PreparedQuery {
     PreparedQuery { name: name.to_string(), query: q, candidates }
+}
+
+fn make_irj(prepared: Vec<PreparedQuery>) -> InputResolutionJob {
+    InputResolutionJob {
+        queries: Vec::new(),
+        pool: None,
+        prepared: Some(prepared),
+        assignments: None,
+        resolved_inputs: None,
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -164,7 +176,9 @@ fn assign_all_single_query_resolved() {
     let q = simple_query(false, false, Some(CanonicalAssets::from_naked_amount(1_000_000)));
     let candidates = vec![utxo(1, 0, b"a", 5_000_000)];
 
-    let result = assign_all(vec![prepared("input", q, candidates)]);
+    let mut irj = make_irj(vec![prepared("input", q, candidates)]);
+    assign_all(&mut irj);
+    let result = irj.assignments.unwrap();
     assert_eq!(result.len(), 1);
     assert_eq!(result[0].selection.len(), 1);
 }
@@ -174,7 +188,9 @@ fn assign_all_single_query_unresolved() {
     let q = simple_query(false, false, Some(CanonicalAssets::from_naked_amount(10_000_000)));
     let candidates = vec![utxo(1, 0, b"a", 5_000_000)]; // insufficient
 
-    let result = assign_all(vec![prepared("input", q, candidates)]);
+    let mut irj = make_irj(vec![prepared("input", q, candidates)]);
+    assign_all(&mut irj);
+    let result = irj.assignments.unwrap();
     assert_eq!(result.len(), 1);
     assert!(result[0].selection.is_empty());
 }
@@ -189,7 +205,9 @@ fn assign_all_tighter_query_picks_first() {
     let tight = prepared("tight", simple_query(false, false, Some(target.clone())), vec![u1.clone()]);
     let loose = prepared("loose", simple_query(false, false, Some(target)), vec![u1, u2]);
 
-    let result = assign_all(vec![loose, tight]); // order shouldn't matter
+    let mut irj = make_irj(vec![loose, tight]); // order shouldn't matter
+    assign_all(&mut irj);
+    let result = irj.assignments.unwrap();
     let by_name: std::collections::HashMap<_, _> =
         result.iter().map(|a| (a.name.as_str(), &a.selection)).collect();
 
@@ -207,7 +225,9 @@ fn assign_all_exclusivity_second_query_fails_when_utxo_taken() {
     let q1 = prepared("a", simple_query(false, false, Some(target.clone())), vec![u1.clone()]);
     let q2 = prepared("b", simple_query(false, false, Some(target)), vec![u1]); // same sole candidate
 
-    let result = assign_all(vec![q1, q2]);
+    let mut irj = make_irj(vec![q1, q2]);
+    assign_all(&mut irj);
+    let result = irj.assignments.unwrap();
     let resolved: Vec<_> = result.iter().filter(|a| !a.selection.is_empty()).collect();
     let unresolved: Vec<_> = result.iter().filter(|a| a.selection.is_empty()).collect();
 
@@ -224,7 +244,9 @@ fn assign_all_collateral_has_priority_over_regular() {
     let regular = prepared("regular", simple_query(false, false, Some(target.clone())), vec![u1.clone()]);
     let collateral = prepared("collateral", simple_query(false, true, Some(target)), vec![u1]);
 
-    let result = assign_all(vec![regular, collateral]);
+    let mut irj = make_irj(vec![regular, collateral]);
+    assign_all(&mut irj);
+    let result = irj.assignments.unwrap();
     let by_name: std::collections::HashMap<_, _> =
         result.iter().map(|a| (a.name.as_str(), &a.selection)).collect();
 
@@ -241,7 +263,9 @@ fn assign_all_many_query_accumulates() {
         utxo(3, 0, b"a", 3_000_000),
     ];
 
-    let result = assign_all(vec![prepared("input", simple_query(true, false, Some(target)), candidates)]);
+    let mut irj = make_irj(vec![prepared("input", simple_query(true, false, Some(target)), candidates)]);
+    assign_all(&mut irj);
+    let result = irj.assignments.unwrap();
     assert_eq!(result.len(), 1);
     assert!(result[0].selection.len() >= 2);
 }
@@ -293,7 +317,9 @@ proptest! {
         let q1 = prepared("a", simple_query(false, false, Some(target.clone())), candidates.clone());
         let q2 = prepared("b", simple_query(false, false, Some(target)), candidates);
 
-        let result = assign_all(vec![q1, q2]);
+        let mut irj = make_irj(vec![q1, q2]);
+        assign_all(&mut irj);
+        let result = irj.assignments.unwrap();
 
         let mut all_refs: Vec<UtxoRef> = Vec::new();
         for a in &result {
@@ -314,7 +340,9 @@ proptest! {
         let q1 = prepared("a", simple_query(false, false, Some(target.clone())), candidates.clone());
         let q2 = prepared("b", simple_query(true, false, Some(target)), candidates);
 
-        let result = assign_all(vec![q1, q2]);
+        let mut irj = make_irj(vec![q1, q2]);
+        assign_all(&mut irj);
+        let result = irj.assignments.unwrap();
         prop_assert_eq!(result.len(), 2, "every query gets an entry");
     }
 }

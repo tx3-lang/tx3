@@ -5,6 +5,7 @@ use tx3_tir::model::{
     core::{Utxo, UtxoRef},
 };
 
+use crate::job::InputResolutionJob;
 use crate::{inputs::canonical::CanonicalQuery, UtxoPattern, UtxoStore};
 
 use super::Error;
@@ -155,16 +156,15 @@ impl SearchSpace {
     }
 }
 
-/// Query the UTxO store for all queries and return a shared pool of candidate
-/// UTxOs. Each query's constraints are used to narrow the store, and the
-/// results are merged into a single pool.
+/// Query the UTxO store for all queries and write the shared pool of candidate
+/// UTxOs into the `InputResolutionJob`.
 pub async fn build_utxo_pool<T: UtxoStore>(
+    irj: &mut InputResolutionJob,
     store: &T,
-    queries: &[(String, CanonicalQuery)],
-) -> Result<HashMap<UtxoRef, Utxo>, Error> {
+) -> Result<(), Error> {
     let mut pool: HashMap<UtxoRef, Utxo> = HashMap::new();
 
-    for (_name, query) in queries {
+    for (_name, query) in &irj.queries {
         let space = narrow_search_space(store, query).await?;
         let refs = space.take(Some(MAX_SEARCH_SPACE_SIZE));
         let fetched = store.fetch_utxos(refs).await?;
@@ -175,7 +175,9 @@ pub async fn build_utxo_pool<T: UtxoStore>(
         }
     }
 
-    Ok(pool)
+    irj.pool = Some(pool);
+
+    Ok(())
 }
 
 async fn narrow_by_asset_class<T: UtxoStore>(

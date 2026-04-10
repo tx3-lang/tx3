@@ -7,9 +7,11 @@ use tx3_tir::reduce::{Apply as _, ArgMap};
 use tx3_tir::Node as _;
 
 use crate::inputs::CanonicalQuery;
+use crate::job::ResolveJob;
 
 pub mod inputs;
 pub mod interop;
+pub mod job;
 pub mod trp;
 
 pub use tx3_tir::model::assets::CanonicalAssets;
@@ -89,53 +91,11 @@ pub trait UtxoStore {
     async fn fetch_utxos(&self, refs: HashSet<UtxoRef>) -> Result<UtxoSet, Error>;
 }
 
-async fn eval_pass<C, S>(
-    tx: &AnyTir,
-    compiler: &mut C,
-    utxos: &S,
-    last_eval: Option<&CompiledTx>,
-) -> Result<Option<CompiledTx>, Error>
-where
-    C: Compiler<Expression = tir::Expression, CompilerOp = tir::CompilerOp>,
-    S: UtxoStore,
-{
-    let attempt = tx.clone();
+fn apply_args_stage(job: &mut ResolveJob) -> Result<(), Error> {
+    let params = tx3_tir::reduce::find_params(&job.original_tir);
 
-    let fees = last_eval.as_ref().map(|e| e.fee).unwrap_or(0);
-
-    let attempt = tx3_tir::reduce::apply_fees(attempt, fees)?;
-
-    let attempt = attempt.apply(compiler)?;
-
-    let attempt = tx3_tir::reduce::reduce(attempt)?;
-
-    let attempt = crate::inputs::resolve(attempt, utxos).await?;
-
-    let attempt = tx3_tir::reduce::reduce(attempt)?;
-
-    if !attempt.is_constant() {
-        return Err(Error::CantCompileNonConstantTir);
-    }
-
-    let eval = compiler.compile(&attempt)?;
-
-    let Some(last_eval) = last_eval else {
-        return Ok(Some(eval));
-    };
-
-    if eval != *last_eval {
-        return Ok(Some(eval));
-    }
-
-    Ok(None)
-}
-
-fn safe_apply_args(tir: AnyTir, args: &ArgMap) -> Result<AnyTir, Error> {
-    let params = tx3_tir::reduce::find_params(&tir);
-
-    // ensure all required arguments are provided
     for (key, ty) in params.iter() {
-        if !args.contains_key(key) {
+        if !job.args.contains_key(key) {
             return Err(Error::MissingTxArg {
                 key: key.to_string(),
                 ty: ty.clone(),
@@ -143,9 +103,57 @@ fn safe_apply_args(tir: AnyTir, args: &ArgMap) -> Result<AnyTir, Error> {
         };
     }
 
-    let tir = tx3_tir::reduce::apply_args(tir, args)?;
+    let tir = tx3_tir::reduce::apply_args(job.original_tir.clone(), &job.args)?;
+    job.resolved_tir = Some(tir);
 
-    Ok(tir)
+    Ok(())
+}
+
+async fn eval_pass<C, S>(
+    job: &mut ResolveJob,
+    compiler: &mut C,
+    utxos: &S,
+) -> Result<(), Error>
+where
+    C: Compiler<Expression = tir::Expression, CompilerOp = tir::CompilerOp>,
+    S: UtxoStore,
+{
+    job.clear_round_state();
+
+    let base_tir = job.resolved_tir.clone().expect("resolved_tir must be set");
+    let fees = job.last_eval.as_ref().map(|e| e.fee).unwrap_or(0);
+
+    let attempt = tx3_tir::reduce::apply_fees(base_tir, fees)?;
+    job.after_fees = Some(attempt.clone());
+
+    let attempt = attempt.apply(compiler)?;
+    job.after_compile = Some(attempt.clone());
+
+    let attempt = tx3_tir::reduce::reduce(attempt)?;
+    job.after_reduce = Some(attempt.clone());
+
+    let attempt = crate::inputs::resolve(attempt, utxos, job).await?;
+    job.after_inputs = Some(attempt.clone());
+
+    let attempt = tx3_tir::reduce::reduce(attempt)?;
+    job.after_final_reduce = Some(attempt.clone());
+
+    if !attempt.is_constant() {
+        return Err(Error::CantCompileNonConstantTir);
+    }
+
+    let eval = compiler.compile(&attempt)?;
+
+    let converged = job.last_eval.as_ref().map_or(false, |prev| eval == *prev);
+    job.last_eval = Some(eval);
+
+    if converged {
+        job.converged = true;
+    }
+
+    job.round += 1;
+
+    Ok(())
 }
 
 pub async fn resolve_tx<C, S>(
@@ -159,22 +167,16 @@ where
     C: Compiler<Expression = tir::Expression, CompilerOp = tir::CompilerOp>,
     S: UtxoStore,
 {
-    let tx = safe_apply_args(tx, args)?;
+    let mut job = ResolveJob::new(tx, args.clone(), max_optimize_rounds);
+    apply_args_stage(&mut job)?;
 
-    let max_optimize_rounds = max_optimize_rounds.max(3);
+    loop {
+        eval_pass(&mut job, compiler, utxos).await?;
 
-    let mut last_eval = None;
-    let mut rounds = 0;
-
-    while let Some(better) = eval_pass(&tx, compiler, utxos, last_eval.as_ref()).await? {
-        last_eval = Some(better);
-
-        if rounds > max_optimize_rounds {
+        if job.converged || job.round > job.max_optimize_rounds {
             break;
         }
-
-        rounds += 1;
     }
 
-    Ok(last_eval.unwrap())
+    Ok(job.last_eval.unwrap())
 }

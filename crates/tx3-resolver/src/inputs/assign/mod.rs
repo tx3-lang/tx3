@@ -1,7 +1,7 @@
 //! Assignment stage: given all queries with their ranked candidates, find an
 //! allocation that satisfies everything simultaneously.
 
-use std::collections::{BTreeMap, HashSet};
+use std::collections::HashSet;
 
 use tx3_tir::model::{
     assets::CanonicalAssets,
@@ -9,6 +9,7 @@ use tx3_tir::model::{
 };
 
 use crate::inputs::canonical::CanonicalQuery;
+use crate::job::InputResolutionJob;
 
 #[cfg(test)]
 mod tests;
@@ -24,9 +25,11 @@ enum Specificity {
     Many = 3,
 }
 
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct PreparedQuery {
     pub name: String,
     pub query: CanonicalQuery,
+    #[serde(skip)]
     pub candidates: Vec<Utxo>,
 }
 
@@ -129,6 +132,7 @@ fn find_first_excess_utxo(utxos: &HashSet<Utxo>, target: &CanonicalAssets) -> Op
     None
 }
 
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Assignment {
     pub name: String,
     pub query: CanonicalQuery,
@@ -137,13 +141,14 @@ pub struct Assignment {
 
 /// Given prepared queries (each with their ranked candidates from the
 /// approximation stage), find an allocation that satisfies all queries
-/// simultaneously using greedy assignment.
-pub fn assign_all(mut queries: Vec<PreparedQuery>) -> Vec<Assignment> {
+/// simultaneously using greedy assignment. Writes results into the job.
+pub fn assign_all(irj: &mut InputResolutionJob) {
+    let mut queries = irj.prepared.take().expect("prepared must be set before assign");
     queries.sort_by(|a, b| a.constraint_tightness().cmp(&b.constraint_tightness()));
 
     let mut used: HashSet<UtxoRef> = HashSet::new();
 
-    queries
+    let assignments = queries
         .into_iter()
         .map(|pq| {
             let (name, query, selection) = pq.pick(&used);
@@ -154,5 +159,7 @@ pub fn assign_all(mut queries: Vec<PreparedQuery>) -> Vec<Assignment> {
 
             Assignment { name, query, selection }
         })
-        .collect()
+        .collect();
+
+    irj.assignments = Some(assignments);
 }
