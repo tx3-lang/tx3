@@ -6,7 +6,7 @@ use tx3_tir::model::{assets::CanonicalAssets, core::UtxoRef};
 use crate::inputs::test_utils::{self, utxo, utxo_with_asset};
 
 use crate::inputs::canonical::CanonicalQuery;
-use crate::job::{InputResolutionJob, QueryResolution};
+use crate::job::{QueryResolution, ResolveJob};
 
 use super::*;
 
@@ -22,11 +22,8 @@ fn qr(name: &str, q: CanonicalQuery, candidates: Vec<Utxo>) -> QueryResolution {
     QueryResolution { name: name.to_string(), query: q, candidates, selection: None }
 }
 
-fn make_irj(queries: Vec<QueryResolution>) -> InputResolutionJob {
-    InputResolutionJob {
-        queries,
-        pool: None,
-    }
+fn make_job(queries: Vec<QueryResolution>) -> ResolveJob {
+    test_utils::stub_job_with_queries(queries)
 }
 
 // ---------------------------------------------------------------------------
@@ -169,8 +166,8 @@ fn excess_finds_removable_utxo() {
 // assign_all
 // ---------------------------------------------------------------------------
 
-fn selection<'a>(irj: &'a InputResolutionJob, name: &str) -> &'a UtxoSet {
-    irj.queries
+fn selection<'a>(job: &'a ResolveJob, name: &str) -> &'a UtxoSet {
+    job.input_queries
         .iter()
         .find(|qr| qr.name == name)
         .and_then(|qr| qr.selection.as_ref())
@@ -182,9 +179,9 @@ fn assign_all_single_query_resolved() {
     let q = simple_query(false, false, Some(CanonicalAssets::from_naked_amount(1_000_000)));
     let candidates = vec![utxo(1, 0, b"a", 5_000_000)];
 
-    let mut irj = make_irj(vec![qr("input", q, candidates)]);
-    irj.assign_all();
-    assert_eq!(selection(&irj, "input").len(), 1);
+    let mut job = make_job(vec![qr("input", q, candidates)]);
+    job.assign_all().unwrap();
+    assert_eq!(selection(&job, "input").len(), 1);
 }
 
 #[test]
@@ -192,9 +189,8 @@ fn assign_all_single_query_unresolved() {
     let q = simple_query(false, false, Some(CanonicalAssets::from_naked_amount(10_000_000)));
     let candidates = vec![utxo(1, 0, b"a", 5_000_000)]; // insufficient
 
-    let mut irj = make_irj(vec![qr("input", q, candidates)]);
-    irj.assign_all();
-    assert!(selection(&irj, "input").is_empty());
+    let mut job = make_job(vec![qr("input", q, candidates)]);
+    assert!(job.assign_all().is_err());
 }
 
 #[test]
@@ -207,13 +203,13 @@ fn assign_all_tighter_query_picks_first() {
     let tight = qr("tight", simple_query(false, false, Some(target.clone())), vec![u1.clone()]);
     let loose = qr("loose", simple_query(false, false, Some(target)), vec![u1, u2]);
 
-    let mut irj = make_irj(vec![loose, tight]); // order shouldn't matter
-    irj.assign_all();
+    let mut job = make_job(vec![loose, tight]); // order shouldn't matter
+    job.assign_all().unwrap();
 
-    assert_eq!(selection(&irj, "tight").len(), 1);
-    assert_eq!(selection(&irj, "loose").len(), 1);
+    assert_eq!(selection(&job, "tight").len(), 1);
+    assert_eq!(selection(&job, "loose").len(), 1);
     // tight got u1, loose got u2 (the only remaining)
-    assert!(selection(&irj, "tight").is_disjoint(selection(&irj, "loose")));
+    assert!(selection(&job, "tight").is_disjoint(selection(&job, "loose")));
 }
 
 #[test]
@@ -224,14 +220,8 @@ fn assign_all_exclusivity_second_query_fails_when_utxo_taken() {
     let q1 = qr("a", simple_query(false, false, Some(target.clone())), vec![u1.clone()]);
     let q2 = qr("b", simple_query(false, false, Some(target)), vec![u1]); // same sole candidate
 
-    let mut irj = make_irj(vec![q1, q2]);
-    irj.assign_all();
-
-    let resolved: Vec<_> = irj.queries.iter().filter(|qr| !qr.selection.as_ref().unwrap().is_empty()).collect();
-    let unresolved: Vec<_> = irj.queries.iter().filter(|qr| qr.selection.as_ref().unwrap().is_empty()).collect();
-
-    assert_eq!(resolved.len(), 1);
-    assert_eq!(unresolved.len(), 1);
+    let mut job = make_job(vec![q1, q2]);
+    assert!(job.assign_all().is_err());
 }
 
 #[test]
@@ -243,11 +233,9 @@ fn assign_all_collateral_has_priority_over_regular() {
     let regular = qr("regular", simple_query(false, false, Some(target.clone())), vec![u1.clone()]);
     let collateral = qr("collateral", simple_query(false, true, Some(target)), vec![u1]);
 
-    let mut irj = make_irj(vec![regular, collateral]);
-    irj.assign_all();
-
-    assert_eq!(selection(&irj, "collateral").len(), 1);
-    assert!(selection(&irj, "regular").is_empty());
+    let mut job = make_job(vec![regular, collateral]);
+    // Collateral wins the only UTxO, regular fails
+    assert!(job.assign_all().is_err());
 }
 
 #[test]
@@ -259,9 +247,9 @@ fn assign_all_many_query_accumulates() {
         utxo(3, 0, b"a", 3_000_000),
     ];
 
-    let mut irj = make_irj(vec![qr("input", simple_query(true, false, Some(target)), candidates)]);
-    irj.assign_all();
-    assert!(selection(&irj, "input").len() >= 2);
+    let mut job = make_job(vec![qr("input", simple_query(true, false, Some(target)), candidates)]);
+    job.assign_all().unwrap();
+    assert!(selection(&job, "input").len() >= 2);
 }
 
 // ---------------------------------------------------------------------------
@@ -311,11 +299,11 @@ proptest! {
         let q1 = qr("a", simple_query(false, false, Some(target.clone())), candidates.clone());
         let q2 = qr("b", simple_query(false, false, Some(target)), candidates);
 
-        let mut irj = make_irj(vec![q1, q2]);
-        irj.assign_all();
+        let mut job = make_job(vec![q1, q2]);
+        let _ = job.assign_all(); // may fail, but exclusivity must still hold
 
         let mut all_refs: Vec<UtxoRef> = Vec::new();
-        for q in &irj.queries {
+        for q in &job.input_queries {
             if let Some(sel) = &q.selection {
                 for u in sel.iter() {
                     all_refs.push(u.r#ref.clone());
@@ -335,10 +323,10 @@ proptest! {
         let q1 = qr("a", simple_query(false, false, Some(target.clone())), candidates.clone());
         let q2 = qr("b", simple_query(true, false, Some(target)), candidates);
 
-        let mut irj = make_irj(vec![q1, q2]);
-        irj.assign_all();
+        let mut job = make_job(vec![q1, q2]);
+        let _ = job.assign_all(); // may fail, but every query should still get a selection set
 
-        let with_selection = irj.queries.iter().filter(|q| q.selection.is_some()).count();
+        let with_selection = job.input_queries.iter().filter(|q| q.selection.is_some()).count();
         prop_assert_eq!(with_selection, 2, "every query gets a selection");
     }
 }

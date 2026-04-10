@@ -5,12 +5,9 @@
 //! 2. **Approximate**: filter and rank candidates for each query independently
 //! 3. **Assign**: allocate UTxOs across all queries simultaneously
 
-use std::collections::BTreeMap;
-
 use tx3_tir::encoding::AnyTir;
-use tx3_tir::model::core::{UtxoRef, UtxoSet};
 
-use crate::job::{InputResolutionJob, ResolveJob};
+use crate::job::ResolveJob;
 use crate::{Error, UtxoStore};
 
 mod approximate;
@@ -25,47 +22,16 @@ mod tests;
 
 pub use canonical::CanonicalQuery;
 
-impl InputResolutionJob {
-    /// Run the full input resolution pipeline: narrow, approximate, assign.
-    pub async fn resolve_queries<T: UtxoStore>(
-        &mut self,
-        utxos: &T,
-    ) -> Result<BTreeMap<String, UtxoSet>, Error> {
-        // 1. Narrow: build pool of candidate UTxOs from all queries
-        self.build_utxo_pool(utxos).await?;
-
-        // 2. Approximate: rank candidates for each query independently
-        self.approximate_queries();
-
-        // 3. Assign: allocate UTxOs across all queries
-        self.assign_all();
-
-        // 4. Validate: ensure all queries were resolved
-        let pool_refs: Vec<UtxoRef> = self
-            .pool
-            .as_ref()
-            .map(|p| p.keys().cloned().collect())
-            .unwrap_or_default();
-
-        let mut all_inputs = BTreeMap::new();
-
-        for qr in &self.queries {
-            let selection = qr.selection.as_ref().expect("selection must be set");
-            if selection.is_empty() {
-                return Err(Error::InputNotResolved(
-                    qr.name.clone(),
-                    qr.query.clone(),
-                    pool_refs,
-                ));
-            }
-            all_inputs.insert(qr.name.clone(), selection.clone());
-        }
-
-        Ok(all_inputs)
-    }
-}
-
 impl ResolveJob {
+    /// Run the full input resolution pipeline: narrow, approximate, assign.
+    pub async fn resolve_queries<T: UtxoStore>(&mut self, utxos: &T) -> Result<(), Error> {
+        self.build_utxo_pool(utxos).await?;
+        self.approximate_queries();
+        self.assign_all()?;
+
+        Ok(())
+    }
+
     /// Resolve all input queries in a TIR transaction.
     pub async fn resolve_inputs<T: UtxoStore>(
         &mut self,
@@ -78,10 +44,10 @@ impl ResolveJob {
             queries.push((name, CanonicalQuery::try_from(query)?));
         }
 
-        let mut irj = InputResolutionJob::new(queries);
-        let all_inputs = irj.resolve_queries(utxos).await?;
-        self.input_resolution = Some(irj);
+        self.set_input_queries(queries);
+        self.resolve_queries(utxos).await?;
 
+        let all_inputs = self.to_input_map();
         let out = tx3_tir::reduce::apply_inputs(tx, &all_inputs)?;
 
         Ok(out)

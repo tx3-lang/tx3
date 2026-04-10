@@ -8,7 +8,8 @@ use tx3_tir::model::{
     core::{Utxo, UtxoRef, UtxoSet},
 };
 
-use crate::job::{InputResolutionJob, QueryResolution};
+use crate::job::{QueryResolution, ResolveJob};
+use crate::Error;
 
 #[cfg(test)]
 mod tests;
@@ -123,29 +124,36 @@ fn find_first_excess_utxo(utxos: &HashSet<Utxo>, target: &CanonicalAssets) -> Op
     None
 }
 
-impl InputResolutionJob {
+impl ResolveJob {
     /// Given queries with their ranked candidates (from the approximation
     /// stage), find an allocation that satisfies all queries simultaneously
-    /// using greedy assignment.
-    pub fn assign_all(&mut self) {
+    /// using greedy assignment. Returns an error if any query cannot be resolved.
+    pub fn assign_all(&mut self) -> Result<(), Error> {
         // Sort indices by constraint tightness so tightest queries pick first.
-        let mut indices: Vec<usize> = (0..self.queries.len()).collect();
+        let mut indices: Vec<usize> = (0..self.input_queries.len()).collect();
         indices.sort_by(|&a, &b| {
-            self.queries[a]
+            self.input_queries[a]
                 .constraint_tightness()
-                .cmp(&self.queries[b].constraint_tightness())
+                .cmp(&self.input_queries[b].constraint_tightness())
         });
 
         let mut used: HashSet<UtxoRef> = HashSet::new();
 
         for idx in indices {
-            self.queries[idx].pick(&used);
+            self.input_queries[idx].pick(&used);
 
-            if let Some(selection) = &self.queries[idx].selection {
+            if let Some(selection) = &self.input_queries[idx].selection {
                 for utxo in selection.iter() {
                     used.insert(utxo.r#ref.clone());
                 }
             }
         }
+
+        let pool_refs = self.pool_refs();
+        for qr in &self.input_queries {
+            qr.ensure_resolved(&pool_refs)?;
+        }
+
+        Ok(())
     }
 }

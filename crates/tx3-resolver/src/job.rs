@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use serde::{Deserialize, Serialize};
 use tx3_tir::compile::CompiledTx;
@@ -7,6 +7,7 @@ use tx3_tir::model::core::{Utxo, UtxoRef, UtxoSet};
 use tx3_tir::reduce::ArgMap;
 
 use crate::inputs::CanonicalQuery;
+use crate::Error;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResolveJob {
@@ -24,9 +25,12 @@ pub struct ResolveJob {
     pub after_fees: Option<AnyTir>,
     pub after_compile: Option<AnyTir>,
     pub after_reduce: Option<AnyTir>,
-    pub input_resolution: Option<InputResolutionJob>,
     pub after_inputs: Option<AnyTir>,
     pub after_final_reduce: Option<AnyTir>,
+
+    // Input resolution state (overwritten each eval pass)
+    pub input_queries: Vec<QueryResolution>,
+    pub input_pool: Option<HashMap<UtxoRef, Utxo>>,
 }
 
 impl ResolveJob {
@@ -41,9 +45,10 @@ impl ResolveJob {
             after_fees: None,
             after_compile: None,
             after_reduce: None,
-            input_resolution: None,
             after_inputs: None,
             after_final_reduce: None,
+            input_queries: Vec::new(),
+            input_pool: None,
         }
     }
 
@@ -51,9 +56,10 @@ impl ResolveJob {
         self.after_fees = None;
         self.after_compile = None;
         self.after_reduce = None;
-        self.input_resolution = None;
         self.after_inputs = None;
         self.after_final_reduce = None;
+        self.input_queries = Vec::new();
+        self.input_pool = None;
     }
 }
 
@@ -70,25 +76,47 @@ pub struct QueryResolution {
     pub selection: Option<UtxoSet>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct InputResolutionJob {
-    pub queries: Vec<QueryResolution>,
-    pub pool: Option<HashMap<UtxoRef, Utxo>>,
+impl QueryResolution {
+    pub fn ensure_resolved(&self, pool_refs: &[UtxoRef]) -> Result<(), Error> {
+        match &self.selection {
+            Some(sel) if !sel.is_empty() => Ok(()),
+            _ => Err(Error::InputNotResolved(
+                self.name.clone(),
+                self.query.clone(),
+                pool_refs.to_vec(),
+            )),
+        }
+    }
 }
 
-impl InputResolutionJob {
-    pub fn new(queries: Vec<(String, CanonicalQuery)>) -> Self {
-        Self {
-            queries: queries
-                .into_iter()
-                .map(|(name, query)| QueryResolution {
-                    name,
-                    query,
-                    candidates: Vec::new(),
-                    selection: None,
-                })
-                .collect(),
-            pool: None,
-        }
+impl ResolveJob {
+    pub fn set_input_queries(&mut self, queries: Vec<(String, CanonicalQuery)>) {
+        self.input_queries = queries
+            .into_iter()
+            .map(|(name, query)| QueryResolution {
+                name,
+                query,
+                candidates: Vec::new(),
+                selection: None,
+            })
+            .collect();
+    }
+
+    pub fn pool_refs(&self) -> Vec<UtxoRef> {
+        self.input_pool
+            .as_ref()
+            .map(|p| p.keys().cloned().collect())
+            .unwrap_or_default()
+    }
+
+    pub fn to_input_map(&self) -> BTreeMap<String, UtxoSet> {
+        self.input_queries
+            .iter()
+            .filter_map(|qr| {
+                qr.selection
+                    .as_ref()
+                    .map(|sel| (qr.name.clone(), sel.clone()))
+            })
+            .collect()
     }
 }

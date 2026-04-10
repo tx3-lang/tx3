@@ -5,7 +5,7 @@ use tx3_tir::model::{
     core::{Utxo, UtxoRef},
 };
 
-use crate::job::InputResolutionJob;
+use crate::job::ResolveJob;
 use crate::{inputs::canonical::CanonicalQuery, UtxoPattern, UtxoStore};
 
 use super::Error;
@@ -156,13 +156,13 @@ impl SearchSpace {
     }
 }
 
-impl InputResolutionJob {
+impl ResolveJob {
     /// Query the UTxO store for all queries and write the shared pool of
     /// candidate UTxOs into the job.
     pub async fn build_utxo_pool<T: UtxoStore>(&mut self, store: &T) -> Result<(), Error> {
         let mut pool: HashMap<UtxoRef, Utxo> = HashMap::new();
 
-        for qr in &self.queries {
+        for qr in &self.input_queries {
             let query = &qr.query;
             let space = narrow_search_space(store, query).await?;
             let refs = space.take(Some(MAX_SEARCH_SPACE_SIZE));
@@ -174,7 +174,7 @@ impl InputResolutionJob {
             }
         }
 
-        self.pool = Some(pool);
+        self.input_pool = Some(pool);
 
         Ok(())
     }

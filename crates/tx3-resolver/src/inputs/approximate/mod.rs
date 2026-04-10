@@ -9,20 +9,20 @@ use tx3_tir::model::{
 };
 
 use crate::inputs::canonical::CanonicalQuery;
-use crate::job::InputResolutionJob;
+use crate::job::ResolveJob;
 
 pub mod filter;
 pub mod rank;
 
 use rank::{Rank as _, Ranker};
 
-impl InputResolutionJob {
+impl ResolveJob {
     /// For each query, filter the pool by hard constraints, rank by closeness
     /// to the target asset composition, then filter by aggregate constraints.
     pub fn approximate_queries(&mut self) {
-        let pool = self.pool.as_ref().expect("pool must be set before approximate");
+        let pool = self.input_pool.as_ref().expect("pool must be set before approximate");
 
-        for qr in &mut self.queries {
+        for qr in &mut self.input_queries {
             qr.candidates = approximate_candidates(pool, &qr.query);
         }
     }

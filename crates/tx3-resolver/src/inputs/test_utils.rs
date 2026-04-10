@@ -364,3 +364,29 @@ pub fn seed_random_memory_store<G: UtxoGenerator>(
 
     MockStore { utxos: map }
 }
+
+/// Create a minimal `ResolveJob` with only the input resolution fields
+/// populated, for unit-testing the input pipeline stages in isolation.
+pub fn stub_job_with_queries(queries: Vec<crate::job::QueryResolution>) -> crate::job::ResolveJob {
+    use tx3_tir::encoding::AnyTir;
+    use tx3_tir::model::v1beta0 as tir;
+    use tx3_tir::reduce::ArgMap;
+
+    let dummy_tir = AnyTir::V1Beta0(tir::Tx {
+        fees: tir::Expression::None,
+        references: vec![],
+        inputs: vec![],
+        outputs: vec![],
+        validity: None,
+        mints: vec![],
+        burns: vec![],
+        adhoc: vec![],
+        collateral: vec![],
+        signers: None,
+        metadata: vec![],
+    });
+
+    let mut job = crate::job::ResolveJob::new(dummy_tir, ArgMap::new());
+    job.input_queries = queries;
+    job
+}
