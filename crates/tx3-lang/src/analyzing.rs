@@ -1538,6 +1538,23 @@ mod tests {
     }
 
     #[test]
+    fn test_record_field_any_data_type_success() {
+        let mut ast = crate::parsing::parse_string(
+            r#"
+        type MyRecord {
+            field1: Int,
+            field2: AnyData,
+        }
+    "#,
+        )
+        .unwrap();
+
+        let result = analyze(&mut ast);
+
+        assert!(result.errors.is_empty());
+    }
+
+    #[test]
     fn test_min_utxo_undefined_output_error() {
         let mut ast = crate::parsing::parse_string(
             r#"

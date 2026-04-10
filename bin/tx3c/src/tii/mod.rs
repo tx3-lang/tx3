@@ -20,6 +20,7 @@ pub fn map_ast_type_to_json_schema(r#type: &tx3_lang::ast::Type) -> Value {
         tx3_lang::ast::Type::Bytes => {
             json!({ "$ref": "https://tx3.land/specs/v1beta0/core#Bytes" })
         }
+        tx3_lang::ast::Type::AnyData => json!({}),
         tx3_lang::ast::Type::Address => {
             json!({ "$ref": "https://tx3.land/specs/v1beta0/core#Address" })
         }
