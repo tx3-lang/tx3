@@ -7,7 +7,7 @@ use tx3_tir::reduce::{Apply as _, ArgMap};
 use tx3_tir::Node as _;
 
 use crate::inputs::CanonicalQuery;
-use crate::job::ResolveJob;
+use crate::job::{ResolveJob, ResolveLog};
 
 pub mod inputs;
 pub mod interop;
@@ -105,7 +105,7 @@ impl ResolveJob {
         }
 
         let tir = tx3_tir::reduce::apply_args(self.original_tir.clone(), &self.args)?;
-        self.resolved_tir = Some(tir);
+        self.record(ResolveLog::ArgsApplied(tir));
 
         Ok(())
     }
@@ -115,25 +115,23 @@ impl ResolveJob {
         C: Compiler<Expression = tir::Expression, CompilerOp = tir::CompilerOp>,
         S: UtxoStore,
     {
-        self.clear_round_state();
-
-        let base_tir = self.resolved_tir.clone().expect("resolved_tir must be set");
+        let base_tir = self.resolved_tir().clone();
         let fees = self.last_eval.as_ref().map(|e| e.fee).unwrap_or(0);
 
         let attempt = tx3_tir::reduce::apply_fees(base_tir, fees)?;
-        self.after_fees = Some(attempt.clone());
+        self.record(ResolveLog::FeesApplied(attempt.clone()));
 
         let attempt = attempt.apply(compiler)?;
-        self.after_compile = Some(attempt.clone());
+        self.record(ResolveLog::CompilerApplied(attempt.clone()));
 
         let attempt = tx3_tir::reduce::reduce(attempt)?;
-        self.after_reduce = Some(attempt.clone());
+        self.record(ResolveLog::Reduced(attempt.clone()));
 
         let attempt = self.resolve_inputs(attempt, utxos).await?;
-        self.after_inputs = Some(attempt.clone());
+        self.record(ResolveLog::InputsResolved(attempt.clone()));
 
         let attempt = tx3_tir::reduce::reduce(attempt)?;
-        self.after_final_reduce = Some(attempt.clone());
+        self.record(ResolveLog::FinalReduced(attempt.clone()));
 
         if !attempt.is_constant() {
             return Err(Error::CantCompileNonConstantTir);
@@ -142,10 +140,13 @@ impl ResolveJob {
         let eval = compiler.compile(&attempt)?;
 
         let converged = self.last_eval.as_ref().map_or(false, |prev| eval == *prev);
+
+        self.record(ResolveLog::Compiled(eval.clone()));
         self.last_eval = Some(eval);
 
         if converged {
             self.converged = true;
+            self.record(ResolveLog::Converged);
         }
 
         self.round += 1;

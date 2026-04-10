@@ -10,23 +10,36 @@ use crate::inputs::CanonicalQuery;
 use crate::Error;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ResolveLog {
+    ArgsApplied(AnyTir),
+    FeesApplied(AnyTir),
+    CompilerApplied(AnyTir),
+    Reduced(AnyTir),
+    InputsResolved(AnyTir),
+    FinalReduced(AnyTir),
+    Compiled(CompiledTx),
+    Converged,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResolveLogEntry {
+    pub round: usize,
+    pub event: ResolveLog,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResolveJob {
     // Inputs (set once at creation)
     pub original_tir: AnyTir,
     pub args: ArgMap,
 
     // Pipeline state
-    pub resolved_tir: Option<AnyTir>,
     pub round: usize,
     pub last_eval: Option<CompiledTx>,
     pub converged: bool,
 
-    // Per-round intermediates (overwritten each eval pass)
-    pub after_fees: Option<AnyTir>,
-    pub after_compile: Option<AnyTir>,
-    pub after_reduce: Option<AnyTir>,
-    pub after_inputs: Option<AnyTir>,
-    pub after_final_reduce: Option<AnyTir>,
+    // Timeline of state changes across all rounds
+    pub log: Vec<ResolveLogEntry>,
 
     // Input resolution state (overwritten each eval pass)
     pub input_queries: Vec<QueryResolution>,
@@ -38,28 +51,31 @@ impl ResolveJob {
         Self {
             original_tir: tx,
             args,
-            resolved_tir: None,
             round: 0,
             last_eval: None,
             converged: false,
-            after_fees: None,
-            after_compile: None,
-            after_reduce: None,
-            after_inputs: None,
-            after_final_reduce: None,
+            log: Vec::new(),
             input_queries: Vec::new(),
             input_pool: None,
         }
     }
 
-    pub fn clear_round_state(&mut self) {
-        self.after_fees = None;
-        self.after_compile = None;
-        self.after_reduce = None;
-        self.after_inputs = None;
-        self.after_final_reduce = None;
-        self.input_queries = Vec::new();
-        self.input_pool = None;
+    pub fn record(&mut self, event: ResolveLog) {
+        self.log.push(ResolveLogEntry {
+            round: self.round,
+            event,
+        });
+    }
+
+    pub fn resolved_tir(&self) -> &AnyTir {
+        self.log
+            .iter()
+            .rev()
+            .find_map(|entry| match &entry.event {
+                ResolveLog::ArgsApplied(tir) => Some(tir),
+                _ => None,
+            })
+            .expect("apply_args must be called before eval_pass")
     }
 }
 
