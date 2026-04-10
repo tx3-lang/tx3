@@ -22,7 +22,7 @@ pub enum Error {
     ConsistencyError(String),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct CompiledTx {
     pub payload: Vec<u8>,
     pub hash: Vec<u8>,

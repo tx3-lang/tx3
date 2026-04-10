@@ -8,27 +8,24 @@ use tx3_tir::model::{
     core::{Utxo, UtxoRef},
 };
 
-use crate::inputs::{assign::PreparedQuery, canonical::CanonicalQuery};
+use crate::inputs::canonical::CanonicalQuery;
+use crate::job::ResolveJob;
 
 pub mod filter;
 pub mod rank;
 
 use rank::{Rank as _, Ranker};
 
-/// For each query, filter the pool by hard constraints, rank by closeness
-/// to the target asset composition, then filter by aggregate constraints.
-/// Returns a `PreparedQuery` per input, ready for the assignment stage.
-pub fn approximate_queries(
-    pool: &HashMap<UtxoRef, Utxo>,
-    queries: Vec<(String, CanonicalQuery)>,
-) -> Vec<PreparedQuery> {
-    queries
-        .into_iter()
-        .map(|(name, query)| {
-            let candidates = approximate_candidates(pool, &query);
-            PreparedQuery { name, query, candidates }
-        })
-        .collect()
+impl ResolveJob {
+    /// For each query, filter the pool by hard constraints, rank by closeness
+    /// to the target asset composition, then filter by aggregate constraints.
+    pub fn approximate_queries(&mut self) {
+        let pool = self.input_pool.as_ref().expect("pool must be set before approximate");
+
+        for qr in &mut self.input_queries {
+            qr.candidates = approximate_candidates(pool, &qr.query);
+        }
+    }
 }
 
 fn approximate_candidates(

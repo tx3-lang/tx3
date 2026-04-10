@@ -5,11 +5,9 @@
 //! 2. **Approximate**: filter and rank candidates for each query independently
 //! 3. **Assign**: allocate UTxOs across all queries simultaneously
 
-use std::collections::BTreeMap;
-
 use tx3_tir::encoding::AnyTir;
-use tx3_tir::model::core::{UtxoRef, UtxoSet};
 
+use crate::job::ResolveJob;
 use crate::{Error, UtxoStore};
 
 mod approximate;
@@ -24,46 +22,34 @@ mod tests;
 
 pub use canonical::CanonicalQuery;
 
-/// Resolve input queries against a UTxO store, returning a map of
-/// query name → selected UTxOs.
-pub async fn resolve_queries<T: UtxoStore>(
-    utxos: &T,
-    queries: Vec<(String, CanonicalQuery)>,
-) -> Result<BTreeMap<String, UtxoSet>, Error> {
-    // 1. Narrow: build pool of candidate UTxOs from all queries
-    let pool = narrow::build_utxo_pool(utxos, &queries).await?;
+impl ResolveJob {
+    /// Run the full input resolution pipeline: narrow, approximate, assign.
+    pub async fn resolve_queries<T: UtxoStore>(&mut self, utxos: &T) -> Result<(), Error> {
+        self.build_utxo_pool(utxos).await?;
+        self.approximate_queries();
+        self.assign_all()?;
 
-    // 2. Approximate: rank candidates for each query independently
-    let prepared = approximate::approximate_queries(&pool, queries);
+        Ok(())
+    }
 
-    // 3. Assign: allocate UTxOs across all queries
-    let assignments = assign::assign_all(prepared);
+    /// Resolve all input queries in a TIR transaction.
+    pub async fn resolve_inputs<T: UtxoStore>(
+        &mut self,
+        tx: AnyTir,
+        utxos: &T,
+    ) -> Result<AnyTir, Error> {
+        let mut queries: Vec<(String, CanonicalQuery)> = Vec::new();
 
-    // 4. Validate: ensure all queries were resolved
-    let pool_refs: Vec<UtxoRef> = pool.keys().cloned().collect();
-    let mut all_inputs = BTreeMap::new();
-
-    for entry in assignments {
-        if entry.selection.is_empty() {
-            return Err(Error::InputNotResolved(entry.name, entry.query, pool_refs));
+        for (name, query) in tx3_tir::reduce::find_queries(&tx) {
+            queries.push((name, CanonicalQuery::try_from(query)?));
         }
-        all_inputs.insert(entry.name, entry.selection);
+
+        self.set_input_queries(queries);
+        self.resolve_queries(utxos).await?;
+
+        let all_inputs = self.to_input_map();
+        let out = tx3_tir::reduce::apply_inputs(tx, &all_inputs)?;
+
+        Ok(out)
     }
-
-    Ok(all_inputs)
-}
-
-/// Resolve all input queries in a TIR transaction.
-pub async fn resolve<T: UtxoStore>(tx: AnyTir, utxos: &T) -> Result<AnyTir, Error> {
-    let mut queries: Vec<(String, CanonicalQuery)> = Vec::new();
-
-    for (name, query) in tx3_tir::reduce::find_queries(&tx) {
-        queries.push((name, CanonicalQuery::try_from(query)?));
-    }
-
-    let all_inputs = resolve_queries(utxos, queries).await?;
-
-    let out = tx3_tir::reduce::apply_inputs(tx, &all_inputs)?;
-
-    Ok(out)
 }

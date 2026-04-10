@@ -5,7 +5,8 @@ use chainfuzz::utxos::UtxoBuilder;
 use tx3_tir::model::{assets::CanonicalAssets, core::UtxoSet, v1beta0 as tir};
 
 use crate::{
-    inputs::{canonical::CanonicalQuery, resolve_queries, test_utils as mock},
+    inputs::{canonical::CanonicalQuery, test_utils as mock},
+    job::ResolveJob,
     Error, UtxoStore,
 };
 
@@ -44,13 +45,20 @@ fn new_input_query(
     .unwrap()
 }
 
+fn stub_job(queries: Vec<(String, CanonicalQuery)>) -> ResolveJob {
+    let mut job = mock::stub_job_with_queries(Vec::new());
+    job.set_input_queries(queries);
+    job
+}
+
 async fn resolve_single<S: UtxoStore>(
     store: &S,
     name: &str,
     criteria: &CanonicalQuery,
 ) -> UtxoSet {
-    match resolve_queries(store, vec![(name.to_string(), criteria.clone())]).await {
-        Ok(selected) => selected.get(name).cloned().unwrap_or_default(),
+    let mut job = stub_job(vec![(name.to_string(), criteria.clone())]);
+    match job.resolve_queries(store).await {
+        Ok(()) => job.to_input_map().remove(name).unwrap_or_default(),
         Err(Error::InputNotResolved(..)) => UtxoSet::default(),
         Err(e) => panic!("unexpected error: {e:?}"),
     }
@@ -95,8 +103,8 @@ async fn test_input_query_too_broad() {
     .try_into()
     .unwrap();
 
-    let result =
-        resolve_queries(&store, vec![("q".to_string(), empty_criteria)]).await;
+    let mut job = stub_job(vec![("q".to_string(), empty_criteria)]);
+    let result = job.resolve_queries(&store).await;
 
     assert!(matches!(result, Err(Error::InputQueryTooBroad)));
 }
@@ -212,14 +220,11 @@ async fn test_resolve_same_collateral_and_input() {
         let input_query = new_input_query(&address, Some(1_000_000), vec![], false, false);
         let collateral_query = new_input_query(&address, Some(1_000_000), vec![], false, true);
 
-        let result = resolve_queries(
-            &store,
-            vec![
-                ("input".to_string(), input_query),
-                ("collateral".to_string(), collateral_query),
-            ],
-        )
-        .await;
+        let mut job = stub_job(vec![
+            ("input".to_string(), input_query),
+            ("collateral".to_string(), collateral_query),
+        ]);
+        let result = job.resolve_queries(&store).await;
 
         assert!(result.is_err());
     }
@@ -242,15 +247,12 @@ async fn test_resolve_exclusive_assignments() {
         let large_query = new_input_query(&address, Some(1_000), vec![], false, false);
         let small_query = new_input_query(&address, Some(100), vec![], false, false);
 
-        let selected = resolve_queries(
-            &store,
-            vec![
-                ("large".to_string(), large_query),
-                ("small".to_string(), small_query),
-            ],
-        )
-        .await
-        .unwrap();
+        let mut job = stub_job(vec![
+            ("large".to_string(), large_query),
+            ("small".to_string(), small_query),
+        ]);
+        job.resolve_queries(&store).await.unwrap();
+        let selected = job.to_input_map();
 
         let large_utxos = selected.get("large").cloned().unwrap_or_default();
         let small_utxos = selected.get("small").cloned().unwrap_or_default();
@@ -287,15 +289,12 @@ async fn test_resolve_competing_queries() {
         new_input_query(&address, None, vec![(mock::KnownAsset::Hosky, 1)], false, false);
     let naked_query = new_input_query(&address, Some(1), vec![], false, false);
 
-    let selected = resolve_queries(
-        &store,
-        vec![
-            ("asset".to_string(), asset_query),
-            ("naked".to_string(), naked_query),
-        ],
-    )
-    .await
-    .unwrap();
+    let mut job = stub_job(vec![
+        ("asset".to_string(), asset_query),
+        ("naked".to_string(), naked_query),
+    ]);
+    job.resolve_queries(&store).await.unwrap();
+    let selected = job.to_input_map();
 
     let asset_utxos = selected.get("asset").cloned().unwrap_or_default();
     let naked_utxos = selected.get("naked").cloned().unwrap_or_default();
@@ -331,11 +330,11 @@ async fn test_resolve_competing_queries_no_solution() {
     let query_b =
         new_input_query(&address, None, vec![(mock::KnownAsset::Hosky, 1)], false, false);
 
-    let result = resolve_queries(
-        &store,
-        vec![("a".to_string(), query_a), ("b".to_string(), query_b)],
-    )
-    .await;
+    let mut job = stub_job(vec![
+        ("a".to_string(), query_a),
+        ("b".to_string(), query_b),
+    ]);
+    let result = job.resolve_queries(&store).await;
 
     assert!(result.is_err());
 }
@@ -388,11 +387,11 @@ async fn test_cross_query_pool_doesnt_leak_wrong_address() {
     let query_a = new_input_query(&addr_a, None, vec![(mock::KnownAsset::Hosky, 1)], false, false);
     let query_b = new_input_query(&addr_b, Some(1_000_000), vec![], false, false);
 
-    let result = resolve_queries(
-        &store,
-        vec![("a".to_string(), query_a), ("b".to_string(), query_b)],
-    )
-    .await;
+    let mut job = stub_job(vec![
+        ("a".to_string(), query_a),
+        ("b".to_string(), query_b),
+    ]);
+    let result = job.resolve_queries(&store).await;
 
     assert!(result.is_err());
 }

@@ -5,6 +5,7 @@ use tx3_tir::model::{
     core::{Utxo, UtxoRef},
 };
 
+use crate::job::ResolveJob;
 use crate::{inputs::canonical::CanonicalQuery, UtxoPattern, UtxoStore};
 
 use super::Error;
@@ -155,27 +156,28 @@ impl SearchSpace {
     }
 }
 
-/// Query the UTxO store for all queries and return a shared pool of candidate
-/// UTxOs. Each query's constraints are used to narrow the store, and the
-/// results are merged into a single pool.
-pub async fn build_utxo_pool<T: UtxoStore>(
-    store: &T,
-    queries: &[(String, CanonicalQuery)],
-) -> Result<HashMap<UtxoRef, Utxo>, Error> {
-    let mut pool: HashMap<UtxoRef, Utxo> = HashMap::new();
+impl ResolveJob {
+    /// Query the UTxO store for all queries and write the shared pool of
+    /// candidate UTxOs into the job.
+    pub async fn build_utxo_pool<T: UtxoStore>(&mut self, store: &T) -> Result<(), Error> {
+        let mut pool: HashMap<UtxoRef, Utxo> = HashMap::new();
 
-    for (_name, query) in queries {
-        let space = narrow_search_space(store, query).await?;
-        let refs = space.take(Some(MAX_SEARCH_SPACE_SIZE));
-        let fetched = store.fetch_utxos(refs).await?;
+        for qr in &self.input_queries {
+            let query = &qr.query;
+            let space = narrow_search_space(store, query).await?;
+            let refs = space.take(Some(MAX_SEARCH_SPACE_SIZE));
+            let fetched = store.fetch_utxos(refs).await?;
 
-        for utxo in fetched.iter() {
-            pool.entry(utxo.r#ref.clone())
-                .or_insert_with(|| utxo.clone());
+            for utxo in fetched.iter() {
+                pool.entry(utxo.r#ref.clone())
+                    .or_insert_with(|| utxo.clone());
+            }
         }
-    }
 
-    Ok(pool)
+        self.input_pool = Some(pool);
+
+        Ok(())
+    }
 }
 
 async fn narrow_by_asset_class<T: UtxoStore>(

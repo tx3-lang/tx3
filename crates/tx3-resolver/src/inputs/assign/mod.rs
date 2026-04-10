@@ -1,14 +1,15 @@
 //! Assignment stage: given all queries with their ranked candidates, find an
 //! allocation that satisfies everything simultaneously.
 
-use std::collections::{BTreeMap, HashSet};
+use std::collections::HashSet;
 
 use tx3_tir::model::{
     assets::CanonicalAssets,
     core::{Utxo, UtxoRef, UtxoSet},
 };
 
-use crate::inputs::canonical::CanonicalQuery;
+use crate::job::{QueryResolution, ResolveJob};
+use crate::Error;
 
 #[cfg(test)]
 mod tests;
@@ -24,13 +25,7 @@ enum Specificity {
     Many = 3,
 }
 
-pub struct PreparedQuery {
-    pub name: String,
-    pub query: CanonicalQuery,
-    pub candidates: Vec<Utxo>,
-}
-
-impl PreparedQuery {
+impl QueryResolution {
     fn specificity(&self) -> Specificity {
         match (self.query.support_many, self.query.collateral) {
             (false, true) => Specificity::SingleCollateral,
@@ -44,10 +39,10 @@ impl PreparedQuery {
         (self.candidates.len(), self.specificity(), &self.name)
     }
 
-    fn pick(self, used: &HashSet<UtxoRef>) -> (String, CanonicalQuery, UtxoSet) {
+    fn pick(&mut self, used: &HashSet<UtxoRef>) {
         let available: Vec<Utxo> = self
             .candidates
-            .into_iter()
+            .drain(..)
             .filter(|utxo| !used.contains(&utxo.r#ref))
             .collect();
 
@@ -63,7 +58,7 @@ impl PreparedQuery {
             pick_single(available, &target)
         };
 
-        (self.name, self.query, selection)
+        self.selection = Some(selection);
     }
 }
 
@@ -129,30 +124,36 @@ fn find_first_excess_utxo(utxos: &HashSet<Utxo>, target: &CanonicalAssets) -> Op
     None
 }
 
-pub struct Assignment {
-    pub name: String,
-    pub query: CanonicalQuery,
-    pub selection: UtxoSet,
-}
+impl ResolveJob {
+    /// Given queries with their ranked candidates (from the approximation
+    /// stage), find an allocation that satisfies all queries simultaneously
+    /// using greedy assignment. Returns an error if any query cannot be resolved.
+    pub fn assign_all(&mut self) -> Result<(), Error> {
+        // Sort indices by constraint tightness so tightest queries pick first.
+        let mut indices: Vec<usize> = (0..self.input_queries.len()).collect();
+        indices.sort_by(|&a, &b| {
+            self.input_queries[a]
+                .constraint_tightness()
+                .cmp(&self.input_queries[b].constraint_tightness())
+        });
 
-/// Given prepared queries (each with their ranked candidates from the
-/// approximation stage), find an allocation that satisfies all queries
-/// simultaneously using greedy assignment.
-pub fn assign_all(mut queries: Vec<PreparedQuery>) -> Vec<Assignment> {
-    queries.sort_by(|a, b| a.constraint_tightness().cmp(&b.constraint_tightness()));
+        let mut used: HashSet<UtxoRef> = HashSet::new();
 
-    let mut used: HashSet<UtxoRef> = HashSet::new();
+        for idx in indices {
+            self.input_queries[idx].pick(&used);
 
-    queries
-        .into_iter()
-        .map(|pq| {
-            let (name, query, selection) = pq.pick(&used);
-
-            for utxo in selection.iter() {
-                used.insert(utxo.r#ref.clone());
+            if let Some(selection) = &self.input_queries[idx].selection {
+                for utxo in selection.iter() {
+                    used.insert(utxo.r#ref.clone());
+                }
             }
+        }
 
-            Assignment { name, query, selection }
-        })
-        .collect()
+        let pool_refs = self.pool_refs();
+        for qr in &self.input_queries {
+            qr.ensure_resolved(&pool_refs)?;
+        }
+
+        Ok(())
+    }
 }

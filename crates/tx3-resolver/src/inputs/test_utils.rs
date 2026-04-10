@@ -205,7 +205,7 @@ pub use chainfuzz::addresses::KnownAddress;
 pub use chainfuzz::assets::KnownAsset;
 pub use chainfuzz::utxos::UtxoMap;
 pub use chainfuzz::utxos::{utxo_with_random_amount, utxo_with_random_asset, UtxoGenerator};
-pub use chainfuzz::{TxoRef as FuzzTxoRef, Utxo as FuzzUtxo};
+pub use chainfuzz::TxoRef as FuzzTxoRef;
 
 fn from_fuzz_utxo(txo: &chainfuzz::TxoRef, fuzz_utxo: &chainfuzz::Utxo) -> Utxo {
     let address = fuzz_utxo.address.to_vec();
@@ -363,4 +363,30 @@ pub fn seed_random_memory_store<G: UtxoGenerator>(
     let map = chainfuzz::utxos::make_custom_utxo_map(everyone, utxos_per_address, f);
 
     MockStore { utxos: map }
+}
+
+/// Create a minimal `ResolveJob` with only the input resolution fields
+/// populated, for unit-testing the input pipeline stages in isolation.
+pub fn stub_job_with_queries(queries: Vec<crate::job::QueryResolution>) -> crate::job::ResolveJob {
+    use tx3_tir::encoding::AnyTir;
+    use tx3_tir::model::v1beta0 as tir;
+    use tx3_tir::reduce::ArgMap;
+
+    let dummy_tir = AnyTir::V1Beta0(tir::Tx {
+        fees: tir::Expression::None,
+        references: vec![],
+        inputs: vec![],
+        outputs: vec![],
+        validity: None,
+        mints: vec![],
+        burns: vec![],
+        adhoc: vec![],
+        collateral: vec![],
+        signers: None,
+        metadata: vec![],
+    });
+
+    let mut job = crate::job::ResolveJob::new(dummy_tir, ArgMap::new());
+    job.input_queries = queries;
+    job
 }
