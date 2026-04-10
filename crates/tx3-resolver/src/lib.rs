@@ -153,6 +153,31 @@ impl ResolveJob {
 
         Ok(())
     }
+
+    pub async fn execute<C, S>(
+        &mut self,
+        compiler: &mut C,
+        utxos: &S,
+        max_optimize_rounds: usize,
+    ) -> Result<CompiledTx, Error>
+    where
+        C: Compiler<Expression = tir::Expression, CompilerOp = tir::CompilerOp>,
+        S: UtxoStore,
+    {
+        let max_optimize_rounds = max_optimize_rounds.max(3);
+
+        self.apply_args()?;
+
+        loop {
+            self.eval_pass(compiler, utxos).await?;
+
+            if self.converged || self.round > max_optimize_rounds {
+                break;
+            }
+        }
+
+        Ok(self.last_eval.clone().unwrap())
+    }
 }
 
 pub async fn resolve_tx<C, S>(
@@ -166,18 +191,13 @@ where
     C: Compiler<Expression = tir::Expression, CompilerOp = tir::CompilerOp>,
     S: UtxoStore,
 {
-    let max_optimize_rounds = max_optimize_rounds.max(3);
-
     let mut job = ResolveJob::new(tx, args.clone());
-    job.apply_args()?;
 
-    loop {
-        job.eval_pass(compiler, utxos).await?;
+    let result = job.execute(compiler, utxos, max_optimize_rounds).await;
 
-        if job.converged || job.round > max_optimize_rounds {
-            break;
-        }
+    if let Ok(dir) = std::env::var("TX3_DIAGNOSTIC_DUMP") {
+        let _ = job.dump_to_dir(std::path::Path::new(&dir));
     }
 
-    Ok(job.last_eval.unwrap())
+    result
 }
