@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 use tx3_tir::compile::CompiledTx;
@@ -6,7 +6,6 @@ use tx3_tir::encoding::AnyTir;
 use tx3_tir::model::core::{Utxo, UtxoRef, UtxoSet};
 use tx3_tir::reduce::ArgMap;
 
-use crate::inputs::assign::{Assignment, PreparedQuery};
 use crate::inputs::CanonicalQuery;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -14,7 +13,6 @@ pub struct ResolveJob {
     // Inputs (set once at creation)
     pub original_tir: AnyTir,
     pub args: ArgMap,
-    pub max_optimize_rounds: usize,
 
     // Pipeline state
     pub resolved_tir: Option<AnyTir>,
@@ -32,11 +30,10 @@ pub struct ResolveJob {
 }
 
 impl ResolveJob {
-    pub fn new(tx: AnyTir, args: ArgMap, max_optimize_rounds: usize) -> Self {
+    pub fn new(tx: AnyTir, args: ArgMap) -> Self {
         Self {
             original_tir: tx,
             args,
-            max_optimize_rounds: max_optimize_rounds.max(3),
             resolved_tir: None,
             round: 0,
             last_eval: None,
@@ -60,24 +57,38 @@ impl ResolveJob {
     }
 }
 
+/// Tracks a single input query as it progresses through the resolution
+/// pipeline: narrow → approximate (candidates) → assign (selection).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QueryResolution {
+    pub name: String,
+    pub query: CanonicalQuery,
+    /// Ranked candidate UTxOs, set by the approximate stage.
+    #[serde(skip)]
+    pub candidates: Vec<Utxo>,
+    /// Final UTxO selection, set by the assign stage.
+    pub selection: Option<UtxoSet>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InputResolutionJob {
-    pub queries: Vec<(String, CanonicalQuery)>,
+    pub queries: Vec<QueryResolution>,
     pub pool: Option<HashMap<UtxoRef, Utxo>>,
-    #[serde(skip)]
-    pub prepared: Option<Vec<PreparedQuery>>,
-    pub assignments: Option<Vec<Assignment>>,
-    pub resolved_inputs: Option<BTreeMap<String, UtxoSet>>,
 }
 
 impl InputResolutionJob {
     pub fn new(queries: Vec<(String, CanonicalQuery)>) -> Self {
         Self {
-            queries,
+            queries: queries
+                .into_iter()
+                .map(|(name, query)| QueryResolution {
+                    name,
+                    query,
+                    candidates: Vec::new(),
+                    selection: None,
+                })
+                .collect(),
             pool: None,
-            prepared: None,
-            assignments: None,
-            resolved_inputs: None,
         }
     }
 }

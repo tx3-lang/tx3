@@ -8,7 +8,7 @@ use tx3_tir::model::{
     core::{Utxo, UtxoRef},
 };
 
-use crate::inputs::{assign::PreparedQuery, canonical::CanonicalQuery};
+use crate::inputs::canonical::CanonicalQuery;
 use crate::job::InputResolutionJob;
 
 pub mod filter;
@@ -16,26 +16,16 @@ pub mod rank;
 
 use rank::{Rank as _, Ranker};
 
-/// For each query, filter the pool by hard constraints, rank by closeness
-/// to the target asset composition, then filter by aggregate constraints.
-/// Writes `PreparedQuery` results into the `InputResolutionJob`.
-pub fn approximate_queries(irj: &mut InputResolutionJob) {
-    let pool = irj.pool.as_ref().expect("pool must be set before approximate");
+impl InputResolutionJob {
+    /// For each query, filter the pool by hard constraints, rank by closeness
+    /// to the target asset composition, then filter by aggregate constraints.
+    pub fn approximate_queries(&mut self) {
+        let pool = self.pool.as_ref().expect("pool must be set before approximate");
 
-    let prepared = irj
-        .queries
-        .iter()
-        .map(|(name, query)| {
-            let candidates = approximate_candidates(pool, query);
-            PreparedQuery {
-                name: name.clone(),
-                query: query.clone(),
-                candidates,
-            }
-        })
-        .collect();
-
-    irj.prepared = Some(prepared);
+        for qr in &mut self.queries {
+            qr.candidates = approximate_candidates(pool, &qr.query);
+        }
+    }
 }
 
 fn approximate_candidates(

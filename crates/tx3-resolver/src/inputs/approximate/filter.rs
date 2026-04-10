@@ -4,10 +4,7 @@
 //! collateral). Aggregate constraints (asset amounts) can be met by combining
 //! multiple UTxOs when the query supports it.
 
-use tx3_tir::model::{
-    assets::CanonicalAssets,
-    core::Utxo,
-};
+use tx3_tir::model::{assets::CanonicalAssets, core::Utxo};
 
 use crate::inputs::canonical::CanonicalQuery;
 
@@ -16,7 +13,10 @@ fn matches_collateral_constraint(query: &CanonicalQuery, utxo: &Utxo) -> bool {
 }
 
 fn matches_address_constraint(query: &CanonicalQuery, utxo: &Utxo) -> bool {
-    query.address.as_ref().map_or(true, |addr| utxo.address == *addr)
+    query
+        .address
+        .as_ref()
+        .map_or(true, |addr| utxo.address == *addr)
 }
 
 fn matches_ref_constraint(query: &CanonicalQuery, utxo: &Utxo) -> bool {
@@ -54,7 +54,7 @@ mod tests {
     use tx3_tir::model::{assets::CanonicalAssets, core::UtxoRef};
 
     use crate::inputs::test_utils::{
-        self, any_address, any_utxo, any_utxo_at, query, utxo, utxo_with_asset, utxo_with_ref,
+        self, any_address, any_utxo, query, utxo, utxo_with_asset, utxo_with_ref,
     };
 
     use super::*;
@@ -77,10 +77,25 @@ mod tests {
 
     #[test]
     fn hard_ref_match() {
-        let target_ref = UtxoRef { txid: vec![1; 32], index: 0 };
-        let q = query(None, None, HashSet::from([target_ref.clone()]), false, false);
-        assert!(matches_hard_constraints(&q, &utxo_with_ref(b"alice", 1, 1, 0)));
-        assert!(!matches_hard_constraints(&q, &utxo_with_ref(b"alice", 1, 2, 0)));
+        let target_ref = UtxoRef {
+            txid: vec![1; 32],
+            index: 0,
+        };
+        let q = query(
+            None,
+            None,
+            HashSet::from([target_ref.clone()]),
+            false,
+            false,
+        );
+        assert!(matches_hard_constraints(
+            &q,
+            &utxo_with_ref(b"alice", 1, 1, 0)
+        ));
+        assert!(!matches_hard_constraints(
+            &q,
+            &utxo_with_ref(b"alice", 1, 2, 0)
+        ));
     }
 
     #[test]
@@ -94,12 +109,30 @@ mod tests {
 
     #[test]
     fn hard_all_constraints_combined() {
-        let target_ref = UtxoRef { txid: vec![1; 32], index: 0 };
-        let q = query(Some(b"alice"), None, HashSet::from([target_ref]), false, true);
+        let target_ref = UtxoRef {
+            txid: vec![1; 32],
+            index: 0,
+        };
+        let q = query(
+            Some(b"alice"),
+            None,
+            HashSet::from([target_ref]),
+            false,
+            true,
+        );
 
-        assert!(matches_hard_constraints(&q, &utxo_with_ref(b"alice", 1, 1, 0)));
-        assert!(!matches_hard_constraints(&q, &utxo_with_ref(b"bob", 1, 1, 0)));
-        assert!(!matches_hard_constraints(&q, &utxo_with_ref(b"alice", 1, 2, 0)));
+        assert!(matches_hard_constraints(
+            &q,
+            &utxo_with_ref(b"alice", 1, 1, 0)
+        ));
+        assert!(!matches_hard_constraints(
+            &q,
+            &utxo_with_ref(b"bob", 1, 1, 0)
+        ));
+        assert!(!matches_hard_constraints(
+            &q,
+            &utxo_with_ref(b"alice", 1, 2, 0)
+        ));
     }
 
     // -- aggregate constraints: scenario tests --

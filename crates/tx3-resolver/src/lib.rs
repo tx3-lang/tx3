@@ -91,69 +91,67 @@ pub trait UtxoStore {
     async fn fetch_utxos(&self, refs: HashSet<UtxoRef>) -> Result<UtxoSet, Error>;
 }
 
-fn apply_args_stage(job: &mut ResolveJob) -> Result<(), Error> {
-    let params = tx3_tir::reduce::find_params(&job.original_tir);
+impl ResolveJob {
+    fn apply_args(&mut self) -> Result<(), Error> {
+        let params = tx3_tir::reduce::find_params(&self.original_tir);
 
-    for (key, ty) in params.iter() {
-        if !job.args.contains_key(key) {
-            return Err(Error::MissingTxArg {
-                key: key.to_string(),
-                ty: ty.clone(),
-            });
-        };
+        for (key, ty) in params.iter() {
+            if !self.args.contains_key(key) {
+                return Err(Error::MissingTxArg {
+                    key: key.to_string(),
+                    ty: ty.clone(),
+                });
+            };
+        }
+
+        let tir = tx3_tir::reduce::apply_args(self.original_tir.clone(), &self.args)?;
+        self.resolved_tir = Some(tir);
+
+        Ok(())
     }
 
-    let tir = tx3_tir::reduce::apply_args(job.original_tir.clone(), &job.args)?;
-    job.resolved_tir = Some(tir);
+    async fn eval_pass<C, S>(&mut self, compiler: &mut C, utxos: &S) -> Result<(), Error>
+    where
+        C: Compiler<Expression = tir::Expression, CompilerOp = tir::CompilerOp>,
+        S: UtxoStore,
+    {
+        self.clear_round_state();
 
-    Ok(())
-}
+        let base_tir = self.resolved_tir.clone().expect("resolved_tir must be set");
+        let fees = self.last_eval.as_ref().map(|e| e.fee).unwrap_or(0);
 
-async fn eval_pass<C, S>(
-    job: &mut ResolveJob,
-    compiler: &mut C,
-    utxos: &S,
-) -> Result<(), Error>
-where
-    C: Compiler<Expression = tir::Expression, CompilerOp = tir::CompilerOp>,
-    S: UtxoStore,
-{
-    job.clear_round_state();
+        let attempt = tx3_tir::reduce::apply_fees(base_tir, fees)?;
+        self.after_fees = Some(attempt.clone());
 
-    let base_tir = job.resolved_tir.clone().expect("resolved_tir must be set");
-    let fees = job.last_eval.as_ref().map(|e| e.fee).unwrap_or(0);
+        let attempt = attempt.apply(compiler)?;
+        self.after_compile = Some(attempt.clone());
 
-    let attempt = tx3_tir::reduce::apply_fees(base_tir, fees)?;
-    job.after_fees = Some(attempt.clone());
+        let attempt = tx3_tir::reduce::reduce(attempt)?;
+        self.after_reduce = Some(attempt.clone());
 
-    let attempt = attempt.apply(compiler)?;
-    job.after_compile = Some(attempt.clone());
+        let attempt = self.resolve_inputs(attempt, utxos).await?;
+        self.after_inputs = Some(attempt.clone());
 
-    let attempt = tx3_tir::reduce::reduce(attempt)?;
-    job.after_reduce = Some(attempt.clone());
+        let attempt = tx3_tir::reduce::reduce(attempt)?;
+        self.after_final_reduce = Some(attempt.clone());
 
-    let attempt = crate::inputs::resolve(attempt, utxos, job).await?;
-    job.after_inputs = Some(attempt.clone());
+        if !attempt.is_constant() {
+            return Err(Error::CantCompileNonConstantTir);
+        }
 
-    let attempt = tx3_tir::reduce::reduce(attempt)?;
-    job.after_final_reduce = Some(attempt.clone());
+        let eval = compiler.compile(&attempt)?;
 
-    if !attempt.is_constant() {
-        return Err(Error::CantCompileNonConstantTir);
+        let converged = self.last_eval.as_ref().map_or(false, |prev| eval == *prev);
+        self.last_eval = Some(eval);
+
+        if converged {
+            self.converged = true;
+        }
+
+        self.round += 1;
+
+        Ok(())
     }
-
-    let eval = compiler.compile(&attempt)?;
-
-    let converged = job.last_eval.as_ref().map_or(false, |prev| eval == *prev);
-    job.last_eval = Some(eval);
-
-    if converged {
-        job.converged = true;
-    }
-
-    job.round += 1;
-
-    Ok(())
 }
 
 pub async fn resolve_tx<C, S>(
@@ -167,13 +165,15 @@ where
     C: Compiler<Expression = tir::Expression, CompilerOp = tir::CompilerOp>,
     S: UtxoStore,
 {
-    let mut job = ResolveJob::new(tx, args.clone(), max_optimize_rounds);
-    apply_args_stage(&mut job)?;
+    let max_optimize_rounds = max_optimize_rounds.max(3);
+
+    let mut job = ResolveJob::new(tx, args.clone());
+    job.apply_args()?;
 
     loop {
-        eval_pass(&mut job, compiler, utxos).await?;
+        job.eval_pass(compiler, utxos).await?;
 
-        if job.converged || job.round > job.max_optimize_rounds {
+        if job.converged || job.round > max_optimize_rounds {
             break;
         }
     }

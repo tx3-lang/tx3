@@ -205,7 +205,7 @@ pub use chainfuzz::addresses::KnownAddress;
 pub use chainfuzz::assets::KnownAsset;
 pub use chainfuzz::utxos::UtxoMap;
 pub use chainfuzz::utxos::{utxo_with_random_amount, utxo_with_random_asset, UtxoGenerator};
-pub use chainfuzz::{TxoRef as FuzzTxoRef, Utxo as FuzzUtxo};
+pub use chainfuzz::TxoRef as FuzzTxoRef;
 
 fn from_fuzz_utxo(txo: &chainfuzz::TxoRef, fuzz_utxo: &chainfuzz::Utxo) -> Utxo {
     let address = fuzz_utxo.address.to_vec();

@@ -8,8 +8,7 @@ use tx3_tir::model::{
     core::{Utxo, UtxoRef, UtxoSet},
 };
 
-use crate::inputs::canonical::CanonicalQuery;
-use crate::job::InputResolutionJob;
+use crate::job::{InputResolutionJob, QueryResolution};
 
 #[cfg(test)]
 mod tests;
@@ -25,15 +24,7 @@ enum Specificity {
     Many = 3,
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct PreparedQuery {
-    pub name: String,
-    pub query: CanonicalQuery,
-    #[serde(skip)]
-    pub candidates: Vec<Utxo>,
-}
-
-impl PreparedQuery {
+impl QueryResolution {
     fn specificity(&self) -> Specificity {
         match (self.query.support_many, self.query.collateral) {
             (false, true) => Specificity::SingleCollateral,
@@ -47,10 +38,10 @@ impl PreparedQuery {
         (self.candidates.len(), self.specificity(), &self.name)
     }
 
-    fn pick(self, used: &HashSet<UtxoRef>) -> (String, CanonicalQuery, UtxoSet) {
+    fn pick(&mut self, used: &HashSet<UtxoRef>) {
         let available: Vec<Utxo> = self
             .candidates
-            .into_iter()
+            .drain(..)
             .filter(|utxo| !used.contains(&utxo.r#ref))
             .collect();
 
@@ -66,7 +57,7 @@ impl PreparedQuery {
             pick_single(available, &target)
         };
 
-        (self.name, self.query, selection)
+        self.selection = Some(selection);
     }
 }
 
@@ -132,34 +123,29 @@ fn find_first_excess_utxo(utxos: &HashSet<Utxo>, target: &CanonicalAssets) -> Op
     None
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct Assignment {
-    pub name: String,
-    pub query: CanonicalQuery,
-    pub selection: UtxoSet,
-}
+impl InputResolutionJob {
+    /// Given queries with their ranked candidates (from the approximation
+    /// stage), find an allocation that satisfies all queries simultaneously
+    /// using greedy assignment.
+    pub fn assign_all(&mut self) {
+        // Sort indices by constraint tightness so tightest queries pick first.
+        let mut indices: Vec<usize> = (0..self.queries.len()).collect();
+        indices.sort_by(|&a, &b| {
+            self.queries[a]
+                .constraint_tightness()
+                .cmp(&self.queries[b].constraint_tightness())
+        });
 
-/// Given prepared queries (each with their ranked candidates from the
-/// approximation stage), find an allocation that satisfies all queries
-/// simultaneously using greedy assignment. Writes results into the job.
-pub fn assign_all(irj: &mut InputResolutionJob) {
-    let mut queries = irj.prepared.take().expect("prepared must be set before assign");
-    queries.sort_by(|a, b| a.constraint_tightness().cmp(&b.constraint_tightness()));
+        let mut used: HashSet<UtxoRef> = HashSet::new();
 
-    let mut used: HashSet<UtxoRef> = HashSet::new();
+        for idx in indices {
+            self.queries[idx].pick(&used);
 
-    let assignments = queries
-        .into_iter()
-        .map(|pq| {
-            let (name, query, selection) = pq.pick(&used);
-
-            for utxo in selection.iter() {
-                used.insert(utxo.r#ref.clone());
+            if let Some(selection) = &self.queries[idx].selection {
+                for utxo in selection.iter() {
+                    used.insert(utxo.r#ref.clone());
+                }
             }
-
-            Assignment { name, query, selection }
-        })
-        .collect();
-
-    irj.assignments = Some(assignments);
+        }
+    }
 }

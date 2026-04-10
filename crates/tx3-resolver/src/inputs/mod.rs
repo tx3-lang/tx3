@@ -25,63 +25,65 @@ mod tests;
 
 pub use canonical::CanonicalQuery;
 
-/// Resolve input queries against a UTxO store, mutating the
-/// `InputResolutionJob` with results from each stage.
-pub async fn resolve_queries<T: UtxoStore>(
-    irj: &mut InputResolutionJob,
-    utxos: &T,
-) -> Result<BTreeMap<String, UtxoSet>, Error> {
-    // 1. Narrow: build pool of candidate UTxOs from all queries
-    narrow::build_utxo_pool(irj, utxos).await?;
+impl InputResolutionJob {
+    /// Run the full input resolution pipeline: narrow, approximate, assign.
+    pub async fn resolve_queries<T: UtxoStore>(
+        &mut self,
+        utxos: &T,
+    ) -> Result<BTreeMap<String, UtxoSet>, Error> {
+        // 1. Narrow: build pool of candidate UTxOs from all queries
+        self.build_utxo_pool(utxos).await?;
 
-    // 2. Approximate: rank candidates for each query independently
-    approximate::approximate_queries(irj);
+        // 2. Approximate: rank candidates for each query independently
+        self.approximate_queries();
 
-    // 3. Assign: allocate UTxOs across all queries
-    assign::assign_all(irj);
+        // 3. Assign: allocate UTxOs across all queries
+        self.assign_all();
 
-    // 4. Validate: ensure all queries were resolved
-    let pool_refs: Vec<UtxoRef> = irj
-        .pool
-        .as_ref()
-        .map(|p| p.keys().cloned().collect())
-        .unwrap_or_default();
+        // 4. Validate: ensure all queries were resolved
+        let pool_refs: Vec<UtxoRef> = self
+            .pool
+            .as_ref()
+            .map(|p| p.keys().cloned().collect())
+            .unwrap_or_default();
 
-    let mut all_inputs = BTreeMap::new();
+        let mut all_inputs = BTreeMap::new();
 
-    for entry in irj.assignments.as_ref().expect("assignments must be set") {
-        if entry.selection.is_empty() {
-            return Err(Error::InputNotResolved(
-                entry.name.clone(),
-                entry.query.clone(),
-                pool_refs,
-            ));
+        for qr in &self.queries {
+            let selection = qr.selection.as_ref().expect("selection must be set");
+            if selection.is_empty() {
+                return Err(Error::InputNotResolved(
+                    qr.name.clone(),
+                    qr.query.clone(),
+                    pool_refs,
+                ));
+            }
+            all_inputs.insert(qr.name.clone(), selection.clone());
         }
-        all_inputs.insert(entry.name.clone(), entry.selection.clone());
+
+        Ok(all_inputs)
     }
-
-    irj.resolved_inputs = Some(all_inputs.clone());
-
-    Ok(all_inputs)
 }
 
-/// Resolve all input queries in a TIR transaction.
-pub async fn resolve<T: UtxoStore>(
-    tx: AnyTir,
-    utxos: &T,
-    job: &mut ResolveJob,
-) -> Result<AnyTir, Error> {
-    let mut queries: Vec<(String, CanonicalQuery)> = Vec::new();
+impl ResolveJob {
+    /// Resolve all input queries in a TIR transaction.
+    pub async fn resolve_inputs<T: UtxoStore>(
+        &mut self,
+        tx: AnyTir,
+        utxos: &T,
+    ) -> Result<AnyTir, Error> {
+        let mut queries: Vec<(String, CanonicalQuery)> = Vec::new();
 
-    for (name, query) in tx3_tir::reduce::find_queries(&tx) {
-        queries.push((name, CanonicalQuery::try_from(query)?));
+        for (name, query) in tx3_tir::reduce::find_queries(&tx) {
+            queries.push((name, CanonicalQuery::try_from(query)?));
+        }
+
+        let mut irj = InputResolutionJob::new(queries);
+        let all_inputs = irj.resolve_queries(utxos).await?;
+        self.input_resolution = Some(irj);
+
+        let out = tx3_tir::reduce::apply_inputs(tx, &all_inputs)?;
+
+        Ok(out)
     }
-
-    let mut irj = InputResolutionJob::new(queries);
-    let all_inputs = resolve_queries(&mut irj, utxos).await?;
-    job.input_resolution = Some(irj);
-
-    let out = tx3_tir::reduce::apply_inputs(tx, &all_inputs)?;
-
-    Ok(out)
 }

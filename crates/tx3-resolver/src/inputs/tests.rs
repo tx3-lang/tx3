@@ -5,7 +5,7 @@ use chainfuzz::utxos::UtxoBuilder;
 use tx3_tir::model::{assets::CanonicalAssets, core::UtxoSet, v1beta0 as tir};
 
 use crate::{
-    inputs::{canonical::CanonicalQuery, resolve_queries, test_utils as mock},
+    inputs::{canonical::CanonicalQuery, test_utils as mock},
     job::InputResolutionJob,
     Error, UtxoStore,
 };
@@ -51,7 +51,7 @@ async fn resolve_single<S: UtxoStore>(
     criteria: &CanonicalQuery,
 ) -> UtxoSet {
     let mut irj = InputResolutionJob::new(vec![(name.to_string(), criteria.clone())]);
-    match resolve_queries(&mut irj, store).await {
+    match irj.resolve_queries(store).await {
         Ok(selected) => selected.get(name).cloned().unwrap_or_default(),
         Err(Error::InputNotResolved(..)) => UtxoSet::default(),
         Err(e) => panic!("unexpected error: {e:?}"),
@@ -98,7 +98,7 @@ async fn test_input_query_too_broad() {
     .unwrap();
 
     let mut irj = InputResolutionJob::new(vec![("q".to_string(), empty_criteria)]);
-    let result = resolve_queries(&mut irj, &store).await;
+    let result = irj.resolve_queries(&store).await;
 
     assert!(matches!(result, Err(Error::InputQueryTooBroad)));
 }
@@ -218,7 +218,7 @@ async fn test_resolve_same_collateral_and_input() {
             ("input".to_string(), input_query),
             ("collateral".to_string(), collateral_query),
         ]);
-        let result = resolve_queries(&mut irj, &store).await;
+        let result = irj.resolve_queries(&store).await;
 
         assert!(result.is_err());
     }
@@ -245,7 +245,7 @@ async fn test_resolve_exclusive_assignments() {
             ("large".to_string(), large_query),
             ("small".to_string(), small_query),
         ]);
-        let selected = resolve_queries(&mut irj, &store).await.unwrap();
+        let selected = irj.resolve_queries(&store).await.unwrap();
 
         let large_utxos = selected.get("large").cloned().unwrap_or_default();
         let small_utxos = selected.get("small").cloned().unwrap_or_default();
@@ -286,7 +286,7 @@ async fn test_resolve_competing_queries() {
         ("asset".to_string(), asset_query),
         ("naked".to_string(), naked_query),
     ]);
-    let selected = resolve_queries(&mut irj, &store).await.unwrap();
+    let selected = irj.resolve_queries(&store).await.unwrap();
 
     let asset_utxos = selected.get("asset").cloned().unwrap_or_default();
     let naked_utxos = selected.get("naked").cloned().unwrap_or_default();
@@ -326,7 +326,7 @@ async fn test_resolve_competing_queries_no_solution() {
         ("a".to_string(), query_a),
         ("b".to_string(), query_b),
     ]);
-    let result = resolve_queries(&mut irj, &store).await;
+    let result = irj.resolve_queries(&store).await;
 
     assert!(result.is_err());
 }
@@ -383,7 +383,7 @@ async fn test_cross_query_pool_doesnt_leak_wrong_address() {
         ("a".to_string(), query_a),
         ("b".to_string(), query_b),
     ]);
-    let result = resolve_queries(&mut irj, &store).await;
+    let result = irj.resolve_queries(&store).await;
 
     assert!(result.is_err());
 }

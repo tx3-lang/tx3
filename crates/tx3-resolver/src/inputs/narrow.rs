@@ -156,28 +156,28 @@ impl SearchSpace {
     }
 }
 
-/// Query the UTxO store for all queries and write the shared pool of candidate
-/// UTxOs into the `InputResolutionJob`.
-pub async fn build_utxo_pool<T: UtxoStore>(
-    irj: &mut InputResolutionJob,
-    store: &T,
-) -> Result<(), Error> {
-    let mut pool: HashMap<UtxoRef, Utxo> = HashMap::new();
+impl InputResolutionJob {
+    /// Query the UTxO store for all queries and write the shared pool of
+    /// candidate UTxOs into the job.
+    pub async fn build_utxo_pool<T: UtxoStore>(&mut self, store: &T) -> Result<(), Error> {
+        let mut pool: HashMap<UtxoRef, Utxo> = HashMap::new();
 
-    for (_name, query) in &irj.queries {
-        let space = narrow_search_space(store, query).await?;
-        let refs = space.take(Some(MAX_SEARCH_SPACE_SIZE));
-        let fetched = store.fetch_utxos(refs).await?;
+        for qr in &self.queries {
+            let query = &qr.query;
+            let space = narrow_search_space(store, query).await?;
+            let refs = space.take(Some(MAX_SEARCH_SPACE_SIZE));
+            let fetched = store.fetch_utxos(refs).await?;
 
-        for utxo in fetched.iter() {
-            pool.entry(utxo.r#ref.clone())
-                .or_insert_with(|| utxo.clone());
+            for utxo in fetched.iter() {
+                pool.entry(utxo.r#ref.clone())
+                    .or_insert_with(|| utxo.clone());
+            }
         }
+
+        self.pool = Some(pool);
+
+        Ok(())
     }
-
-    irj.pool = Some(pool);
-
-    Ok(())
 }
 
 async fn narrow_by_asset_class<T: UtxoStore>(
