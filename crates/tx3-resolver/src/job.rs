@@ -126,17 +126,6 @@ impl ResolveJob {
             .unwrap_or_default()
     }
 
-    pub fn dump_to_dir(&self, dir: &Path) -> Result<String, std::io::Error> {
-        std::fs::create_dir_all(dir)?;
-        let dump_id = uuid::Uuid::new_v4().to_string();
-        let path = dir.join(format!("resolve-job-{dump_id}.json"));
-        let file = std::fs::File::create(&path)?;
-        serde_json::to_writer_pretty(file, self)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
-        tracing::debug!(dump_id = %dump_id, path = %path.display(), "diagnostic dump written");
-        Ok(dump_id)
-    }
-
     pub fn to_input_map(&self) -> BTreeMap<String, UtxoSet> {
         self.input_queries
             .iter()
@@ -252,7 +241,7 @@ where
     let result = job.execute(compiler, utxos, max_optimize_rounds).await;
 
     if let Ok(dir) = std::env::var("TX3_DIAGNOSTIC_DUMP") {
-        let _ = job.dump_to_dir(Path::new(&dir));
+        let _ = crate::dump::dump_to_dir(&job, Path::new(&dir));
     }
 
     result

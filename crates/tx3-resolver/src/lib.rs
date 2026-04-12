@@ -2,6 +2,7 @@ use std::collections::HashSet;
 
 use crate::inputs::CanonicalQuery;
 
+pub mod dump;
 pub mod inputs;
 pub mod interop;
 pub mod job;
