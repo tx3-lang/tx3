@@ -1,10 +1,8 @@
 use std::collections::HashSet;
 use tx3_tir::model::{
     assets::{AssetClass, CanonicalAssets},
-    core::{Utxo, UtxoSet},
+    core::{CanonicalOrd, Utxo, UtxoSet},
 };
-
-use crate::inputs::order::compare_utxos_by_ref;
 
 use super::Rank;
 
@@ -147,7 +145,7 @@ impl Rank for VectorRanker {
         candidates.sort_by(|a, b| {
             let ad = a.assets.distance(target, &classes);
             let bd = b.assets.distance(target, &classes);
-            ad.cmp(&bd).then_with(|| compare_utxos_by_ref(a, b))
+            ad.cmp(&bd).then_with(|| a.cmp_canonical(b))
         });
 
         candidates
@@ -245,7 +243,7 @@ mod tests {
             script: None,
         };
 
-        let pool: UtxoSet = HashSet::from([a, b]);
+        let pool: UtxoSet = HashSet::from([a, b]).into();
         let ranked = VectorRanker::sorted_candidates(pool, &target);
 
         assert_eq!(ranked.len(), 2);

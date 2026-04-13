@@ -3,7 +3,7 @@
 use std::collections::HashSet;
 
 use tx3_tir::model::v1beta0 as tir;
-use tx3_tir::model::{assets::CanonicalAssets, core::UtxoRef, core::UtxoSet};
+use tx3_tir::model::{assets::CanonicalAssets, core::UtxoRef};
 
 use crate::Error;
 

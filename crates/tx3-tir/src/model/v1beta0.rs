@@ -9,7 +9,7 @@
 //! representation.
 
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use crate::{
     encoding::{TirRoot, TirVersion},
@@ -196,7 +196,7 @@ pub enum Expression {
     Address(Vec<u8>),
     Hash(Vec<u8>),
     UtxoRefs(Vec<UtxoRef>),
-    UtxoSet(HashSet<Utxo>),
+    UtxoSet(UtxoSet),
     Assets(Vec<AssetExpr>),
 
     EvalParam(Box<Param>),

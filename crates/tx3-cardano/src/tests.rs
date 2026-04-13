@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use tx3_lang::Workspace;
 use tx3_tir::compile::{CompiledTx, Compiler as _};
 use tx3_tir::model::assets::CanonicalAssets;
-use tx3_tir::model::core::{Utxo, UtxoRef};
+use tx3_tir::model::core::{Utxo, UtxoRef, UtxoSet};
 use tx3_tir::model::v1beta0 as tir;
 use tx3_tir::reduce::{self, Apply as _, ArgValue};
 use tx3_tir::Node as _;
@@ -79,7 +79,7 @@ fn address_to_bytes(address: &str) -> ArgValue {
     )
 }
 
-fn wildcard_utxos(datum: Option<tir::Expression>) -> HashSet<Utxo> {
+fn wildcard_utxos(datum: Option<tir::Expression>) -> UtxoSet {
     let tx_hash = hex::decode("267aae354f0d14d82877fa5720f7ddc9b0e3eea3cd2a0757af77db4d975ba81c")
         .unwrap()
         .try_into()
@@ -98,10 +98,10 @@ fn wildcard_utxos(datum: Option<tir::Expression>) -> HashSet<Utxo> {
         script: None,
     };
 
-    HashSet::from([utxo])
+    HashSet::from([utxo]).into()
 }
 
-fn fill_inputs(tx: tir::Tx, utxos: HashSet<Utxo>) -> tir::Tx {
+fn fill_inputs(tx: tir::Tx, utxos: UtxoSet) -> tir::Tx {
     let mut tx = tx;
 
     for (name, _) in reduce::find_queries(&tx) {
@@ -120,7 +120,7 @@ fn compile_tx_round(
     args: &BTreeMap<String, ArgValue>,
     fees: u64,
     compiler: &mut Compiler,
-    utxos: HashSet<Utxo>,
+    utxos: UtxoSet,
 ) -> CompiledTx {
     tx = reduce::apply_args(tx, args).unwrap();
     tx = reduce::apply_fees(tx, fees).unwrap();
@@ -138,7 +138,7 @@ fn test_compile(
     tx: tir::Tx,
     args: &BTreeMap<String, ArgValue>,
     compiler: &mut Compiler,
-    utxos: HashSet<Utxo>,
+    utxos: UtxoSet,
 ) -> CompiledTx {
     let mut fees = 0;
     let mut rounds = 0;

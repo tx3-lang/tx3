@@ -2,10 +2,9 @@ use std::collections::{HashMap, HashSet};
 
 use tx3_tir::model::{
     assets::AssetClass,
-    core::{Utxo, UtxoRef},
+    core::{CanonicalOrd, Utxo, UtxoRef},
 };
 
-use crate::inputs::order::compare_utxo_refs;
 use crate::job::ResolveJob;
 use crate::{inputs::canonical::CanonicalQuery, UtxoPattern, UtxoStore};
 
@@ -150,7 +149,7 @@ impl SearchSpace {
             let others: HashSet<_> = self.union.clone().into();
             let diff: HashSet<_> = others.difference(&best).cloned().collect();
             let mut sorted_diff: Vec<_> = diff.into_iter().collect();
-            sorted_diff.sort_by(compare_utxo_refs);
+            sorted_diff.sort_by(|a, b| a.cmp_canonical(b));
             let remaining: HashSet<_> = sorted_diff.into_iter().take(take - best.len()).collect();
             best.union(&remaining).cloned().collect()
         } else {

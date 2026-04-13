@@ -81,7 +81,7 @@ impl Apply for AnyTir {
 
     fn apply_inputs(
         self,
-        args: &BTreeMap<String, std::collections::HashSet<crate::model::core::Utxo>>,
+        args: &BTreeMap<String, crate::model::core::UtxoSet>,
     ) -> Result<Self, crate::reduce::Error> {
         match self {
             AnyTir::V1Beta0(tx) => Ok(AnyTir::V1Beta0(tx.apply_inputs(args)?)),

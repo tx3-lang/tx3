@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use proptest::prelude::*;
-use tx3_tir::model::{assets::CanonicalAssets, core::UtxoRef};
+use tx3_tir::model::{assets::CanonicalAssets, core::UtxoRef, core::UtxoSet};
 
 use crate::test_utils::{self, utxo, utxo_with_asset};
 
@@ -142,21 +142,23 @@ fn pick_many_with_multi_asset_target() {
 #[test]
 fn excess_returns_none_for_single_utxo() {
     let target = CanonicalAssets::from_naked_amount(1_000_000);
-    let utxos = HashSet::from([utxo(1, 0, b"a", 5_000_000)]);
+    let utxos: UtxoSet = HashSet::from([utxo(1, 0, b"a", 5_000_000)]).into();
     assert!(find_first_excess_utxo(&utxos, &target).is_none());
 }
 
 #[test]
 fn excess_returns_none_when_exactly_covered() {
     let target = CanonicalAssets::from_naked_amount(6_000_000);
-    let utxos = HashSet::from([utxo(1, 0, b"a", 3_000_000), utxo(2, 0, b"a", 3_000_000)]);
+    let utxos: UtxoSet =
+        HashSet::from([utxo(1, 0, b"a", 3_000_000), utxo(2, 0, b"a", 3_000_000)]).into();
     assert!(find_first_excess_utxo(&utxos, &target).is_none());
 }
 
 #[test]
 fn excess_finds_removable_utxo() {
     let target = CanonicalAssets::from_naked_amount(3_000_000);
-    let utxos = HashSet::from([utxo(1, 0, b"a", 5_000_000), utxo(2, 0, b"a", 2_000_000)]);
+    let utxos: UtxoSet =
+        HashSet::from([utxo(1, 0, b"a", 5_000_000), utxo(2, 0, b"a", 2_000_000)]).into();
     // 5M + 2M = 7M, excess = 4M, utxo(2) with 2M fits in excess
     let excess = find_first_excess_utxo(&utxos, &target);
     assert!(excess.is_some());
@@ -165,7 +167,8 @@ fn excess_finds_removable_utxo() {
 #[test]
 fn excess_picks_canonical_ref_when_multiple_removable() {
     let target = CanonicalAssets::from_naked_amount(1_000_000);
-    let utxos = HashSet::from([utxo(2, 0, b"a", 3_000_000), utxo(1, 0, b"a", 3_000_000)]);
+    let utxos: UtxoSet =
+        HashSet::from([utxo(2, 0, b"a", 3_000_000), utxo(1, 0, b"a", 3_000_000)]).into();
 
     let excess = find_first_excess_utxo(&utxos, &target).unwrap();
     assert_eq!(excess.r#ref.txid[0], 1);
