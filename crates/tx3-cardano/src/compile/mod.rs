@@ -756,7 +756,7 @@ fn compile_withdrawal_redeemers(
     let redeemers = tx
         .adhoc
         .iter()
-        .filter(|x| x.name.as_str() == "withdraw")
+        .filter(|x| x.name.as_str() == "withdrawal")
         .map(|adhoc| compile_single_withdrawal_redeemer(adhoc, compiled_body, network))
         .filter_map(|x| x.transpose())
         .collect::<Result<Vec<_>, _>>()?;

@@ -130,8 +130,23 @@ pub fn expr_into_reward_account(
 ) -> Result<primitives::RewardAccount, Error> {
     let address = expr_into_address(expr, network)?;
 
-    let hash_bytes = match address {
-        pallas::ledger::addresses::Address::Shelley(x) => x.delegation().to_vec(),
+    let reward_bytes = match address {
+        pallas::ledger::addresses::Address::Shelley(x) => {
+            let payload = match x.delegation() {
+                pallas::ledger::addresses::ShelleyDelegationPart::Key(h) => {
+                    pallas::ledger::addresses::StakePayload::Stake(*h)
+                }
+                pallas::ledger::addresses::ShelleyDelegationPart::Script(h) => {
+                    pallas::ledger::addresses::StakePayload::Script(*h)
+                }
+                _ => {
+                    return Err(Error::FormatError(
+                        "can't convert address delegation to reward account".to_string(),
+                    ))
+                }
+            };
+            pallas::ledger::addresses::StakeAddress::new(x.network(), payload).to_vec()
+        }
         pallas::ledger::addresses::Address::Stake(x) => x.to_vec(),
         _ => {
             return Err(Error::FormatError(
@@ -140,7 +155,7 @@ pub fn expr_into_reward_account(
         }
     };
 
-    Ok(primitives::RewardAccount::from(hash_bytes))
+    Ok(primitives::RewardAccount::from(reward_bytes))
 }
 
 pub fn expr_into_stake_credential(
