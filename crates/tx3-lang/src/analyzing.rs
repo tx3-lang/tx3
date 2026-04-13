@@ -577,7 +577,11 @@ impl Analyzable for NegateOp {
 impl Analyzable for RecordConstructorField {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
         let name = self.name.analyze(parent.clone());
-        let value = self.value.analyze(parent.clone());
+
+        // skip the record-field scope so that param names aren't shadowed
+        // by same-named type fields (e.g. `MyType { counter: counter }`)
+        let outer = parent.as_ref().and_then(|p| p.parent.clone());
+        let value = self.value.analyze(outer);
 
         name + value
     }

@@ -1030,4 +1030,6 @@ mod tests {
     test_lowering!(list_concat);
 
     test_lowering!(buidler_fest_2026);
+
+    test_lowering!(param_field_shadow);
 }

@@ -1,0 +1,15 @@
+type MyData {
+    counter: Int,
+}
+
+party Receiver;
+
+tx test_shadow(counter: Int) {
+    output {
+        to: Receiver,
+        amount: fees,
+        datum: MyData {
+            counter: counter,
+        },
+    }
+}
