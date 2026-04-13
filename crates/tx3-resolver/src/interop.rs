@@ -74,6 +74,17 @@ pub struct BytesEnvelope {
     pub content_type: BytesEncoding,
 }
 
+/// Envelope for serialized TIR (Transaction Intermediate Representation) bytes.
+/// Used for serialization/deserialization of TIR across dump mechanism, TRP, etc.
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct TirEnvelope {
+    // Aliases for backward compatibility
+    #[serde(alias = "bytecode", alias = "payload")]
+    pub content: String,
+    pub encoding: BytesEncoding,
+    pub version: String,
+}
+
 impl BytesEnvelope {
     pub fn from_hex(hex: &str) -> Result<Self, Error> {
         Ok(Self {
@@ -88,6 +99,39 @@ impl From<BytesEnvelope> for Vec<u8> {
         match envelope.content_type {
             BytesEncoding::Base64 => base64_to_bytes(&envelope.content).unwrap(),
             BytesEncoding::Hex => hex_to_bytes(&envelope.content).unwrap(),
+        }
+    }
+}
+
+impl From<TirEnvelope> for Vec<u8> {
+    fn from(envelope: TirEnvelope) -> Self {
+        match envelope.encoding {
+            BytesEncoding::Base64 => base64_to_bytes(&envelope.content).unwrap(),
+            BytesEncoding::Hex => hex_to_bytes(&envelope.content).unwrap(),
+        }
+    }
+}
+
+impl TryFrom<TirEnvelope> for tx3_tir::encoding::AnyTir {
+    type Error = crate::Error;
+
+    fn try_from(envelope: TirEnvelope) -> Result<Self, Self::Error> {
+        let version = tx3_tir::encoding::TirVersion::try_from(envelope.version.as_str())?;
+        let bytes: Vec<u8> = envelope.into();
+        let tir = tx3_tir::encoding::from_bytes(&bytes, version)?;
+        Ok(tir)
+    }
+}
+
+impl From<tx3_tir::encoding::AnyTir> for TirEnvelope {
+    fn from(tir: tx3_tir::encoding::AnyTir) -> Self {
+        let (bytes, version) = match tir {
+            tx3_tir::encoding::AnyTir::V1Beta0(tx) => tx3_tir::encoding::to_bytes(&tx),
+        };
+        Self {
+            content: hex::encode(bytes),
+            encoding: BytesEncoding::Hex,
+            version: version.to_string(),
         }
     }
 }
@@ -308,16 +352,10 @@ fn assets_from_json(value: &Value) -> Result<CanonicalAssets, Error> {
 }
 
 pub fn utxo_from_json(value: &Value) -> Result<Utxo, Error> {
-    let ref_str = value["ref"]
-        .as_str()
-        .ok_or(Error::ValueIsNotAString)?;
+    let ref_str = value["ref"].as_str().ok_or(Error::ValueIsNotAString)?;
     let utxo_ref = string_to_utxo_ref(ref_str)?;
 
-    let address = hex_to_bytes(
-        value["address"]
-            .as_str()
-            .ok_or(Error::ValueIsNotAString)?,
-    )?;
+    let address = hex_to_bytes(value["address"].as_str().ok_or(Error::ValueIsNotAString)?)?;
 
     let assets = assets_from_json(&value["assets"])?;
 

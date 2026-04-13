@@ -3,7 +3,8 @@ use std::collections::{HashMap, HashSet};
 use serde_json::Value;
 use tx3_cardano::Compiler;
 use tx3_resolver::{resolve_tx, Error, UtxoPattern, UtxoRef, UtxoSet, UtxoStore};
-use tx3_tir::encoding::{self, AnyTir, TirVersion};
+use tx3_resolver::interop::TirEnvelope;
+use tx3_tir::encoding::AnyTir;
 use tx3_tir::model::assets::AssetClass;
 use tx3_tir::model::core::Utxo;
 use tx3_tir::reduce::ArgMap;
@@ -36,21 +37,10 @@ fn load_fixture(name: &str) -> ResolveFixture {
     let value: Value =
         serde_json::from_str(&contents).unwrap_or_else(|e| panic!("failed to parse {path}: {e}"));
 
-    // 1. Decode TIR from hex CBOR
-    let tir_obj = &value["original_tir"];
-    let tir_bytes = hex::decode(
-        tir_obj["content"]
-            .as_str()
-            .expect("tir content should be hex string"),
-    )
-    .expect("tir content should be valid hex");
-    let version = TirVersion::try_from(
-        tir_obj["version"]
-            .as_str()
-            .expect("tir version should be a string"),
-    )
-    .expect("tir version should be valid");
-    let tir = encoding::from_bytes(&tir_bytes, version).expect("tir should decode from CBOR");
+    // 1. Decode TIR from TirEnvelope
+    let tir_envelope: TirEnvelope = serde_json::from_value(value["original_tir"].clone())
+        .expect("original_tir should be a valid TirEnvelope");
+    let tir = AnyTir::try_from(tir_envelope).expect("tir should decode from TirEnvelope");
 
     // 2. Parse args using TIR param types + interop
     let params = tx3_tir::reduce::find_params(&tir);

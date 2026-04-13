@@ -3,13 +3,13 @@ use std::path::Path;
 use serde_json::{json, Map, Value};
 
 use tx3_tir::compile::CompiledTx;
-use tx3_tir::encoding::{self, AnyTir};
+use tx3_tir::encoding::AnyTir;
 use tx3_tir::model::assets::CanonicalAssets;
 use tx3_tir::model::core::{Utxo, UtxoRef};
 use tx3_tir::reduce::ArgValue;
 
 use crate::inputs::CanonicalQuery;
-use crate::interop;
+use crate::interop::{self, TirEnvelope};
 use crate::job::{QueryResolution, ResolveJob, ResolveLog, ResolveLogEntry};
 
 pub trait DiagnosticDump {
@@ -28,14 +28,8 @@ impl DiagnosticDump for UtxoRef {
 
 impl DiagnosticDump for AnyTir {
     fn to_dump(&self) -> Value {
-        let (bytes, version) = match self {
-            AnyTir::V1Beta0(tx) => encoding::to_bytes(tx),
-        };
-        json!({
-            "content": hex::encode(bytes),
-            "encoding": "hex",
-            "version": version.to_string()
-        })
+        let envelope = TirEnvelope::from(self.clone());
+        serde_json::to_value(envelope).expect("TirEnvelope should serialize")
     }
 }
 
