@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap};
 
 use tx3_lang::Workspace;
 use tx3_tir::compile::{CompiledTx, Compiler as _};
@@ -98,7 +98,7 @@ fn wildcard_utxos(datum: Option<tir::Expression>) -> UtxoSet {
         script: None,
     };
 
-    HashSet::from([utxo]).into()
+    [utxo].into()
 }
 
 fn fill_inputs(tx: tir::Tx, utxos: UtxoSet) -> tir::Tx {

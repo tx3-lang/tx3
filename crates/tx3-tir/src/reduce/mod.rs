@@ -259,14 +259,7 @@ impl Coerceable for Expression {
         match self {
             Expression::None => Ok(Expression::None),
             Expression::Assets(x) => Ok(Expression::Assets(x)),
-            Expression::UtxoSet(x) => {
-                let all = x
-                    .into_iter()
-                    .map(|x| x.assets)
-                    .fold(CanonicalAssets::empty(), |acc, x| acc + x);
-
-                Ok(Expression::Assets(all.into()))
-            }
+            Expression::UtxoSet(x) => Ok(Expression::Assets(x.total_assets().into())),
             _ => Err(Error::CannotCoerceIntoAssets(self)),
         }
     }
@@ -275,9 +268,8 @@ impl Coerceable for Expression {
         match self {
             Expression::None => Ok(Expression::None),
             Expression::UtxoSet(x) => Ok(x
-                .into_iter()
-                .next()
-                .and_then(|x| x.datum)
+                .first_by_ref()
+                .and_then(|utxo| utxo.datum.clone())
                 .unwrap_or(Expression::None)),
             Expression::List(x) => Ok(Expression::List(x)),
             Expression::Map(x) => Ok(Expression::Map(x)),
@@ -1596,13 +1588,13 @@ mod tests {
 
         let inputs = BTreeMap::from([(
             "source".to_string(),
-            UtxoSet::from(std::collections::HashSet::from([Utxo {
+            UtxoSet::from([Utxo {
                 r#ref: UtxoRef::new(b"abc", 0),
                 address: b"abc".to_vec(),
                 datum: None,
                 assets: CanonicalAssets::from_naked_amount(300),
                 script: None,
-            }])),
+            }]),
         )]);
 
         let after = apply_inputs(before, &inputs).unwrap();

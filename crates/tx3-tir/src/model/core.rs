@@ -96,10 +96,21 @@ impl UtxoSet {
         self.iter().map(|utxo| utxo.r#ref.clone()).collect()
     }
 
+    pub fn into_refs(self) -> HashSet<UtxoRef> {
+        self.into_iter().map(|utxo| utxo.r#ref).collect()
+    }
+
     pub fn refs_sorted(&self) -> Vec<UtxoRef> {
         self.iter_sorted_by_ref()
             .into_iter()
             .map(|utxo| utxo.r#ref.clone())
+            .collect()
+    }
+
+    pub fn into_refs_sorted(self) -> Vec<UtxoRef> {
+        self.into_sorted_by_ref()
+            .into_iter()
+            .map(|utxo| utxo.r#ref)
             .collect()
     }
 
@@ -132,6 +143,12 @@ impl std::ops::DerefMut for UtxoSet {
 impl From<HashSet<Utxo>> for UtxoSet {
     fn from(value: HashSet<Utxo>) -> Self {
         Self(value)
+    }
+}
+
+impl<const N: usize> From<[Utxo; N]> for UtxoSet {
+    fn from(value: [Utxo; N]) -> Self {
+        value.into_iter().collect()
     }
 }
 
@@ -199,7 +216,7 @@ mod tests {
 
     #[test]
     fn utxo_set_sorted_helpers_are_canonical() {
-        let set: UtxoSet = HashSet::from([utxo(3, 0, 3), utxo(1, 1, 1), utxo(1, 0, 2)]).into();
+        let set: UtxoSet = [utxo(3, 0, 3), utxo(1, 1, 1), utxo(1, 0, 2)].into();
 
         let refs = set.refs_sorted();
         assert_eq!(refs[0], UtxoRef::new(&[1], 0));
@@ -211,7 +228,7 @@ mod tests {
 
     #[test]
     fn utxo_set_total_assets_sums_values() {
-        let set: UtxoSet = HashSet::from([utxo(1, 0, 2), utxo(2, 0, 3)]).into();
+        let set: UtxoSet = [utxo(1, 0, 2), utxo(2, 0, 3)].into();
         assert_eq!(set.total_assets().naked_amount(), Some(5));
     }
 }

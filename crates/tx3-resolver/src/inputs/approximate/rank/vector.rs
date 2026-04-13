@@ -243,7 +243,7 @@ mod tests {
             script: None,
         };
 
-        let pool: UtxoSet = HashSet::from([a, b]).into();
+        let pool: UtxoSet = [a, b].into();
         let ranked = VectorRanker::sorted_candidates(pool, &target);
 
         assert_eq!(ranked.len(), 2);
