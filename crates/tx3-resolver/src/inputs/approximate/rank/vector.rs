@@ -4,6 +4,8 @@ use tx3_tir::model::{
     core::{Utxo, UtxoSet},
 };
 
+use crate::inputs::order::compare_utxos_by_ref;
+
 use super::Rank;
 
 const MISMATCH_PENALTY: f64 = 3.0;
@@ -137,10 +139,16 @@ pub struct VectorRanker;
 
 impl Rank for VectorRanker {
     fn sorted_candidates(search_space: UtxoSet, target: &CanonicalAssets) -> Vec<Utxo> {
-        let classes: Vec<_> = class_union!(search_space, target);
+        let class_set: HashSet<_> = class_union!(search_space, target);
+        let mut classes: Vec<_> = class_set.into_iter().collect();
+        classes.sort();
 
         let mut candidates = Vec::from_iter(search_space);
-        candidates.sort_by_cached_key(|utxo| utxo.assets.distance(target, &classes));
+        candidates.sort_by(|a, b| {
+            let ad = a.assets.distance(target, &classes);
+            let bd = b.assets.distance(target, &classes);
+            ad.cmp(&bd).then_with(|| compare_utxos_by_ref(a, b))
+        });
 
         candidates
     }
@@ -150,6 +158,7 @@ impl Rank for VectorRanker {
 mod tests {
     use super::*;
     use proptest::prelude::*;
+    use tx3_tir::model::core::UtxoRef;
 
     use crate::test_utils::{any_composite_asset, any_defined_asset, any_naked_asset};
 
@@ -214,5 +223,33 @@ mod tests {
 
             assert!(distance_a <= distance_b);
         }
+    }
+
+    #[test]
+    fn equal_distance_candidates_use_canonical_ref_tiebreaker() {
+        let target = CanonicalAssets::from_naked_amount(1_000);
+
+        let a = Utxo {
+            r#ref: UtxoRef::new(&[2], 0),
+            address: vec![],
+            assets: CanonicalAssets::from_naked_amount(1_000),
+            datum: None,
+            script: None,
+        };
+
+        let b = Utxo {
+            r#ref: UtxoRef::new(&[1], 0),
+            address: vec![],
+            assets: CanonicalAssets::from_naked_amount(1_000),
+            datum: None,
+            script: None,
+        };
+
+        let pool: UtxoSet = HashSet::from([a, b]);
+        let ranked = VectorRanker::sorted_candidates(pool, &target);
+
+        assert_eq!(ranked.len(), 2);
+        assert_eq!(ranked[0].r#ref.txid, vec![1]);
+        assert_eq!(ranked[1].r#ref.txid, vec![2]);
     }
 }

@@ -162,6 +162,15 @@ fn excess_finds_removable_utxo() {
     assert!(excess.is_some());
 }
 
+#[test]
+fn excess_picks_canonical_ref_when_multiple_removable() {
+    let target = CanonicalAssets::from_naked_amount(1_000_000);
+    let utxos = HashSet::from([utxo(2, 0, b"a", 3_000_000), utxo(1, 0, b"a", 3_000_000)]);
+
+    let excess = find_first_excess_utxo(&utxos, &target).unwrap();
+    assert_eq!(excess.r#ref.txid[0], 1);
+}
+
 // ---------------------------------------------------------------------------
 // assign_all
 // ---------------------------------------------------------------------------

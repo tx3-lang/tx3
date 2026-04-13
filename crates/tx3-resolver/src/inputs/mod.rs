@@ -14,6 +14,7 @@ mod approximate;
 pub(crate) mod assign;
 mod canonical;
 mod narrow;
+mod order;
 
 #[cfg(test)]
 mod tests;

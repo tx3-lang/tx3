@@ -8,6 +8,7 @@ use tx3_tir::model::{
     core::{Utxo, UtxoRef, UtxoSet},
 };
 
+use crate::inputs::order::compare_utxos_by_ref;
 use crate::job::{QueryResolution, ResolveJob};
 use crate::Error;
 
@@ -115,7 +116,10 @@ fn find_first_excess_utxo(utxos: &HashSet<Utxo>, target: &CanonicalAssets) -> Op
         return None;
     }
 
-    for utxo in utxos.iter() {
+    let mut sorted: Vec<_> = utxos.iter().collect();
+    sorted.sort_by(|a, b| compare_utxos_by_ref(a, b));
+
+    for utxo in sorted {
         if excess.contains_total(&utxo.assets) {
             return Some(utxo.clone());
         }
