@@ -514,6 +514,30 @@ async fn min_utxo_test() {
 }
 
 #[pollster::test]
+async fn withdrawal_redeemer_test() {
+    let mut compiler = test_compiler(None);
+    let utxos = wildcard_utxos(None);
+    let protocol = load_protocol("withdrawal");
+
+    let tx = protocol.tir("transfer").unwrap().clone();
+
+    let args = BTreeMap::from([
+        arg_value!("sender", "address", "addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"),
+        arg_value!("receiver", "address", "addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"),
+        arg_value!("quantity", "int", 100_000_000),
+    ]);
+
+    let tx = test_compile(tx, &args, &mut compiler, utxos);
+
+    println!("{}", hex::encode(&tx.payload));
+
+    assert_eq!(
+        hex::encode(tx.hash),
+        "3aac7067d10d022a364b4ce8723edca7a3f55911da698f198511bab78fcf46d8"
+    );
+}
+
+#[pollster::test]
 async fn min_utxo_compiler_op_test() {
     let compiler = test_compiler(None);
 
