@@ -2,10 +2,14 @@ use std::collections::HashSet;
 
 use crate::inputs::CanonicalQuery;
 
+pub mod dump;
 pub mod inputs;
 pub mod interop;
 pub mod job;
 pub mod trp;
+
+#[cfg(test)]
+pub(crate) mod test_utils;
 
 pub use job::resolve_tx;
 pub use tx3_tir::model::assets::CanonicalAssets;

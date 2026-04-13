@@ -71,7 +71,7 @@ pub fn expr_into_metadatum(
 pub fn expr_into_utxo_refs(expr: &tir::Expression) -> Result<Vec<UtxoRef>, Error> {
     match expr {
         tir::Expression::UtxoRefs(x) => Ok(x.clone()),
-        tir::Expression::UtxoSet(x) => Ok(x.iter().map(|x| x.r#ref.clone()).collect()),
+        tir::Expression::UtxoSet(x) => Ok(x.refs_sorted()),
         tir::Expression::String(x) => {
             let (raw_txid, raw_output_ix) = x.split_once("#").expect("Invalid utxo ref");
             Ok(vec![UtxoRef {

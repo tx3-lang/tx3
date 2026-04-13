@@ -2994,6 +2994,7 @@ dependencies = [
  "thiserror 2.0.11",
  "tracing",
  "trait-variant",
+ "tx3-cardano",
  "tx3-tir",
  "uuid",
 ]

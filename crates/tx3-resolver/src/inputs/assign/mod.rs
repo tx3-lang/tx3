@@ -3,13 +3,12 @@
 
 use std::collections::HashSet;
 
+use crate::job::{QueryResolution, ResolveJob};
+use crate::Error;
 use tx3_tir::model::{
     assets::CanonicalAssets,
     core::{Utxo, UtxoRef, UtxoSet},
 };
-
-use crate::job::{QueryResolution, ResolveJob};
-use crate::Error;
 
 #[cfg(test)]
 mod tests;
@@ -74,7 +73,7 @@ fn pick_single(candidates: Vec<Utxo>, target: &CanonicalAssets) -> UtxoSet {
 /// Accumulate candidates greedily until the target is fully covered,
 /// then trim any excess UTxOs that aren't needed.
 fn pick_many(candidates: Vec<Utxo>, target: &CanonicalAssets) -> UtxoSet {
-    let mut matched = HashSet::new();
+    let mut matched = UtxoSet::new();
     let mut pending = target.clone();
 
     for candidate in candidates {
@@ -90,7 +89,7 @@ fn pick_many(candidates: Vec<Utxo>, target: &CanonicalAssets) -> UtxoSet {
     }
 
     if !pending.is_empty_or_negative() {
-        return HashSet::new();
+        return UtxoSet::new();
     }
 
     while let Some(utxo) = find_first_excess_utxo(&matched, target) {
@@ -100,14 +99,12 @@ fn pick_many(candidates: Vec<Utxo>, target: &CanonicalAssets) -> UtxoSet {
     matched
 }
 
-fn find_first_excess_utxo(utxos: &HashSet<Utxo>, target: &CanonicalAssets) -> Option<Utxo> {
+fn find_first_excess_utxo(utxos: &UtxoSet, target: &CanonicalAssets) -> Option<Utxo> {
     if utxos.len() == 1 {
         return None;
     }
 
-    let available = utxos
-        .iter()
-        .fold(CanonicalAssets::empty(), |acc, x| acc + x.assets.clone());
+    let available = utxos.total_assets();
 
     let excess = available - target.clone();
 
@@ -115,7 +112,7 @@ fn find_first_excess_utxo(utxos: &HashSet<Utxo>, target: &CanonicalAssets) -> Op
         return None;
     }
 
-    for utxo in utxos.iter() {
+    for utxo in utxos.iter_sorted_by_ref() {
         if excess.contains_total(&utxo.assets) {
             return Some(utxo.clone());
         }

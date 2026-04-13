@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use tx3_tir::model::{
     assets::AssetClass,
-    core::{Utxo, UtxoRef},
+    core::{CanonicalOrd, Utxo, UtxoRef},
 };
 
 use crate::job::ResolveJob;
@@ -148,7 +148,9 @@ impl SearchSpace {
         if best.len() < take {
             let others: HashSet<_> = self.union.clone().into();
             let diff: HashSet<_> = others.difference(&best).cloned().collect();
-            let remaining: HashSet<_> = diff.into_iter().take(take - best.len()).collect();
+            let mut sorted_diff: Vec<_> = diff.into_iter().collect();
+            sorted_diff.sort_by(|a, b| a.cmp_canonical(b));
+            let remaining: HashSet<_> = sorted_diff.into_iter().take(take - best.len()).collect();
             best.union(&remaining).cloned().collect()
         } else {
             best
@@ -245,7 +247,7 @@ mod tests {
 
     use super::*;
 
-    use crate::inputs::test_utils as mock;
+    use crate::test_utils as mock;
 
     fn assets_for(asset: mock::KnownAsset, amount: i128) -> CanonicalAssets {
         CanonicalAssets::from_asset(
@@ -429,5 +431,35 @@ mod tests {
         let min_assets = assets_for(asset, 1);
         let criteria = cq(Some(&addr), Some(min_assets), refs);
         assert_space_matches(&store, criteria, expected_best).await;
+    }
+
+    #[test]
+    fn test_take_prefers_canonical_refs_when_filling_from_union() {
+        let mkref = |b: u8| UtxoRef::new(&[b], 0);
+
+        let best_ref = mkref(3);
+        let mut best = HashSet::new();
+        best.insert(best_ref.clone());
+
+        let mut union = HashSet::new();
+        union.insert(best_ref);
+        union.insert(mkref(9));
+        union.insert(mkref(1));
+        union.insert(mkref(5));
+
+        let space = SearchSpace {
+            union: Subset::Specific(union),
+            intersection: Subset::Specific(best),
+            by_address_count: None,
+            by_asset_class_count: None,
+            by_ref_count: None,
+        };
+
+        let got = space.take(Some(3));
+
+        assert!(got.contains(&mkref(3)));
+        assert!(got.contains(&mkref(1)));
+        assert!(got.contains(&mkref(5)));
+        assert!(!got.contains(&mkref(9)));
     }
 }

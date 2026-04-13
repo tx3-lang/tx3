@@ -5,9 +5,7 @@ use chainfuzz::utxos::UtxoBuilder;
 use tx3_tir::model::{assets::CanonicalAssets, core::UtxoSet, v1beta0 as tir};
 
 use crate::{
-    inputs::{canonical::CanonicalQuery, test_utils as mock},
-    job::ResolveJob,
-    Error, UtxoStore,
+    inputs::canonical::CanonicalQuery, job::ResolveJob, test_utils as mock, Error, UtxoStore,
 };
 
 fn new_input_query(
@@ -51,11 +49,7 @@ fn stub_job(queries: Vec<(String, CanonicalQuery)>) -> ResolveJob {
     job
 }
 
-async fn resolve_single<S: UtxoStore>(
-    store: &S,
-    name: &str,
-    criteria: &CanonicalQuery,
-) -> UtxoSet {
+async fn resolve_single<S: UtxoStore>(store: &S, name: &str, criteria: &CanonicalQuery) -> UtxoSet {
     let mut job = stub_job(vec![(name.to_string(), criteria.clone())]);
     match job.resolve_queries(store).await {
         Ok(()) => job.to_input_map().remove(name).unwrap_or_default(),
@@ -138,14 +132,22 @@ async fn test_resolve_by_naked_amount() {
 
     // too much — no single UTxO covers it
     let criteria = new_input_query(
-        &mock::KnownAddress::Alice, Some(6_000_000), vec![], false, false,
+        &mock::KnownAddress::Alice,
+        Some(6_000_000),
+        vec![],
+        false,
+        false,
     );
     let utxos = resolve_single(&store, "q", &criteria).await;
     assert!(utxos.is_empty());
 
     // within range
     let criteria = new_input_query(
-        &mock::KnownAddress::Alice, Some(4_000_000), vec![], false, false,
+        &mock::KnownAddress::Alice,
+        Some(4_000_000),
+        vec![],
+        false,
+        false,
     );
     let utxos = resolve_single(&store, "q", &criteria).await;
     assert_eq!(dbg!(utxos.len()), 1);
@@ -162,23 +164,53 @@ async fn test_resolve_by_asset_amount() {
 
     for address in mock::KnownAddress::everyone() {
         // single, too much
-        let criteria = new_input_query(&address, None, vec![(mock::KnownAsset::Hosky, 1001)], false, false);
+        let criteria = new_input_query(
+            &address,
+            None,
+            vec![(mock::KnownAsset::Hosky, 1001)],
+            false,
+            false,
+        );
         assert!(resolve_single(&store, "q", &criteria).await.is_empty());
 
         // many, accumulates
-        let criteria = new_input_query(&address, None, vec![(mock::KnownAsset::Hosky, 1001)], true, false);
+        let criteria = new_input_query(
+            &address,
+            None,
+            vec![(mock::KnownAsset::Hosky, 1001)],
+            true,
+            false,
+        );
         assert!(resolve_single(&store, "q", &criteria).await.len() > 1);
 
         // many, still not enough
-        let criteria = new_input_query(&address, None, vec![(mock::KnownAsset::Hosky, 4001)], true, false);
+        let criteria = new_input_query(
+            &address,
+            None,
+            vec![(mock::KnownAsset::Hosky, 4001)],
+            true,
+            false,
+        );
         assert!(resolve_single(&store, "q", &criteria).await.is_empty());
 
         // wrong asset
-        let criteria = new_input_query(&address, None, vec![(mock::KnownAsset::Snek, 500)], false, false);
+        let criteria = new_input_query(
+            &address,
+            None,
+            vec![(mock::KnownAsset::Snek, 500)],
+            false,
+            false,
+        );
         assert!(resolve_single(&store, "q", &criteria).await.is_empty());
 
         // right asset, within range
-        let criteria = new_input_query(&address, None, vec![(mock::KnownAsset::Hosky, 500)], false, false);
+        let criteria = new_input_query(
+            &address,
+            None,
+            vec![(mock::KnownAsset::Hosky, 500)],
+            false,
+            false,
+        );
         assert_eq!(resolve_single(&store, "q", &criteria).await.len(), 1);
     }
 }
@@ -285,8 +317,13 @@ async fn test_resolve_competing_queries() {
     );
 
     let address = mock::KnownAddress::Alice;
-    let asset_query =
-        new_input_query(&address, None, vec![(mock::KnownAsset::Hosky, 1)], false, false);
+    let asset_query = new_input_query(
+        &address,
+        None,
+        vec![(mock::KnownAsset::Hosky, 1)],
+        false,
+        false,
+    );
     let naked_query = new_input_query(&address, Some(1), vec![], false, false);
 
     let mut job = stub_job(vec![
@@ -308,7 +345,12 @@ async fn test_resolve_competing_queries() {
         Some(mock::KnownAsset::Hosky.name().as_ref()),
         1,
     );
-    assert!(asset_utxos.iter().next().unwrap().assets.contains_total(&target_asset));
+    assert!(asset_utxos
+        .iter()
+        .next()
+        .unwrap()
+        .assets
+        .contains_total(&target_asset));
 }
 
 #[pollster::test]
@@ -325,15 +367,22 @@ async fn test_resolve_competing_queries_no_solution() {
     );
 
     let address = mock::KnownAddress::Alice;
-    let query_a =
-        new_input_query(&address, None, vec![(mock::KnownAsset::Hosky, 1)], false, false);
-    let query_b =
-        new_input_query(&address, None, vec![(mock::KnownAsset::Hosky, 1)], false, false);
+    let query_a = new_input_query(
+        &address,
+        None,
+        vec![(mock::KnownAsset::Hosky, 1)],
+        false,
+        false,
+    );
+    let query_b = new_input_query(
+        &address,
+        None,
+        vec![(mock::KnownAsset::Hosky, 1)],
+        false,
+        false,
+    );
 
-    let mut job = stub_job(vec![
-        ("a".to_string(), query_a),
-        ("b".to_string(), query_b),
-    ]);
+    let mut job = stub_job(vec![("a".to_string(), query_a), ("b".to_string(), query_b)]);
     let result = job.resolve_queries(&store).await;
 
     assert!(result.is_err());
@@ -384,13 +433,16 @@ async fn test_cross_query_pool_doesnt_leak_wrong_address() {
     let addr_a = mock::KnownAddress::Alice;
     let addr_b = mock::KnownAddress::Bob;
 
-    let query_a = new_input_query(&addr_a, None, vec![(mock::KnownAsset::Hosky, 1)], false, false);
+    let query_a = new_input_query(
+        &addr_a,
+        None,
+        vec![(mock::KnownAsset::Hosky, 1)],
+        false,
+        false,
+    );
     let query_b = new_input_query(&addr_b, Some(1_000_000), vec![], false, false);
 
-    let mut job = stub_job(vec![
-        ("a".to_string(), query_a),
-        ("b".to_string(), query_b),
-    ]);
+    let mut job = stub_job(vec![("a".to_string(), query_a), ("b".to_string(), query_b)]);
     let result = job.resolve_queries(&store).await;
 
     assert!(result.is_err());

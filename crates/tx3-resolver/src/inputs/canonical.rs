@@ -3,7 +3,7 @@
 use std::collections::HashSet;
 
 use tx3_tir::model::v1beta0 as tir;
-use tx3_tir::model::{assets::CanonicalAssets, core::UtxoRef, core::UtxoSet};
+use tx3_tir::model::{assets::CanonicalAssets, core::UtxoRef};
 
 use crate::Error;
 
@@ -31,12 +31,6 @@ macro_rules! data_or_bail {
             .as_utxo_refs()
             .ok_or(Error::ExpectedData("utxo refs".to_string(), $expr.clone()))
     };
-}
-
-pub struct Diagnostic {
-    pub query: tir::InputQuery,
-    pub utxos: UtxoSet,
-    pub selected: UtxoSet,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]

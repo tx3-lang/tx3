@@ -3,6 +3,7 @@ use crate::{
     model::v1beta0,
     Visitor,
 };
+use serde::{de::DeserializeOwned, Serialize};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -30,7 +31,7 @@ pub struct CompiledTx {
     pub ex_units: u64,
 }
 
-pub trait Compiler {
+pub trait Compiler: Serialize + DeserializeOwned {
     type CompilerOp;
     type Expression;
 

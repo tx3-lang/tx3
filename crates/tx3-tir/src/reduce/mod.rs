@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap};
 
 use crate::model::assets::CanonicalAssets;
 use crate::model::core::*;
@@ -259,14 +259,7 @@ impl Coerceable for Expression {
         match self {
             Expression::None => Ok(Expression::None),
             Expression::Assets(x) => Ok(Expression::Assets(x)),
-            Expression::UtxoSet(x) => {
-                let all = x
-                    .into_iter()
-                    .map(|x| x.assets)
-                    .fold(CanonicalAssets::empty(), |acc, x| acc + x);
-
-                Ok(Expression::Assets(all.into()))
-            }
+            Expression::UtxoSet(x) => Ok(Expression::Assets(x.total_assets().into())),
             _ => Err(Error::CannotCoerceIntoAssets(self)),
         }
     }
@@ -275,9 +268,8 @@ impl Coerceable for Expression {
         match self {
             Expression::None => Ok(Expression::None),
             Expression::UtxoSet(x) => Ok(x
-                .into_iter()
-                .next()
-                .and_then(|x| x.datum)
+                .first_by_ref()
+                .and_then(|utxo| utxo.datum.clone())
                 .unwrap_or(Expression::None)),
             Expression::List(x) => Ok(Expression::List(x)),
             Expression::Map(x) => Ok(Expression::Map(x)),
@@ -307,7 +299,7 @@ fn arg_value_into_expr(arg: ArgValue) -> Expression {
 
 pub trait Apply: Sized + std::fmt::Debug {
     fn apply_args(self, args: &BTreeMap<String, ArgValue>) -> Result<Self, Error>;
-    fn apply_inputs(self, args: &BTreeMap<String, HashSet<Utxo>>) -> Result<Self, Error>;
+    fn apply_inputs(self, args: &BTreeMap<String, UtxoSet>) -> Result<Self, Error>;
     fn apply_fees(self, fees: u64) -> Result<Self, Error>;
 
     fn is_constant(&self) -> bool;
@@ -342,7 +334,7 @@ where
         self.try_map_components(|x| x.apply_args(args))
     }
 
-    fn apply_inputs(self, args: &BTreeMap<String, HashSet<Utxo>>) -> Result<Self, Error> {
+    fn apply_inputs(self, args: &BTreeMap<String, UtxoSet>) -> Result<Self, Error> {
         self.try_map_components(|x| x.apply_inputs(args))
     }
 
@@ -381,7 +373,7 @@ where
         self.map(|x| x.apply_args(args)).transpose()
     }
 
-    fn apply_inputs(self, args: &BTreeMap<String, HashSet<Utxo>>) -> Result<Self, Error> {
+    fn apply_inputs(self, args: &BTreeMap<String, UtxoSet>) -> Result<Self, Error> {
         self.map(|x| x.apply_inputs(args)).transpose()
     }
 
@@ -423,7 +415,7 @@ where
         self.into_iter().map(|x| x.apply_args(args)).collect()
     }
 
-    fn apply_inputs(self, args: &BTreeMap<String, HashSet<Utxo>>) -> Result<Self, Error> {
+    fn apply_inputs(self, args: &BTreeMap<String, UtxoSet>) -> Result<Self, Error> {
         self.into_iter().map(|x| x.apply_inputs(args)).collect()
     }
 
@@ -458,7 +450,7 @@ where
             .collect()
     }
 
-    fn apply_inputs(self, args: &BTreeMap<String, HashSet<Utxo>>) -> Result<Self, Error> {
+    fn apply_inputs(self, args: &BTreeMap<String, UtxoSet>) -> Result<Self, Error> {
         self.into_iter()
             .map(|(k, v)| v.apply_inputs(args).map(|v| (k, v)))
             .collect()
@@ -793,7 +785,7 @@ impl Apply for Param {
         }
     }
 
-    fn apply_inputs(self, args: &BTreeMap<String, HashSet<Utxo>>) -> Result<Self, Error> {
+    fn apply_inputs(self, args: &BTreeMap<String, UtxoSet>) -> Result<Self, Error> {
         match self {
             Param::ExpectInput(name, query) => {
                 let defined = args.get(&name).cloned();
@@ -903,7 +895,7 @@ impl Apply for Expression {
         }
     }
 
-    fn apply_inputs(self, args: &BTreeMap<String, HashSet<Utxo>>) -> Result<Self, Error> {
+    fn apply_inputs(self, args: &BTreeMap<String, UtxoSet>) -> Result<Self, Error> {
         match self {
             Self::List(x) => Ok(Self::List(
                 x.into_iter()
@@ -1305,7 +1297,7 @@ impl Apply for Tx {
         Ok(tx)
     }
 
-    fn apply_inputs(self, args: &BTreeMap<String, HashSet<Utxo>>) -> Result<Self, Error> {
+    fn apply_inputs(self, args: &BTreeMap<String, UtxoSet>) -> Result<Self, Error> {
         Ok(Self {
             references: self.references.apply_inputs(args)?,
             inputs: self.inputs.apply_inputs(args)?,
@@ -1456,10 +1448,7 @@ pub fn apply_args<T: Apply>(template: T, args: &ArgMap) -> Result<T, Error> {
     template.apply_args(args)
 }
 
-pub fn apply_inputs<T: Apply>(
-    template: T,
-    args: &BTreeMap<String, HashSet<Utxo>>,
-) -> Result<T, Error> {
+pub fn apply_inputs<T: Apply>(template: T, args: &BTreeMap<String, UtxoSet>) -> Result<T, Error> {
     template.apply_inputs(args)
 }
 
@@ -1599,7 +1588,7 @@ mod tests {
 
         let inputs = BTreeMap::from([(
             "source".to_string(),
-            HashSet::from([Utxo {
+            UtxoSet::from([Utxo {
                 r#ref: UtxoRef::new(b"abc", 0),
                 address: b"abc".to_vec(),
                 datum: None,
@@ -1812,9 +1801,9 @@ mod tests {
             script: None,
         }];
 
-        let op = Coerce::IntoAssets(Expression::UtxoSet(HashSet::from_iter(
-            utxos.clone().into_iter(),
-        )));
+        let op = Coerce::IntoAssets(Expression::UtxoSet(
+            std::collections::HashSet::from_iter(utxos.clone().into_iter()).into(),
+        ));
 
         let reduced = op.reduce().unwrap();
 
@@ -1834,9 +1823,9 @@ mod tests {
             script: None,
         }];
 
-        let op = Coerce::IntoDatum(Expression::UtxoSet(HashSet::from_iter(
-            utxos.clone().into_iter(),
-        )));
+        let op = Coerce::IntoDatum(Expression::UtxoSet(
+            std::collections::HashSet::from_iter(utxos.clone().into_iter()).into(),
+        ));
 
         let reduced = op.reduce().unwrap();
 

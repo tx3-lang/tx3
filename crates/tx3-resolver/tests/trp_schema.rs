@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use jsonschema::{Draft, JSONSchema};
 use serde_json::{json, Map, Value};
 
-use tx3_resolver::interop::{BytesEncoding, BytesEnvelope};
+use tx3_resolver::interop::{BytesEncoding, BytesEnvelope, TirEnvelope};
 use tx3_resolver::trp::spec::*;
 
 fn load_trp_schema() -> Value {

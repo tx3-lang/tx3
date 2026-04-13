@@ -17,5 +17,6 @@ target/
 #.idea/
 
 .scratchpad/
+**/.DS_Store
 
 .opencode

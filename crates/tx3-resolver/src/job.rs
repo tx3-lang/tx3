@@ -2,6 +2,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use tx3_tir::compile::{CompiledTx, Compiler};
 use tx3_tir::encoding::AnyTir;
 use tx3_tir::model::core::{Utxo, UtxoRef, UtxoSet};
@@ -35,6 +36,7 @@ pub struct ResolveJob {
     // Inputs (set once at creation)
     pub original_tir: AnyTir,
     pub args: ArgMap,
+    pub compiler: Value,
 
     // Pipeline state
     pub round: usize,
@@ -80,6 +82,7 @@ impl ResolveJob {
         Self {
             original_tir: tx,
             args,
+            compiler: Value::Null,
             round: 0,
             last_eval: None,
             converged: false,
@@ -124,17 +127,6 @@ impl ResolveJob {
             .as_ref()
             .map(|p| p.keys().cloned().collect())
             .unwrap_or_default()
-    }
-
-    pub fn dump_to_dir(&self, dir: &Path) -> Result<String, std::io::Error> {
-        std::fs::create_dir_all(dir)?;
-        let dump_id = uuid::Uuid::new_v4().to_string();
-        let path = dir.join(format!("resolve-job-{dump_id}.json"));
-        let file = std::fs::File::create(&path)?;
-        serde_json::to_writer_pretty(file, self)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
-        tracing::debug!(dump_id = %dump_id, path = %path.display(), "diagnostic dump written");
-        Ok(dump_id)
     }
 
     pub fn to_input_map(&self) -> BTreeMap<String, UtxoSet> {
@@ -222,6 +214,14 @@ impl ResolveJob {
     {
         let max_optimize_rounds = max_optimize_rounds.max(3);
 
+        self.compiler = match serde_json::to_value(&*compiler) {
+            Ok(value) => value,
+            Err(err) => {
+                tracing::warn!(error = %err, "failed to serialize compiler for diagnostic dump");
+                Value::Null
+            }
+        };
+
         self.apply_args()?;
 
         loop {
@@ -252,7 +252,7 @@ where
     let result = job.execute(compiler, utxos, max_optimize_rounds).await;
 
     if let Ok(dir) = std::env::var("TX3_DIAGNOSTIC_DUMP") {
-        let _ = job.dump_to_dir(Path::new(&dir));
+        let _ = crate::dump::dump_to_dir(&job, Path::new(&dir));
     }
 
     result

@@ -16,8 +16,6 @@ mod canonical;
 mod narrow;
 
 #[cfg(test)]
-pub(crate) mod test_utils;
-#[cfg(test)]
 mod tests;
 
 pub use canonical::CanonicalQuery;
