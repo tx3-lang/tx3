@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use serde_json::Value;
-use tx3_cardano::{ChainPoint, Compiler, Config, Network, PParams};
+use tx3_cardano::Compiler;
 use tx3_resolver::{resolve_tx, Error, UtxoPattern, UtxoRef, UtxoSet, UtxoStore};
 use tx3_tir::encoding::{self, AnyTir, TirVersion};
 use tx3_tir::model::assets::AssetClass;
@@ -9,60 +9,11 @@ use tx3_tir::model::core::Utxo;
 use tx3_tir::reduce::ArgMap;
 
 // ---------------------------------------------------------------------------
-// Helpers — parse compiler config from dump JSON
+// Helpers — parse compiler from dump JSON
 // ---------------------------------------------------------------------------
 
-fn compiler_from_json(config: &Value) -> Compiler {
-    let network = match config["network"]
-        .as_str()
-        .expect("network should be a string")
-    {
-        "Testnet" => Network::Testnet,
-        "Mainnet" => Network::Mainnet,
-        other => panic!("unknown network: {other}"),
-    };
-
-    let pparams = PParams {
-        network,
-        min_fee_coefficient: config["min_fee_coefficient"]
-            .as_u64()
-            .expect("min_fee_coefficient"),
-        min_fee_constant: config["min_fee_constant"]
-            .as_u64()
-            .expect("min_fee_constant"),
-        coins_per_utxo_byte: config["coins_per_utxo_byte"]
-            .as_u64()
-            .expect("coins_per_utxo_byte"),
-        cost_models: config["cost_models"]
-            .as_object()
-            .expect("cost_models should be an object")
-            .iter()
-            .map(|(k, v)| {
-                let version: u8 = k.parse().expect("cost model key should be a number");
-                let model: Vec<i64> = v
-                    .as_array()
-                    .expect("cost model should be an array")
-                    .iter()
-                    .map(|n| n.as_i64().expect("cost model value should be i64"))
-                    .collect();
-                (version, model)
-            })
-            .collect(),
-    };
-
-    let extra_fees = config.get("extra_fees").and_then(|v| v.as_u64());
-
-    let chain_point = &config["chain_point"];
-    let cursor = ChainPoint {
-        slot: chain_point["slot"].as_u64().expect("slot"),
-        hash: chain_point["hash"]
-            .as_str()
-            .map(|s| hex::decode(s).expect("chain_point hash should be valid hex"))
-            .unwrap_or_default(),
-        timestamp: chain_point["timestamp"].as_u64().expect("timestamp") as u128,
-    };
-
-    Compiler::new(pparams, Config { extra_fees }, cursor)
+fn compiler_from_json(compiler: &Value) -> Compiler {
+    serde_json::from_value(compiler.clone()).expect("compiler should deserialize from dump")
 }
 
 // ---------------------------------------------------------------------------
@@ -73,7 +24,7 @@ struct ResolveFixture {
     tir: AnyTir,
     args: ArgMap,
     input_pool: HashMap<UtxoRef, Utxo>,
-    compiler_config: Value,
+    compiler: Value,
     expected_hash: String,
     expected_fee: u64,
 }
@@ -125,10 +76,10 @@ fn load_fixture(name: &str) -> ResolveFixture {
     }
 
     // 4. Parse compiler config
-    let compiler_config = value["compiler_config"].clone();
+    let compiler = value["compiler"].clone();
     assert!(
-        !compiler_config.is_null(),
-        "golden fixture '{name}' is missing compiler_config — regenerate the dump"
+        !compiler.is_null(),
+        "golden fixture '{name}' is missing compiler — regenerate the dump"
     );
 
     // 5. Read expected values directly
@@ -144,7 +95,7 @@ fn load_fixture(name: &str) -> ResolveFixture {
         tir,
         args,
         input_pool,
-        compiler_config,
+        compiler,
         expected_hash,
         expected_fee,
     }
@@ -230,11 +181,13 @@ async fn golden_resolve_jobs() {
     for name in &fixtures {
         let fixture = load_fixture(name);
         let store = DumpStore::from(fixture.input_pool);
-        let mut compiler = compiler_from_json(&fixture.compiler_config);
+        let mut compiler = compiler_from_json(&fixture.compiler);
 
-        let compiled = resolve_tx(fixture.tir, &fixture.args, &mut compiler, &store, 5)
+        let compiled = resolve_tx(fixture.tir, &fixture.args, &mut compiler, &store, 10)
             .await
             .unwrap_or_else(|e| panic!("resolve_tx failed for '{name}': {e}"));
+
+        dbg!(hex::encode(compiled.payload));
 
         assert_eq!(
             hex::encode(&compiled.hash),

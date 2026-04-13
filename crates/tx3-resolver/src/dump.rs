@@ -154,6 +154,7 @@ impl DiagnosticDump for ResolveJob {
         json!({
             "original_tir": self.original_tir.to_dump(),
             "args": args,
+            "compiler": &self.compiler,
             "round": self.round,
             "last_eval": self.last_eval.as_ref().map(|e| e.to_dump()),
             "converged": self.converged,
@@ -215,7 +216,8 @@ mod tests {
         assert!(path.exists());
 
         let contents = std::fs::read_to_string(&path).unwrap();
-        assert!(serde_json::from_str::<serde_json::Value>(&contents).is_ok());
+        let value: serde_json::Value = serde_json::from_str(&contents).unwrap();
+        assert!(value.get("compiler").is_some());
 
         let _ = std::fs::remove_file(&path);
     }

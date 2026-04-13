@@ -2,6 +2,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use tx3_tir::compile::{CompiledTx, Compiler};
 use tx3_tir::encoding::AnyTir;
 use tx3_tir::model::core::{Utxo, UtxoRef, UtxoSet};
@@ -35,6 +36,7 @@ pub struct ResolveJob {
     // Inputs (set once at creation)
     pub original_tir: AnyTir,
     pub args: ArgMap,
+    pub compiler: Value,
 
     // Pipeline state
     pub round: usize,
@@ -80,6 +82,7 @@ impl ResolveJob {
         Self {
             original_tir: tx,
             args,
+            compiler: Value::Null,
             round: 0,
             last_eval: None,
             converged: false,
@@ -210,6 +213,14 @@ impl ResolveJob {
         S: UtxoStore,
     {
         let max_optimize_rounds = max_optimize_rounds.max(3);
+
+        self.compiler = match serde_json::to_value(&*compiler) {
+            Ok(value) => value,
+            Err(err) => {
+                tracing::warn!(error = %err, "failed to serialize compiler for diagnostic dump");
+                Value::Null
+            }
+        };
 
         self.apply_args()?;
 
