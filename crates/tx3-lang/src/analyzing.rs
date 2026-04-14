@@ -1254,9 +1254,7 @@ impl TxDef {
         }
 
         for reference in self.references.iter() {
-            if reference.datum_is.is_some() {
-                scope.track_reference(&reference.name, reference.clone());
-            }
+            scope.track_reference(&reference.name, reference.clone());
         }
 
         for (index, output) in self.outputs.iter().enumerate() {
