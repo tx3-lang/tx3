@@ -31,3 +31,10 @@ assert-json-diff = "2.0.2"
 paste = "1.0.15"
 proptest = "1.7.0"
 serde_json = "1.0.137"
+
+[package.metadata.release]
+pre-release-hook = [
+    "sh",
+    "-c",
+    "git -C \"$WORKSPACE_ROOT\" cliff -o CHANGELOG.md --config cliff.toml --tag {{version}}",
+]
