@@ -1,10 +1,13 @@
 [workspace]
 resolver = "2"
-members = ["bin/tx3c",
-    "crates/tx3-cardano",
-    "crates/tx3-lang",
-    "crates/tx3-resolver",
-    "crates/tx3-tir",
+
+members = [
+  "bin/tx3c",
+  "crates/tx3-cardano",
+  "crates/tx3-lang",
+  "crates/tx3-resolver",
+  "crates/tx3-tir",
+  "crates/cip-57",
 ]
 
 [workspace.package]
