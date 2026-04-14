@@ -20,7 +20,10 @@ impl ResolveJob {
     /// For each query, filter the pool by hard constraints, rank by closeness
     /// to the target asset composition, then filter by aggregate constraints.
     pub fn approximate_queries(&mut self) {
-        let pool = self.input_pool.as_ref().expect("pool must be set before approximate");
+        let pool = self
+            .input_pool
+            .as_ref()
+            .expect("pool must be set before approximate");
 
         for qr in &mut self.input_queries {
             qr.candidates = approximate_candidates(pool, &qr.query);
@@ -28,14 +31,8 @@ impl ResolveJob {
     }
 }
 
-fn approximate_candidates(
-    pool: &HashMap<UtxoRef, Utxo>,
-    query: &CanonicalQuery,
-) -> Vec<Utxo> {
-    let target = query
-        .min_amount
-        .clone()
-        .unwrap_or(CanonicalAssets::empty());
+fn approximate_candidates(pool: &HashMap<UtxoRef, Utxo>, query: &CanonicalQuery) -> Vec<Utxo> {
+    let target = query.min_amount.clone().unwrap_or(CanonicalAssets::empty());
 
     let pool_set = pool
         .values()

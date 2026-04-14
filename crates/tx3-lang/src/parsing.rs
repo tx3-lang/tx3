@@ -16,6 +16,7 @@ use crate::{
     ast::*,
     cardano::{PlutusWitnessBlock, PlutusWitnessField},
 };
+
 #[derive(Parser)]
 #[grammar = "tx3.pest"]
 pub(crate) struct Tx3Grammar;
@@ -361,14 +362,28 @@ impl AstNode for ReferenceBlock {
         let name = inner.next().unwrap().as_str().to_string();
 
         let pair = inner.next().unwrap();
-        match pair.as_rule() {
+        let r#ref = match pair.as_rule() {
             Rule::input_block_ref => {
                 let pair = pair.into_inner().next().unwrap();
-                let r#ref = DataExpr::parse(pair)?;
-                Ok(ReferenceBlock { name, r#ref, span })
+                DataExpr::parse(pair)?
             }
             x => unreachable!("Unexpected rule in ref_input_block: {:?}", x),
-        }
+        };
+
+        let datum_is = inner
+            .next()
+            .map(|pair| {
+                let pair = pair.into_inner().next().unwrap();
+                Type::parse(pair)
+            })
+            .transpose()?;
+
+        Ok(ReferenceBlock {
+            name,
+            r#ref,
+            datum_is,
+            span,
+        })
     }
 
     fn span(&self) -> &Span {
@@ -2739,6 +2754,18 @@ mod tests {
         })
     );
 
+    input_to_ast_check!(
+        ReferenceBlock,
+        "with_datum_type",
+        "reference oracle_data { ref: oracle_utxo, datum_is: OracleDatum, }",
+        ReferenceBlock {
+            name: "oracle_data".to_string(),
+            r#ref: DataExpr::Identifier(Identifier::new("oracle_utxo")),
+            datum_is: Some(Type::Custom(Identifier::new("OracleDatum"))),
+            span: Span::DUMMY,
+        }
+    );
+
     #[test]
     fn test_spans_are_respected() {
         let program = parse_well_known_example("spans");
@@ -2809,7 +2836,9 @@ mod tests {
     test_parsing!(cardano_witness);
 
     test_parsing!(reference_script);
+
     test_parsing!(map);
+
     test_parsing!(burn);
 
     test_parsing!(donation);

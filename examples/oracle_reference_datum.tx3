@@ -1,0 +1,20 @@
+party Receiver;
+
+type OracleDatum {
+    value: Int,
+}
+
+tx consume_oracle(oracle_utxo: UtxoRef) {
+    reference oracle_data {
+        ref: oracle_utxo,
+        datum_is: OracleDatum,
+    }
+
+    output {
+        to: Receiver,
+        amount: Ada(0),
+        datum: OracleDatum {
+            value: oracle_data.value,
+        },
+    }
+}

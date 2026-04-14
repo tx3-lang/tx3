@@ -193,6 +193,7 @@ impl IntoLower for ast::Identifier {
 
                 Ok(out)
             }
+            ast::Symbol::Reference(def) => def.into_lower(ctx),
             ast::Symbol::Fees => Ok(ir::Param::ExpectFees.into()),
             ast::Symbol::EnvVar(n, ty) => {
                 Ok(ir::Param::ExpectValue(n.to_lowercase().clone(), ty.into_lower(ctx)?).into())
@@ -789,7 +790,27 @@ impl IntoLower for ast::ReferenceBlock {
     type Output = ir::Expression;
 
     fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
-        self.r#ref.into_lower(ctx)
+        let r#ref = self.r#ref.into_lower(ctx)?;
+
+        let query = ir::InputQuery {
+            address: ir::Expression::None,
+            min_amount: ir::Expression::None,
+            r#ref,
+            many: false,
+            collateral: false,
+        };
+
+        let inner = ir::Param::ExpectInput(self.name.to_lowercase(), query).into();
+
+        let out = if ctx.is_asset_expr() {
+            ir::Coerce::IntoAssets(inner).into()
+        } else if ctx.is_datum_expr() {
+            ir::Coerce::IntoDatum(inner).into()
+        } else {
+            inner
+        };
+
+        Ok(out)
     }
 }
 
@@ -858,7 +879,7 @@ impl IntoLower for ast::TxDef {
             references: self
                 .references
                 .iter()
-                .map(|x| x.into_lower(ctx))
+                .map(|x| x.r#ref.into_lower(ctx))
                 .collect::<Result<Vec<_>, _>>()?,
             inputs: self
                 .inputs
@@ -1020,7 +1041,9 @@ mod tests {
     test_lowering!(reference_script);
 
     test_lowering!(withdrawal);
+
     test_lowering!(map);
+
     test_lowering!(burn);
 
     test_lowering!(min_utxo);
@@ -1032,4 +1055,6 @@ mod tests {
     test_lowering!(buidler_fest_2026);
 
     test_lowering!(param_field_shadow);
+
+    test_lowering!(oracle_reference_datum);
 }

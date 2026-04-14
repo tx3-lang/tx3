@@ -2,8 +2,8 @@ use std::collections::{HashMap, HashSet};
 
 use serde_json::Value;
 use tx3_cardano::Compiler;
-use tx3_resolver::{resolve_tx, Error, UtxoPattern, UtxoRef, UtxoSet, UtxoStore};
 use tx3_resolver::interop::TirEnvelope;
+use tx3_resolver::{resolve_tx, Error, UtxoPattern, UtxoRef, UtxoSet, UtxoStore};
 use tx3_tir::encoding::AnyTir;
 use tx3_tir::model::assets::AssetClass;
 use tx3_tir::model::core::Utxo;
