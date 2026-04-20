@@ -1,0 +1,488 @@
+{
+  "env": null,
+  "txs": [
+    {
+      "name": {
+        "value": "sorted_publish_plutus",
+        "span": {
+          "dummy": false,
+          "start": 35,
+          "end": 56
+        }
+      },
+      "parameters": {
+        "parameters": [
+          {
+            "name": {
+              "value": "quantity",
+              "span": {
+                "dummy": false,
+                "start": 62,
+                "end": 70
+              }
+            },
+            "type": "Int"
+          }
+        ],
+        "span": {
+          "dummy": false,
+          "start": 56,
+          "end": 77
+        }
+      },
+      "locals": null,
+      "references": [],
+      "inputs": [
+        {
+          "name": "source",
+          "many": false,
+          "fields": [
+            {
+              "From": {
+                "Identifier": {
+                  "value": "Sender",
+                  "span": {
+                    "dummy": false,
+                    "start": 113,
+                    "end": 119
+                  }
+                }
+              }
+            },
+            {
+              "MinAmount": {
+                "AddOp": {
+                  "lhs": {
+                    "AddOp": {
+                      "lhs": {
+                        "AddOp": {
+                          "lhs": {
+                            "FnCall": {
+                              "callee": {
+                                "value": "Ada",
+                                "span": {
+                                  "dummy": false,
+                                  "start": 141,
+                                  "end": 144
+                                }
+                              },
+                              "args": [
+                                {
+                                  "Identifier": {
+                                    "value": "quantity",
+                                    "span": {
+                                      "dummy": false,
+                                      "start": 145,
+                                      "end": 153
+                                    }
+                                  }
+                                }
+                              ],
+                              "span": {
+                                "dummy": false,
+                                "start": 141,
+                                "end": 154
+                              }
+                            }
+                          },
+                          "rhs": {
+                            "FnCall": {
+                              "callee": {
+                                "value": "min_utxo",
+                                "span": {
+                                  "dummy": false,
+                                  "start": 157,
+                                  "end": 165
+                                }
+                              },
+                              "args": [
+                                {
+                                  "Identifier": {
+                                    "value": "funds",
+                                    "span": {
+                                      "dummy": false,
+                                      "start": 166,
+                                      "end": 171
+                                    }
+                                  }
+                                }
+                              ],
+                              "span": {
+                                "dummy": false,
+                                "start": 157,
+                                "end": 172
+                              }
+                            }
+                          },
+                          "span": {
+                            "dummy": false,
+                            "start": 155,
+                            "end": 156
+                          }
+                        }
+                      },
+                      "rhs": {
+                        "FnCall": {
+                          "callee": {
+                            "value": "min_utxo",
+                            "span": {
+                              "dummy": false,
+                              "start": 175,
+                              "end": 183
+                            }
+                          },
+                          "args": [
+                            {
+                              "Identifier": {
+                                "value": "funds_rep",
+                                "span": {
+                                  "dummy": false,
+                                  "start": 184,
+                                  "end": 193
+                                }
+                              }
+                            }
+                          ],
+                          "span": {
+                            "dummy": false,
+                            "start": 175,
+                            "end": 194
+                          }
+                        }
+                      },
+                      "span": {
+                        "dummy": false,
+                        "start": 173,
+                        "end": 174
+                      }
+                    }
+                  },
+                  "rhs": {
+                    "Identifier": {
+                      "value": "fees",
+                      "span": {
+                        "dummy": false,
+                        "start": 197,
+                        "end": 201
+                      }
+                    }
+                  },
+                  "span": {
+                    "dummy": false,
+                    "start": 195,
+                    "end": 196
+                  }
+                }
+              }
+            }
+          ],
+          "span": {
+            "dummy": false,
+            "start": 84,
+            "end": 208
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": {
+            "value": "funds",
+            "span": {
+              "dummy": false,
+              "start": 402,
+              "end": 407
+            }
+          },
+          "optional": false,
+          "fields": [
+            {
+              "To": {
+                "Identifier": {
+                  "value": "Sender",
+                  "span": {
+                    "dummy": false,
+                    "start": 422,
+                    "end": 428
+                  }
+                }
+              }
+            },
+            {
+              "Amount": {
+                "FnCall": {
+                  "callee": {
+                    "value": "min_utxo",
+                    "span": {
+                      "dummy": false,
+                      "start": 446,
+                      "end": 454
+                    }
+                  },
+                  "args": [
+                    {
+                      "Identifier": {
+                        "value": "funds",
+                        "span": {
+                          "dummy": false,
+                          "start": 455,
+                          "end": 460
+                        }
+                      }
+                    }
+                  ],
+                  "span": {
+                    "dummy": false,
+                    "start": 446,
+                    "end": 461
+                  }
+                }
+              }
+            },
+            {
+              "Index": {
+                "Number": 0
+              }
+            }
+          ],
+          "span": {
+            "dummy": false,
+            "start": 395,
+            "end": 486
+          }
+        },
+        {
+          "name": {
+            "value": "funds_rep",
+            "span": {
+              "dummy": false,
+              "start": 499,
+              "end": 508
+            }
+          },
+          "optional": false,
+          "fields": [
+            {
+              "To": {
+                "Identifier": {
+                  "value": "Sender",
+                  "span": {
+                    "dummy": false,
+                    "start": 523,
+                    "end": 529
+                  }
+                }
+              }
+            },
+            {
+              "Amount": {
+                "SubOp": {
+                  "lhs": {
+                    "SubOp": {
+                      "lhs": {
+                        "Identifier": {
+                          "value": "source",
+                          "span": {
+                            "dummy": false,
+                            "start": 547,
+                            "end": 553
+                          }
+                        }
+                      },
+                      "rhs": {
+                        "FnCall": {
+                          "callee": {
+                            "value": "Ada",
+                            "span": {
+                              "dummy": false,
+                              "start": 556,
+                              "end": 559
+                            }
+                          },
+                          "args": [
+                            {
+                              "Identifier": {
+                                "value": "quantity",
+                                "span": {
+                                  "dummy": false,
+                                  "start": 560,
+                                  "end": 568
+                                }
+                              }
+                            }
+                          ],
+                          "span": {
+                            "dummy": false,
+                            "start": 556,
+                            "end": 569
+                          }
+                        }
+                      },
+                      "span": {
+                        "dummy": false,
+                        "start": 554,
+                        "end": 555
+                      }
+                    }
+                  },
+                  "rhs": {
+                    "Identifier": {
+                      "value": "fees",
+                      "span": {
+                        "dummy": false,
+                        "start": 572,
+                        "end": 576
+                      }
+                    }
+                  },
+                  "span": {
+                    "dummy": false,
+                    "start": 570,
+                    "end": 571
+                  }
+                }
+              }
+            }
+          ],
+          "span": {
+            "dummy": false,
+            "start": 492,
+            "end": 583
+          }
+        }
+      ],
+      "validity": null,
+      "mints": [],
+      "burns": [],
+      "signers": null,
+      "adhoc": [
+        {
+          "Cardano": {
+            "Publish": {
+              "name": null,
+              "fields": [
+                {
+                  "To": {
+                    "Identifier": {
+                      "value": "Receiver",
+                      "span": {
+                        "dummy": false,
+                        "start": 249,
+                        "end": 257
+                      }
+                    }
+                  }
+                },
+                {
+                  "Amount": {
+                    "FnCall": {
+                      "callee": {
+                        "value": "Ada",
+                        "span": {
+                          "dummy": false,
+                          "start": 275,
+                          "end": 278
+                        }
+                      },
+                      "args": [
+                        {
+                          "Identifier": {
+                            "value": "quantity",
+                            "span": {
+                              "dummy": false,
+                              "start": 279,
+                              "end": 287
+                            }
+                          }
+                        }
+                      ],
+                      "span": {
+                        "dummy": false,
+                        "start": 275,
+                        "end": 288
+                      }
+                    }
+                  }
+                },
+                {
+                  "Version": {
+                    "Number": 3
+                  }
+                },
+                {
+                  "Script": {
+                    "HexString": {
+                      "value": "5101010023259800a518a4d136564004ae69",
+                      "span": {
+                        "dummy": false,
+                        "start": 326,
+                        "end": 364
+                      }
+                    }
+                  }
+                },
+                {
+                  "Index": {
+                    "Number": 1
+                  }
+                }
+              ],
+              "span": {
+                "dummy": false,
+                "start": 227,
+                "end": 389
+              }
+            }
+          }
+        }
+      ],
+      "span": {
+        "dummy": false,
+        "start": 32,
+        "end": 585
+      },
+      "collateral": [],
+      "metadata": null
+    }
+  ],
+  "types": [],
+  "aliases": [],
+  "assets": [],
+  "parties": [
+    {
+      "name": {
+        "value": "Sender",
+        "span": {
+          "dummy": false,
+          "start": 6,
+          "end": 12
+        }
+      },
+      "span": {
+        "dummy": false,
+        "start": 0,
+        "end": 13
+      }
+    },
+    {
+      "name": {
+        "value": "Receiver",
+        "span": {
+          "dummy": false,
+          "start": 21,
+          "end": 29
+        }
+      },
+      "span": {
+        "dummy": false,
+        "start": 15,
+        "end": 30
+      }
+    }
+  ],
+  "policies": [],
+  "span": {
+    "dummy": false,
+    "start": 0,
+    "end": 586
+  }
+}

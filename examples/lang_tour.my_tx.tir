@@ -534,7 +534,8 @@
           ]
         }
       },
-      "optional": false
+      "optional": false,
+      "index": "None"
     }
   ],
   "validity": {
@@ -666,6 +667,12 @@
     {
       "name": "withdrawal",
       "data": {
+        "redeemer": {
+          "Struct": {
+            "constructor": 0,
+            "fields": []
+          }
+        },
         "amount": {
           "Number": 100
         },
@@ -676,18 +683,15 @@
               "Address"
             ]
           }
-        },
-        "redeemer": {
-          "Struct": {
-            "constructor": 0,
-            "fields": []
-          }
         }
       }
     },
     {
       "name": "plutus_witness",
       "data": {
+        "version": {
+          "Number": 2
+        },
         "script": {
           "Bytes": [
             171,
@@ -696,9 +700,6 @@
             18,
             52
           ]
-        },
-        "version": {
-          "Number": 2
         }
       }
     },

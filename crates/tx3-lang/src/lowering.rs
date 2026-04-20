@@ -687,6 +687,7 @@ impl IntoLower for ast::OutputBlockField {
                 let ctx = ctx.enter_datum_expr();
                 x.into_lower(&ctx)
             }
+            ast::OutputBlockField::Index(x) => x.into_lower(ctx),
         }
     }
 }
@@ -698,12 +699,14 @@ impl IntoLower for ast::OutputBlock {
         let address = self.find("to").into_lower(ctx)?.unwrap_or_default();
         let datum = self.find("datum").into_lower(ctx)?.unwrap_or_default();
         let amount = self.find("amount").into_lower(ctx)?.unwrap_or_default();
+        let index = self.find("index").into_lower(ctx)?.unwrap_or_default();
 
         Ok(ir::Output {
             address,
             datum,
             amount,
             optional: self.optional,
+            index,
         })
     }
 }

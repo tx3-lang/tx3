@@ -305,6 +305,8 @@ pub struct Output {
     pub datum: Expression,
     pub amount: Expression,
     pub optional: bool,
+    #[serde(default)]
+    pub index: Expression,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -522,6 +524,7 @@ impl Node for Output {
             datum: self.datum.apply(visitor)?,
             amount: self.amount.apply(visitor)?,
             optional: self.optional,
+            index: self.index,
         };
 
         Ok(visited)

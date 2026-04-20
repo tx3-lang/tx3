@@ -134,7 +134,8 @@
           ]
         }
       },
-      "optional": false
+      "optional": false,
+      "index": "None"
     }
   ],
   "validity": null,
@@ -202,9 +203,6 @@
     {
       "name": "plutus_witness",
       "data": {
-        "version": {
-          "Number": 3
-        },
         "script": {
           "Bytes": [
             81,
@@ -226,6 +224,9 @@
             174,
             105
           ]
+        },
+        "version": {
+          "Number": 3
         }
       }
     }

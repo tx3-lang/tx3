@@ -127,7 +127,8 @@
           ]
         }
       },
-      "optional": false
+      "optional": false,
+      "index": "None"
     }
   ],
   "validity": null,
@@ -137,9 +138,6 @@
     {
       "name": "cardano_publish",
       "data": {
-        "version": {
-          "Number": 3
-        },
         "amount": {
           "Assets": [
             {
@@ -177,6 +175,9 @@
             174,
             105
           ]
+        },
+        "version": {
+          "Number": 3
         },
         "to": {
           "EvalParam": {

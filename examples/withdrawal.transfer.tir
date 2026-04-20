@@ -72,7 +72,8 @@
           }
         ]
       },
-      "optional": false
+      "optional": false,
+      "index": "None"
     },
     {
       "address": {
@@ -155,7 +156,8 @@
           ]
         }
       },
-      "optional": false
+      "optional": false,
+      "index": "None"
     }
   ],
   "validity": null,
@@ -173,14 +175,14 @@
             ]
           }
         },
-        "amount": {
-          "Number": 0
-        },
         "redeemer": {
           "Struct": {
             "constructor": 0,
             "fields": []
           }
+        },
+        "amount": {
+          "Number": 0
         }
       }
     }
