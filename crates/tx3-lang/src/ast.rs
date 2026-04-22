@@ -637,7 +637,11 @@ impl MapConstructor {
             let value_type = first_field.value.target_type()?;
             Some(Type::Map(Box::new(key_type), Box::new(value_type)))
         } else {
-            None
+            // Empty map literal: element types are unknown from the literal
+            // alone. Return a Map with Undefined inner types so the analyzer
+            // can still treat this as a Map; type coherence is checked by the
+            // enclosing context (e.g. a struct field of declared Map<K,V> type).
+            Some(Type::Map(Box::new(Type::Undefined), Box::new(Type::Undefined)))
         }
     }
 }
