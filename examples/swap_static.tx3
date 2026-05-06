@@ -39,7 +39,7 @@ tx swap(
         datum: PoolState {
             pair_a: pool.pair_a - ask,
             pair_b: pool.pair_b + bid,
-            ...pool.datum
+            ...pool
         },
         amount: pool,
     }
