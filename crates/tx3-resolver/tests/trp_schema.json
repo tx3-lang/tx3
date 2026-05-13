@@ -184,6 +184,38 @@
   ],
   "components": {
     "schemas": {
+      "TirEnvelope": {
+        "title": "TirEnvelope",
+        "type": "object",
+        "required": ["encoding", "content", "version"],
+        "properties": {
+          "encoding": {
+            "type": "string",
+            "enum": ["hex", "base64"]
+          },
+          "content": {
+            "type": "string",
+            "description": "The encoded TIR bytes in the selected encoding"
+          },
+          "version": {
+            "type": "string",
+            "description": "The TIR version of the encoded content"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ArgMap": {
+        "title": "ArgMap",
+        "type": "object",
+        "description": "Flexible key-value arguments for transaction execution",
+        "additionalProperties": true
+      },
+      "EnvMap": {
+        "title": "EnvMap",
+        "type": "object",
+        "description": "Environment variables for transaction execution context",
+        "additionalProperties": true
+      },
       "BytesEnvelope": {
         "title": "BytesEnvelope",
         "type": "object",
@@ -378,13 +410,13 @@
         "type": "object",
         "properties": {
           "tir": {
-            "$ref": "core.json#/$defs/TirEnvelope"
+            "$ref": "#/components/schemas/TirEnvelope"
           },
           "args": {
-            "$ref": "core.json#/$defs/ArgMap"
+            "$ref": "#/components/schemas/ArgMap"
           },
           "env": {
-            "$ref": "core.json#/$defs/EnvMap"
+            "$ref": "#/components/schemas/EnvMap"
           }
         },
         "required": ["tir", "args"]

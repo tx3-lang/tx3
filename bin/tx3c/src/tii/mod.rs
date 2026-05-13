@@ -18,13 +18,13 @@ pub fn map_ast_type_to_json_schema(r#type: &tx3_lang::ast::Type) -> Value {
         tx3_lang::ast::Type::Int => json!({"type": "integer"}),
         tx3_lang::ast::Type::Bool => json!({"type": "boolean"}),
         tx3_lang::ast::Type::Bytes => {
-            json!({ "$ref": "https://tx3.land/specs/v1beta0/core#Bytes" })
+            json!({ "$ref": "https://tx3.land/specs/v1beta0/tii#/$defs/Bytes" })
         }
         tx3_lang::ast::Type::Address => {
-            json!({ "$ref": "https://tx3.land/specs/v1beta0/core#Address" })
+            json!({ "$ref": "https://tx3.land/specs/v1beta0/tii#/$defs/Address" })
         }
         tx3_lang::ast::Type::UtxoRef => {
-            json!({ "$ref": "https://tx3.land/specs/v1beta0/core#UtxoRef" })
+            json!({ "$ref": "https://tx3.land/specs/v1beta0/tii#/$defs/UtxoRef" })
         }
         tx3_lang::ast::Type::Unit => json!({"type": "null"}),
         tx3_lang::ast::Type::List(inner) => json!({
@@ -38,10 +38,10 @@ pub fn map_ast_type_to_json_schema(r#type: &tx3_lang::ast::Type) -> Value {
         tx3_lang::ast::Type::Custom(_) => json!({"type": "object"}),
         tx3_lang::ast::Type::Undefined => json!({"type": "null"}),
         tx3_lang::ast::Type::Utxo => {
-            json!({ "$ref": "https://tx3.land/specs/v1beta0/core#Utxo" })
+            json!({ "$ref": "https://tx3.land/specs/v1beta0/tii#/$defs/Utxo" })
         }
         tx3_lang::ast::Type::AnyAsset => {
-            json!({ "$ref": "https://tx3.land/specs/v1beta0/core#AnyAsset" })
+            json!({ "$ref": "https://tx3.land/specs/v1beta0/tii#/$defs/AnyAsset" })
         }
     }
 }
