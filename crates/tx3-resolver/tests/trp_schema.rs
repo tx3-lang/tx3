@@ -6,59 +6,12 @@ use serde_json::{json, Map, Value};
 use tx3_resolver::interop::{BytesEncoding, BytesEnvelope, TirEnvelope};
 use tx3_resolver::trp::spec::*;
 
+// Vendored copy of v1beta0/trp.json from https://github.com/tx3-lang/trp.
+// Kept locally so the schema-validation tests stay hermetic. Refresh by
+// copying the upstream file verbatim; the spec is self-contained, so no
+// post-processing is required.
 fn load_trp_schema() -> Value {
-    let mut trp_schema: Value =
-        serde_json::from_str(include_str!("../../../specs/v1beta0/trp.json"))
-            .expect("trp.json should parse");
-
-    let core_schema: Value = serde_json::from_str(include_str!("../../../specs/v1beta0/core.json"))
-        .expect("core.json should parse");
-
-    let core_defs = core_schema
-        .get("$defs")
-        .and_then(Value::as_object)
-        .expect("core.json should define $defs")
-        .clone();
-
-    let components = trp_schema
-        .get_mut("components")
-        .and_then(Value::as_object_mut)
-        .expect("trp.json should define components");
-
-    let schemas = components
-        .get_mut("schemas")
-        .and_then(Value::as_object_mut)
-        .expect("trp.json should define components.schemas");
-
-    for (name, schema) in core_defs {
-        schemas.entry(name).or_insert(schema);
-    }
-
-    rewrite_core_refs(&mut trp_schema);
-
-    trp_schema
-}
-
-fn rewrite_core_refs(value: &mut Value) {
-    match value {
-        Value::Object(map) => {
-            if let Some(Value::String(reference)) = map.get_mut("$ref") {
-                if let Some(def_name) = reference.strip_prefix("core.json#/$defs/") {
-                    *reference = format!("#/components/schemas/{}", def_name);
-                }
-            }
-
-            for (_, item) in map.iter_mut() {
-                rewrite_core_refs(item);
-            }
-        }
-        Value::Array(items) => {
-            for item in items.iter_mut() {
-                rewrite_core_refs(item);
-            }
-        }
-        _ => {}
-    }
+    serde_json::from_str(include_str!("trp_schema.json")).expect("trp.json should parse")
 }
 
 fn compile_schema(schema_name: &str) -> JSONSchema {
