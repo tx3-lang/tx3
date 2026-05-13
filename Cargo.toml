@@ -4,7 +4,6 @@ members = ["bin/tx3c",
     "crates/tx3-cardano",
     "crates/tx3-lang",
     "crates/tx3-resolver",
-    "crates/tx3-tir",
 ]
 
 [workspace.package]
@@ -29,3 +28,8 @@ serde = { version = "1.0.217", features = ["derive"] }
 [profile.dist]
 inherits = "release"
 lto = "thin"
+
+# Local lang-factory development override — uncomment to build against a sibling
+# `tir` checkout instead of the published crates.io version.
+# [patch.crates-io]
+# tx3-tir = { path = "../tir/crates/tx3-tir" }

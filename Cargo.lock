@@ -3002,14 +3002,13 @@ dependencies = [
 [[package]]
 name = "tx3-tir"
 version = "0.17.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "152e332c5ab744e8f17d54dfa4b6e3e177d5055141a1f37625303d4613277a72"
 dependencies = [
  "ciborium",
  "hex",
- "proptest",
  "serde",
- "serde_json",
  "thiserror 2.0.11",
- "tx3-lang",
 ]
 
 [[package]]
