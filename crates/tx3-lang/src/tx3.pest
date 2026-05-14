@@ -199,7 +199,7 @@ map_field = {
 }
 
 map_constructor = {
-    "{" ~  (map_field ~ ",")+ ~ "}"
+    "{" ~  (map_field ~ ",")* ~ "}"
 }
 
 // input block
