@@ -3021,6 +3021,7 @@ dependencies = [
  "dotenv-parser",
  "handlebars",
  "hex",
+ "miette",
  "schemars",
  "serde",
  "serde_json",
