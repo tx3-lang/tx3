@@ -1,0 +1,24 @@
+name: Publish crates
+
+# Custom publish job invoked by cargo-dist's release.yml. It publishes the
+# workspace libraries to crates.io. See `publish-jobs` in dist-workspace.toml.
+
+on:
+  workflow_call:
+    inputs:
+      plan:
+        required: true
+        type: string
+
+jobs:
+  publish-crates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Publish to crates.io
+        run: cargo publish --workspace --exclude tx3c --locked
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
