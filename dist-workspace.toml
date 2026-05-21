@@ -9,5 +9,7 @@ cargo-dist-version = "0.30.3"
 ci = "github"
 # The installers to generate for each app
 installers = []
+# Custom publish jobs to run during a release (publishes crates to crates.io)
+publish-jobs = ["./publish-crates"]
 # Target platforms to build apps for (Rust target-triple syntax)
 targets = ["aarch64-apple-darwin", "aarch64-unknown-linux-gnu", "x86_64-unknown-linux-gnu", "x86_64-pc-windows-msvc"]
