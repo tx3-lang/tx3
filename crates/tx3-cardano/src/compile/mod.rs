@@ -936,7 +936,7 @@ fn compute_script_data_hash(
 
     let cost_model = pparams.cost_models.get(&version).unwrap();
 
-    let language_view = primitives::LanguageView(version, cost_model.clone());
+    let language_view = primitives::LanguageViews::from_iter([(version, cost_model.clone())]);
 
     let data = primitives::ScriptData::build_for(witness_set, &Some(language_view));
 
