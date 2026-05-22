@@ -13,6 +13,7 @@ tx publish_plutus(
     cardano::publish {
         to: Receiver,
         amount: Ada(quantity),
+        datum: 0xD87980,
         version: 3,
         script: 0x5101010023259800a518a4d136564004ae69,
     }
