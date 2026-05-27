@@ -193,6 +193,8 @@ pub struct Program {
 pub struct EnvField {
     pub name: String,
     pub r#type: Type,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub docstring: Option<String>,
     pub span: Span,
 }
 
@@ -211,6 +213,8 @@ pub struct ParameterList {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct TxDef {
     pub name: Identifier,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub docstring: Option<String>,
     pub parameters: ParameterList,
     pub locals: Option<LocalsBlock>,
     pub references: Vec<ReferenceBlock>,
@@ -495,6 +499,8 @@ impl RecordField {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PartyDef {
     pub name: Identifier,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub docstring: Option<String>,
     pub span: Span,
 }
 
@@ -895,6 +901,8 @@ impl Type {
 pub struct ParamDef {
     pub name: Identifier,
     pub r#type: Type,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub docstring: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

@@ -80,6 +80,33 @@ pub trait AstNode: Sized {
     fn span(&self) -> &Span;
 }
 
+/// Pulls an optional leading `Rule::docstring` pair from a `Pairs` iterator and
+/// normalizes it: each line's leading `///` (and at most one space after it) is
+/// stripped, lines are joined with `\n`, and trailing whitespace is trimmed.
+fn take_docstring(inner: &mut pest::iterators::Pairs<Rule>) -> Option<String> {
+    let next = inner.peek()?;
+    if next.as_rule() != Rule::docstring {
+        return None;
+    }
+    let pair = inner.next().unwrap();
+
+    let mut lines = Vec::new();
+    for line in pair.into_inner() {
+        debug_assert_eq!(line.as_rule(), Rule::doc_line);
+        let raw = line.as_str();
+        let trimmed = raw.strip_prefix("///").unwrap_or(raw);
+        let trimmed = trimmed.strip_prefix(' ').unwrap_or(trimmed);
+        lines.push(trimmed.trim_end().to_string());
+    }
+
+    let joined = lines.join("\n");
+    if joined.trim().is_empty() {
+        None
+    } else {
+        Some(joined)
+    }
+}
+
 impl AstNode for Program {
     const RULE: Rule = Rule::program;
 
@@ -128,12 +155,14 @@ impl AstNode for EnvField {
     fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
         let span = pair.as_span().into();
         let mut inner = pair.into_inner();
+        let docstring = take_docstring(&mut inner);
         let identifier = inner.next().unwrap().as_str().to_string();
         let r#type = Type::parse(inner.next().unwrap())?;
 
         Ok(EnvField {
             name: identifier,
             r#type,
+            docstring,
             span,
         })
     }
@@ -173,10 +202,15 @@ impl AstNode for ParameterList {
 
         for param in inner {
             let mut inner = param.into_inner();
+            let docstring = take_docstring(&mut inner);
             let name = Identifier::parse(inner.next().unwrap())?;
             let r#type = Type::parse(inner.next().unwrap())?;
 
-            parameters.push(ParamDef { name, r#type });
+            parameters.push(ParamDef {
+                name,
+                r#type,
+                docstring,
+            });
         }
 
         Ok(ParameterList { parameters, span })
@@ -194,6 +228,7 @@ impl AstNode for TxDef {
         let span = pair.as_span().into();
         let mut inner = pair.into_inner();
 
+        let docstring = take_docstring(&mut inner);
         let name = Identifier::parse(inner.next().unwrap())?;
         let parameters = ParameterList::parse(inner.next().unwrap())?;
 
@@ -228,6 +263,7 @@ impl AstNode for TxDef {
 
         Ok(TxDef {
             name,
+            docstring,
             parameters,
             locals,
             references,
@@ -302,10 +338,12 @@ impl AstNode for PartyDef {
     fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
         let span = pair.as_span().into();
         let mut inner = pair.into_inner();
+        let docstring = take_docstring(&mut inner);
         let identifier = Identifier::parse(inner.next().unwrap())?;
 
         Ok(PartyDef {
             name: identifier,
+            docstring,
             span,
         })
     }
@@ -2524,11 +2562,13 @@ mod tests {
                 EnvField {
                     name: "field_a".to_string(),
                     r#type: Type::Int,
+                    docstring: None,
                     span: Span::DUMMY,
                 },
                 EnvField {
                     name: "field_b".to_string(),
                     r#type: Type::Bytes,
+                    docstring: None,
                     span: Span::DUMMY,
                 },
             ],
@@ -2542,6 +2582,7 @@ mod tests {
         "tx my_tx() {}",
         TxDef {
             name: Identifier::new("my_tx"),
+            docstring: None,
             parameters: ParameterList {
                 parameters: vec![],
                 span: Span::DUMMY,
@@ -2568,15 +2609,18 @@ mod tests {
         "tx my_tx(a: Int, b: Bytes) {}",
         TxDef {
             name: Identifier::new("my_tx"),
+            docstring: None,
             parameters: ParameterList {
                 parameters: vec![
                     ParamDef {
                         name: Identifier::new("a"),
                         r#type: Type::Int,
+                        docstring: None,
                     },
                     ParamDef {
                         name: Identifier::new("b"),
                         r#type: Type::Bytes,
+                        docstring: None,
                     },
                 ],
                 span: Span::DUMMY,
@@ -2604,12 +2648,14 @@ mod tests {
         Program {
             parties: vec![PartyDef {
                 name: Identifier::new("Abc"),
+                docstring: None,
                 span: Span::DUMMY,
             }],
             types: vec![],
             aliases: vec![],
             txs: vec![TxDef {
                 name: Identifier::new("my_tx"),
+                docstring: None,
                 parameters: ParameterList {
                     parameters: vec![],
                     span: Span::DUMMY,
@@ -2772,6 +2818,77 @@ mod tests {
         "{}",
         MapConstructor {
             fields: vec![],
+            span: Span::DUMMY,
+        }
+    );
+
+    input_to_ast_check!(
+        PartyDef,
+        "with_docstring",
+        "/// the protocol treasury\nparty Treasury;",
+        PartyDef {
+            name: Identifier::new("Treasury"),
+            docstring: Some("the protocol treasury".to_string()),
+            span: Span::DUMMY,
+        }
+    );
+
+    input_to_ast_check!(
+        EnvField,
+        "with_docstring",
+        "/// network magic\nnetwork: Int",
+        EnvField {
+            name: "network".to_string(),
+            r#type: Type::Int,
+            docstring: Some("network magic".to_string()),
+            span: Span::DUMMY,
+        }
+    );
+
+    input_to_ast_check!(
+        TxDef,
+        "with_multiline_docstring",
+        "/// transfer funds from a to b\n/// across two lines\ntx transfer() {}",
+        TxDef {
+            name: Identifier::new("transfer"),
+            docstring: Some("transfer funds from a to b\nacross two lines".to_string()),
+            parameters: ParameterList {
+                parameters: vec![],
+                span: Span::DUMMY,
+            },
+            locals: None,
+            references: vec![],
+            inputs: vec![],
+            outputs: vec![],
+            validity: None,
+            mints: vec![],
+            burns: vec![],
+            signers: None,
+            adhoc: vec![],
+            collateral: vec![],
+            metadata: None,
+            scope: None,
+            span: Span::DUMMY,
+        }
+    );
+
+    input_to_ast_check!(
+        ParameterList,
+        "with_param_docstrings",
+        "(/// amount in lovelace\nquantity: Int, target: Address)",
+        ParameterList {
+            parameters: vec![
+                ParamDef {
+                    name: Identifier::new("quantity"),
+                    r#type: Type::Int,
+                    docstring: Some("amount in lovelace".to_string()),
+                },
+                ParamDef {
+                    name: Identifier::new("target"),
+                    r#type: Type::Address,
+                    docstring: None,
+                },
+            ],
             span: Span::DUMMY,
         }
     );
