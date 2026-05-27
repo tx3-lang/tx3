@@ -4,9 +4,14 @@ This section gives the complete context-free grammar of Tx3 in EBNF. The
 grammar covers syntax only; semantic restrictions (e.g. "metadata keys
 MUST be integers") live in §6 and §7.
 
-The notation is as defined in §1.3. Whitespace and comments (§3.2, §3.3) are
-implicitly permitted between any two adjacent grammar symbols and are not
-written into the productions.
+The notation is as defined in §1.3. Whitespace and non-doc comments (§3.2,
+§3.3) are implicitly permitted between any two adjacent grammar symbols and
+are not written into the productions. Doc-comments (§3.3.1) are **not**
+implicitly skipped: a `docstring` only matches where the grammar names it
+explicitly, and a `///` line in any other position is a syntax error.
+
+The `docstring` nonterminal is defined lexically in §3.3.1 and is included
+here only as a terminal placeholder.
 
 ## 4.1 Program
 
@@ -32,7 +37,7 @@ subject to the no-duplicate-definitions rule of §6.2.
 
 ```
 env_def     ::= "env" "{" (env_field ",")+ "}"
-env_field   ::= identifier ":" type
+env_field   ::= docstring? identifier ":" type
 ```
 
 The `env` block declares typed external inputs that are in scope throughout
@@ -51,7 +56,7 @@ name. Both MUST have type `Bytes` after analysis (§6.3).
 ### 4.2.3 Party
 
 ```
-party_def ::= "party" identifier ";"
+party_def ::= docstring? "party" identifier ";"
 ```
 
 A *party definition* introduces a participant name. Party definitions carry
@@ -109,9 +114,9 @@ Notes:
 ### 4.2.6 Transaction
 
 ```
-tx_def         ::= "tx" identifier parameter_list "{" tx_body_block* "}"
+tx_def         ::= docstring? "tx" identifier parameter_list "{" tx_body_block* "}"
 parameter_list ::= "(" (parameter ("," parameter)* ","?)? ")"
-parameter      ::= identifier ":" type
+parameter      ::= docstring? identifier ":" type
 ```
 
 A *transaction definition* declares a parameterised template. The
