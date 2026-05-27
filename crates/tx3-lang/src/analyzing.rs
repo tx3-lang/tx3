@@ -652,7 +652,12 @@ impl Analyzable for StructConstructor {
             Some(symbol) => {
                 bail_report!(Error::invalid_symbol("struct type", symbol, &self.r#type));
             }
-            _ => unreachable!(),
+            None => {
+                bail_report!(Error::not_in_scope(
+                    self.r#type.value.clone(),
+                    &self.r#type
+                ));
+            }
         };
 
         for case in type_def.cases.iter() {

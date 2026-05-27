@@ -2766,6 +2766,16 @@ mod tests {
         }
     );
 
+    input_to_ast_check!(
+        MapConstructor,
+        "empty",
+        "{}",
+        MapConstructor {
+            fields: vec![],
+            span: Span::DUMMY,
+        }
+    );
+
     #[test]
     fn test_spans_are_respected() {
         let program = parse_well_known_example("spans");
