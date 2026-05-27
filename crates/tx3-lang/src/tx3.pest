@@ -44,7 +44,7 @@ parameter_list = { "(" ~ (parameter ~ ("," ~ parameter)* ~ ","?)? ~ ")" }
 
 // Asset definitions
 asset_def = {
-    docstring? ~ "asset" ~ identifier ~ "=" ~ data_expr ~ "." ~ data_expr ~ ";"
+    "asset" ~ identifier ~ "=" ~ data_expr ~ "." ~ data_expr ~ ";"
 }
 
 // Party definitions
