@@ -33,16 +33,45 @@ between two identifiers, or between a keyword and an identifier).
 
 ## 3.3 Comments
 
-Tx3 has two kinds of comments. Both are equivalent to whitespace for the
-purposes of tokenisation.
+Tx3 has three kinds of comments.
 
-- **Line comments** begin with `//` and extend to the next line terminator
-  (exclusive).
+- **Line comments** begin with `//` (and not `///`) and extend to the next
+  line terminator (exclusive). Line comments are equivalent to whitespace
+  for the purposes of tokenisation.
 - **Block comments** begin with `/*` and extend to the next `*/`. Block
   comments **do not nest**: the first `*/` after the opening `/*` ends the
-  comment.
+  comment. Block comments are equivalent to whitespace.
+- **Doc-comments** begin with `///` and extend to the next line terminator
+  (exclusive). Doc-comments are **not** discarded: their textual content is
+  preserved and associated with the next syntactic construct (§3.3.1).
 
 A `/*` that is never closed is a syntax error.
+
+### 3.3.1 Doc-comments
+
+The textual content of a doc-comment is the substring after the leading
+`///`, with at most one immediately following space (U+0020) stripped. One
+or more *consecutive* doc-comment lines — separated only by whitespace —
+form a single *docstring*; the per-line contents are joined with a single
+U+000A (LF) in source order.
+
+A docstring MAY appear immediately before any of the following constructs,
+where it becomes the *documentation string* of that construct:
+
+- a `party_def` (§4.2.3);
+- an `env_field` (§4.2.1);
+- a `parameter` of a `tx_def` (§4.2.6);
+- a `tx_def` (§4.2.6).
+
+A `///` line that does not immediately precede one of the constructs above
+is a syntax error. Conforming compilers MAY relax this restriction as an
+extension (§9.3), provided they continue to accept all conforming programs
+unchanged.
+
+The documentation string of a construct has no effect on parsing, type
+checking, or transaction semantics. It is metadata, intended for surfacing
+by downstream tooling (e.g. generated bindings, registry UIs, or the TII
+artefact described in the resolver specification).
 
 ## 3.4 Identifiers
 
