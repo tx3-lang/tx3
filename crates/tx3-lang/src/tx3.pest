@@ -1,5 +1,10 @@
 WHITESPACE = _{ " " | "\t" | "\n" | "\r" }
-COMMENT = _{ "//" ~ (!"\n" ~ ANY)* | "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
+COMMENT = _{ ("//" ~ !"/" ~ (!"\n" ~ ANY)*) | ("/*" ~ (!"*/" ~ ANY)* ~ "*/") }
+
+// Doc comments: lines starting with `///`. Carried through to the AST so
+// downstream tooling (TII, registry, codegen) can surface them as descriptions.
+doc_line = @{ "///" ~ (!"\n" ~ ANY)* }
+docstring = { doc_line+ }
 
 // Identifiers and basic types
 identifier = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
@@ -34,17 +39,17 @@ type = {
 }
 
 // Parameters
-parameter = { identifier ~ ":" ~ type }
+parameter = { docstring? ~ identifier ~ ":" ~ type }
 parameter_list = { "(" ~ (parameter ~ ("," ~ parameter)* ~ ","?)? ~ ")" }
 
 // Asset definitions
 asset_def = {
-    "asset" ~ identifier ~ "=" ~ data_expr ~ "." ~ data_expr ~ ";"
+    docstring? ~ "asset" ~ identifier ~ "=" ~ data_expr ~ "." ~ data_expr ~ ";"
 }
 
 // Party definitions
 party_def = {
-    "party" ~ identifier ~ ";"
+    docstring? ~ "party" ~ identifier ~ ";"
 }
 
 // Policy definitions
@@ -440,7 +445,7 @@ tx_body_block = _{
     validity_block
 }
 
-env_field = { identifier ~ ":" ~ type }
+env_field = { docstring? ~ identifier ~ ":" ~ type }
 
 env_def = {
     "env" ~ "{" ~ (env_field ~ ",")+ ~ "}"
@@ -448,7 +453,7 @@ env_def = {
 
 // Transaction definition
 tx_def = {
-    "tx" ~ identifier ~ parameter_list ~ "{" ~ tx_body_block* ~ "}"
+    docstring? ~ "tx" ~ identifier ~ parameter_list ~ "{" ~ tx_body_block* ~ "}"
 }
 
 // Program
