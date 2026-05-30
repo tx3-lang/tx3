@@ -1,8 +1,14 @@
 use std::str::FromStr as _;
 
-use pallas::{codec::utils::Int, ledger::primitives::conway as primitives};
+use pallas::{
+    codec::{
+        minicbor,
+        utils::{CborWrap, Int},
+    },
+    ledger::primitives::conway as primitives,
+};
 use tx3_tir::compile::Error;
-use tx3_tir::model::core::UtxoRef;
+use tx3_tir::model::core::{Utxo, UtxoRef};
 use tx3_tir::model::v1beta0 as tir;
 
 use crate::Network;
@@ -84,6 +90,47 @@ pub fn expr_into_utxo_refs(expr: &tir::Expression) -> Result<Vec<UtxoRef>, Error
             "UtxoRefs".to_string(),
         )),
     }
+}
+
+/// Extracts the full resolved UTxOs (preserving the `datum`/`script` fields)
+/// from an expression. Unlike [`expr_into_utxo_refs`], this keeps the attached
+/// reference script so callers can inspect it (e.g. to determine the Plutus
+/// language of a reference script). Expressions that only carry references and
+/// no resolved body contribute no UTxOs.
+pub fn expr_into_utxos(expr: &tir::Expression) -> Result<Vec<Utxo>, Error> {
+    match expr {
+        tir::Expression::UtxoSet(x) => Ok(x.iter_sorted_by_ref().into_iter().cloned().collect()),
+        tir::Expression::UtxoRefs(_) | tir::Expression::String(_) | tir::Expression::None => {
+            Ok(vec![])
+        }
+        _ => Err(Error::CoerceError(format!("{expr:?}"), "Utxos".to_string())),
+    }
+}
+
+/// Coerces an expression carrying a reference script into a pallas
+/// [`primitives::ScriptRef`]. The bytes are expected to be the full tagged
+/// `ScriptRef` CBOR (the `[tag, body]` array); a `CborWrap`-wrapped form is
+/// also accepted as a fallback for providers that double-wrap.
+pub fn expr_into_script_ref(
+    expr: &tir::Expression,
+) -> Result<primitives::ScriptRef<'static>, Error> {
+    let bytes = expr_into_bytes(expr)?;
+
+    let script_ref = minicbor::decode::<primitives::ScriptRef>(&bytes)
+        .or_else(|_| {
+            minicbor::decode::<CborWrap<primitives::ScriptRef>>(&bytes)
+                .map(|wrapped| wrapped.unwrap())
+        })
+        .map_err(|_| Error::CoerceError(format!("{expr:?}"), "ScriptRef".to_string()))?;
+
+    // The decoded script ref borrows `bytes`; rebuild an owned (`'static`) value.
+    // Plutus variants already own their bytes; only the native script needs it.
+    Ok(match script_ref {
+        primitives::ScriptRef::NativeScript(x) => primitives::ScriptRef::NativeScript(x.to_owned()),
+        primitives::ScriptRef::PlutusV1Script(x) => primitives::ScriptRef::PlutusV1Script(x),
+        primitives::ScriptRef::PlutusV2Script(x) => primitives::ScriptRef::PlutusV2Script(x),
+        primitives::ScriptRef::PlutusV3Script(x) => primitives::ScriptRef::PlutusV3Script(x),
+    })
 }
 
 pub fn expr_into_assets(ir: &tir::Expression) -> Result<Vec<tir::AssetExpr>, Error> {

@@ -2985,6 +2985,7 @@ dependencies = [
  "hex",
  "pallas",
  "pollster",
+ "proptest",
  "serde",
  "thiserror 2.0.18",
  "trait-variant",
