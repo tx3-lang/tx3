@@ -27,4 +27,5 @@ trait-variant = "0.1.2"
 
 [dev-dependencies]
 pollster = { version = "0.4.0", features = ["macro"] }
+proptest = "1.7.0"
 tx3-lang = { path = "../tx3-lang" }

@@ -559,6 +559,7 @@ mod script_language_collection {
     };
     use pallas::ledger::primitives::conway::{NativeScript, ScriptRef};
     use pallas::ledger::primitives::PlutusScript;
+    use proptest::prelude::*;
 
     fn empty_tx() -> tir::Tx {
         tir::Tx {
@@ -608,10 +609,6 @@ mod script_language_collection {
         tir::Expression::Bytes(minicbor::to_vec(script_ref).unwrap())
     }
 
-    fn plutus_v1() -> ScriptRef<'static> {
-        ScriptRef::PlutusV1Script(PlutusScript::<1>(vec![0x01, 0x02, 0x03].into()))
-    }
-
     fn plutus_v2() -> ScriptRef<'static> {
         ScriptRef::PlutusV2Script(PlutusScript::<2>(vec![0x01, 0x02, 0x03].into()))
     }
@@ -642,23 +639,6 @@ mod script_language_collection {
         assert!(!versions.contains(&2));
     }
 
-    // A spending input whose resolved UTxO carries a PlutusV1 reference script
-    // yields the V1 language key {0}.
-    #[test]
-    fn spending_input_plutus_v1() {
-        let mut tx = empty_tx();
-        tx.inputs = vec![tir::Input {
-            name: "input".to_string(),
-            utxos: tir::Expression::UtxoSet(utxo_with_script(Some(ref_script_expr(&plutus_v1())))),
-            redeemer: tir::Expression::None,
-        }];
-
-        let versions =
-            crate::compile::collect_used_plutus_versions(&tx, &empty_witness_set()).unwrap();
-
-        assert_eq!(versions, BTreeSet::from([0]));
-    }
-
     // A native reference script contributes no language view.
     #[test]
     fn native_reference_script_is_ignored() {
@@ -682,20 +662,143 @@ mod script_language_collection {
         assert!(hash.is_none());
     }
 
-    // Union across an inline witness (V3) and a reference script (V2).
-    #[test]
-    fn union_witness_and_reference() {
+    // Property: the collected language set equals exactly the set of Plutus
+    // language keys of all scripts present -- across witness scripts, spending
+    // inputs and reference inputs -- with native scripts excluded and duplicates
+    // deduped, regardless of how the scripts are distributed across sources.
+    #[derive(Clone, Copy, Debug)]
+    enum Lang {
+        Native,
+        V1,
+        V2,
+        V3,
+    }
+
+    impl Lang {
+        fn script_ref(self, seed: u8) -> ScriptRef<'static> {
+            match self {
+                Lang::Native => ScriptRef::NativeScript(KeepRaw::from(NativeScript::ScriptPubkey(
+                    primitives::Hash::<28>::from([seed; 28]),
+                ))),
+                Lang::V1 => ScriptRef::PlutusV1Script(PlutusScript::<1>(vec![seed].into())),
+                Lang::V2 => ScriptRef::PlutusV2Script(PlutusScript::<2>(vec![seed].into())),
+                Lang::V3 => ScriptRef::PlutusV3Script(PlutusScript::<3>(vec![seed].into())),
+            }
+        }
+
+        /// The expected `LanguageViews` key per the spec (native has none).
+        fn key(self) -> Option<PlutusVersion> {
+            match self {
+                Lang::Native => None,
+                Lang::V1 => Some(0),
+                Lang::V2 => Some(1),
+                Lang::V3 => Some(2),
+            }
+        }
+    }
+
+    #[derive(Clone, Copy, Debug)]
+    enum Source {
+        Witness,
+        SpendingInput,
+        ReferenceInput,
+    }
+
+    fn utxo_set_with_ref_script(seed: u8, script_ref: &ScriptRef) -> UtxoSet {
+        let utxo = Utxo {
+            // Unique ref per seed so the UtxoSet does not dedup distinct scripts.
+            r#ref: UtxoRef {
+                txid: vec![seed; 32],
+                index: 0,
+            },
+            address: vec![],
+            assets: CanonicalAssets::from_naked_amount(1),
+            datum: None,
+            script: Some(ref_script_expr(script_ref)),
+        };
+
+        [utxo].into()
+    }
+
+    fn build_tx(
+        placements: &[(Source, Lang)],
+    ) -> (tir::Tx, primitives::conway::WitnessSet<'static>) {
         let mut tx = empty_tx();
-        tx.references = vec![tir::Expression::UtxoSet(utxo_with_script(Some(
-            ref_script_expr(&plutus_v2()),
-        )))];
-
         let mut witness_set = empty_witness_set();
-        witness_set.plutus_v3_script =
-            NonEmptySet::from_vec(vec![PlutusScript::<3>(vec![0xAA].into())]);
 
-        let versions = crate::compile::collect_used_plutus_versions(&tx, &witness_set).unwrap();
-        assert_eq!(versions, BTreeSet::from([1, 2]));
+        let mut native_ws = vec![];
+        let mut v1_ws = vec![];
+        let mut v2_ws = vec![];
+        let mut v3_ws = vec![];
+
+        for (i, (source, lang)) in placements.iter().enumerate() {
+            let seed = i as u8;
+            match source {
+                Source::Witness => match lang {
+                    Lang::Native => native_ws.push(KeepRaw::from(NativeScript::ScriptPubkey(
+                        primitives::Hash::<28>::from([seed; 28]),
+                    ))),
+                    Lang::V1 => v1_ws.push(PlutusScript::<1>(vec![seed].into())),
+                    Lang::V2 => v2_ws.push(PlutusScript::<2>(vec![seed].into())),
+                    Lang::V3 => v3_ws.push(PlutusScript::<3>(vec![seed].into())),
+                },
+                Source::SpendingInput => tx.inputs.push(tir::Input {
+                    name: format!("input_{i}"),
+                    utxos: tir::Expression::UtxoSet(utxo_set_with_ref_script(
+                        seed,
+                        &lang.script_ref(seed),
+                    )),
+                    redeemer: tir::Expression::None,
+                }),
+                Source::ReferenceInput => {
+                    tx.references
+                        .push(tir::Expression::UtxoSet(utxo_set_with_ref_script(
+                            seed,
+                            &lang.script_ref(seed),
+                        )))
+                }
+            }
+        }
+
+        witness_set.native_script = NonEmptySet::from_vec(native_ws);
+        witness_set.plutus_v1_script = NonEmptySet::from_vec(v1_ws);
+        witness_set.plutus_v2_script = NonEmptySet::from_vec(v2_ws);
+        witness_set.plutus_v3_script = NonEmptySet::from_vec(v3_ws);
+
+        (tx, witness_set)
+    }
+
+    fn lang_strategy() -> impl Strategy<Value = Lang> {
+        prop_oneof![
+            Just(Lang::Native),
+            Just(Lang::V1),
+            Just(Lang::V2),
+            Just(Lang::V3),
+        ]
+    }
+
+    fn source_strategy() -> impl Strategy<Value = Source> {
+        prop_oneof![
+            Just(Source::Witness),
+            Just(Source::SpendingInput),
+            Just(Source::ReferenceInput),
+        ]
+    }
+
+    proptest! {
+        #[test]
+        fn collected_versions_match_present_languages(
+            placements in prop::collection::vec((source_strategy(), lang_strategy()), 0..8)
+        ) {
+            let (tx, witness_set) = build_tx(&placements);
+
+            let expected: BTreeSet<PlutusVersion> =
+                placements.iter().filter_map(|(_, lang)| lang.key()).collect();
+
+            let got = crate::compile::collect_used_plutus_versions(&tx, &witness_set).unwrap();
+
+            prop_assert_eq!(got, expected);
+        }
     }
 
     // A used language with no configured cost model surfaces an error rather
