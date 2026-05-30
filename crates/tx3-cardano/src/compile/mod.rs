@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet, HashSet};
+use std::collections::{BTreeMap, HashSet};
 
 use pallas::{
     codec::{
@@ -26,8 +26,10 @@ use crate::{
 
 pub(crate) mod asset_math;
 pub(crate) mod plutus_data;
+mod script_data;
 
 use plutus_data::{IntoData as _, TryIntoData as _};
+use script_data::compute_script_data_hash;
 
 macro_rules! asset {
     ($policy:expr, $asset:expr, $amount:expr) => {{
@@ -910,107 +912,6 @@ fn compile_witness_set(
     };
 
     Ok(witness_set)
-}
-
-/// Maps a `ScriptRef` variant — whose CBOR tag encodes the script kind
-/// (native=0, PlutusV1=1, PlutusV2=2, PlutusV3=3) — to the corresponding
-/// `LanguageViews` / cost-model key (PlutusV1=0, PlutusV2=1, PlutusV3=2).
-/// Native scripts have no language view, so they return `None`.
-pub(crate) fn script_ref_language_key(script_ref: &primitives::ScriptRef) -> Option<PlutusVersion> {
-    match script_ref {
-        primitives::ScriptRef::NativeScript(_) => None,
-        primitives::ScriptRef::PlutusV1Script(_) => Some(0),
-        primitives::ScriptRef::PlutusV2Script(_) => Some(1),
-        primitives::ScriptRef::PlutusV3Script(_) => Some(2),
-    }
-}
-
-/// Collects the set of Plutus languages (as `LanguageViews` / cost-model keys)
-/// actually used by the transaction. The language of each script is read
-/// directly from its script-ref tag — the same approach the Haskell ledger
-/// uses — rather than inferred. Sources are the inline witness scripts and the
-/// reference scripts attached to the resolved UTxOs of spending and reference
-/// inputs.
-pub(crate) fn collect_used_plutus_versions(
-    tx: &tir::Tx,
-    witness_set: &primitives::WitnessSet,
-) -> Result<BTreeSet<PlutusVersion>, Error> {
-    let mut versions = BTreeSet::new();
-
-    if witness_set.plutus_v1_script.is_some() {
-        versions.insert(0);
-    }
-    if witness_set.plutus_v2_script.is_some() {
-        versions.insert(1);
-    }
-    if witness_set.plutus_v3_script.is_some() {
-        versions.insert(2);
-    }
-
-    // TODO(Option B): restrict reference-script languages to scripts actually
-    // executed by filtering on the required-script hashes (see
-    // `infer_required_scripts`); today we include every reference script found
-    // on the resolved spending/reference UTxOs.
-    let utxo_exprs = tx
-        .inputs
-        .iter()
-        .map(|i| &i.utxos)
-        .chain(tx.references.iter());
-
-    for expr in utxo_exprs {
-        for utxo in coercion::expr_into_utxos(expr)? {
-            if let Some(script_expr) = utxo.script.as_ref() {
-                let script_ref = coercion::expr_into_script_ref(script_expr)?;
-                if let Some(key) = script_ref_language_key(&script_ref) {
-                    versions.insert(key);
-                }
-            }
-        }
-    }
-
-    Ok(versions)
-}
-
-pub(crate) fn compute_script_data_hash(
-    tx: &tir::Tx,
-    witness_set: &primitives::WitnessSet,
-    pparams: &PParams,
-) -> Result<Option<primitives::Hash<32>>, Error> {
-    let mut versions = collect_used_plutus_versions(tx, witness_set)?;
-
-    // Interim fallback: if the transaction has redeemers (so Plutus scripts
-    // will execute) but we could not determine any language -- e.g. the
-    // executed scripts are reference scripts whose bytes the provider did not
-    // populate on the resolved UTxO -- fall back to the latest language
-    // (PlutusV3) so the script data hash stays valid for the common V3-only
-    // case instead of omitting the language view entirely. This degraded path
-    // disappears once providers populate `utxo.script` (see the Dolos/Hydra TRP
-    // mappings), after which the language is read directly from the script-ref
-    // tag.
-    // TODO: remove once all providers populate reference-script bytes.
-    if versions.is_empty() && witness_set.redeemer.is_some() {
-        versions.insert(2);
-    }
-
-    let mut entries = Vec::with_capacity(versions.len());
-    for version in &versions {
-        let cost_model = pparams.cost_models.get(version).ok_or_else(|| {
-            Error::FormatError(format!(
-                "missing cost model for plutus language view key {version}"
-            ))
-        })?;
-        entries.push((*version, cost_model.clone()));
-    }
-
-    // Keep `None` (never `Some(empty)`) when no plutus scripts are used: an
-    // empty language view map would encode incorrectly, and `build_for` only
-    // attaches language views when redeemers are present anyway.
-    let language_views =
-        (!entries.is_empty()).then(|| primitives::LanguageViews::from_iter(entries));
-
-    let data = primitives::ScriptData::build_for(witness_set, &language_views);
-
-    Ok(data.map(|x| x.hash()))
 }
 
 pub fn entry_point(tx: &tir::Tx, pparams: &PParams) -> Result<primitives::Tx<'static>, Error> {
