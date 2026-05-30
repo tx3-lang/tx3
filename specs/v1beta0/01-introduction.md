@@ -4,8 +4,8 @@
 
 Tx3 is a domain-specific language for describing **transaction templates** on
 UTxO-based blockchains. A Tx3 program declares the shape of one or more
-transactions together with the parties, assets, policies, types, and
-environment values they refer to. It is not a general-purpose programming
+transactions together with the parties, assets, policies, types, functions,
+and environment values they refer to. It is not a general-purpose programming
 language and contains no constructs for unbounded loops, recursion, or
 side-effects.
 

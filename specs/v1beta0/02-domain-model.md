@@ -16,6 +16,8 @@ source files. The top-level definitions, in their declared kinds, are:
 - *policy definitions* (`policy`): named minting/spending policies, either
   declared by hash literal or constructed from constituent fields.
 - *type definitions* (`type`): records, sum types (variants), and aliases.
+- *function definitions* (`fn`): named, pure helpers that compute a data value
+  from typed parameters; see §2.5.
 - *transaction templates* (`tx`): parameterised templates for transactions.
 
 A program declares at most one `env` block. All other top-level kinds may
@@ -54,13 +56,16 @@ a *data expression*. Data expressions cover:
   built-ins;
 - a restricted set of operators: addition (`+`), subtraction (`-`), prefix
   negation (`!`), property access (`.`), and indexing (`[…]`);
-- a small set of built-in functions: `min_utxo`, `tip_slot`, `slot_to_time`,
-  `time_to_slot`, plus `concat` and the `AnyAsset` constructor.
+- calls to *functions* — both the built-ins `min_utxo`, `tip_slot`,
+  `slot_to_time`, `time_to_slot` (plus `concat` and the `AnyAsset` constructor)
+  and user-defined functions (`fn`, §2.5) — using the same call syntax.
 
-The expression language is intentionally restricted. It has no control flow,
-no user-defined functions, no comparison operators, and no boolean
-combinators. Everything that requires computation beyond simple arithmetic
-and aggregation is the job of the resolver, not the source language.
+The expression language is intentionally restricted. It has no control flow, no
+comparison operators, and no boolean combinators. User-defined functions
+(§2.5) are pure and non-recursive, and are eliminated by inlining before
+resolution (§7); they add naming and reuse, not new runtime computation.
+Everything that requires computation beyond simple arithmetic and aggregation
+is the job of the resolver, not the source language.
 
 ## 2.4 Inputs, outputs, references, and named values
 
@@ -82,7 +87,27 @@ Within the body of a `tx`, these names live in a single shared scope (see
 §6.1). Names need not be declared before use; in particular, output names may
 be referenced from other blocks regardless of textual order.
 
-## 2.5 The compilation pipeline (informative)
+## 2.5 Functions
+
+A *function* is a named, pure helper that maps typed parameters to a single
+data value. A function declares a parameter list, an explicit return type, and
+a body consisting of zero or more `let`-bindings followed by a result
+expression (§4.2.6). Functions exist purely to name and reuse data-expression
+fragments; they do not introduce new runtime behaviour.
+
+The language exposes a fixed set of *built-in* functions (`min_utxo`,
+`tip_slot`, `slot_to_time`, `time_to_slot`) whose results are computed by the
+resolver. *User-defined* functions are written with `fn` and are eliminated by
+the compiler through inlining: each call site is replaced by the function's
+result expression with the arguments substituted for the parameters (§7). As a
+consequence:
+
+- functions MUST NOT be recursive, directly or indirectly;
+- a function body is a data expression and MUST NOT contain transaction blocks;
+- built-in and user-defined functions share one call syntax and one namespace
+  (§6.1), and are invoked wherever a data expression is allowed.
+
+## 2.6 The compilation pipeline (informative)
 
 A conforming compiler processes a Tx3 program in the following phases. The
 spec is normative only over the first two; lowering is described informatively
@@ -99,7 +124,7 @@ Errors detected in phase 1 are *syntax errors*. Errors detected in phase 2
 are *semantic errors*. A conforming compiler MUST emit at least one diagnostic
 for any program that violates a rule from §3–§8 (see §9).
 
-## 2.6 Chain genericity
+## 2.7 Chain genericity
 
 The core of the language (§3–§7) is intended to be chain-agnostic. Constructs
 that are specific to a particular target chain live under a dedicated

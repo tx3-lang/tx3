@@ -24,6 +24,7 @@ top_level_def ::=
     | party_def
     | policy_def
     | type_def
+    | fn_def
     | tx_def
 ```
 
@@ -111,7 +112,25 @@ Notes:
   variant-case field is required by the grammar above and is conformant
   Tx3 style.
 
-### 4.2.6 Transaction
+### 4.2.6 Function
+
+```
+fn_def      ::= "fn" identifier parameter_list "->" type "{" fn_body "}"
+fn_body     ::= let_binding* data_expr
+let_binding ::= "let" identifier "=" data_expr ";"
+```
+
+A *function definition* introduces a named, pure helper that computes a data
+value. The `parameter_list` (§4.2.7) MAY be empty. The `type` after `->` is the
+declared return type. A function body is an optional sequence of `let`-bindings
+followed by a single result `data_expr`, whose static type MUST match the
+declared return type (§5.7). Functions are top-level only: a function body MUST
+NOT contain transaction blocks, and functions MUST NOT be nested. Function calls
+use the `fn_call` production (§4.4) and MAY appear anywhere a `data_expr` is
+valid. Static-semantic rules for functions are given in §6, and their
+evaluation by inlining is specified in §7.
+
+### 4.2.7 Transaction
 
 ```
 tx_def         ::= docstring? "tx" identifier parameter_list "{" tx_body_block* "}"
@@ -120,7 +139,8 @@ parameter      ::= docstring? identifier ":" type
 ```
 
 A *transaction definition* declares a parameterised template. The
-`parameter_list` MAY be empty. Trailing commas are permitted.
+`parameter_list` MAY be empty. Trailing commas are permitted. The
+`parameter_list` production above is shared by `fn_def` (§4.2.6).
 
 ## 4.3 Types
 

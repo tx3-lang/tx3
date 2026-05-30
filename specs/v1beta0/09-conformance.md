@@ -27,7 +27,7 @@ source file:
 
 1. **MUST** report no diagnostics, beyond optional warnings, when given a
    conforming program. The program MUST be processed up to and including
-   the static-semantic phase (§2.5) without rejection.
+   the static-semantic phase (§2.6) without rejection.
 2. **MUST** emit at least one diagnostic in the appropriate category
    (§6.9) for any program that violates a MUST or MUST NOT from §3–§8.
 3. **MUST** preserve the meaning of every conforming program when it

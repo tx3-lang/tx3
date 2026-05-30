@@ -197,10 +197,18 @@ The built-in `AnyAsset(policy, asset_name, amount)` yields a value of type
 `AnyAsset`. Its arguments MUST have types `Bytes`, `Bytes`, and `Int`
 respectively.
 
-## 5.6 Built-in functions
+## 5.6 Functions
 
-The following identifiers, when used in `fn_call` position (§4.4), denote
-built-in functions provided by every conforming compiler:
+A *function* is invoked in `fn_call` position (§4.4). The result type of a call
+is the function's declared (or, for built-ins, defined) return type. Each
+argument MUST be assignable (§5.9) to the type of the corresponding parameter,
+and the number of arguments MUST equal the number of parameters. Both built-in
+and user-defined functions live in the single program-global namespace (§6.1).
+
+### 5.6.1 Built-in functions
+
+The following identifiers denote built-in functions provided by every
+conforming compiler:
 
 | Name             | Argument types                  | Result type | Notes |
 | ---------------- | ------------------------------- | ----------- | ----- |
@@ -210,12 +218,28 @@ built-in functions provided by every conforming compiler:
 | `time_to_slot`   | `(time : Int)`                  | `Int`       | Converts a POSIX time to a slot number. |
 
 `min_utxo` is special: its single argument is treated as an identifier
-reference rather than a general data expression. `tip_slot` MAY be invoked
-either as `tip_slot()` or as the bare identifier `tip_slot` (the latter
-form is accepted but using the call form is RECOMMENDED).
+reference rather than a general data expression. Built-in functions MUST be
+invoked using call syntax (e.g. `tip_slot()`); a bare identifier that resolves
+to a built-in function is not a valid data expression.
 
 These names occupy the program-global namespace and SHOULD NOT be shadowed
 by user-defined identifiers.
+
+### 5.6.2 User-defined functions
+
+A `fn_def` (§4.2.6) introduces a function whose signature is fully explicit:
+each parameter is typed, and the return type follows `->`. Within the body, the
+parameters are in scope (§6.1), and each `let`-binding introduces a name bound
+to the static type of its initializer, visible to subsequent bindings and to
+the result expression. The static type of the result expression MUST be
+assignable (§5.9) to the declared return type; otherwise the program is
+ill-typed.
+
+A function body is a pure data expression: it MUST NOT reference transaction
+inputs, outputs, references, `fees`, or any `tx`-local symbol, and MUST NOT
+contain transaction blocks. Functions MUST NOT be recursive (§6). Because
+user-defined functions are eliminated by inlining (§7), they introduce no new
+values or types beyond those expressible by their bodies.
 
 ## 5.7 Built-in symbols
 
