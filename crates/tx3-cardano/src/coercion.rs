@@ -2,7 +2,7 @@ use std::str::FromStr as _;
 
 use pallas::{codec::utils::Int, ledger::primitives::conway as primitives};
 use tx3_tir::compile::Error;
-use tx3_tir::model::core::UtxoRef;
+use tx3_tir::model::core::{Utxo, UtxoRef};
 use tx3_tir::model::v1beta0 as tir;
 
 use crate::Network;
@@ -83,6 +83,21 @@ pub fn expr_into_utxo_refs(expr: &tir::Expression) -> Result<Vec<UtxoRef>, Error
             format!("{expr:?}"),
             "UtxoRefs".to_string(),
         )),
+    }
+}
+
+/// Extracts the full resolved UTxOs (preserving the `datum`/`script` fields)
+/// from an expression. Unlike [`expr_into_utxo_refs`], this keeps the attached
+/// reference script so callers can inspect it (e.g. to determine the Plutus
+/// language of a reference script). Expressions that only carry references and
+/// no resolved body contribute no UTxOs.
+pub fn expr_into_utxos(expr: &tir::Expression) -> Result<Vec<Utxo>, Error> {
+    match expr {
+        tir::Expression::UtxoSet(x) => Ok(x.iter_sorted_by_ref().into_iter().cloned().collect()),
+        tir::Expression::UtxoRefs(_) | tir::Expression::String(_) | tir::Expression::None => {
+            Ok(vec![])
+        }
+        _ => Err(Error::CoerceError(format!("{expr:?}"), "Utxos".to_string())),
     }
 }
 

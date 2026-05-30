@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 
 use pallas::{
     codec::{
@@ -912,35 +912,124 @@ fn compile_witness_set(
     Ok(witness_set)
 }
 
-fn infer_plutus_version(witness_set: &primitives::WitnessSet) -> PlutusVersion {
-    // TODO: how do we handle this for reference scripts?
-
-    if witness_set.plutus_v1_script.is_some() {
-        0
-    } else if witness_set.plutus_v2_script.is_some() {
-        1
-    } else if witness_set.plutus_v3_script.is_some() {
-        2
-    } else {
-        // TODO: should we error here?
-        // Defaulting to Plutus V3 for now
-        2
+/// Maps a `ScriptRef` variant — whose CBOR tag encodes the script kind
+/// (native=0, PlutusV1=1, PlutusV2=2, PlutusV3=3) — to the corresponding
+/// `LanguageViews` / cost-model key (PlutusV1=0, PlutusV2=1, PlutusV3=2).
+/// Native scripts have no language view, so they return `None`.
+fn script_ref_language_key(script_ref: &primitives::ScriptRef) -> Option<PlutusVersion> {
+    match script_ref {
+        primitives::ScriptRef::NativeScript(_) => None,
+        primitives::ScriptRef::PlutusV1Script(_) => Some(0),
+        primitives::ScriptRef::PlutusV2Script(_) => Some(1),
+        primitives::ScriptRef::PlutusV3Script(_) => Some(2),
     }
 }
 
-fn compute_script_data_hash(
+/// Reads the Plutus language (as a `LanguageViews` / cost-model key) of a
+/// reference script carried on a resolved UTxO. The script is expected to be
+/// the full tagged `ScriptRef` CBOR; a `CborWrap`-wrapped form is also accepted
+/// as a fallback for providers that double-wrap. Returns `None` for native
+/// scripts, which contribute no language view.
+pub(crate) fn script_expr_language_key(
+    expr: &tir::Expression,
+) -> Result<Option<PlutusVersion>, Error> {
+    let bytes = expr_into_bytes(expr)?;
+
+    let script_ref = minicbor::decode::<primitives::ScriptRef>(&bytes)
+        .or_else(|_| {
+            minicbor::decode::<pallas::codec::utils::CborWrap<primitives::ScriptRef>>(&bytes)
+                .map(|wrapped| wrapped.unwrap())
+        })
+        .map_err(|_| Error::FormatError("error decoding utxo.script as ScriptRef".to_string()))?;
+
+    Ok(script_ref_language_key(&script_ref))
+}
+
+/// Collects the set of Plutus languages (as `LanguageViews` / cost-model keys)
+/// actually used by the transaction. The language of each script is read
+/// directly from its script-ref tag — the same approach the Haskell ledger
+/// uses — rather than inferred. Sources are the inline witness scripts and the
+/// reference scripts attached to the resolved UTxOs of spending and reference
+/// inputs.
+pub(crate) fn collect_used_plutus_versions(
+    tx: &tir::Tx,
+    witness_set: &primitives::WitnessSet,
+) -> Result<BTreeSet<PlutusVersion>, Error> {
+    let mut versions = BTreeSet::new();
+
+    if witness_set.plutus_v1_script.is_some() {
+        versions.insert(0);
+    }
+    if witness_set.plutus_v2_script.is_some() {
+        versions.insert(1);
+    }
+    if witness_set.plutus_v3_script.is_some() {
+        versions.insert(2);
+    }
+
+    // TODO(Option B): restrict reference-script languages to scripts actually
+    // executed by filtering on the required-script hashes (see
+    // `infer_required_scripts`); today we include every reference script found
+    // on the resolved spending/reference UTxOs.
+    let utxo_exprs = tx
+        .inputs
+        .iter()
+        .map(|i| &i.utxos)
+        .chain(tx.references.iter());
+
+    for expr in utxo_exprs {
+        for utxo in coercion::expr_into_utxos(expr)? {
+            if let Some(script_expr) = utxo.script.as_ref() {
+                if let Some(key) = script_expr_language_key(script_expr)? {
+                    versions.insert(key);
+                }
+            }
+        }
+    }
+
+    Ok(versions)
+}
+
+pub(crate) fn compute_script_data_hash(
+    tx: &tir::Tx,
     witness_set: &primitives::WitnessSet,
     pparams: &PParams,
-) -> Option<primitives::Hash<32>> {
-    let version = infer_plutus_version(witness_set);
+) -> Result<Option<primitives::Hash<32>>, Error> {
+    let mut versions = collect_used_plutus_versions(tx, witness_set)?;
 
-    let cost_model = pparams.cost_models.get(&version).unwrap();
+    // Interim fallback: if the transaction has redeemers (so Plutus scripts
+    // will execute) but we could not determine any language -- e.g. the
+    // executed scripts are reference scripts whose bytes the provider did not
+    // populate on the resolved UTxO -- fall back to the latest language
+    // (PlutusV3) so the script data hash stays valid for the common V3-only
+    // case instead of omitting the language view entirely. This degraded path
+    // disappears once providers populate `utxo.script` (see the Dolos/Hydra TRP
+    // mappings), after which the language is read directly from the script-ref
+    // tag.
+    // TODO: remove once all providers populate reference-script bytes.
+    if versions.is_empty() && witness_set.redeemer.is_some() {
+        versions.insert(2);
+    }
 
-    let language_view = primitives::LanguageViews::from_iter([(version, cost_model.clone())]);
+    let mut entries = Vec::with_capacity(versions.len());
+    for version in &versions {
+        let cost_model = pparams.cost_models.get(version).ok_or_else(|| {
+            Error::FormatError(format!(
+                "missing cost model for plutus language view key {version}"
+            ))
+        })?;
+        entries.push((*version, cost_model.clone()));
+    }
 
-    let data = primitives::ScriptData::build_for(witness_set, &Some(language_view));
+    // Keep `None` (never `Some(empty)`) when no plutus scripts are used: an
+    // empty language view map would encode incorrectly, and `build_for` only
+    // attaches language views when redeemers are present anyway.
+    let language_views =
+        (!entries.is_empty()).then(|| primitives::LanguageViews::from_iter(entries));
 
-    data.map(|x| x.hash())
+    let data = primitives::ScriptData::build_for(witness_set, &language_views);
+
+    Ok(data.map(|x| x.hash()))
 }
 
 pub fn entry_point(tx: &tir::Tx, pparams: &PParams) -> Result<primitives::Tx<'static>, Error> {
@@ -948,7 +1037,8 @@ pub fn entry_point(tx: &tir::Tx, pparams: &PParams) -> Result<primitives::Tx<'st
     let transaction_witness_set = compile_witness_set(tx, &transaction_body, pparams.network)?;
     let auxiliary_data = compile_auxiliary_data(tx)?;
 
-    transaction_body.script_data_hash = compute_script_data_hash(&transaction_witness_set, pparams);
+    transaction_body.script_data_hash =
+        compute_script_data_hash(tx, &transaction_witness_set, pparams)?;
     transaction_body.auxiliary_data_hash = auxiliary_data.as_ref().map(|x| x.compute_hash());
 
     Ok(primitives::Tx {

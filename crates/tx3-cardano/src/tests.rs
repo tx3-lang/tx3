@@ -548,3 +548,184 @@ async fn min_utxo_compiler_op_test() {
         assert!(!assets.is_empty());
     }
 }
+
+mod script_language_collection {
+    use super::*;
+    use std::collections::BTreeSet;
+
+    use pallas::codec::{
+        minicbor,
+        utils::{CborWrap, KeepRaw, NonEmptySet},
+    };
+    use pallas::ledger::primitives::conway::{NativeScript, ScriptRef};
+    use pallas::ledger::primitives::PlutusScript;
+
+    fn empty_tx() -> tir::Tx {
+        tir::Tx {
+            fees: tir::Expression::None,
+            references: vec![],
+            inputs: vec![],
+            outputs: vec![],
+            validity: None,
+            mints: vec![],
+            burns: vec![],
+            adhoc: vec![],
+            collateral: vec![],
+            signers: None,
+            metadata: vec![],
+        }
+    }
+
+    fn empty_witness_set() -> primitives::conway::WitnessSet<'static> {
+        primitives::conway::WitnessSet {
+            redeemer: None,
+            vkeywitness: None,
+            native_script: None,
+            bootstrap_witness: None,
+            plutus_data: None,
+            plutus_v1_script: None,
+            plutus_v2_script: None,
+            plutus_v3_script: None,
+        }
+    }
+
+    fn utxo_with_script(script: Option<tir::Expression>) -> UtxoSet {
+        let utxo = Utxo {
+            r#ref: UtxoRef {
+                txid: vec![0u8; 32],
+                index: 0,
+            },
+            address: vec![],
+            assets: CanonicalAssets::from_naked_amount(1),
+            datum: None,
+            script,
+        };
+
+        [utxo].into()
+    }
+
+    fn ref_script_expr(script_ref: &ScriptRef) -> tir::Expression {
+        tir::Expression::Bytes(minicbor::to_vec(script_ref).unwrap())
+    }
+
+    fn plutus_v1() -> ScriptRef<'static> {
+        ScriptRef::PlutusV1Script(PlutusScript::<1>(vec![0x01, 0x02, 0x03].into()))
+    }
+
+    fn plutus_v2() -> ScriptRef<'static> {
+        ScriptRef::PlutusV2Script(PlutusScript::<2>(vec![0x01, 0x02, 0x03].into()))
+    }
+
+    fn plutus_v3() -> ScriptRef<'static> {
+        ScriptRef::PlutusV3Script(PlutusScript::<3>(vec![0x01, 0x02, 0x03].into()))
+    }
+
+    fn native() -> ScriptRef<'static> {
+        let script = NativeScript::ScriptPubkey(primitives::Hash::<28>::from([7u8; 28]));
+        ScriptRef::NativeScript(KeepRaw::from(script))
+    }
+
+    // A reference input carrying a PlutusV2 reference script, with no inline
+    // witness scripts, must yield the V2 language key {1} -- explicitly NOT the
+    // old PlutusV3 default {2}.
+    #[test]
+    fn reference_only_plutus_v2() {
+        let mut tx = empty_tx();
+        tx.references = vec![tir::Expression::UtxoSet(utxo_with_script(Some(
+            ref_script_expr(&plutus_v2()),
+        )))];
+
+        let versions =
+            crate::compile::collect_used_plutus_versions(&tx, &empty_witness_set()).unwrap();
+
+        assert_eq!(versions, BTreeSet::from([1]));
+        assert!(!versions.contains(&2));
+    }
+
+    // A spending input whose resolved UTxO carries a PlutusV1 reference script
+    // yields the V1 language key {0}.
+    #[test]
+    fn spending_input_plutus_v1() {
+        let mut tx = empty_tx();
+        tx.inputs = vec![tir::Input {
+            name: "input".to_string(),
+            utxos: tir::Expression::UtxoSet(utxo_with_script(Some(ref_script_expr(&plutus_v1())))),
+            redeemer: tir::Expression::None,
+        }];
+
+        let versions =
+            crate::compile::collect_used_plutus_versions(&tx, &empty_witness_set()).unwrap();
+
+        assert_eq!(versions, BTreeSet::from([0]));
+    }
+
+    // A native reference script contributes no language view.
+    #[test]
+    fn native_reference_script_is_ignored() {
+        let mut tx = empty_tx();
+        tx.references = vec![tir::Expression::UtxoSet(utxo_with_script(Some(
+            ref_script_expr(&native()),
+        )))];
+
+        let versions =
+            crate::compile::collect_used_plutus_versions(&tx, &empty_witness_set()).unwrap();
+
+        assert!(versions.is_empty());
+
+        // With no plutus scripts and no redeemers there is no script data hash.
+        let hash = crate::compile::compute_script_data_hash(
+            &tx,
+            &empty_witness_set(),
+            &test_compiler(None).pparams,
+        )
+        .unwrap();
+        assert!(hash.is_none());
+    }
+
+    // Union across an inline witness (V3) and a reference script (V2).
+    #[test]
+    fn union_witness_and_reference() {
+        let mut tx = empty_tx();
+        tx.references = vec![tir::Expression::UtxoSet(utxo_with_script(Some(
+            ref_script_expr(&plutus_v2()),
+        )))];
+
+        let mut witness_set = empty_witness_set();
+        witness_set.plutus_v3_script =
+            NonEmptySet::from_vec(vec![PlutusScript::<3>(vec![0xAA].into())]);
+
+        let versions = crate::compile::collect_used_plutus_versions(&tx, &witness_set).unwrap();
+        assert_eq!(versions, BTreeSet::from([1, 2]));
+    }
+
+    // A used language with no configured cost model surfaces an error rather
+    // than panicking (the old `.unwrap()`).
+    #[test]
+    fn missing_cost_model_errors() {
+        let mut tx = empty_tx();
+        tx.references = vec![tir::Expression::UtxoSet(utxo_with_script(Some(
+            ref_script_expr(&plutus_v3()),
+        )))];
+
+        // Redeemers must be present for build_for to attach language views, but
+        // the missing cost model is detected before that. Use pparams with an
+        // empty cost model map so key 2 is missing.
+        let mut pparams = test_compiler(None).pparams;
+        pparams.cost_models.clear();
+
+        let result = crate::compile::compute_script_data_hash(&tx, &empty_witness_set(), &pparams);
+        assert!(matches!(
+            result,
+            Err(tx3_tir::compile::Error::FormatError(_))
+        ));
+    }
+
+    // A reference script double-wrapped in a CborWrap still decodes.
+    #[test]
+    fn cbor_wrap_fallback() {
+        let wrapped = tir::Expression::Bytes(minicbor::to_vec(CborWrap(plutus_v2())).unwrap());
+
+        let key = crate::compile::script_expr_language_key(&wrapped).unwrap();
+        assert_eq!(key, Some(1));
+    }
+}
