@@ -725,7 +725,10 @@ mod script_language_collection {
     fn cbor_wrap_fallback() {
         let wrapped = tir::Expression::Bytes(minicbor::to_vec(CborWrap(plutus_v2())).unwrap());
 
-        let key = crate::compile::script_expr_language_key(&wrapped).unwrap();
-        assert_eq!(key, Some(1));
+        let script_ref = crate::coercion::expr_into_script_ref(&wrapped).unwrap();
+        assert_eq!(
+            crate::compile::script_ref_language_key(&script_ref),
+            Some(1)
+        );
     }
 }

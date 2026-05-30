@@ -916,33 +916,13 @@ fn compile_witness_set(
 /// (native=0, PlutusV1=1, PlutusV2=2, PlutusV3=3) — to the corresponding
 /// `LanguageViews` / cost-model key (PlutusV1=0, PlutusV2=1, PlutusV3=2).
 /// Native scripts have no language view, so they return `None`.
-fn script_ref_language_key(script_ref: &primitives::ScriptRef) -> Option<PlutusVersion> {
+pub(crate) fn script_ref_language_key(script_ref: &primitives::ScriptRef) -> Option<PlutusVersion> {
     match script_ref {
         primitives::ScriptRef::NativeScript(_) => None,
         primitives::ScriptRef::PlutusV1Script(_) => Some(0),
         primitives::ScriptRef::PlutusV2Script(_) => Some(1),
         primitives::ScriptRef::PlutusV3Script(_) => Some(2),
     }
-}
-
-/// Reads the Plutus language (as a `LanguageViews` / cost-model key) of a
-/// reference script carried on a resolved UTxO. The script is expected to be
-/// the full tagged `ScriptRef` CBOR; a `CborWrap`-wrapped form is also accepted
-/// as a fallback for providers that double-wrap. Returns `None` for native
-/// scripts, which contribute no language view.
-pub(crate) fn script_expr_language_key(
-    expr: &tir::Expression,
-) -> Result<Option<PlutusVersion>, Error> {
-    let bytes = expr_into_bytes(expr)?;
-
-    let script_ref = minicbor::decode::<primitives::ScriptRef>(&bytes)
-        .or_else(|_| {
-            minicbor::decode::<pallas::codec::utils::CborWrap<primitives::ScriptRef>>(&bytes)
-                .map(|wrapped| wrapped.unwrap())
-        })
-        .map_err(|_| Error::FormatError("error decoding utxo.script as ScriptRef".to_string()))?;
-
-    Ok(script_ref_language_key(&script_ref))
 }
 
 /// Collects the set of Plutus languages (as `LanguageViews` / cost-model keys)
@@ -980,7 +960,8 @@ pub(crate) fn collect_used_plutus_versions(
     for expr in utxo_exprs {
         for utxo in coercion::expr_into_utxos(expr)? {
             if let Some(script_expr) = utxo.script.as_ref() {
-                if let Some(key) = script_expr_language_key(script_expr)? {
+                let script_ref = coercion::expr_into_script_ref(script_expr)?;
+                if let Some(key) = script_ref_language_key(&script_ref) {
                     versions.insert(key);
                 }
             }
