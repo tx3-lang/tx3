@@ -16,6 +16,13 @@ fn complex(a: Int, b: Int) -> Int {
     adjusted + adjusted
 }
 
+fn make_pool(a: Int, b: Int) -> PoolState {
+    PoolState {
+        pair_a: a,
+        pair_b: b,
+    }
+}
+
 fn adjust_pool(pool: PoolState, delta_a: Int, delta_b: Int) -> PoolState {
     PoolState {
         pair_a: pool.pair_a + delta_a,
@@ -42,5 +49,17 @@ tx use_complex() {
     output {
         to: Receiver,
         amount: Ada(complex(50, 75)),
+    }
+}
+
+tx use_pool(delta_a: Int, delta_b: Int) {
+    input source {
+        from: Sender,
+        min_amount: Ada(2000000),
+    }
+    output {
+        to: Receiver,
+        amount: source - fees,
+        datum: adjust_pool(make_pool(1000, 2000), delta_a, delta_b),
     }
 }

@@ -1071,6 +1071,10 @@ mod tests {
 
     test_lowering!(min_utxo);
 
+    test_lowering!(tip_slot);
+
+    test_lowering!(posix_time);
+
     test_lowering!(donation);
 
     test_lowering!(list_concat);
