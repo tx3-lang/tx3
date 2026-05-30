@@ -1028,6 +1028,7 @@ impl AstNode for FnDef {
             parameters,
             return_type,
             body: Some(body),
+            builtin: None,
             span,
             scope: None,
         })

@@ -994,12 +994,29 @@ pub struct FnBody {
     pub span: Span,
 }
 
+/// A function provided by the compiler rather than declared in source. Each
+/// variant lowers to a dedicated compiler operation (§7); see
+/// `analyzing::builtin_fn_defs` for their signatures.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub enum BuiltinFn {
+    MinUtxo,
+    TipSlot,
+    SlotToTime,
+    TimeToSlot,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct FnDef {
     pub name: Identifier,
     pub parameters: ParameterList,
     pub return_type: Type,
+    /// The inline body of a user-defined function. `None` for built-ins, which
+    /// carry a `builtin` kind instead.
     pub body: Option<FnBody>,
+    /// Set when this is a compiler-provided function; mutually exclusive with
+    /// `body`. User-defined functions always parse with `builtin: None`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub builtin: Option<BuiltinFn>,
     pub span: Span,
 
     // analysis

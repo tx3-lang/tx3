@@ -416,11 +416,10 @@ impl IntoLower for ast::FnCall {
         // Check if callee resolves to a function definition
         if let Some(symbol) = self.callee.symbol.as_ref() {
             if let Some(fn_def) = symbol.as_fn_def() {
-                return if fn_def.body.is_some() {
-                    inline_fn_call(fn_def, &self.args, ctx)
-                } else {
-                    lower_builtin_fn_call(&self.callee.value, &self.args, ctx)
-                };
+                if let Some(builtin) = fn_def.builtin {
+                    return lower_builtin_fn_call(builtin, &self.args, ctx);
+                }
+                return inline_fn_call(fn_def, &self.args, ctx);
             }
         }
 
@@ -446,34 +445,18 @@ impl IntoLower for ast::FnCall {
 }
 
 fn lower_builtin_fn_call(
-    name: &str,
+    builtin: ast::BuiltinFn,
     args: &[ast::DataExpr],
     ctx: &Context,
 ) -> Result<ir::Expression, Error> {
-    match name {
-        "min_utxo" => {
-            let arg = args[0].into_lower(ctx)?;
-            Ok(ir::Expression::EvalCompiler(Box::new(
-                ir::CompilerOp::ComputeMinUtxo(arg),
-            )))
-        }
-        "tip_slot" => Ok(ir::Expression::EvalCompiler(Box::new(
-            ir::CompilerOp::ComputeTipSlot,
-        ))),
-        "slot_to_time" => {
-            let arg = args[0].into_lower(ctx)?;
-            Ok(ir::Expression::EvalCompiler(Box::new(
-                ir::CompilerOp::ComputeSlotToTime(arg),
-            )))
-        }
-        "time_to_slot" => {
-            let arg = args[0].into_lower(ctx)?;
-            Ok(ir::Expression::EvalCompiler(Box::new(
-                ir::CompilerOp::ComputeTimeToSlot(arg),
-            )))
-        }
-        _ => Err(Error::InvalidAst(format!("unknown built-in function: {}", name))),
-    }
+    let op = match builtin {
+        ast::BuiltinFn::MinUtxo => ir::CompilerOp::ComputeMinUtxo(args[0].into_lower(ctx)?),
+        ast::BuiltinFn::TipSlot => ir::CompilerOp::ComputeTipSlot,
+        ast::BuiltinFn::SlotToTime => ir::CompilerOp::ComputeSlotToTime(args[0].into_lower(ctx)?),
+        ast::BuiltinFn::TimeToSlot => ir::CompilerOp::ComputeTimeToSlot(args[0].into_lower(ctx)?),
+    };
+
+    Ok(ir::Expression::EvalCompiler(Box::new(op)))
 }
 
 struct ParamSubstituter<'a> {
