@@ -1083,6 +1083,8 @@ mod tests {
 
     test_lowering!(functions);
 
+    test_lowering!(nested_functions);
+
     test_lowering!(param_field_shadow);
 
     test_lowering!(oracle_reference_datum);

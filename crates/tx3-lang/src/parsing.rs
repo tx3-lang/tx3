@@ -3046,4 +3046,6 @@ mod tests {
     test_parsing!(buidler_fest_2026);
 
     test_parsing!(functions);
+
+    test_parsing!(nested_functions);
 }

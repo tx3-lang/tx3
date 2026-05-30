@@ -1566,11 +1566,26 @@ impl Analyzable for Program {
 
         let (types, aliases) = resolve_types_and_aliases(scope_rc, &mut types, &mut aliases);
 
-        let functions = self.functions.analyze(self.scope.clone());
+        // Functions may call other functions, and lowering inlines a callee's
+        // *analyzed* body. A single analysis pass leaves each call site holding
+        // a pre-analysis clone of its callee (whose own body is unresolved), so
+        // we analyze to a fixed point: each pass re-registers the
+        // progressively-analyzed definitions and re-resolves call sites against
+        // them. Functions are non-recursive (the call graph is acyclic), so the
+        // number of definitions is a sufficient upper bound on the longest call
+        // chain and the iteration terminates.
+        let program_scope = self.scope.clone();
+        let mut functions = AnalyzeReport::default();
+        for _ in 0..self.functions.len() {
+            let mut fn_scope = Scope::new(program_scope.clone());
+            for fn_def in self.functions.iter() {
+                fn_scope.track_fn_def(fn_def);
+            }
+            functions = self.functions.analyze(Some(Rc::new(fn_scope)));
+        }
 
-        // Re-register analyzed FnDefs so txs resolve to analyzed versions
-        // (the originals in the scope are pre-analysis clones)
-        let mut fn_scope = Scope::new(self.scope.take());
+        // Final scope: txs resolve calls to the fully-analyzed definitions.
+        let mut fn_scope = Scope::new(program_scope);
         for fn_def in self.functions.iter() {
             fn_scope.track_fn_def(fn_def);
         }
