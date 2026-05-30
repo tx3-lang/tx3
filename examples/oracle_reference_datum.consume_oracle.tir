@@ -1,0 +1,88 @@
+{
+  "fees": {
+    "EvalParam": "ExpectFees"
+  },
+  "references": [
+    {
+      "EvalParam": {
+        "ExpectValue": [
+          "oracle_utxo",
+          "UtxoRef"
+        ]
+      }
+    }
+  ],
+  "inputs": [],
+  "outputs": [
+    {
+      "address": {
+        "EvalParam": {
+          "ExpectValue": [
+            "receiver",
+            "Address"
+          ]
+        }
+      },
+      "datum": {
+        "Struct": {
+          "constructor": 0,
+          "fields": [
+            {
+              "EvalBuiltIn": {
+                "Property": [
+                  {
+                    "EvalCoerce": {
+                      "IntoDatum": {
+                        "EvalParam": {
+                          "ExpectInput": [
+                            "oracle_data",
+                            {
+                              "address": "None",
+                              "min_amount": "None",
+                              "ref": {
+                                "EvalParam": {
+                                  "ExpectValue": [
+                                    "oracle_utxo",
+                                    "UtxoRef"
+                                  ]
+                                }
+                              },
+                              "many": false,
+                              "collateral": false
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "Number": 0
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "amount": {
+        "Assets": [
+          {
+            "policy": "None",
+            "asset_name": "None",
+            "amount": {
+              "Number": 0
+            }
+          }
+        ]
+      },
+      "optional": false
+    }
+  ],
+  "validity": null,
+  "mints": [],
+  "burns": [],
+  "adhoc": [],
+  "collateral": [],
+  "signers": null,
+  "metadata": []
+}

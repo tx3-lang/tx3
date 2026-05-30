@@ -22,6 +22,7 @@ pub type Network = pallas::ledger::primitives::NetworkId;
 pub type PlutusVersion = u8;
 pub type CostModel = Vec<i64>;
 
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct PParams {
     pub network: Network,
     pub min_fee_coefficient: u64,
@@ -38,7 +39,7 @@ pub const EXECUTION_UNITS: primitives::ExUnits = primitives::ExUnits {
 const DEFAULT_EXTRA_FEES: u64 = 200_000;
 const MIN_UTXO_BYTES: i128 = 197;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 pub struct Config {
     pub extra_fees: Option<u64>,
 }
@@ -46,16 +47,18 @@ pub struct Config {
 pub type TxBody =
     pallas::codec::utils::KeepRaw<'static, primitives::conway::TransactionBody<'static>>;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ChainPoint {
     pub slot: u64,
     pub hash: Vec<u8>,
     pub timestamp: u128,
 }
 
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Compiler {
     pub pparams: PParams,
     pub config: Config,
+    #[serde(skip)]
     pub latest_tx_body: Option<TxBody>,
     pub cursor: ChainPoint,
 }

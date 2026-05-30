@@ -26,8 +26,10 @@ use crate::{
 
 pub(crate) mod asset_math;
 pub(crate) mod plutus_data;
+mod script_data;
 
 use plutus_data::{IntoData as _, TryIntoData as _};
+use script_data::compute_script_data_hash;
 
 macro_rules! asset {
     ($policy:expr, $asset:expr, $amount:expr) => {{
@@ -756,7 +758,7 @@ fn compile_withdrawal_redeemers(
     let redeemers = tx
         .adhoc
         .iter()
-        .filter(|x| x.name.as_str() == "withdraw")
+        .filter(|x| x.name.as_str() == "withdrawal")
         .map(|adhoc| compile_single_withdrawal_redeemer(adhoc, compiled_body, network))
         .filter_map(|x| x.transpose())
         .collect::<Result<Vec<_>, _>>()?;
@@ -912,43 +914,13 @@ fn compile_witness_set(
     Ok(witness_set)
 }
 
-fn infer_plutus_version(witness_set: &primitives::WitnessSet) -> PlutusVersion {
-    // TODO: how do we handle this for reference scripts?
-
-    if witness_set.plutus_v1_script.is_some() {
-        0
-    } else if witness_set.plutus_v2_script.is_some() {
-        1
-    } else if witness_set.plutus_v3_script.is_some() {
-        2
-    } else {
-        // TODO: should we error here?
-        // Defaulting to Plutus V3 for now
-        2
-    }
-}
-
-fn compute_script_data_hash(
-    witness_set: &primitives::WitnessSet,
-    pparams: &PParams,
-) -> Option<primitives::Hash<32>> {
-    let version = infer_plutus_version(witness_set);
-
-    let cost_model = pparams.cost_models.get(&version).unwrap();
-
-    let language_view = primitives::LanguageView(version, cost_model.clone());
-
-    let data = primitives::ScriptData::build_for(witness_set, &Some(language_view));
-
-    data.map(|x| x.hash())
-}
-
 pub fn entry_point(tx: &tir::Tx, pparams: &PParams) -> Result<primitives::Tx<'static>, Error> {
     let mut transaction_body = compile_tx_body(tx, pparams.network)?;
     let transaction_witness_set = compile_witness_set(tx, &transaction_body, pparams.network)?;
     let auxiliary_data = compile_auxiliary_data(tx)?;
 
-    transaction_body.script_data_hash = compute_script_data_hash(&transaction_witness_set, pparams);
+    transaction_body.script_data_hash =
+        compute_script_data_hash(tx, &transaction_witness_set, pparams)?;
     transaction_body.auxiliary_data_hash = auxiliary_data.as_ref().map(|x| x.compute_hash());
 
     Ok(primitives::Tx {

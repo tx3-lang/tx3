@@ -170,9 +170,10 @@ impl Error {
             Symbol::EnvVar(name, _) => format!("EnvVar({})", name),
             Symbol::ParamVar(name, _) => format!("ParamVar({})", name),
             Symbol::FunctionDef(fn_def) => format!("FunctionDef({})", fn_def.name.value),
+            Symbol::Input(block) => format!("Input({})", block.name),
+            Symbol::Reference(block) => format!("Reference({})", block.name),
+            Symbol::Output(idx) => format!("Output({})", idx),
             Symbol::LocalExpr(_) => "LocalExpr".to_string(),
-            Symbol::Input(_) => "Input".to_string(),
-            Symbol::Output(_) => "Output".to_string(),
             Symbol::Fees => "Fees".to_string(),
         }
     }
@@ -312,6 +313,7 @@ fn builtin_fn_defs() -> Vec<FnDef> {
                 parameters: vec![ParamDef {
                     name: Identifier::new("output"),
                     r#type: Type::Int,
+                    docstring: None,
                 }],
                 span: Span::DUMMY,
             },
@@ -337,6 +339,7 @@ fn builtin_fn_defs() -> Vec<FnDef> {
                 parameters: vec![ParamDef {
                     name: Identifier::new("slot"),
                     r#type: Type::Int,
+                    docstring: None,
                 }],
                 span: Span::DUMMY,
             },
@@ -351,6 +354,7 @@ fn builtin_fn_defs() -> Vec<FnDef> {
                 parameters: vec![ParamDef {
                     name: Identifier::new("time"),
                     r#type: Type::Int,
+                    docstring: None,
                 }],
                 span: Span::DUMMY,
             },
@@ -448,6 +452,11 @@ impl Scope {
     pub fn track_input(&mut self, name: &str, input: InputBlock) {
         self.symbols
             .insert(name.to_string(), Symbol::Input(Box::new(input)));
+    }
+
+    pub fn track_reference(&mut self, name: &str, reference: ReferenceBlock) {
+        self.symbols
+            .insert(name.to_string(), Symbol::Reference(Box::new(reference)));
     }
 
     pub fn track_output(&mut self, index: usize, output: OutputBlock) {
@@ -638,7 +647,11 @@ impl Analyzable for NegateOp {
 impl Analyzable for RecordConstructorField {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
         let name = self.name.analyze(parent.clone());
-        let value = self.value.analyze(parent.clone());
+
+        // skip the record-field scope so that param names aren't shadowed
+        // by same-named type fields (e.g. `MyType { counter: counter }`)
+        let outer = parent.as_ref().and_then(|p| p.parent.clone());
+        let value = self.value.analyze(outer);
 
         name + value
     }
@@ -703,7 +716,12 @@ impl Analyzable for StructConstructor {
             Some(symbol) => {
                 bail_report!(Error::invalid_symbol("struct type", symbol, &self.r#type));
             }
-            _ => unreachable!(),
+            None => {
+                bail_report!(Error::not_in_scope(
+                    self.r#type.value.clone(),
+                    &self.r#type
+                ));
+            }
         };
 
         for case in type_def.cases.iter() {
@@ -1195,11 +1213,11 @@ impl Analyzable for SignersBlock {
 
 impl Analyzable for ReferenceBlock {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
-        self.r#ref.analyze(parent)
+        self.r#ref.analyze(parent.clone()) + self.datum_is.analyze(parent)
     }
 
     fn is_resolved(&self) -> bool {
-        self.r#ref.is_resolved()
+        self.r#ref.is_resolved() && self.datum_is.is_resolved()
     }
 }
 
@@ -1369,12 +1387,17 @@ impl TxDef {
             scope.track_input(&input.name, input.clone())
         }
 
+        for reference in self.references.iter() {
+            scope.track_reference(&reference.name, reference.clone());
+        }
+
         for (index, output) in self.outputs.iter().enumerate() {
             scope.track_output(index, output.clone())
         }
 
         let scope_snapshot = Rc::new(scope);
         let _ = self.locals.analyze(Some(scope_snapshot.clone()));
+        let _ = self.references.analyze(Some(scope_snapshot.clone()));
         let _ = self.inputs.analyze(Some(scope_snapshot.clone()));
         let _ = self.outputs.analyze(Some(scope_snapshot.clone()));
 

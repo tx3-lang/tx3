@@ -1,8 +1,14 @@
 use std::str::FromStr as _;
 
-use pallas::{codec::utils::Int, ledger::primitives::conway as primitives};
+use pallas::{
+    codec::{
+        minicbor,
+        utils::{CborWrap, Int},
+    },
+    ledger::primitives::conway as primitives,
+};
 use tx3_tir::compile::Error;
-use tx3_tir::model::core::UtxoRef;
+use tx3_tir::model::core::{Utxo, UtxoRef};
 use tx3_tir::model::v1beta0 as tir;
 
 use crate::Network;
@@ -71,7 +77,7 @@ pub fn expr_into_metadatum(
 pub fn expr_into_utxo_refs(expr: &tir::Expression) -> Result<Vec<UtxoRef>, Error> {
     match expr {
         tir::Expression::UtxoRefs(x) => Ok(x.clone()),
-        tir::Expression::UtxoSet(x) => Ok(x.iter().map(|x| x.r#ref.clone()).collect()),
+        tir::Expression::UtxoSet(x) => Ok(x.refs_sorted()),
         tir::Expression::String(x) => {
             let (raw_txid, raw_output_ix) = x.split_once("#").expect("Invalid utxo ref");
             Ok(vec![UtxoRef {
@@ -84,6 +90,47 @@ pub fn expr_into_utxo_refs(expr: &tir::Expression) -> Result<Vec<UtxoRef>, Error
             "UtxoRefs".to_string(),
         )),
     }
+}
+
+/// Extracts the full resolved UTxOs (preserving the `datum`/`script` fields)
+/// from an expression. Unlike [`expr_into_utxo_refs`], this keeps the attached
+/// reference script so callers can inspect it (e.g. to determine the Plutus
+/// language of a reference script). Expressions that only carry references and
+/// no resolved body contribute no UTxOs.
+pub fn expr_into_utxos(expr: &tir::Expression) -> Result<Vec<Utxo>, Error> {
+    match expr {
+        tir::Expression::UtxoSet(x) => Ok(x.iter_sorted_by_ref().into_iter().cloned().collect()),
+        tir::Expression::UtxoRefs(_) | tir::Expression::String(_) | tir::Expression::None => {
+            Ok(vec![])
+        }
+        _ => Err(Error::CoerceError(format!("{expr:?}"), "Utxos".to_string())),
+    }
+}
+
+/// Coerces an expression carrying a reference script into a pallas
+/// [`primitives::ScriptRef`]. The bytes are expected to be the full tagged
+/// `ScriptRef` CBOR (the `[tag, body]` array); a `CborWrap`-wrapped form is
+/// also accepted as a fallback for providers that double-wrap.
+pub fn expr_into_script_ref(
+    expr: &tir::Expression,
+) -> Result<primitives::ScriptRef<'static>, Error> {
+    let bytes = expr_into_bytes(expr)?;
+
+    let script_ref = minicbor::decode::<primitives::ScriptRef>(&bytes)
+        .or_else(|_| {
+            minicbor::decode::<CborWrap<primitives::ScriptRef>>(&bytes)
+                .map(|wrapped| wrapped.unwrap())
+        })
+        .map_err(|_| Error::CoerceError(format!("{expr:?}"), "ScriptRef".to_string()))?;
+
+    // The decoded script ref borrows `bytes`; rebuild an owned (`'static`) value.
+    // Plutus variants already own their bytes; only the native script needs it.
+    Ok(match script_ref {
+        primitives::ScriptRef::NativeScript(x) => primitives::ScriptRef::NativeScript(x.to_owned()),
+        primitives::ScriptRef::PlutusV1Script(x) => primitives::ScriptRef::PlutusV1Script(x),
+        primitives::ScriptRef::PlutusV2Script(x) => primitives::ScriptRef::PlutusV2Script(x),
+        primitives::ScriptRef::PlutusV3Script(x) => primitives::ScriptRef::PlutusV3Script(x),
+    })
 }
 
 pub fn expr_into_assets(ir: &tir::Expression) -> Result<Vec<tir::AssetExpr>, Error> {
@@ -130,8 +177,23 @@ pub fn expr_into_reward_account(
 ) -> Result<primitives::RewardAccount, Error> {
     let address = expr_into_address(expr, network)?;
 
-    let hash_bytes = match address {
-        pallas::ledger::addresses::Address::Shelley(x) => x.delegation().to_vec(),
+    let reward_bytes = match address {
+        pallas::ledger::addresses::Address::Shelley(x) => {
+            let payload = match x.delegation() {
+                pallas::ledger::addresses::ShelleyDelegationPart::Key(h) => {
+                    pallas::ledger::addresses::StakePayload::Stake(*h)
+                }
+                pallas::ledger::addresses::ShelleyDelegationPart::Script(h) => {
+                    pallas::ledger::addresses::StakePayload::Script(*h)
+                }
+                _ => {
+                    return Err(Error::FormatError(
+                        "can't convert address delegation to reward account".to_string(),
+                    ))
+                }
+            };
+            pallas::ledger::addresses::StakeAddress::new(x.network(), payload).to_vec()
+        }
         pallas::ledger::addresses::Address::Stake(x) => x.to_vec(),
         _ => {
             return Err(Error::FormatError(
@@ -140,7 +202,7 @@ pub fn expr_into_reward_account(
         }
     };
 
-    Ok(primitives::RewardAccount::from(hash_bytes))
+    Ok(primitives::RewardAccount::from(reward_bytes))
 }
 
 pub fn expr_into_stake_credential(

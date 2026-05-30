@@ -1,9 +1,9 @@
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap};
 
 use tx3_lang::Workspace;
 use tx3_tir::compile::{CompiledTx, Compiler as _};
 use tx3_tir::model::assets::CanonicalAssets;
-use tx3_tir::model::core::{Utxo, UtxoRef};
+use tx3_tir::model::core::{Utxo, UtxoRef, UtxoSet};
 use tx3_tir::model::v1beta0 as tir;
 use tx3_tir::reduce::{self, Apply as _, ArgValue};
 use tx3_tir::Node as _;
@@ -79,7 +79,7 @@ fn address_to_bytes(address: &str) -> ArgValue {
     )
 }
 
-fn wildcard_utxos(datum: Option<tir::Expression>) -> HashSet<Utxo> {
+fn wildcard_utxos(datum: Option<tir::Expression>) -> UtxoSet {
     let tx_hash = hex::decode("267aae354f0d14d82877fa5720f7ddc9b0e3eea3cd2a0757af77db4d975ba81c")
         .unwrap()
         .try_into()
@@ -98,10 +98,10 @@ fn wildcard_utxos(datum: Option<tir::Expression>) -> HashSet<Utxo> {
         script: None,
     };
 
-    HashSet::from([utxo])
+    [utxo].into()
 }
 
-fn fill_inputs(tx: tir::Tx, utxos: HashSet<Utxo>) -> tir::Tx {
+fn fill_inputs(tx: tir::Tx, utxos: UtxoSet) -> tir::Tx {
     let mut tx = tx;
 
     for (name, _) in reduce::find_queries(&tx) {
@@ -120,7 +120,7 @@ fn compile_tx_round(
     args: &BTreeMap<String, ArgValue>,
     fees: u64,
     compiler: &mut Compiler,
-    utxos: HashSet<Utxo>,
+    utxos: UtxoSet,
 ) -> CompiledTx {
     tx = reduce::apply_args(tx, args).unwrap();
     tx = reduce::apply_fees(tx, fees).unwrap();
@@ -138,7 +138,7 @@ fn test_compile(
     tx: tir::Tx,
     args: &BTreeMap<String, ArgValue>,
     compiler: &mut Compiler,
-    utxos: HashSet<Utxo>,
+    utxos: UtxoSet,
 ) -> CompiledTx {
     let mut fees = 0;
     let mut rounds = 0;
@@ -510,6 +510,30 @@ async fn min_utxo_test() {
     assert_eq!(
         hex::encode(tx.hash),
         "5853a69e54df5fe4e98692beca8d7d767575617af87b2e971b7c503172de8cb3"
+    );
+}
+
+#[pollster::test]
+async fn withdrawal_redeemer_test() {
+    let mut compiler = test_compiler(None);
+    let utxos = wildcard_utxos(None);
+    let protocol = load_protocol("withdrawal");
+
+    let tx = protocol.tir("transfer").unwrap().clone();
+
+    let args = BTreeMap::from([
+        arg_value!("sender", "address", "addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"),
+        arg_value!("receiver", "address", "addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2"),
+        arg_value!("quantity", "int", 100_000_000),
+    ]);
+
+    let tx = test_compile(tx, &args, &mut compiler, utxos);
+
+    println!("{}", hex::encode(&tx.payload));
+
+    assert_eq!(
+        hex::encode(tx.hash),
+        "3aac7067d10d022a364b4ce8723edca7a3f55911da698f198511bab78fcf46d8"
     );
 }
 

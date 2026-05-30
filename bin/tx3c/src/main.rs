@@ -2,6 +2,8 @@ use clap::{Parser, Subcommand};
 
 mod build;
 mod codegen;
+mod decode;
+mod diagnostics;
 mod tii;
 
 #[derive(Parser)]
@@ -18,6 +20,8 @@ enum Commands {
     Build(build::Args),
     /// Render codegen templates from a TII file
     Codegen(codegen::Args),
+    /// Decode a compiled artifact (the reverse of `build`)
+    Decode(decode::Args),
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -26,6 +30,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     match cli.command {
         Commands::Build(args) => build::run(args)?,
         Commands::Codegen(args) => codegen::run(args)?,
+        Commands::Decode(args) => decode::run(args)?,
     }
 
     Ok(())

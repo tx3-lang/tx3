@@ -13,18 +13,29 @@ pub use types::*;
 
 use crate::build::Args;
 
+/// Attaches a `description` key to a JSON Schema property when the AST field
+/// carries a docstring. Mutates `schema` in place and is a no-op when the
+/// schema is not a JSON object (the `map_ast_type_to_json_schema` outputs are
+/// always objects, but stay defensive in case the shape changes).
+fn attach_description(schema: &mut Value, docstring: Option<&String>) {
+    let Some(doc) = docstring else { return };
+    if let Some(obj) = schema.as_object_mut() {
+        obj.insert("description".to_string(), json!(doc));
+    }
+}
+
 pub fn map_ast_type_to_json_schema(r#type: &tx3_lang::ast::Type) -> Value {
     match r#type {
         tx3_lang::ast::Type::Int => json!({"type": "integer"}),
         tx3_lang::ast::Type::Bool => json!({"type": "boolean"}),
         tx3_lang::ast::Type::Bytes => {
-            json!({ "$ref": "https://tx3.land/specs/v1beta0/core#Bytes" })
+            json!({ "$ref": "https://tx3.land/specs/v1beta0/tii#/$defs/Bytes" })
         }
         tx3_lang::ast::Type::Address => {
-            json!({ "$ref": "https://tx3.land/specs/v1beta0/core#Address" })
+            json!({ "$ref": "https://tx3.land/specs/v1beta0/tii#/$defs/Address" })
         }
         tx3_lang::ast::Type::UtxoRef => {
-            json!({ "$ref": "https://tx3.land/specs/v1beta0/core#UtxoRef" })
+            json!({ "$ref": "https://tx3.land/specs/v1beta0/tii#/$defs/UtxoRef" })
         }
         tx3_lang::ast::Type::Unit => json!({"type": "null"}),
         tx3_lang::ast::Type::List(inner) => json!({
@@ -38,10 +49,10 @@ pub fn map_ast_type_to_json_schema(r#type: &tx3_lang::ast::Type) -> Value {
         tx3_lang::ast::Type::Custom(_) => json!({"type": "object"}),
         tx3_lang::ast::Type::Undefined => json!({"type": "null"}),
         tx3_lang::ast::Type::Utxo => {
-            json!({ "$ref": "https://tx3.land/specs/v1beta0/core#Utxo" })
+            json!({ "$ref": "https://tx3.land/specs/v1beta0/tii#/$defs/Utxo" })
         }
         tx3_lang::ast::Type::AnyAsset => {
-            json!({ "$ref": "https://tx3.land/specs/v1beta0/core#AnyAsset" })
+            json!({ "$ref": "https://tx3.land/specs/v1beta0/tii#/$defs/AnyAsset" })
         }
     }
 }
@@ -52,7 +63,8 @@ pub fn infer_env_schema(ast: &tx3_lang::ast::Program) -> Schema {
 
     if let Some(env) = &ast.env {
         for field in env.fields.iter() {
-            let field_schema = map_ast_type_to_json_schema(&field.r#type);
+            let mut field_schema = map_ast_type_to_json_schema(&field.r#type);
+            attach_description(&mut field_schema, field.docstring.as_ref());
             properties.insert(field.name.clone(), field_schema);
             required.push(field.name.clone());
         }
@@ -73,7 +85,8 @@ pub fn infer_tx_params_schema(ast: &tx3_lang::ast::TxDef) -> Schema {
     let mut required = Vec::new();
 
     for param in ast.parameters.parameters.iter() {
-        let field_schema = map_ast_type_to_json_schema(&param.r#type);
+        let mut field_schema = map_ast_type_to_json_schema(&param.r#type);
+        attach_description(&mut field_schema, param.docstring.as_ref());
         properties.insert(param.name.value.clone(), field_schema);
         required.push(param.name.value.clone());
     }
@@ -205,8 +218,12 @@ pub fn emit_tii(args: Args, ws: &tx3_lang::Workspace) -> anyhow::Result<()> {
     };
 
     for party in ast.parties.iter() {
-        tii.parties
-            .insert(party.name.value.to_lowercase(), Party { description: None });
+        tii.parties.insert(
+            party.name.value.to_lowercase(),
+            Party {
+                description: party.docstring.clone(),
+            },
+        );
     }
 
     for tx in ast.txs.iter() {
@@ -226,7 +243,7 @@ pub fn emit_tii(args: Args, ws: &tx3_lang::Workspace) -> anyhow::Result<()> {
         tii.transactions.insert(
             tx.name.value.clone(),
             Transaction {
-                description: None,
+                description: tx.docstring.clone(),
                 tir: TirEnvelope {
                     content: hex_string,
                     encoding: BytesEncoding::Hex,

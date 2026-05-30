@@ -194,6 +194,25 @@ fn register_helpers(handlebars: &mut Handlebars<'_>) {
             },
         ),
     );
+
+    handlebars.register_helper(
+        "json",
+        Box::new(
+            |h: &Helper,
+             _: &Handlebars,
+             _: &HbContext,
+             _: &mut RenderContext,
+             out: &mut dyn Output| {
+                let param = h.param(0).ok_or_else(|| {
+                    handlebars::RenderErrorReason::ParamNotFoundForIndex("json", 0)
+                })?;
+                let rendered = serde_json::to_string(param.value())
+                    .expect("serializing a parsed JSON value cannot fail");
+                out.write(&rendered)?;
+                Ok(())
+            },
+        ),
+    );
 }
 
 fn register_templates(

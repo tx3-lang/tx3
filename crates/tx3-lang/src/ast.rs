@@ -24,6 +24,7 @@ pub enum Symbol {
     LocalExpr(Box<DataExpr>),
     Output(usize),
     Input(Box<InputBlock>),
+    Reference(Box<ReferenceBlock>),
     PartyDef(Box<PartyDef>),
     PolicyDef(Box<PolicyDef>),
     AssetDef(Box<AssetDef>),
@@ -131,6 +132,7 @@ impl Symbol {
             Symbol::ParamVar(_, ty) => Some(ty.as_ref().clone()),
             Symbol::RecordField(x) => Some(x.r#type.clone()),
             Symbol::Input(x) => x.datum_is().cloned(),
+            Symbol::Reference(x) => x.datum_is.clone(),
             x => {
                 dbg!(x);
                 None
@@ -200,6 +202,8 @@ pub struct Program {
 pub struct EnvField {
     pub name: String,
     pub r#type: Type,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub docstring: Option<String>,
     pub span: Span,
 }
 
@@ -218,6 +222,8 @@ pub struct ParameterList {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct TxDef {
     pub name: Identifier,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub docstring: Option<String>,
     pub parameters: ParameterList,
     pub locals: Option<LocalsBlock>,
     pub references: Vec<ReferenceBlock>,
@@ -356,6 +362,7 @@ impl InputBlockField {
 pub struct ReferenceBlock {
     pub name: String,
     pub r#ref: DataExpr,
+    pub datum_is: Option<Type>,
     pub span: Span,
 }
 
@@ -501,6 +508,8 @@ impl RecordField {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PartyDef {
     pub name: Identifier,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub docstring: Option<String>,
     pub span: Span,
 }
 
@@ -898,6 +907,8 @@ impl Type {
 pub struct ParamDef {
     pub name: Identifier,
     pub r#type: Type,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub docstring: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

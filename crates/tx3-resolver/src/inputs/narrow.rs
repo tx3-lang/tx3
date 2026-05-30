@@ -1,13 +1,19 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
-use tx3_tir::model::{assets::AssetClass, core::UtxoRef};
+use tx3_tir::model::{
+    assets::AssetClass,
+    core::{CanonicalOrd, Utxo, UtxoRef},
+};
 
-use crate::{inputs::CanonicalQuery, UtxoPattern, UtxoStore};
+use crate::job::ResolveJob;
+use crate::{inputs::canonical::CanonicalQuery, UtxoPattern, UtxoStore};
 
 use super::Error;
 
+const MAX_SEARCH_SPACE_SIZE: usize = 50;
+
 #[derive(Debug, Clone)]
-pub enum Subset {
+enum Subset {
     NotSet,
     All,
     Specific(HashSet<UtxoRef>),
@@ -74,12 +80,12 @@ impl From<HashSet<UtxoRef>> for Subset {
 }
 
 #[derive(Debug, Clone)]
-pub struct SearchSpace {
-    pub union: Subset,
-    pub intersection: Subset,
-    pub by_address_count: Option<usize>,
-    pub by_asset_class_count: Option<usize>,
-    pub by_ref_count: Option<usize>,
+struct SearchSpace {
+    union: Subset,
+    intersection: Subset,
+    by_address_count: Option<usize>,
+    by_asset_class_count: Option<usize>,
+    by_ref_count: Option<usize>,
 }
 
 impl SearchSpace {
@@ -126,7 +132,7 @@ impl SearchSpace {
         self.include_matches(utxos);
     }
 
-    pub fn take(&self, take: Option<usize>) -> HashSet<UtxoRef> {
+    fn take(&self, take: Option<usize>) -> HashSet<UtxoRef> {
         let Some(take) = take else {
             // if there's no limit, return everything we have
             return self.union.clone().into();
@@ -142,11 +148,37 @@ impl SearchSpace {
         if best.len() < take {
             let others: HashSet<_> = self.union.clone().into();
             let diff: HashSet<_> = others.difference(&best).cloned().collect();
-            let remaining: HashSet<_> = diff.into_iter().take(take - best.len()).collect();
+            let mut sorted_diff: Vec<_> = diff.into_iter().collect();
+            sorted_diff.sort_by(|a, b| a.cmp_canonical(b));
+            let remaining: HashSet<_> = sorted_diff.into_iter().take(take - best.len()).collect();
             best.union(&remaining).cloned().collect()
         } else {
             best
         }
+    }
+}
+
+impl ResolveJob {
+    /// Query the UTxO store for all queries and write the shared pool of
+    /// candidate UTxOs into the job.
+    pub async fn build_utxo_pool<T: UtxoStore>(&mut self, store: &T) -> Result<(), Error> {
+        let mut pool: HashMap<UtxoRef, Utxo> = HashMap::new();
+
+        for qr in &self.input_queries {
+            let query = &qr.query;
+            let space = narrow_search_space(store, query).await?;
+            let refs = space.take(Some(MAX_SEARCH_SPACE_SIZE));
+            let fetched = store.fetch_utxos(refs).await?;
+
+            for utxo in fetched.iter() {
+                pool.entry(utxo.r#ref.clone())
+                    .or_insert_with(|| utxo.clone());
+            }
+        }
+
+        self.input_pool = Some(pool);
+
+        Ok(())
     }
 }
 
@@ -171,7 +203,7 @@ async fn narrow_by_asset_class<T: UtxoStore>(
     Ok(Subset::intersection(parent, Subset::Specific(utxos)))
 }
 
-pub async fn narrow_search_space<T: UtxoStore>(
+async fn narrow_search_space<T: UtxoStore>(
     store: &T,
     criteria: &CanonicalQuery,
 ) -> Result<SearchSpace, Error> {
@@ -215,7 +247,7 @@ mod tests {
 
     use super::*;
 
-    use crate::mock;
+    use crate::test_utils as mock;
 
     fn assets_for(asset: mock::KnownAsset, amount: i128) -> CanonicalAssets {
         CanonicalAssets::from_asset(
@@ -399,5 +431,35 @@ mod tests {
         let min_assets = assets_for(asset, 1);
         let criteria = cq(Some(&addr), Some(min_assets), refs);
         assert_space_matches(&store, criteria, expected_best).await;
+    }
+
+    #[test]
+    fn test_take_prefers_canonical_refs_when_filling_from_union() {
+        let mkref = |b: u8| UtxoRef::new(&[b], 0);
+
+        let best_ref = mkref(3);
+        let mut best = HashSet::new();
+        best.insert(best_ref.clone());
+
+        let mut union = HashSet::new();
+        union.insert(best_ref);
+        union.insert(mkref(9));
+        union.insert(mkref(1));
+        union.insert(mkref(5));
+
+        let space = SearchSpace {
+            union: Subset::Specific(union),
+            intersection: Subset::Specific(best),
+            by_address_count: None,
+            by_asset_class_count: None,
+            by_ref_count: None,
+        };
+
+        let got = space.take(Some(3));
+
+        assert!(got.contains(&mkref(3)));
+        assert!(got.contains(&mkref(1)));
+        assert!(got.contains(&mkref(5)));
+        assert!(!got.contains(&mkref(9)));
     }
 }
