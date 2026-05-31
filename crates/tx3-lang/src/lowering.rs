@@ -411,19 +411,52 @@ impl IntoLower for ast::FnCall {
     type Output = ir::Expression;
 
     fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
-        let function_name = &self.callee.value;
+        // A callee that resolves to a function definition is either a built-in
+        // (lowered to a dedicated compiler op) or a user-defined function
+        // (inlined below).
+        if let Some(fn_def) = self.callee.symbol.as_ref().and_then(|s| s.as_fn_def()) {
+            if let Some(builtin) = fn_def.builtin {
+                let op = match builtin {
+                    ast::BuiltinFn::MinUtxo => {
+                        ir::CompilerOp::ComputeMinUtxo(self.args[0].into_lower(ctx)?)
+                    }
+                    ast::BuiltinFn::TipSlot => ir::CompilerOp::ComputeTipSlot,
+                    ast::BuiltinFn::SlotToTime => {
+                        ir::CompilerOp::ComputeSlotToTime(self.args[0].into_lower(ctx)?)
+                    }
+                    ast::BuiltinFn::TimeToSlot => {
+                        ir::CompilerOp::ComputeTimeToSlot(self.args[0].into_lower(ctx)?)
+                    }
+                };
 
-        // Check if callee resolves to a function definition
-        if let Some(symbol) = self.callee.symbol.as_ref() {
-            if let Some(fn_def) = symbol.as_fn_def() {
-                if let Some(builtin) = fn_def.builtin {
-                    return lower_builtin_fn_call(builtin, &self.args, ctx);
-                }
-                return inline_fn_call(fn_def, &self.args, ctx);
+                return Ok(ir::Expression::EvalCompiler(Box::new(op)));
             }
+
+            // Inline a user-defined function: lower its analyzed body, then
+            // substitute each parameter with the lowered call argument.
+            let body = fn_def.body.as_ref().ok_or_else(|| {
+                Error::InvalidAst(format!(
+                    "function '{}' has neither a body nor a built-in kind",
+                    fn_def.name.value
+                ))
+            })?;
+
+            let lowered_body = body.result.into_lower(ctx)?;
+
+            let mut subs = std::collections::HashMap::new();
+            for (param, arg) in fn_def.parameters.parameters.iter().zip(&self.args) {
+                subs.insert(param.name.value.to_lowercase(), arg.into_lower(ctx)?);
+            }
+
+            use tx3_tir::Node;
+            let mut visitor = ParamSubstituter { subs: &subs };
+            return lowered_body
+                .apply(&mut visitor)
+                .map_err(|e| Error::InvalidAst(e.to_string()));
         }
 
-        // Try to coerce as asset - if it fails, we'll get an error
+        // Otherwise the callee must name an asset; treat the call as an asset
+        // constructor.
         match coerce_identifier_into_asset_def(&self.callee) {
             Ok(asset_def) => {
                 let policy = asset_def.policy.into_lower(ctx)?;
@@ -438,27 +471,14 @@ impl IntoLower for ast::FnCall {
             }
             Err(_) => Err(Error::InvalidAst(format!(
                 "unknown function: {}",
-                function_name
+                self.callee.value
             ))),
         }
     }
 }
 
-fn lower_builtin_fn_call(
-    builtin: ast::BuiltinFn,
-    args: &[ast::DataExpr],
-    ctx: &Context,
-) -> Result<ir::Expression, Error> {
-    let op = match builtin {
-        ast::BuiltinFn::MinUtxo => ir::CompilerOp::ComputeMinUtxo(args[0].into_lower(ctx)?),
-        ast::BuiltinFn::TipSlot => ir::CompilerOp::ComputeTipSlot,
-        ast::BuiltinFn::SlotToTime => ir::CompilerOp::ComputeSlotToTime(args[0].into_lower(ctx)?),
-        ast::BuiltinFn::TimeToSlot => ir::CompilerOp::ComputeTimeToSlot(args[0].into_lower(ctx)?),
-    };
-
-    Ok(ir::Expression::EvalCompiler(Box::new(op)))
-}
-
+/// TIR visitor used by function inlining to replace each `EvalParam` standing
+/// for a function parameter with the lowered call argument.
 struct ParamSubstituter<'a> {
     subs: &'a std::collections::HashMap<String, ir::Expression>,
 }
@@ -477,33 +497,6 @@ impl tx3_tir::Visitor for ParamSubstituter<'_> {
         }
         Ok(expr)
     }
-}
-
-fn inline_fn_call(
-    fn_def: &ast::FnDef,
-    args: &[ast::DataExpr],
-    ctx: &Context,
-) -> Result<ir::Expression, Error> {
-    let body = fn_def.body.as_ref().ok_or_else(|| {
-        Error::InvalidAst(format!(
-            "cannot inline built-in function '{}'",
-            fn_def.name.value
-        ))
-    })?;
-
-    let lowered_body = body.result.into_lower(ctx)?;
-
-    // Build substitution map: lowercased param name → lowered arg
-    let mut subs = std::collections::HashMap::new();
-    for (param, arg) in fn_def.parameters.parameters.iter().zip(args) {
-        subs.insert(param.name.value.to_lowercase(), arg.into_lower(ctx)?);
-    }
-
-    use tx3_tir::Node;
-    let mut visitor = ParamSubstituter { subs: &subs };
-    lowered_body
-        .apply(&mut visitor)
-        .map_err(|e| Error::InvalidAst(e.to_string()))
 }
 
 impl IntoLower for ast::PropertyOp {
