@@ -739,6 +739,15 @@ pub struct FnCall {
     pub span: Span,
 }
 
+impl FnCall {
+    /// The static type of the call: the callee function's declared return type,
+    /// or `None` until the callee is resolved (§6.3).
+    pub fn target_type(&self) -> Option<Type> {
+        let fn_def = self.callee.symbol.as_ref()?.as_fn_def()?;
+        Some(fn_def.return_type.clone())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum DataExpr {
     None,
@@ -791,12 +800,7 @@ impl DataExpr {
             DataExpr::PropertyOp(x) => x.target_type(),
             DataExpr::AnyAssetConstructor(x) => x.target_type(),
             DataExpr::UtxoRef(_) => Some(Type::UtxoRef),
-            DataExpr::FnCall(call) => call
-                .callee
-                .symbol
-                .as_ref()
-                .and_then(|s| s.as_fn_def())
-                .map(|fn_def| fn_def.return_type.clone()),
+            DataExpr::FnCall(x) => x.target_type(),
         }
     }
 }
