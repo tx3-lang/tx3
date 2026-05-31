@@ -17,6 +17,8 @@ The scope tree for a program has the following shape:
 
 ```
 program scope
+├── (per fn_def) function scope
+│   └── (per let_binding) binding scope
 ├── (per tx_def) tx scope
 │   ├── (per struct/property/variant access) inner scope (§6.3)
 ```
@@ -30,8 +32,16 @@ The *program scope* contains:
   kind *asset*;
 - one symbol per `record_def` or `variant_def`, of kind *type*;
 - one symbol per `alias_def`, of kind *alias*;
+- one symbol per `fn_def`, of kind *function*;
 - the built-in functions `min_utxo`, `tip_slot`, `slot_to_time`,
-  `time_to_slot` (§5.6).
+  `time_to_slot`, also of kind *function* (§5.6).
+
+A *function scope* (one per `fn_def`) extends the program scope with one symbol
+per parameter, of kind *param-var*. The body's `let`-bindings are introduced
+sequentially: each `let_binding` adds a *local-expr* symbol that is visible to
+later bindings and to the result expression, but not to earlier bindings. A
+function scope does not extend any `tx` scope, so a function body cannot
+reference inputs, outputs, references, locals, or `fees` of any transaction.
 
 A *tx scope* (one per `tx_def`) extends the program scope with:
 
@@ -70,12 +80,20 @@ the compiler MUST report a *not-in-scope* error.
 
 Within a single scope, an identifier MUST be bound by at most one
 definition. Multiple `record_def`/`variant_def`/`alias_def`/`party_def`/
-`policy_def`/`asset_def`/`env`-field/parameter/local/input/reference/named
-output with the same name are *duplicate definitions* and MUST be
-rejected. The error MAY name only the first or last occurrence.
+`policy_def`/`asset_def`/`fn_def`/`env`-field/parameter/local/input/reference/
+named output with the same name are *duplicate definitions* and MUST be
+rejected. The error MAY name only the first or last occurrence. A user-defined
+`fn_def` that reuses the name of a built-in function (§5.6.1) is likewise a
+duplicate definition.
 
 The implicit `Ada` asset definition is added by the compiler; redeclaring
 `Ada` at the top level is a duplicate-definition error (§5.8).
+
+Functions MUST NOT be recursive: the call graph induced by `fn_call`
+expressions in function bodies MUST be acyclic. A program containing a function
+that calls itself, directly or through a cycle of other functions, is not
+conforming; a conforming compiler SHOULD reject it with a diagnostic rather
+than attempt the non-terminating inlining of §7.
 
 ## 6.3 Type checking
 
@@ -103,7 +121,8 @@ type is computed bottom-up as follows:
   static types of the first entry's key and value.
 - An `any_asset_constructor` has type `AnyAsset`.
 - A `concat_constructor` has the static type of its first argument.
-- A `fn_call` to a built-in has the type listed in §5.6.
+- A `fn_call` to a built-in has the type listed in §5.6.1; a `fn_call` to a
+  user-defined function has that function's declared return type (§5.6.2).
 - An `add_op` or `sub_op` has the static type of its left operand.
 - A `negate_op` has the static type of its operand.
 - A `property_op` `e.p` has the type of the property `p` on `e`'s type

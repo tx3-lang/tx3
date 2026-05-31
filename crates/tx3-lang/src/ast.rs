@@ -32,7 +32,7 @@ pub enum Symbol {
     AliasDef(Box<AliasDef>),
     RecordField(Box<RecordField>),
     VariantCase(Box<VariantCase>),
-    Function(String),
+    FunctionDef(Box<FnDef>),
     Fees,
 }
 
@@ -120,6 +120,13 @@ impl Symbol {
         }
     }
 
+    pub fn as_fn_def(&self) -> Option<&FnDef> {
+        match self {
+            Symbol::FunctionDef(x) => Some(x.as_ref()),
+            _ => None,
+        }
+    }
+
     pub fn target_type(&self) -> Option<Type> {
         match self {
             Symbol::ParamVar(_, ty) => Some(ty.as_ref().clone()),
@@ -182,6 +189,8 @@ pub struct Program {
     pub assets: Vec<AssetDef>,
     pub parties: Vec<PartyDef>,
     pub policies: Vec<PolicyDef>,
+    #[serde(default)]
+    pub functions: Vec<FnDef>,
     pub span: Span,
 
     // analysis
@@ -730,6 +739,15 @@ pub struct FnCall {
     pub span: Span,
 }
 
+impl FnCall {
+    /// The static type of the call: the callee function's declared return type,
+    /// or `None` until the callee is resolved (§6.3).
+    pub fn target_type(&self) -> Option<Type> {
+        let fn_def = self.callee.symbol.as_ref()?.as_fn_def()?;
+        Some(fn_def.return_type.clone())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum DataExpr {
     None,
@@ -743,10 +761,6 @@ pub enum DataExpr {
     MapConstructor(MapConstructor),
     AnyAssetConstructor(AnyAssetConstructor),
     Identifier(Identifier),
-    MinUtxo(Identifier),
-    ComputeTipSlot,
-    SlotToTime(Box<DataExpr>),
-    TimeToSlot(Box<DataExpr>),
     AddOp(AddOp),
     SubOp(SubOp),
     ConcatOp(ConcatOp),
@@ -786,11 +800,7 @@ impl DataExpr {
             DataExpr::PropertyOp(x) => x.target_type(),
             DataExpr::AnyAssetConstructor(x) => x.target_type(),
             DataExpr::UtxoRef(_) => Some(Type::UtxoRef),
-            DataExpr::MinUtxo(_) => Some(Type::AnyAsset),
-            DataExpr::ComputeTipSlot => Some(Type::Int),
-            DataExpr::SlotToTime(_) => Some(Type::Int),
-            DataExpr::TimeToSlot(_) => Some(Type::Int),
-            DataExpr::FnCall(_) => None, // Function call return type determined by symbol resolution
+            DataExpr::FnCall(x) => x.target_type(),
         }
     }
 }
@@ -972,6 +982,62 @@ pub struct AssetDef {
     pub policy: DataExpr,
     pub asset_name: DataExpr,
     pub span: Span,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct LetBinding {
+    pub name: Identifier,
+    pub value: DataExpr,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct FnBody {
+    pub let_bindings: Vec<LetBinding>,
+    pub result: Box<DataExpr>,
+    pub span: Span,
+}
+
+/// A function provided by the compiler rather than declared in source. This is
+/// only the serializable *key* carried on `FnDef`; each variant's signature,
+/// analysis, and lowering live with its [`crate::builtins::Builtin`] impl.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub enum BuiltinFn {
+    MinUtxo,
+    TipSlot,
+    SlotToTime,
+    TimeToSlot,
+}
+
+impl BuiltinFn {
+    /// Every built-in key. `crate::builtins::resolve` maps each to its
+    /// implementation (exhaustively, so this list and the registry stay in
+    /// sync at compile time).
+    pub const ALL: [BuiltinFn; 4] = [
+        BuiltinFn::MinUtxo,
+        BuiltinFn::TipSlot,
+        BuiltinFn::SlotToTime,
+        BuiltinFn::TimeToSlot,
+    ];
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct FnDef {
+    pub name: Identifier,
+    pub parameters: ParameterList,
+    pub return_type: Type,
+    /// The inline body of a user-defined function. `None` for built-ins, which
+    /// carry a `builtin` kind instead.
+    pub body: Option<FnBody>,
+    /// Set when this is a compiler-provided function; mutually exclusive with
+    /// `body`. User-defined functions always parse with `builtin: None`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub builtin: Option<BuiltinFn>,
+    pub span: Span,
+
+    // analysis
+    #[serde(skip)]
+    pub(crate) scope: Option<Rc<Scope>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

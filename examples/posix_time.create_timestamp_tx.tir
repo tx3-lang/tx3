@@ -1,0 +1,133 @@
+{
+  "fees": {
+    "EvalParam": "ExpectFees"
+  },
+  "references": [],
+  "inputs": [
+    {
+      "name": "source",
+      "utxos": {
+        "EvalParam": {
+          "ExpectInput": [
+            "source",
+            {
+              "address": {
+                "EvalParam": {
+                  "ExpectValue": [
+                    "sender",
+                    "Address"
+                  ]
+                }
+              },
+              "min_amount": {
+                "Assets": [
+                  {
+                    "policy": "None",
+                    "asset_name": "None",
+                    "amount": {
+                      "Number": 2000000
+                    }
+                  }
+                ]
+              },
+              "ref": "None",
+              "many": false,
+              "collateral": false
+            }
+          ]
+        }
+      },
+      "redeemer": "None"
+    }
+  ],
+  "outputs": [
+    {
+      "address": {
+        "EvalParam": {
+          "ExpectValue": [
+            "sender",
+            "Address"
+          ]
+        }
+      },
+      "datum": {
+        "Struct": {
+          "constructor": 0,
+          "fields": [
+            {
+              "EvalCompiler": {
+                "ComputeSlotToTime": {
+                  "EvalCompiler": "ComputeTipSlot"
+                }
+              }
+            },
+            {
+              "EvalCompiler": {
+                "ComputeTimeToSlot": {
+                  "EvalParam": {
+                    "ExpectValue": [
+                      "deadline",
+                      "Int"
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "amount": {
+        "EvalBuiltIn": {
+          "Sub": [
+            {
+              "EvalCoerce": {
+                "IntoAssets": {
+                  "EvalParam": {
+                    "ExpectInput": [
+                      "source",
+                      {
+                        "address": {
+                          "EvalParam": {
+                            "ExpectValue": [
+                              "sender",
+                              "Address"
+                            ]
+                          }
+                        },
+                        "min_amount": {
+                          "Assets": [
+                            {
+                              "policy": "None",
+                              "asset_name": "None",
+                              "amount": {
+                                "Number": 2000000
+                              }
+                            }
+                          ]
+                        },
+                        "ref": "None",
+                        "many": false,
+                        "collateral": false
+                      }
+                    ]
+                  }
+                }
+              }
+            },
+            {
+              "EvalParam": "ExpectFees"
+            }
+          ]
+        }
+      },
+      "optional": false
+    }
+  ],
+  "validity": null,
+  "mints": [],
+  "burns": [],
+  "adhoc": [],
+  "collateral": [],
+  "signers": null,
+  "metadata": []
+}

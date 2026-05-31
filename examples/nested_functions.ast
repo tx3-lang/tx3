@@ -1,0 +1,473 @@
+{
+  "env": null,
+  "txs": [
+    {
+      "name": {
+        "value": "run",
+        "span": {
+          "dummy": false,
+          "start": 161,
+          "end": 164
+        }
+      },
+      "parameters": {
+        "parameters": [
+          {
+            "name": {
+              "value": "amount",
+              "span": {
+                "dummy": false,
+                "start": 165,
+                "end": 171
+              }
+            },
+            "type": "Int"
+          }
+        ],
+        "span": {
+          "dummy": false,
+          "start": 164,
+          "end": 177
+        }
+      },
+      "locals": null,
+      "references": [],
+      "inputs": [
+        {
+          "name": "source",
+          "many": false,
+          "fields": [
+            {
+              "From": {
+                "Identifier": {
+                  "value": "Sender",
+                  "span": {
+                    "dummy": false,
+                    "start": 213,
+                    "end": 219
+                  }
+                }
+              }
+            },
+            {
+              "MinAmount": {
+                "FnCall": {
+                  "callee": {
+                    "value": "Ada",
+                    "span": {
+                      "dummy": false,
+                      "start": 241,
+                      "end": 244
+                    }
+                  },
+                  "args": [
+                    {
+                      "Identifier": {
+                        "value": "amount",
+                        "span": {
+                          "dummy": false,
+                          "start": 245,
+                          "end": 251
+                        }
+                      }
+                    }
+                  ],
+                  "span": {
+                    "dummy": false,
+                    "start": 241,
+                    "end": 252
+                  }
+                }
+              }
+            }
+          ],
+          "span": {
+            "dummy": false,
+            "start": 184,
+            "end": 259
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": null,
+          "optional": false,
+          "fields": [
+            {
+              "To": {
+                "Identifier": {
+                  "value": "Receiver",
+                  "span": {
+                    "dummy": false,
+                    "start": 285,
+                    "end": 293
+                  }
+                }
+              }
+            },
+            {
+              "Amount": {
+                "FnCall": {
+                  "callee": {
+                    "value": "Ada",
+                    "span": {
+                      "dummy": false,
+                      "start": 311,
+                      "end": 314
+                    }
+                  },
+                  "args": [
+                    {
+                      "FnCall": {
+                        "callee": {
+                          "value": "inc4",
+                          "span": {
+                            "dummy": false,
+                            "start": 315,
+                            "end": 319
+                          }
+                        },
+                        "args": [
+                          {
+                            "Identifier": {
+                              "value": "amount",
+                              "span": {
+                                "dummy": false,
+                                "start": 320,
+                                "end": 326
+                              }
+                            }
+                          }
+                        ],
+                        "span": {
+                          "dummy": false,
+                          "start": 315,
+                          "end": 327
+                        }
+                      }
+                    }
+                  ],
+                  "span": {
+                    "dummy": false,
+                    "start": 311,
+                    "end": 328
+                  }
+                }
+              }
+            }
+          ],
+          "span": {
+            "dummy": false,
+            "start": 264,
+            "end": 335
+          }
+        }
+      ],
+      "validity": null,
+      "mints": [],
+      "burns": [],
+      "signers": null,
+      "adhoc": [],
+      "span": {
+        "dummy": false,
+        "start": 158,
+        "end": 337
+      },
+      "collateral": [],
+      "metadata": null
+    }
+  ],
+  "types": [],
+  "aliases": [],
+  "assets": [],
+  "parties": [
+    {
+      "name": {
+        "value": "Sender",
+        "span": {
+          "dummy": false,
+          "start": 6,
+          "end": 12
+        }
+      },
+      "span": {
+        "dummy": false,
+        "start": 0,
+        "end": 13
+      }
+    },
+    {
+      "name": {
+        "value": "Receiver",
+        "span": {
+          "dummy": false,
+          "start": 20,
+          "end": 28
+        }
+      },
+      "span": {
+        "dummy": false,
+        "start": 14,
+        "end": 29
+      }
+    }
+  ],
+  "policies": [],
+  "functions": [
+    {
+      "name": {
+        "value": "inc",
+        "span": {
+          "dummy": false,
+          "start": 34,
+          "end": 37
+        }
+      },
+      "parameters": {
+        "parameters": [
+          {
+            "name": {
+              "value": "x",
+              "span": {
+                "dummy": false,
+                "start": 38,
+                "end": 39
+              }
+            },
+            "type": "Int"
+          }
+        ],
+        "span": {
+          "dummy": false,
+          "start": 37,
+          "end": 45
+        }
+      },
+      "return_type": "Int",
+      "body": {
+        "let_bindings": [],
+        "result": {
+          "AddOp": {
+            "lhs": {
+              "Identifier": {
+                "value": "x",
+                "span": {
+                  "dummy": false,
+                  "start": 59,
+                  "end": 60
+                }
+              }
+            },
+            "rhs": {
+              "Number": 1
+            },
+            "span": {
+              "dummy": false,
+              "start": 61,
+              "end": 62
+            }
+          }
+        },
+        "span": {
+          "dummy": false,
+          "start": 59,
+          "end": 65
+        }
+      },
+      "span": {
+        "dummy": false,
+        "start": 31,
+        "end": 66
+      }
+    },
+    {
+      "name": {
+        "value": "inc2",
+        "span": {
+          "dummy": false,
+          "start": 71,
+          "end": 75
+        }
+      },
+      "parameters": {
+        "parameters": [
+          {
+            "name": {
+              "value": "x",
+              "span": {
+                "dummy": false,
+                "start": 76,
+                "end": 77
+              }
+            },
+            "type": "Int"
+          }
+        ],
+        "span": {
+          "dummy": false,
+          "start": 75,
+          "end": 83
+        }
+      },
+      "return_type": "Int",
+      "body": {
+        "let_bindings": [],
+        "result": {
+          "FnCall": {
+            "callee": {
+              "value": "inc",
+              "span": {
+                "dummy": false,
+                "start": 97,
+                "end": 100
+              }
+            },
+            "args": [
+              {
+                "FnCall": {
+                  "callee": {
+                    "value": "inc",
+                    "span": {
+                      "dummy": false,
+                      "start": 101,
+                      "end": 104
+                    }
+                  },
+                  "args": [
+                    {
+                      "Identifier": {
+                        "value": "x",
+                        "span": {
+                          "dummy": false,
+                          "start": 105,
+                          "end": 106
+                        }
+                      }
+                    }
+                  ],
+                  "span": {
+                    "dummy": false,
+                    "start": 101,
+                    "end": 107
+                  }
+                }
+              }
+            ],
+            "span": {
+              "dummy": false,
+              "start": 97,
+              "end": 108
+            }
+          }
+        },
+        "span": {
+          "dummy": false,
+          "start": 97,
+          "end": 109
+        }
+      },
+      "span": {
+        "dummy": false,
+        "start": 68,
+        "end": 110
+      }
+    },
+    {
+      "name": {
+        "value": "inc4",
+        "span": {
+          "dummy": false,
+          "start": 115,
+          "end": 119
+        }
+      },
+      "parameters": {
+        "parameters": [
+          {
+            "name": {
+              "value": "x",
+              "span": {
+                "dummy": false,
+                "start": 120,
+                "end": 121
+              }
+            },
+            "type": "Int"
+          }
+        ],
+        "span": {
+          "dummy": false,
+          "start": 119,
+          "end": 127
+        }
+      },
+      "return_type": "Int",
+      "body": {
+        "let_bindings": [],
+        "result": {
+          "FnCall": {
+            "callee": {
+              "value": "inc2",
+              "span": {
+                "dummy": false,
+                "start": 141,
+                "end": 145
+              }
+            },
+            "args": [
+              {
+                "FnCall": {
+                  "callee": {
+                    "value": "inc2",
+                    "span": {
+                      "dummy": false,
+                      "start": 146,
+                      "end": 150
+                    }
+                  },
+                  "args": [
+                    {
+                      "Identifier": {
+                        "value": "x",
+                        "span": {
+                          "dummy": false,
+                          "start": 151,
+                          "end": 152
+                        }
+                      }
+                    }
+                  ],
+                  "span": {
+                    "dummy": false,
+                    "start": 146,
+                    "end": 153
+                  }
+                }
+              }
+            ],
+            "span": {
+              "dummy": false,
+              "start": 141,
+              "end": 154
+            }
+          }
+        },
+        "span": {
+          "dummy": false,
+          "start": 141,
+          "end": 155
+        }
+      },
+      "span": {
+        "dummy": false,
+        "start": 112,
+        "end": 156
+      }
+    }
+  ],
+  "span": {
+    "dummy": false,
+    "start": 0,
+    "end": 338
+  }
+}

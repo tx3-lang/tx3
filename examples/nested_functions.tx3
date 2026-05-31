@@ -1,0 +1,25 @@
+party Sender;
+party Receiver;
+
+fn inc(x: Int) -> Int {
+    x + 1
+}
+
+fn inc2(x: Int) -> Int {
+    inc(inc(x))
+}
+
+fn inc4(x: Int) -> Int {
+    inc2(inc2(x))
+}
+
+tx run(amount: Int) {
+    input source {
+        from: Sender,
+        min_amount: Ada(amount),
+    }
+    output {
+        to: Receiver,
+        amount: Ada(inc4(amount)),
+    }
+}

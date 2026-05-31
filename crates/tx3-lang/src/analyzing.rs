@@ -54,6 +54,21 @@ pub struct InvalidTargetTypeError {
 }
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic, PartialEq, Eq, Clone)]
+#[error("function '{name}' expects {expected} argument(s), but got {got}")]
+#[diagnostic(code(tx3::arity_mismatch))]
+pub struct ArityError {
+    pub name: String,
+    pub expected: usize,
+    pub got: usize,
+
+    #[source_code]
+    src: Option<String>,
+
+    #[label]
+    span: Span,
+}
+
+#[derive(Debug, thiserror::Error, miette::Diagnostic, PartialEq, Eq, Clone)]
 #[error("optional output ({name}) cannot have a datum")]
 #[diagnostic(code(tx3::optional_output_datum))]
 pub struct OptionalOutputError {
@@ -126,6 +141,10 @@ pub enum Error {
     #[error(transparent)]
     #[diagnostic(transparent)]
     InvalidOptionalOutput(#[from] OptionalOutputError),
+
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    Arity(#[from] ArityError),
 }
 
 impl Error {
@@ -137,6 +156,7 @@ impl Error {
             Self::MetadataSizeLimitExceeded(x) => &x.span,
             Self::MetadataInvalidKeyType(x) => &x.span,
             Self::InvalidOptionalOutput(x) => &x.span,
+            Self::Arity(x) => &x.span,
             _ => &Span::DUMMY,
         }
     }
@@ -148,6 +168,21 @@ impl Error {
             Self::MetadataInvalidKeyType(x) => x.src.as_deref(),
             _ => None,
         }
+    }
+
+    pub fn arity(
+        name: String,
+        expected: usize,
+        got: usize,
+        ast: &impl crate::parsing::AstNode,
+    ) -> Self {
+        Self::Arity(ArityError {
+            name,
+            expected,
+            got,
+            src: None,
+            span: ast.span().clone(),
+        })
     }
 
     pub fn not_in_scope(name: String, ast: &impl crate::parsing::AstNode) -> Self {
@@ -169,7 +204,7 @@ impl Error {
             Symbol::AssetDef(asset) => format!("AssetDef({})", asset.name.value),
             Symbol::EnvVar(name, _) => format!("EnvVar({})", name),
             Symbol::ParamVar(name, _) => format!("ParamVar({})", name),
-            Symbol::Function(name) => format!("Function({})", name),
+            Symbol::FunctionDef(fn_def) => format!("FunctionDef({})", fn_def.name.value),
             Symbol::Input(block) => format!("Input({})", block.name),
             Symbol::Reference(block) => format!("Reference({})", block.name),
             Symbol::Output(idx) => format!("Output({})", idx),
@@ -305,8 +340,6 @@ macro_rules! bail_report {
     };
 }
 
-const BUILTIN_FUNCTIONS: &[&str] = &["min_utxo", "tip_slot", "slot_to_time", "time_to_slot"];
-
 impl Scope {
     pub fn new(parent: Option<Rc<Scope>>) -> Self {
         Self {
@@ -378,6 +411,13 @@ impl Scope {
         );
     }
 
+    pub fn track_fn_def(&mut self, fn_def: &FnDef) {
+        self.symbols.insert(
+            fn_def.name.value.clone(),
+            Symbol::FunctionDef(Box::new(fn_def.clone())),
+        );
+    }
+
     pub fn track_local_expr(&mut self, name: &str, expr: DataExpr) {
         self.symbols
             .insert(name.to_string(), Symbol::LocalExpr(Box::new(expr)));
@@ -416,8 +456,6 @@ impl Scope {
             Some(symbol.clone())
         } else if let Some(parent) = &self.parent {
             parent.resolve(name)
-        } else if BUILTIN_FUNCTIONS.contains(&name) {
-            Some(Symbol::Function(name.to_string()))
         } else {
             None
         }
@@ -719,9 +757,6 @@ impl Analyzable for DataExpr {
             DataExpr::PropertyOp(x) => x.analyze(parent),
             DataExpr::AnyAssetConstructor(x) => x.analyze(parent),
             DataExpr::FnCall(x) => x.analyze(parent),
-            DataExpr::MinUtxo(x) => x.analyze(parent),
-            DataExpr::SlotToTime(x) => x.analyze(parent),
-            DataExpr::TimeToSlot(x) => x.analyze(parent),
             DataExpr::ConcatOp(x) => x.analyze(parent),
             _ => AnalyzeReport::default(),
         }
@@ -739,9 +774,6 @@ impl Analyzable for DataExpr {
             DataExpr::PropertyOp(x) => x.is_resolved(),
             DataExpr::AnyAssetConstructor(x) => x.is_resolved(),
             DataExpr::FnCall(x) => x.is_resolved(),
-            DataExpr::MinUtxo(x) => x.is_resolved(),
-            DataExpr::SlotToTime(x) => x.is_resolved(),
-            DataExpr::TimeToSlot(x) => x.is_resolved(),
             DataExpr::ConcatOp(x) => x.is_resolved(),
             _ => true,
         }
@@ -758,7 +790,27 @@ impl Analyzable for crate::ast::FnCall {
             args_report = args_report + arg.analyze(parent.clone());
         }
 
-        callee + args_report
+        let mut report = callee + args_report;
+
+        // Arity check: a call whose callee resolves to a function (user-defined
+        // or built-in) must pass exactly as many arguments as it declares.
+        // Skipped when the callee does not resolve to a function (e.g. an asset
+        // constructor, or an unresolved name already reported above).
+        let signature = self
+            .callee
+            .symbol
+            .as_ref()
+            .and_then(|s| s.as_fn_def())
+            .map(|fn_def| (fn_def.name.value.clone(), fn_def.parameters.parameters.len()));
+
+        if let Some((name, expected)) = signature {
+            let got = self.args.len();
+            if expected != got {
+                report = report + Error::arity(name, expected, got, self).into();
+            }
+        }
+
+        report
     }
 
     fn is_resolved(&self) -> bool {
@@ -1225,6 +1277,77 @@ impl Analyzable for LocalsBlock {
     }
 }
 
+impl Analyzable for LetBinding {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+        self.value.analyze(parent)
+    }
+
+    fn is_resolved(&self) -> bool {
+        self.value.is_resolved()
+    }
+}
+
+impl Analyzable for FnBody {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+        let mut report = AnalyzeReport::default();
+
+        for binding in &mut self.let_bindings {
+            report = report + binding.analyze(parent.clone());
+        }
+
+        report = report + self.result.analyze(parent);
+
+        report
+    }
+
+    fn is_resolved(&self) -> bool {
+        self.let_bindings.is_resolved() && self.result.is_resolved()
+    }
+}
+
+impl Analyzable for FnDef {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+        let params_report = self.parameters.analyze(parent.clone());
+        let return_type_report = self.return_type.analyze(parent.clone());
+
+        // Built-in functions have no body — nothing more to analyze
+        let body = match &mut self.body {
+            Some(body) => body,
+            None => return params_report + return_type_report,
+        };
+
+        let mut scope = Scope::new(parent);
+
+        for param in self.parameters.parameters.iter() {
+            scope.track_param_var(&param.name.value, param.r#type.clone());
+        }
+
+        // Add let-bindings sequentially - each binding creates a new scope layer
+        let mut current_scope = Rc::new(scope);
+
+        let mut bindings_report = AnalyzeReport::default();
+
+        for binding in &mut body.let_bindings {
+            bindings_report = bindings_report + binding.analyze(Some(current_scope.clone()));
+            // Create a new scope layer with this binding available
+            let mut next_scope = Scope::new(Some(current_scope));
+            next_scope.track_local_expr(&binding.name.value, binding.value.clone());
+            current_scope = Rc::new(next_scope);
+        }
+
+        let result_report = body.result.analyze(Some(current_scope.clone()));
+
+        self.scope = Some(current_scope);
+
+        params_report + return_type_report + bindings_report + result_report
+    }
+
+    fn is_resolved(&self) -> bool {
+        self.parameters.is_resolved()
+            && self.body.as_ref().map_or(true, |b| b.is_resolved())
+    }
+}
+
 impl Analyzable for ParamDef {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
         self.r#type.analyze(parent)
@@ -1414,6 +1537,14 @@ impl Analyzable for Program {
             scope.track_alias_def(alias_def);
         }
 
+        for builtin in crate::builtins::all() {
+            scope.track_fn_def(&builtin.definition());
+        }
+
+        for fn_def in self.functions.iter() {
+            scope.track_fn_def(fn_def);
+        }
+
         self.scope = Some(Rc::new(scope));
 
         let parties = self.parties.analyze(self.scope.clone());
@@ -1429,15 +1560,41 @@ impl Analyzable for Program {
 
         let (types, aliases) = resolve_types_and_aliases(scope_rc, &mut types, &mut aliases);
 
+        // Functions may call other functions, and lowering inlines a callee's
+        // *analyzed* body. A single analysis pass leaves each call site holding
+        // a pre-analysis clone of its callee (whose own body is unresolved), so
+        // we analyze to a fixed point: each pass re-registers the
+        // progressively-analyzed definitions and re-resolves call sites against
+        // them. Functions are non-recursive (the call graph is acyclic), so the
+        // number of definitions is a sufficient upper bound on the longest call
+        // chain and the iteration terminates.
+        let program_scope = self.scope.clone();
+        let mut functions = AnalyzeReport::default();
+        for _ in 0..self.functions.len() {
+            let mut fn_scope = Scope::new(program_scope.clone());
+            for fn_def in self.functions.iter() {
+                fn_scope.track_fn_def(fn_def);
+            }
+            functions = self.functions.analyze(Some(Rc::new(fn_scope)));
+        }
+
+        // Final scope: txs resolve calls to the fully-analyzed definitions.
+        let mut fn_scope = Scope::new(program_scope);
+        for fn_def in self.functions.iter() {
+            fn_scope.track_fn_def(fn_def);
+        }
+        self.scope = Some(Rc::new(fn_scope));
+
         let txs = self.txs.analyze(self.scope.clone());
 
-        parties + policies + types + aliases + txs + assets
+        parties + policies + types + aliases + functions + txs + assets
     }
 
     fn is_resolved(&self) -> bool {
         self.policies.is_resolved()
             && self.types.is_resolved()
             && self.aliases.is_resolved()
+            && self.functions.is_resolved()
             && self.txs.is_resolved()
             && self.assets.is_resolved()
     }
@@ -1656,6 +1813,126 @@ mod tests {
 
         let report = analyze(&mut ast);
         assert!(report.errors.is_empty());
+    }
+
+    #[test]
+    fn test_fn_call_too_few_args() {
+        let mut ast = crate::parsing::parse_string(
+            r#"
+        party Alice;
+
+        fn double(x: Int) -> Int {
+            x + x
+        }
+
+        tx t() {
+            input source {
+                from: Alice,
+                min_amount: Ada(2),
+            }
+            output {
+                to: Alice,
+                amount: Ada(double()),
+            }
+        }
+    "#,
+        )
+        .unwrap();
+
+        let report = analyze(&mut ast);
+
+        assert!(report.errors.iter().any(|e| matches!(
+            e,
+            Error::Arity(a) if a.name == "double" && a.expected == 1 && a.got == 0
+        )));
+    }
+
+    #[test]
+    fn test_fn_call_too_many_args() {
+        let mut ast = crate::parsing::parse_string(
+            r#"
+        party Alice;
+
+        fn double(x: Int) -> Int {
+            x + x
+        }
+
+        tx t() {
+            input source {
+                from: Alice,
+                min_amount: Ada(2),
+            }
+            output {
+                to: Alice,
+                amount: Ada(double(1, 2)),
+            }
+        }
+    "#,
+        )
+        .unwrap();
+
+        let report = analyze(&mut ast);
+
+        assert!(report.errors.iter().any(|e| matches!(
+            e,
+            Error::Arity(a) if a.name == "double" && a.expected == 1 && a.got == 2
+        )));
+    }
+
+    #[test]
+    fn test_fn_call_correct_arity_ok() {
+        let mut ast = crate::parsing::parse_string(
+            r#"
+        party Alice;
+
+        fn double(x: Int) -> Int {
+            x + x
+        }
+
+        tx t() {
+            input source {
+                from: Alice,
+                min_amount: Ada(2),
+            }
+            output {
+                to: Alice,
+                amount: Ada(double(2)),
+            }
+        }
+    "#,
+        )
+        .unwrap();
+
+        let report = analyze(&mut ast);
+        assert!(!report.errors.iter().any(|e| matches!(e, Error::Arity(_))));
+    }
+
+    #[test]
+    fn test_builtin_call_wrong_arity() {
+        let mut ast = crate::parsing::parse_string(
+            r#"
+        party Alice;
+
+        tx t() {
+            input source {
+                from: Alice,
+                min_amount: Ada(2),
+            }
+            output {
+                to: Alice,
+                amount: min_utxo(),
+            }
+        }
+    "#,
+        )
+        .unwrap();
+
+        let report = analyze(&mut ast);
+
+        assert!(report.errors.iter().any(|e| matches!(
+            e,
+            Error::Arity(a) if a.name == "min_utxo" && a.expected == 1 && a.got == 0
+        )));
     }
 
     #[test]

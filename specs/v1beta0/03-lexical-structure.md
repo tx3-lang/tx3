@@ -60,8 +60,8 @@ where it becomes the *documentation string* of that construct:
 
 - a `party_def` (§4.2.3);
 - an `env_field` (§4.2.1);
-- a `parameter` of a `tx_def` (§4.2.6);
-- a `tx_def` (§4.2.6).
+- a `parameter` of a `tx_def` (§4.2.7);
+- a `tx_def` (§4.2.7).
 
 A `///` line that does not immediately precede one of the constructs above
 is a syntax error. Conforming compilers MAY relax this restriction as an
@@ -182,9 +182,9 @@ user-defined identifiers:
 
 ```
 env       asset     party     policy    type      tx
-input     output    mint      burn      reference collateral
-validity  signers   metadata  locals    cardano   bitcoin
-true      false
+fn        let       input     output    mint      burn
+reference collateral validity signers   metadata  locals
+cardano   bitcoin   true      false
 Int       Bool      Bytes     AnyAsset  Address   UtxoRef
 List      Map
 ```

@@ -411,80 +411,78 @@ impl IntoLower for ast::FnCall {
     type Output = ir::Expression;
 
     fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
-        let function_name = &self.callee.value;
-
-        match function_name.as_str() {
-            "min_utxo" => {
-                if self.args.len() != 1 {
-                    return Err(Error::InvalidAst(format!(
-                        "min_utxo expects 1 argument, got {}",
-                        self.args.len()
-                    )));
-                }
-                let arg = self.args[0].into_lower(ctx)?;
-                Ok(ir::Expression::EvalCompiler(Box::new(
-                    ir::CompilerOp::ComputeMinUtxo(arg),
-                )))
+        // A callee that resolves to a function definition is either a built-in
+        // (lowered to a dedicated compiler op) or a user-defined function
+        // (inlined below).
+        if let Some(fn_def) = self.callee.symbol.as_ref().and_then(|s| s.as_fn_def()) {
+            if let Some(builtin) = fn_def.builtin {
+                return crate::builtins::resolve(builtin).lower_call(&self.args, ctx);
             }
-            "tip_slot" => {
-                if !self.args.is_empty() {
-                    return Err(Error::InvalidAst(format!(
-                        "tip_slot expects 0 arguments, got {}",
-                        self.args.len()
-                    )));
-                }
-                Ok(ir::Expression::EvalCompiler(Box::new(
-                    ir::CompilerOp::ComputeTipSlot,
-                )))
+
+            // Inline a user-defined function: lower its analyzed body, then
+            // substitute each parameter with the lowered call argument.
+            let body = fn_def.body.as_ref().ok_or_else(|| {
+                Error::InvalidAst(format!(
+                    "function '{}' has neither a body nor a built-in kind",
+                    fn_def.name.value
+                ))
+            })?;
+
+            let lowered_body = body.result.into_lower(ctx)?;
+
+            let mut subs = std::collections::HashMap::new();
+            for (param, arg) in fn_def.parameters.parameters.iter().zip(&self.args) {
+                subs.insert(param.name.value.to_lowercase(), arg.into_lower(ctx)?);
             }
-            "slot_to_time" => {
-                if self.args.len() != 1 {
-                    return Err(Error::InvalidAst(format!(
-                        "slot_to_time expects 1 argument, got {}",
-                        self.args.len()
-                    )));
-                }
-                let arg = self.args[0].into_lower(ctx)?;
-                Ok(ir::Expression::EvalCompiler(Box::new(
-                    ir::CompilerOp::ComputeSlotToTime(arg),
-                )))
+
+            use tx3_tir::Node;
+            let mut visitor = ParamSubstituter { subs: &subs };
+            return lowered_body
+                .apply(&mut visitor)
+                .map_err(|e| Error::InvalidAst(e.to_string()));
+        }
+
+        // Otherwise the callee must name an asset; treat the call as an asset
+        // constructor.
+        match coerce_identifier_into_asset_def(&self.callee) {
+            Ok(asset_def) => {
+                let policy = asset_def.policy.into_lower(ctx)?;
+                let asset_name = asset_def.asset_name.into_lower(ctx)?;
+                let amount = self.args[0].into_lower(ctx)?;
+
+                Ok(ir::Expression::Assets(vec![ir::AssetExpr {
+                    policy,
+                    asset_name,
+                    amount,
+                }]))
             }
-            "time_to_slot" => {
-                if self.args.len() != 1 {
-                    return Err(Error::InvalidAst(format!(
-                        "time_to_slot expects 1 argument, got {}",
-                        self.args.len()
-                    )));
-                }
+            Err(_) => Err(Error::InvalidAst(format!(
+                "unknown function: {}",
+                self.callee.value
+            ))),
+        }
+    }
+}
 
-                let arg = self.args[0].into_lower(ctx)?;
+/// TIR visitor used by function inlining to replace each `EvalParam` standing
+/// for a function parameter with the lowered call argument.
+struct ParamSubstituter<'a> {
+    subs: &'a std::collections::HashMap<String, ir::Expression>,
+}
 
-                Ok(ir::Expression::EvalCompiler(Box::new(
-                    ir::CompilerOp::ComputeTimeToSlot(arg),
-                )))
-            }
-            _ => {
-                // Try to coerce as asset - if it fails, we'll get an error
-
-                match coerce_identifier_into_asset_def(&self.callee) {
-                    Ok(asset_def) => {
-                        let policy = asset_def.policy.into_lower(ctx)?;
-                        let asset_name = asset_def.asset_name.into_lower(ctx)?;
-                        let amount = self.args[0].into_lower(ctx)?;
-
-                        Ok(ir::Expression::Assets(vec![ir::AssetExpr {
-                            policy,
-                            asset_name,
-                            amount,
-                        }]))
-                    }
-                    Err(_) => Err(Error::InvalidAst(format!(
-                        "unknown function: {}",
-                        function_name
-                    ))),
+impl tx3_tir::Visitor for ParamSubstituter<'_> {
+    fn reduce(
+        &mut self,
+        expr: ir::Expression,
+    ) -> Result<ir::Expression, tx3_tir::reduce::Error> {
+        if let ir::Expression::EvalParam(ref param) = expr {
+            if let ir::Param::ExpectValue(name, _) = param.as_ref() {
+                if let Some(replacement) = self.subs.get(name) {
+                    return Ok(replacement.clone());
                 }
             }
         }
+        Ok(expr)
     }
 }
 
@@ -567,18 +565,6 @@ impl IntoLower for ast::DataExpr {
             ast::DataExpr::PropertyOp(x) => x.into_lower(ctx)?,
             ast::DataExpr::UtxoRef(x) => x.into_lower(ctx)?,
             ast::DataExpr::FnCall(x) => x.into_lower(ctx)?,
-            ast::DataExpr::MinUtxo(x) => ir::Expression::EvalCompiler(Box::new(
-                ir::CompilerOp::ComputeMinUtxo(x.into_lower(ctx)?),
-            )),
-            ast::DataExpr::ComputeTipSlot => {
-                ir::Expression::EvalCompiler(Box::new(ir::CompilerOp::ComputeTipSlot))
-            }
-            ast::DataExpr::SlotToTime(x) => ir::Expression::EvalCompiler(Box::new(
-                ir::CompilerOp::ComputeSlotToTime(x.into_lower(ctx)?),
-            )),
-            ast::DataExpr::TimeToSlot(x) => ir::Expression::EvalCompiler(Box::new(
-                ir::CompilerOp::ComputeTimeToSlot(x.into_lower(ctx)?),
-            )),
         };
 
         Ok(out)
@@ -1048,11 +1034,19 @@ mod tests {
 
     test_lowering!(min_utxo);
 
+    test_lowering!(tip_slot);
+
+    test_lowering!(posix_time);
+
     test_lowering!(donation);
 
     test_lowering!(list_concat);
 
     test_lowering!(buidler_fest_2026);
+
+    test_lowering!(functions);
+
+    test_lowering!(nested_functions);
 
     test_lowering!(param_field_shadow);
 

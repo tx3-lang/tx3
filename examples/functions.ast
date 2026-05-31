@@ -1,0 +1,1301 @@
+{
+  "env": null,
+  "txs": [
+    {
+      "name": {
+        "value": "use_double",
+        "span": {
+          "dummy": false,
+          "start": 529,
+          "end": 539
+        }
+      },
+      "parameters": {
+        "parameters": [
+          {
+            "name": {
+              "value": "amount",
+              "span": {
+                "dummy": false,
+                "start": 540,
+                "end": 546
+              }
+            },
+            "type": "Int"
+          }
+        ],
+        "span": {
+          "dummy": false,
+          "start": 539,
+          "end": 552
+        }
+      },
+      "locals": null,
+      "references": [],
+      "inputs": [
+        {
+          "name": "source",
+          "many": false,
+          "fields": [
+            {
+              "From": {
+                "Identifier": {
+                  "value": "Sender",
+                  "span": {
+                    "dummy": false,
+                    "start": 588,
+                    "end": 594
+                  }
+                }
+              }
+            },
+            {
+              "MinAmount": {
+                "FnCall": {
+                  "callee": {
+                    "value": "Ada",
+                    "span": {
+                      "dummy": false,
+                      "start": 616,
+                      "end": 619
+                    }
+                  },
+                  "args": [
+                    {
+                      "Identifier": {
+                        "value": "amount",
+                        "span": {
+                          "dummy": false,
+                          "start": 620,
+                          "end": 626
+                        }
+                      }
+                    }
+                  ],
+                  "span": {
+                    "dummy": false,
+                    "start": 616,
+                    "end": 627
+                  }
+                }
+              }
+            }
+          ],
+          "span": {
+            "dummy": false,
+            "start": 559,
+            "end": 634
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": null,
+          "optional": false,
+          "fields": [
+            {
+              "To": {
+                "Identifier": {
+                  "value": "Receiver",
+                  "span": {
+                    "dummy": false,
+                    "start": 660,
+                    "end": 668
+                  }
+                }
+              }
+            },
+            {
+              "Amount": {
+                "FnCall": {
+                  "callee": {
+                    "value": "Ada",
+                    "span": {
+                      "dummy": false,
+                      "start": 686,
+                      "end": 689
+                    }
+                  },
+                  "args": [
+                    {
+                      "FnCall": {
+                        "callee": {
+                          "value": "double",
+                          "span": {
+                            "dummy": false,
+                            "start": 690,
+                            "end": 696
+                          }
+                        },
+                        "args": [
+                          {
+                            "Identifier": {
+                              "value": "amount",
+                              "span": {
+                                "dummy": false,
+                                "start": 697,
+                                "end": 703
+                              }
+                            }
+                          }
+                        ],
+                        "span": {
+                          "dummy": false,
+                          "start": 690,
+                          "end": 704
+                        }
+                      }
+                    }
+                  ],
+                  "span": {
+                    "dummy": false,
+                    "start": 686,
+                    "end": 705
+                  }
+                }
+              }
+            }
+          ],
+          "span": {
+            "dummy": false,
+            "start": 639,
+            "end": 712
+          }
+        }
+      ],
+      "validity": null,
+      "mints": [],
+      "burns": [],
+      "signers": null,
+      "adhoc": [],
+      "span": {
+        "dummy": false,
+        "start": 526,
+        "end": 714
+      },
+      "collateral": [],
+      "metadata": null
+    },
+    {
+      "name": {
+        "value": "use_complex",
+        "span": {
+          "dummy": false,
+          "start": 719,
+          "end": 730
+        }
+      },
+      "parameters": {
+        "parameters": [],
+        "span": {
+          "dummy": false,
+          "start": 730,
+          "end": 732
+        }
+      },
+      "locals": null,
+      "references": [],
+      "inputs": [
+        {
+          "name": "source",
+          "many": false,
+          "fields": [
+            {
+              "From": {
+                "Identifier": {
+                  "value": "Sender",
+                  "span": {
+                    "dummy": false,
+                    "start": 768,
+                    "end": 774
+                  }
+                }
+              }
+            },
+            {
+              "MinAmount": {
+                "FnCall": {
+                  "callee": {
+                    "value": "Ada",
+                    "span": {
+                      "dummy": false,
+                      "start": 796,
+                      "end": 799
+                    }
+                  },
+                  "args": [
+                    {
+                      "Number": 2000000
+                    }
+                  ],
+                  "span": {
+                    "dummy": false,
+                    "start": 796,
+                    "end": 808
+                  }
+                }
+              }
+            }
+          ],
+          "span": {
+            "dummy": false,
+            "start": 739,
+            "end": 815
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": null,
+          "optional": false,
+          "fields": [
+            {
+              "To": {
+                "Identifier": {
+                  "value": "Receiver",
+                  "span": {
+                    "dummy": false,
+                    "start": 841,
+                    "end": 849
+                  }
+                }
+              }
+            },
+            {
+              "Amount": {
+                "FnCall": {
+                  "callee": {
+                    "value": "Ada",
+                    "span": {
+                      "dummy": false,
+                      "start": 867,
+                      "end": 870
+                    }
+                  },
+                  "args": [
+                    {
+                      "FnCall": {
+                        "callee": {
+                          "value": "complex",
+                          "span": {
+                            "dummy": false,
+                            "start": 871,
+                            "end": 878
+                          }
+                        },
+                        "args": [
+                          {
+                            "Number": 50
+                          },
+                          {
+                            "Number": 75
+                          }
+                        ],
+                        "span": {
+                          "dummy": false,
+                          "start": 871,
+                          "end": 886
+                        }
+                      }
+                    }
+                  ],
+                  "span": {
+                    "dummy": false,
+                    "start": 867,
+                    "end": 887
+                  }
+                }
+              }
+            }
+          ],
+          "span": {
+            "dummy": false,
+            "start": 820,
+            "end": 894
+          }
+        }
+      ],
+      "validity": null,
+      "mints": [],
+      "burns": [],
+      "signers": null,
+      "adhoc": [],
+      "span": {
+        "dummy": false,
+        "start": 716,
+        "end": 896
+      },
+      "collateral": [],
+      "metadata": null
+    },
+    {
+      "name": {
+        "value": "use_pool",
+        "span": {
+          "dummy": false,
+          "start": 901,
+          "end": 909
+        }
+      },
+      "parameters": {
+        "parameters": [
+          {
+            "name": {
+              "value": "delta_a",
+              "span": {
+                "dummy": false,
+                "start": 910,
+                "end": 917
+              }
+            },
+            "type": "Int"
+          },
+          {
+            "name": {
+              "value": "delta_b",
+              "span": {
+                "dummy": false,
+                "start": 924,
+                "end": 931
+              }
+            },
+            "type": "Int"
+          }
+        ],
+        "span": {
+          "dummy": false,
+          "start": 909,
+          "end": 937
+        }
+      },
+      "locals": null,
+      "references": [],
+      "inputs": [
+        {
+          "name": "source",
+          "many": false,
+          "fields": [
+            {
+              "From": {
+                "Identifier": {
+                  "value": "Sender",
+                  "span": {
+                    "dummy": false,
+                    "start": 973,
+                    "end": 979
+                  }
+                }
+              }
+            },
+            {
+              "MinAmount": {
+                "FnCall": {
+                  "callee": {
+                    "value": "Ada",
+                    "span": {
+                      "dummy": false,
+                      "start": 1001,
+                      "end": 1004
+                    }
+                  },
+                  "args": [
+                    {
+                      "Number": 2000000
+                    }
+                  ],
+                  "span": {
+                    "dummy": false,
+                    "start": 1001,
+                    "end": 1013
+                  }
+                }
+              }
+            }
+          ],
+          "span": {
+            "dummy": false,
+            "start": 944,
+            "end": 1020
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": null,
+          "optional": false,
+          "fields": [
+            {
+              "To": {
+                "Identifier": {
+                  "value": "Receiver",
+                  "span": {
+                    "dummy": false,
+                    "start": 1046,
+                    "end": 1054
+                  }
+                }
+              }
+            },
+            {
+              "Amount": {
+                "SubOp": {
+                  "lhs": {
+                    "Identifier": {
+                      "value": "source",
+                      "span": {
+                        "dummy": false,
+                        "start": 1072,
+                        "end": 1078
+                      }
+                    }
+                  },
+                  "rhs": {
+                    "Identifier": {
+                      "value": "fees",
+                      "span": {
+                        "dummy": false,
+                        "start": 1081,
+                        "end": 1085
+                      }
+                    }
+                  },
+                  "span": {
+                    "dummy": false,
+                    "start": 1079,
+                    "end": 1080
+                  }
+                }
+              }
+            },
+            {
+              "Datum": {
+                "FnCall": {
+                  "callee": {
+                    "value": "adjust_pool",
+                    "span": {
+                      "dummy": false,
+                      "start": 1102,
+                      "end": 1113
+                    }
+                  },
+                  "args": [
+                    {
+                      "FnCall": {
+                        "callee": {
+                          "value": "make_pool",
+                          "span": {
+                            "dummy": false,
+                            "start": 1114,
+                            "end": 1123
+                          }
+                        },
+                        "args": [
+                          {
+                            "Number": 1000
+                          },
+                          {
+                            "Number": 2000
+                          }
+                        ],
+                        "span": {
+                          "dummy": false,
+                          "start": 1114,
+                          "end": 1135
+                        }
+                      }
+                    },
+                    {
+                      "Identifier": {
+                        "value": "delta_a",
+                        "span": {
+                          "dummy": false,
+                          "start": 1137,
+                          "end": 1144
+                        }
+                      }
+                    },
+                    {
+                      "Identifier": {
+                        "value": "delta_b",
+                        "span": {
+                          "dummy": false,
+                          "start": 1146,
+                          "end": 1153
+                        }
+                      }
+                    }
+                  ],
+                  "span": {
+                    "dummy": false,
+                    "start": 1102,
+                    "end": 1154
+                  }
+                }
+              }
+            }
+          ],
+          "span": {
+            "dummy": false,
+            "start": 1025,
+            "end": 1161
+          }
+        }
+      ],
+      "validity": null,
+      "mints": [],
+      "burns": [],
+      "signers": null,
+      "adhoc": [],
+      "span": {
+        "dummy": false,
+        "start": 898,
+        "end": 1163
+      },
+      "collateral": [],
+      "metadata": null
+    }
+  ],
+  "types": [
+    {
+      "name": {
+        "value": "PoolState",
+        "span": {
+          "dummy": false,
+          "start": 36,
+          "end": 45
+        }
+      },
+      "cases": [
+        {
+          "name": {
+            "value": "Default",
+            "span": {
+              "dummy": true,
+              "start": 0,
+              "end": 0
+            }
+          },
+          "fields": [
+            {
+              "name": {
+                "value": "pair_a",
+                "span": {
+                  "dummy": false,
+                  "start": 52,
+                  "end": 58
+                }
+              },
+              "type": "Int",
+              "span": {
+                "dummy": false,
+                "start": 52,
+                "end": 63
+              }
+            },
+            {
+              "name": {
+                "value": "pair_b",
+                "span": {
+                  "dummy": false,
+                  "start": 69,
+                  "end": 75
+                }
+              },
+              "type": "Int",
+              "span": {
+                "dummy": false,
+                "start": 69,
+                "end": 80
+              }
+            }
+          ],
+          "span": {
+            "dummy": false,
+            "start": 31,
+            "end": 83
+          }
+        }
+      ],
+      "span": {
+        "dummy": false,
+        "start": 31,
+        "end": 83
+      }
+    }
+  ],
+  "aliases": [],
+  "assets": [],
+  "parties": [
+    {
+      "name": {
+        "value": "Sender",
+        "span": {
+          "dummy": false,
+          "start": 6,
+          "end": 12
+        }
+      },
+      "span": {
+        "dummy": false,
+        "start": 0,
+        "end": 13
+      }
+    },
+    {
+      "name": {
+        "value": "Receiver",
+        "span": {
+          "dummy": false,
+          "start": 20,
+          "end": 28
+        }
+      },
+      "span": {
+        "dummy": false,
+        "start": 14,
+        "end": 29
+      }
+    }
+  ],
+  "policies": [],
+  "functions": [
+    {
+      "name": {
+        "value": "double",
+        "span": {
+          "dummy": false,
+          "start": 88,
+          "end": 94
+        }
+      },
+      "parameters": {
+        "parameters": [
+          {
+            "name": {
+              "value": "x",
+              "span": {
+                "dummy": false,
+                "start": 95,
+                "end": 96
+              }
+            },
+            "type": "Int"
+          }
+        ],
+        "span": {
+          "dummy": false,
+          "start": 94,
+          "end": 102
+        }
+      },
+      "return_type": "Int",
+      "body": {
+        "let_bindings": [],
+        "result": {
+          "AddOp": {
+            "lhs": {
+              "Identifier": {
+                "value": "x",
+                "span": {
+                  "dummy": false,
+                  "start": 116,
+                  "end": 117
+                }
+              }
+            },
+            "rhs": {
+              "Identifier": {
+                "value": "x",
+                "span": {
+                  "dummy": false,
+                  "start": 120,
+                  "end": 121
+                }
+              }
+            },
+            "span": {
+              "dummy": false,
+              "start": 118,
+              "end": 119
+            }
+          }
+        },
+        "span": {
+          "dummy": false,
+          "start": 116,
+          "end": 122
+        }
+      },
+      "span": {
+        "dummy": false,
+        "start": 85,
+        "end": 123
+      }
+    },
+    {
+      "name": {
+        "value": "complex",
+        "span": {
+          "dummy": false,
+          "start": 128,
+          "end": 135
+        }
+      },
+      "parameters": {
+        "parameters": [
+          {
+            "name": {
+              "value": "a",
+              "span": {
+                "dummy": false,
+                "start": 136,
+                "end": 137
+              }
+            },
+            "type": "Int"
+          },
+          {
+            "name": {
+              "value": "b",
+              "span": {
+                "dummy": false,
+                "start": 144,
+                "end": 145
+              }
+            },
+            "type": "Int"
+          }
+        ],
+        "span": {
+          "dummy": false,
+          "start": 135,
+          "end": 151
+        }
+      },
+      "return_type": "Int",
+      "body": {
+        "let_bindings": [
+          {
+            "name": {
+              "value": "base",
+              "span": {
+                "dummy": false,
+                "start": 169,
+                "end": 173
+              }
+            },
+            "value": {
+              "AddOp": {
+                "lhs": {
+                  "Identifier": {
+                    "value": "a",
+                    "span": {
+                      "dummy": false,
+                      "start": 176,
+                      "end": 177
+                    }
+                  }
+                },
+                "rhs": {
+                  "Identifier": {
+                    "value": "b",
+                    "span": {
+                      "dummy": false,
+                      "start": 180,
+                      "end": 181
+                    }
+                  }
+                },
+                "span": {
+                  "dummy": false,
+                  "start": 178,
+                  "end": 179
+                }
+              }
+            },
+            "span": {
+              "dummy": false,
+              "start": 165,
+              "end": 182
+            }
+          },
+          {
+            "name": {
+              "value": "adjusted",
+              "span": {
+                "dummy": false,
+                "start": 191,
+                "end": 199
+              }
+            },
+            "value": {
+              "SubOp": {
+                "lhs": {
+                  "Identifier": {
+                    "value": "base",
+                    "span": {
+                      "dummy": false,
+                      "start": 202,
+                      "end": 206
+                    }
+                  }
+                },
+                "rhs": {
+                  "Number": 100
+                },
+                "span": {
+                  "dummy": false,
+                  "start": 207,
+                  "end": 208
+                }
+              }
+            },
+            "span": {
+              "dummy": false,
+              "start": 187,
+              "end": 213
+            }
+          }
+        ],
+        "result": {
+          "AddOp": {
+            "lhs": {
+              "Identifier": {
+                "value": "adjusted",
+                "span": {
+                  "dummy": false,
+                  "start": 218,
+                  "end": 226
+                }
+              }
+            },
+            "rhs": {
+              "Identifier": {
+                "value": "adjusted",
+                "span": {
+                  "dummy": false,
+                  "start": 229,
+                  "end": 237
+                }
+              }
+            },
+            "span": {
+              "dummy": false,
+              "start": 227,
+              "end": 228
+            }
+          }
+        },
+        "span": {
+          "dummy": false,
+          "start": 165,
+          "end": 238
+        }
+      },
+      "span": {
+        "dummy": false,
+        "start": 125,
+        "end": 239
+      }
+    },
+    {
+      "name": {
+        "value": "make_pool",
+        "span": {
+          "dummy": false,
+          "start": 244,
+          "end": 253
+        }
+      },
+      "parameters": {
+        "parameters": [
+          {
+            "name": {
+              "value": "a",
+              "span": {
+                "dummy": false,
+                "start": 254,
+                "end": 255
+              }
+            },
+            "type": "Int"
+          },
+          {
+            "name": {
+              "value": "b",
+              "span": {
+                "dummy": false,
+                "start": 262,
+                "end": 263
+              }
+            },
+            "type": "Int"
+          }
+        ],
+        "span": {
+          "dummy": false,
+          "start": 253,
+          "end": 269
+        }
+      },
+      "return_type": {
+        "Custom": {
+          "value": "PoolState",
+          "span": {
+            "dummy": true,
+            "start": 0,
+            "end": 0
+          }
+        }
+      },
+      "body": {
+        "let_bindings": [],
+        "result": {
+          "StructConstructor": {
+            "type": {
+              "value": "PoolState",
+              "span": {
+                "dummy": false,
+                "start": 289,
+                "end": 298
+              }
+            },
+            "case": {
+              "name": {
+                "value": "Default",
+                "span": {
+                  "dummy": true,
+                  "start": 0,
+                  "end": 0
+                }
+              },
+              "fields": [
+                {
+                  "name": {
+                    "value": "pair_a",
+                    "span": {
+                      "dummy": false,
+                      "start": 309,
+                      "end": 315
+                    }
+                  },
+                  "value": {
+                    "Identifier": {
+                      "value": "a",
+                      "span": {
+                        "dummy": false,
+                        "start": 317,
+                        "end": 318
+                      }
+                    }
+                  },
+                  "span": {
+                    "dummy": false,
+                    "start": 309,
+                    "end": 318
+                  }
+                },
+                {
+                  "name": {
+                    "value": "pair_b",
+                    "span": {
+                      "dummy": false,
+                      "start": 328,
+                      "end": 334
+                    }
+                  },
+                  "value": {
+                    "Identifier": {
+                      "value": "b",
+                      "span": {
+                        "dummy": false,
+                        "start": 336,
+                        "end": 337
+                      }
+                    }
+                  },
+                  "span": {
+                    "dummy": false,
+                    "start": 328,
+                    "end": 337
+                  }
+                }
+              ],
+              "spread": null,
+              "span": {
+                "dummy": false,
+                "start": 299,
+                "end": 344
+              }
+            },
+            "span": {
+              "dummy": false,
+              "start": 289,
+              "end": 344
+            }
+          }
+        },
+        "span": {
+          "dummy": false,
+          "start": 289,
+          "end": 345
+        }
+      },
+      "span": {
+        "dummy": false,
+        "start": 241,
+        "end": 346
+      }
+    },
+    {
+      "name": {
+        "value": "adjust_pool",
+        "span": {
+          "dummy": false,
+          "start": 351,
+          "end": 362
+        }
+      },
+      "parameters": {
+        "parameters": [
+          {
+            "name": {
+              "value": "pool",
+              "span": {
+                "dummy": false,
+                "start": 363,
+                "end": 367
+              }
+            },
+            "type": {
+              "Custom": {
+                "value": "PoolState",
+                "span": {
+                  "dummy": true,
+                  "start": 0,
+                  "end": 0
+                }
+              }
+            }
+          },
+          {
+            "name": {
+              "value": "delta_a",
+              "span": {
+                "dummy": false,
+                "start": 380,
+                "end": 387
+              }
+            },
+            "type": "Int"
+          },
+          {
+            "name": {
+              "value": "delta_b",
+              "span": {
+                "dummy": false,
+                "start": 394,
+                "end": 401
+              }
+            },
+            "type": "Int"
+          }
+        ],
+        "span": {
+          "dummy": false,
+          "start": 362,
+          "end": 407
+        }
+      },
+      "return_type": {
+        "Custom": {
+          "value": "PoolState",
+          "span": {
+            "dummy": true,
+            "start": 0,
+            "end": 0
+          }
+        }
+      },
+      "body": {
+        "let_bindings": [],
+        "result": {
+          "StructConstructor": {
+            "type": {
+              "value": "PoolState",
+              "span": {
+                "dummy": false,
+                "start": 427,
+                "end": 436
+              }
+            },
+            "case": {
+              "name": {
+                "value": "Default",
+                "span": {
+                  "dummy": true,
+                  "start": 0,
+                  "end": 0
+                }
+              },
+              "fields": [
+                {
+                  "name": {
+                    "value": "pair_a",
+                    "span": {
+                      "dummy": false,
+                      "start": 447,
+                      "end": 453
+                    }
+                  },
+                  "value": {
+                    "AddOp": {
+                      "lhs": {
+                        "PropertyOp": {
+                          "operand": {
+                            "Identifier": {
+                              "value": "pool",
+                              "span": {
+                                "dummy": false,
+                                "start": 455,
+                                "end": 459
+                              }
+                            }
+                          },
+                          "property": {
+                            "Identifier": {
+                              "value": "pair_a",
+                              "span": {
+                                "dummy": false,
+                                "start": 460,
+                                "end": 466
+                              }
+                            }
+                          },
+                          "span": {
+                            "dummy": false,
+                            "start": 459,
+                            "end": 466
+                          }
+                        }
+                      },
+                      "rhs": {
+                        "Identifier": {
+                          "value": "delta_a",
+                          "span": {
+                            "dummy": false,
+                            "start": 469,
+                            "end": 476
+                          }
+                        }
+                      },
+                      "span": {
+                        "dummy": false,
+                        "start": 467,
+                        "end": 468
+                      }
+                    }
+                  },
+                  "span": {
+                    "dummy": false,
+                    "start": 447,
+                    "end": 476
+                  }
+                },
+                {
+                  "name": {
+                    "value": "pair_b",
+                    "span": {
+                      "dummy": false,
+                      "start": 486,
+                      "end": 492
+                    }
+                  },
+                  "value": {
+                    "SubOp": {
+                      "lhs": {
+                        "PropertyOp": {
+                          "operand": {
+                            "Identifier": {
+                              "value": "pool",
+                              "span": {
+                                "dummy": false,
+                                "start": 494,
+                                "end": 498
+                              }
+                            }
+                          },
+                          "property": {
+                            "Identifier": {
+                              "value": "pair_b",
+                              "span": {
+                                "dummy": false,
+                                "start": 499,
+                                "end": 505
+                              }
+                            }
+                          },
+                          "span": {
+                            "dummy": false,
+                            "start": 498,
+                            "end": 505
+                          }
+                        }
+                      },
+                      "rhs": {
+                        "Identifier": {
+                          "value": "delta_b",
+                          "span": {
+                            "dummy": false,
+                            "start": 508,
+                            "end": 515
+                          }
+                        }
+                      },
+                      "span": {
+                        "dummy": false,
+                        "start": 506,
+                        "end": 507
+                      }
+                    }
+                  },
+                  "span": {
+                    "dummy": false,
+                    "start": 486,
+                    "end": 515
+                  }
+                }
+              ],
+              "spread": null,
+              "span": {
+                "dummy": false,
+                "start": 437,
+                "end": 522
+              }
+            },
+            "span": {
+              "dummy": false,
+              "start": 427,
+              "end": 522
+            }
+          }
+        },
+        "span": {
+          "dummy": false,
+          "start": 427,
+          "end": 523
+        }
+      },
+      "span": {
+        "dummy": false,
+        "start": 348,
+        "end": 524
+      }
+    }
+  ],
+  "span": {
+    "dummy": false,
+    "start": 0,
+    "end": 1164
+  }
+}

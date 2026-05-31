@@ -1,0 +1,186 @@
+{
+  "fees": {
+    "EvalParam": "ExpectFees"
+  },
+  "references": [],
+  "inputs": [
+    {
+      "name": "source",
+      "utxos": {
+        "EvalParam": {
+          "ExpectInput": [
+            "source",
+            {
+              "address": {
+                "EvalParam": {
+                  "ExpectValue": [
+                    "sender",
+                    "Address"
+                  ]
+                }
+              },
+              "min_amount": {
+                "Assets": [
+                  {
+                    "policy": "None",
+                    "asset_name": "None",
+                    "amount": {
+                      "Number": 2000000
+                    }
+                  }
+                ]
+              },
+              "ref": "None",
+              "many": false,
+              "collateral": false
+            }
+          ]
+        }
+      },
+      "redeemer": "None"
+    }
+  ],
+  "outputs": [
+    {
+      "address": {
+        "EvalParam": {
+          "ExpectValue": [
+            "receiver",
+            "Address"
+          ]
+        }
+      },
+      "datum": {
+        "Struct": {
+          "constructor": 0,
+          "fields": [
+            {
+              "EvalBuiltIn": {
+                "Add": [
+                  {
+                    "EvalBuiltIn": {
+                      "Property": [
+                        {
+                          "Struct": {
+                            "constructor": 0,
+                            "fields": [
+                              {
+                                "Number": 1000
+                              },
+                              {
+                                "Number": 2000
+                              }
+                            ]
+                          }
+                        },
+                        {
+                          "Number": 0
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "EvalParam": {
+                      "ExpectValue": [
+                        "delta_a",
+                        "Int"
+                      ]
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "EvalBuiltIn": {
+                "Sub": [
+                  {
+                    "EvalBuiltIn": {
+                      "Property": [
+                        {
+                          "Struct": {
+                            "constructor": 0,
+                            "fields": [
+                              {
+                                "Number": 1000
+                              },
+                              {
+                                "Number": 2000
+                              }
+                            ]
+                          }
+                        },
+                        {
+                          "Number": 1
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "EvalParam": {
+                      "ExpectValue": [
+                        "delta_b",
+                        "Int"
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "amount": {
+        "EvalBuiltIn": {
+          "Sub": [
+            {
+              "EvalCoerce": {
+                "IntoAssets": {
+                  "EvalParam": {
+                    "ExpectInput": [
+                      "source",
+                      {
+                        "address": {
+                          "EvalParam": {
+                            "ExpectValue": [
+                              "sender",
+                              "Address"
+                            ]
+                          }
+                        },
+                        "min_amount": {
+                          "Assets": [
+                            {
+                              "policy": "None",
+                              "asset_name": "None",
+                              "amount": {
+                                "Number": 2000000
+                              }
+                            }
+                          ]
+                        },
+                        "ref": "None",
+                        "many": false,
+                        "collateral": false
+                      }
+                    ]
+                  }
+                }
+              }
+            },
+            {
+              "EvalParam": "ExpectFees"
+            }
+          ]
+        }
+      },
+      "optional": false
+    }
+  ],
+  "validity": null,
+  "mints": [],
+  "burns": [],
+  "adhoc": [],
+  "collateral": [],
+  "signers": null,
+  "metadata": []
+}

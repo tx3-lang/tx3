@@ -309,6 +309,39 @@ implied by the policy.
 The semantics of `script` and `ref` fields are chain-specific and are
 described in §8 for Cardano targets.
 
+### 7.13.5 `fn`
+
+```tx3
+fn double(x: Int) -> Int {
+    x + x
+}
+
+fn discounted(base: Int, off: Int) -> Int {
+    let net = base - off;
+    net
+}
+```
+
+A `fn_def` declares a pure, non-recursive helper (§2.5, §5.6.2). It contributes
+no blocks or structure to any transaction; instead, every call to a
+user-defined function is **inlined** during lowering:
+
+1. The function's result expression is taken as a template, with its
+   `let`-bindings substituted into it (each binding's name replaced by its
+   initializer, in declaration order).
+2. Each parameter occurrence in that template is replaced by the corresponding
+   call argument expression, evaluated in the caller's scope.
+3. The resulting expression is spliced in at the call site, as though the
+   programmer had written it inline.
+
+Because arguments are substituted positionally and functions are non-recursive
+(§6.2), inlining terminates and yields an ordinary data expression. A call
+therefore has no observable effect beyond that of its expansion: user-defined
+functions are a source-level convenience and leave no trace in the lowered TIR.
+Calls to built-in functions (§5.6.1) are not inlined; they lower to the
+corresponding resolver operation (e.g. `min_utxo` → minimum-UTxO computation,
+§7.5).
+
 ## 7.14 Cross-block constraints
 
 Within a single `tx_def`, the following requirements apply across blocks:

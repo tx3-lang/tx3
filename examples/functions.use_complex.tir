@@ -1,0 +1,120 @@
+{
+  "fees": {
+    "EvalParam": "ExpectFees"
+  },
+  "references": [],
+  "inputs": [
+    {
+      "name": "source",
+      "utxos": {
+        "EvalParam": {
+          "ExpectInput": [
+            "source",
+            {
+              "address": {
+                "EvalParam": {
+                  "ExpectValue": [
+                    "sender",
+                    "Address"
+                  ]
+                }
+              },
+              "min_amount": {
+                "Assets": [
+                  {
+                    "policy": "None",
+                    "asset_name": "None",
+                    "amount": {
+                      "Number": 2000000
+                    }
+                  }
+                ]
+              },
+              "ref": "None",
+              "many": false,
+              "collateral": false
+            }
+          ]
+        }
+      },
+      "redeemer": "None"
+    }
+  ],
+  "outputs": [
+    {
+      "address": {
+        "EvalParam": {
+          "ExpectValue": [
+            "receiver",
+            "Address"
+          ]
+        }
+      },
+      "datum": "None",
+      "amount": {
+        "Assets": [
+          {
+            "policy": "None",
+            "asset_name": "None",
+            "amount": {
+              "EvalBuiltIn": {
+                "Add": [
+                  {
+                    "EvalBuiltIn": {
+                      "Sub": [
+                        {
+                          "EvalBuiltIn": {
+                            "Add": [
+                              {
+                                "Number": 50
+                              },
+                              {
+                                "Number": 75
+                              }
+                            ]
+                          }
+                        },
+                        {
+                          "Number": 100
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "EvalBuiltIn": {
+                      "Sub": [
+                        {
+                          "EvalBuiltIn": {
+                            "Add": [
+                              {
+                                "Number": 50
+                              },
+                              {
+                                "Number": 75
+                              }
+                            ]
+                          }
+                        },
+                        {
+                          "Number": 100
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "optional": false
+    }
+  ],
+  "validity": null,
+  "mints": [],
+  "burns": [],
+  "adhoc": [],
+  "collateral": [],
+  "signers": null,
+  "metadata": []
+}
