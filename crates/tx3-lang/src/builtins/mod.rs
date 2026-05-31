@@ -1,21 +1,20 @@
 //! Compiler-provided built-in functions.
 //!
 //! Each built-in is a zero-sized type implementing [`Builtin`], which gathers
-//! its signature, its synthetic [`ast::FnDef`], and its lowering in one place,
-//! so adding a built-in is a localized change rather than edits scattered
-//! across the analyzer and lowerer.
-//!
+//! its signature, its synthetic [`ast::FnDef`], and its lowering in one place.
 //! [`ast::BuiltinFn`] is the serializable key carried on `FnDef`; [`resolve`]
 //! maps a key to its implementation and is exhaustive, so a new `BuiltinFn`
 //! variant will not compile until it is registered here.
+//!
+//! Built-ins whose lowering is "lower the arguments and feed them to a
+//! [`ir::CompilerOp`]" are declared with the [`builtin_boilerplate!`] table
+//! below. A built-in that needs custom analysis or lowering can instead be a
+//! hand-written `impl Builtin`; both kinds coexist behind [`resolve`].
 
 use crate::ast::{self, BuiltinFn, FnDef, Identifier, ParamDef, ParameterList, Span, Type};
-use crate::lowering::{Context, Error as LowerError};
+use crate::lowering::{Context, Error as LowerError, IntoLower};
 
 use tx3_tir::model::v1beta0 as ir;
-
-mod time;
-mod value;
 
 /// The type signature of a built-in: named parameters and a return type.
 pub struct Signature {
@@ -70,13 +69,86 @@ pub trait Builtin: Sync {
     }
 }
 
+/// Declare the boilerplate for built-ins whose lowering is "bind each named
+/// parameter to its lowered argument, then construct an [`ir::CompilerOp`]".
+///
+/// Each row is:
+/// ```text
+/// Variant => "name" (param: Type, …) -> ReturnType => CompilerOp(param, …);
+/// ```
+/// The operation references the parameters by name, so the names are checked
+/// against the signature at compile time. Parameter and return types must be
+/// bare [`ast::Type`] variant idents (e.g. `Int`, `AnyAsset`); a built-in that
+/// needs a richer type or non-`CompilerOp` lowering is written by hand instead.
+macro_rules! builtin_boilerplate {
+    (
+        $(
+            $variant:ident => $name:literal
+            ( $( $param:ident : $pty:ident ),* $(,)? ) -> $ret:ident
+            => $op:ident $(( $( $oparg:ident ),* ))? ;
+        )*
+    ) => {
+        $(
+            pub struct $variant;
+
+            impl Builtin for $variant {
+                fn kind(&self) -> BuiltinFn {
+                    BuiltinFn::$variant
+                }
+
+                fn name(&self) -> &'static str {
+                    $name
+                }
+
+                fn signature(&self) -> Signature {
+                    Signature {
+                        params: vec![ $( (stringify!($param), Type::$pty) ),* ],
+                        returns: Type::$ret,
+                    }
+                }
+
+                // A nullary built-in (e.g. `tip_slot`) uses neither `args` nor
+                // `ctx`; allow that here so the table stays uniform.
+                #[allow(unused_mut, unused_variables)]
+                fn lower_call(
+                    &self,
+                    args: &[ast::DataExpr],
+                    ctx: &Context,
+                ) -> Result<ir::Expression, LowerError> {
+                    let mut args = args.iter();
+                    $(
+                        let $param = args
+                            .next()
+                            .ok_or_else(|| LowerError::InvalidAst(format!(
+                                "built-in '{}' expects argument '{}'",
+                                $name,
+                                stringify!($param),
+                            )))?
+                            .into_lower(ctx)?;
+                    )*
+                    Ok(ir::Expression::EvalCompiler(Box::new(
+                        ir::CompilerOp::$op $(( $( $oparg ),* ))?
+                    )))
+                }
+            }
+        )*
+    };
+}
+
+builtin_boilerplate! {
+    MinUtxo    => "min_utxo"     (output: Int) -> AnyAsset => ComputeMinUtxo(output);
+    TipSlot    => "tip_slot"     ()            -> Int      => ComputeTipSlot;
+    SlotToTime => "slot_to_time" (slot: Int)   -> Int      => ComputeSlotToTime(slot);
+    TimeToSlot => "time_to_slot" (time: Int)   -> Int      => ComputeTimeToSlot(time);
+}
+
 /// Map a built-in key to its implementation. Exhaustive by construction.
 pub fn resolve(kind: BuiltinFn) -> &'static dyn Builtin {
     match kind {
-        BuiltinFn::MinUtxo => &value::MinUtxo,
-        BuiltinFn::TipSlot => &time::TipSlot,
-        BuiltinFn::SlotToTime => &time::SlotToTime,
-        BuiltinFn::TimeToSlot => &time::TimeToSlot,
+        BuiltinFn::MinUtxo => &MinUtxo,
+        BuiltinFn::TipSlot => &TipSlot,
+        BuiltinFn::SlotToTime => &SlotToTime,
+        BuiltinFn::TimeToSlot => &TimeToSlot,
     }
 }
 

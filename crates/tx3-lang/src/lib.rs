@@ -26,7 +26,7 @@
 
 pub mod analyzing;
 pub mod ast;
-pub mod builtins;
+pub(crate) mod builtins;
 pub mod lowering;
 pub mod parsing;
 
