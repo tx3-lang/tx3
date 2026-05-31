@@ -54,6 +54,21 @@ pub struct InvalidTargetTypeError {
 }
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic, PartialEq, Eq, Clone)]
+#[error("function '{name}' expects {expected} argument(s), but got {got}")]
+#[diagnostic(code(tx3::arity_mismatch))]
+pub struct ArityError {
+    pub name: String,
+    pub expected: usize,
+    pub got: usize,
+
+    #[source_code]
+    src: Option<String>,
+
+    #[label]
+    span: Span,
+}
+
+#[derive(Debug, thiserror::Error, miette::Diagnostic, PartialEq, Eq, Clone)]
 #[error("optional output ({name}) cannot have a datum")]
 #[diagnostic(code(tx3::optional_output_datum))]
 pub struct OptionalOutputError {
@@ -126,6 +141,10 @@ pub enum Error {
     #[error(transparent)]
     #[diagnostic(transparent)]
     InvalidOptionalOutput(#[from] OptionalOutputError),
+
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    Arity(#[from] ArityError),
 }
 
 impl Error {
@@ -137,6 +156,7 @@ impl Error {
             Self::MetadataSizeLimitExceeded(x) => &x.span,
             Self::MetadataInvalidKeyType(x) => &x.span,
             Self::InvalidOptionalOutput(x) => &x.span,
+            Self::Arity(x) => &x.span,
             _ => &Span::DUMMY,
         }
     }
@@ -148,6 +168,21 @@ impl Error {
             Self::MetadataInvalidKeyType(x) => x.src.as_deref(),
             _ => None,
         }
+    }
+
+    pub fn arity(
+        name: String,
+        expected: usize,
+        got: usize,
+        ast: &impl crate::parsing::AstNode,
+    ) -> Self {
+        Self::Arity(ArityError {
+            name,
+            expected,
+            got,
+            src: None,
+            span: ast.span().clone(),
+        })
     }
 
     pub fn not_in_scope(name: String, ast: &impl crate::parsing::AstNode) -> Self {
@@ -755,7 +790,27 @@ impl Analyzable for crate::ast::FnCall {
             args_report = args_report + arg.analyze(parent.clone());
         }
 
-        callee + args_report
+        let mut report = callee + args_report;
+
+        // Arity check: a call whose callee resolves to a function (user-defined
+        // or built-in) must pass exactly as many arguments as it declares.
+        // Skipped when the callee does not resolve to a function (e.g. an asset
+        // constructor, or an unresolved name already reported above).
+        let signature = self
+            .callee
+            .symbol
+            .as_ref()
+            .and_then(|s| s.as_fn_def())
+            .map(|fn_def| (fn_def.name.value.clone(), fn_def.parameters.parameters.len()));
+
+        if let Some((name, expected)) = signature {
+            let got = self.args.len();
+            if expected != got {
+                report = report + Error::arity(name, expected, got, self).into();
+            }
+        }
+
+        report
     }
 
     fn is_resolved(&self) -> bool {
@@ -1758,6 +1813,126 @@ mod tests {
 
         let report = analyze(&mut ast);
         assert!(report.errors.is_empty());
+    }
+
+    #[test]
+    fn test_fn_call_too_few_args() {
+        let mut ast = crate::parsing::parse_string(
+            r#"
+        party Alice;
+
+        fn double(x: Int) -> Int {
+            x + x
+        }
+
+        tx t() {
+            input source {
+                from: Alice,
+                min_amount: Ada(2),
+            }
+            output {
+                to: Alice,
+                amount: Ada(double()),
+            }
+        }
+    "#,
+        )
+        .unwrap();
+
+        let report = analyze(&mut ast);
+
+        assert!(report.errors.iter().any(|e| matches!(
+            e,
+            Error::Arity(a) if a.name == "double" && a.expected == 1 && a.got == 0
+        )));
+    }
+
+    #[test]
+    fn test_fn_call_too_many_args() {
+        let mut ast = crate::parsing::parse_string(
+            r#"
+        party Alice;
+
+        fn double(x: Int) -> Int {
+            x + x
+        }
+
+        tx t() {
+            input source {
+                from: Alice,
+                min_amount: Ada(2),
+            }
+            output {
+                to: Alice,
+                amount: Ada(double(1, 2)),
+            }
+        }
+    "#,
+        )
+        .unwrap();
+
+        let report = analyze(&mut ast);
+
+        assert!(report.errors.iter().any(|e| matches!(
+            e,
+            Error::Arity(a) if a.name == "double" && a.expected == 1 && a.got == 2
+        )));
+    }
+
+    #[test]
+    fn test_fn_call_correct_arity_ok() {
+        let mut ast = crate::parsing::parse_string(
+            r#"
+        party Alice;
+
+        fn double(x: Int) -> Int {
+            x + x
+        }
+
+        tx t() {
+            input source {
+                from: Alice,
+                min_amount: Ada(2),
+            }
+            output {
+                to: Alice,
+                amount: Ada(double(2)),
+            }
+        }
+    "#,
+        )
+        .unwrap();
+
+        let report = analyze(&mut ast);
+        assert!(!report.errors.iter().any(|e| matches!(e, Error::Arity(_))));
+    }
+
+    #[test]
+    fn test_builtin_call_wrong_arity() {
+        let mut ast = crate::parsing::parse_string(
+            r#"
+        party Alice;
+
+        tx t() {
+            input source {
+                from: Alice,
+                min_amount: Ada(2),
+            }
+            output {
+                to: Alice,
+                amount: min_utxo(),
+            }
+        }
+    "#,
+        )
+        .unwrap();
+
+        let report = analyze(&mut ast);
+
+        assert!(report.errors.iter().any(|e| matches!(
+            e,
+            Error::Arity(a) if a.name == "min_utxo" && a.expected == 1 && a.got == 0
+        )));
     }
 
     #[test]
