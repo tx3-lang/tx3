@@ -305,71 +305,6 @@ macro_rules! bail_report {
     };
 }
 
-fn builtin_fn_defs() -> Vec<FnDef> {
-    vec![
-        FnDef {
-            name: Identifier::new("min_utxo"),
-            parameters: ParameterList {
-                parameters: vec![ParamDef {
-                    name: Identifier::new("output"),
-                    r#type: Type::Int,
-                    docstring: None,
-                }],
-                span: Span::DUMMY,
-            },
-            return_type: Type::AnyAsset,
-            body: None,
-            builtin: Some(BuiltinFn::MinUtxo),
-            span: Span::DUMMY,
-            scope: None,
-        },
-        FnDef {
-            name: Identifier::new("tip_slot"),
-            parameters: ParameterList {
-                parameters: vec![],
-                span: Span::DUMMY,
-            },
-            return_type: Type::Int,
-            body: None,
-            builtin: Some(BuiltinFn::TipSlot),
-            span: Span::DUMMY,
-            scope: None,
-        },
-        FnDef {
-            name: Identifier::new("slot_to_time"),
-            parameters: ParameterList {
-                parameters: vec![ParamDef {
-                    name: Identifier::new("slot"),
-                    r#type: Type::Int,
-                    docstring: None,
-                }],
-                span: Span::DUMMY,
-            },
-            return_type: Type::Int,
-            body: None,
-            builtin: Some(BuiltinFn::SlotToTime),
-            span: Span::DUMMY,
-            scope: None,
-        },
-        FnDef {
-            name: Identifier::new("time_to_slot"),
-            parameters: ParameterList {
-                parameters: vec![ParamDef {
-                    name: Identifier::new("time"),
-                    r#type: Type::Int,
-                    docstring: None,
-                }],
-                span: Span::DUMMY,
-            },
-            return_type: Type::Int,
-            body: None,
-            builtin: Some(BuiltinFn::TimeToSlot),
-            span: Span::DUMMY,
-            scope: None,
-        },
-    ]
-}
-
 impl Scope {
     pub fn new(parent: Option<Rc<Scope>>) -> Self {
         Self {
@@ -1547,8 +1482,8 @@ impl Analyzable for Program {
             scope.track_alias_def(alias_def);
         }
 
-        for builtin in builtin_fn_defs().iter() {
-            scope.track_fn_def(builtin);
+        for builtin in BuiltinFn::ALL {
+            scope.track_fn_def(&builtin.definition());
         }
 
         for fn_def in self.functions.iter() {
