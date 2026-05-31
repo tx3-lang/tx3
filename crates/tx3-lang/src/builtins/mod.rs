@@ -69,78 +69,73 @@ pub trait Builtin: Sync {
     }
 }
 
-/// Declare the boilerplate for built-ins whose lowering is "bind each named
-/// parameter to its lowered argument, then construct an [`ir::CompilerOp`]".
+/// Declare a built-in whose lowering is "bind each named parameter to its
+/// lowered argument, then construct an [`ir::CompilerOp`]".
 ///
-/// Each row is:
 /// ```text
-/// Variant => "name" (param: Type, …) -> ReturnType => CompilerOp(param, …);
+/// builtin_boilerplate!(Variant, "name", (param: Type, …) -> ReturnType => CompilerOp(param, …));
 /// ```
+///
 /// The operation references the parameters by name, so the names are checked
 /// against the signature at compile time. Parameter and return types must be
 /// bare [`ast::Type`] variant idents (e.g. `Int`, `AnyAsset`); a built-in that
 /// needs a richer type or non-`CompilerOp` lowering is written by hand instead.
 macro_rules! builtin_boilerplate {
     (
-        $(
-            $variant:ident => $name:literal
-            ( $( $param:ident : $pty:ident ),* $(,)? ) -> $ret:ident
-            => $op:ident $(( $( $oparg:ident ),* ))? ;
-        )*
+        $variant:ident,
+        $name:literal,
+        ( $( $param:ident : $pty:ident ),* $(,)? ) -> $ret:ident
+        => $op:ident $(( $( $oparg:ident ),* ))?
     ) => {
-        $(
-            pub struct $variant;
+        pub struct $variant;
 
-            impl Builtin for $variant {
-                fn kind(&self) -> BuiltinFn {
-                    BuiltinFn::$variant
-                }
+        impl Builtin for $variant {
+            fn kind(&self) -> BuiltinFn {
+                BuiltinFn::$variant
+            }
 
-                fn name(&self) -> &'static str {
-                    $name
-                }
+            fn name(&self) -> &'static str {
+                $name
+            }
 
-                fn signature(&self) -> Signature {
-                    Signature {
-                        params: vec![ $( (stringify!($param), Type::$pty) ),* ],
-                        returns: Type::$ret,
-                    }
-                }
-
-                // A nullary built-in (e.g. `tip_slot`) uses neither `args` nor
-                // `ctx`; allow that here so the table stays uniform.
-                #[allow(unused_mut, unused_variables)]
-                fn lower_call(
-                    &self,
-                    args: &[ast::DataExpr],
-                    ctx: &Context,
-                ) -> Result<ir::Expression, LowerError> {
-                    let mut args = args.iter();
-                    $(
-                        let $param = args
-                            .next()
-                            .ok_or_else(|| LowerError::InvalidAst(format!(
-                                "built-in '{}' expects argument '{}'",
-                                $name,
-                                stringify!($param),
-                            )))?
-                            .into_lower(ctx)?;
-                    )*
-                    Ok(ir::Expression::EvalCompiler(Box::new(
-                        ir::CompilerOp::$op $(( $( $oparg ),* ))?
-                    )))
+            fn signature(&self) -> Signature {
+                Signature {
+                    params: vec![ $( (stringify!($param), Type::$pty) ),* ],
+                    returns: Type::$ret,
                 }
             }
-        )*
+
+            // A nullary built-in (e.g. `tip_slot`) uses neither `args` nor
+            // `ctx`; allow that so every invocation expands uniformly.
+            #[allow(unused_mut, unused_variables)]
+            fn lower_call(
+                &self,
+                args: &[ast::DataExpr],
+                ctx: &Context,
+            ) -> Result<ir::Expression, LowerError> {
+                let mut args = args.iter();
+                $(
+                    let $param = args
+                        .next()
+                        .ok_or_else(|| LowerError::InvalidAst(format!(
+                            "built-in '{}' expects argument '{}'",
+                            $name,
+                            stringify!($param),
+                        )))?
+                        .into_lower(ctx)?;
+                )*
+                Ok(ir::Expression::EvalCompiler(Box::new(
+                    ir::CompilerOp::$op $(( $( $oparg ),* ))?
+                )))
+            }
+        }
     };
 }
 
-builtin_boilerplate! {
-    MinUtxo    => "min_utxo"     (output: Int) -> AnyAsset => ComputeMinUtxo(output);
-    TipSlot    => "tip_slot"     ()            -> Int      => ComputeTipSlot;
-    SlotToTime => "slot_to_time" (slot: Int)   -> Int      => ComputeSlotToTime(slot);
-    TimeToSlot => "time_to_slot" (time: Int)   -> Int      => ComputeTimeToSlot(time);
-}
+builtin_boilerplate!(MinUtxo, "min_utxo", (output: Int) -> AnyAsset => ComputeMinUtxo(output));
+builtin_boilerplate!(TipSlot, "tip_slot", () -> Int => ComputeTipSlot);
+builtin_boilerplate!(SlotToTime, "slot_to_time", (slot: Int) -> Int => ComputeSlotToTime(slot));
+builtin_boilerplate!(TimeToSlot, "time_to_slot", (time: Int) -> Int => ComputeTimeToSlot(time));
 
 /// Map a built-in key to its implementation. Exhaustive by construction.
 pub fn resolve(kind: BuiltinFn) -> &'static dyn Builtin {
