@@ -124,11 +124,13 @@ A *function definition* introduces a named, pure helper that computes a data
 value. The `parameter_list` (§4.2.7) MAY be empty. The `type` after `->` is the
 declared return type. A function body is an optional sequence of `let`-bindings
 followed by a single result `data_expr`, whose static type MUST match the
-declared return type (§5.7). Functions are top-level only: a function body MUST
-NOT contain transaction blocks, and functions MUST NOT be nested. Function calls
-use the `fn_call` production (§4.4) and MAY appear anywhere a `data_expr` is
-valid. Static-semantic rules for functions are given in §6, and their
-evaluation by inlining is specified in §7.
+declared return type (§5.6.2). A `fn_def` is a top-level definition (§4.1): it
+cannot be declared inside another function or a `tx`, and its body is a
+`data_expr`, so it contains no transaction blocks. Function *calls*, by
+contrast, use the `fn_call` production (§4.4) and MAY appear anywhere a
+`data_expr` is valid — including as arguments to other calls. Static-semantic
+rules for functions are given in §6, and their evaluation by inlining is
+specified in §7.
 
 ### 4.2.7 Transaction
 
