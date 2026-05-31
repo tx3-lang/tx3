@@ -416,20 +416,7 @@ impl IntoLower for ast::FnCall {
         // (inlined below).
         if let Some(fn_def) = self.callee.symbol.as_ref().and_then(|s| s.as_fn_def()) {
             if let Some(builtin) = fn_def.builtin {
-                let op = match builtin {
-                    ast::BuiltinFn::MinUtxo => {
-                        ir::CompilerOp::ComputeMinUtxo(self.args[0].into_lower(ctx)?)
-                    }
-                    ast::BuiltinFn::TipSlot => ir::CompilerOp::ComputeTipSlot,
-                    ast::BuiltinFn::SlotToTime => {
-                        ir::CompilerOp::ComputeSlotToTime(self.args[0].into_lower(ctx)?)
-                    }
-                    ast::BuiltinFn::TimeToSlot => {
-                        ir::CompilerOp::ComputeTimeToSlot(self.args[0].into_lower(ctx)?)
-                    }
-                };
-
-                return Ok(ir::Expression::EvalCompiler(Box::new(op)));
+                return builtin.lower_call(&self.args, ctx);
             }
 
             // Inline a user-defined function: lower its analyzed body, then
@@ -474,6 +461,25 @@ impl IntoLower for ast::FnCall {
                 self.callee.value
             ))),
         }
+    }
+}
+
+impl ast::BuiltinFn {
+    /// Lower a call to this built-in into its dedicated compiler operation.
+    /// Built-in calls are not inlined; the resolver evaluates the op.
+    fn lower_call(
+        self,
+        args: &[ast::DataExpr],
+        ctx: &Context,
+    ) -> Result<ir::Expression, Error> {
+        let op = match self {
+            ast::BuiltinFn::MinUtxo => ir::CompilerOp::ComputeMinUtxo(args[0].into_lower(ctx)?),
+            ast::BuiltinFn::TipSlot => ir::CompilerOp::ComputeTipSlot,
+            ast::BuiltinFn::SlotToTime => ir::CompilerOp::ComputeSlotToTime(args[0].into_lower(ctx)?),
+            ast::BuiltinFn::TimeToSlot => ir::CompilerOp::ComputeTimeToSlot(args[0].into_lower(ctx)?),
+        };
+
+        Ok(ir::Expression::EvalCompiler(Box::new(op)))
     }
 }
 
