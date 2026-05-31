@@ -994,9 +994,9 @@ pub struct FnBody {
     pub span: Span,
 }
 
-/// A function provided by the compiler rather than declared in source. Each
-/// variant carries its own signature (`definition`) and lowers to a dedicated
-/// compiler operation (`BuiltinFn::lower_call`, §7).
+/// A function provided by the compiler rather than declared in source. This is
+/// only the serializable *key* carried on `FnDef`; each variant's signature,
+/// analysis, and lowering live with its [`crate::builtins::Builtin`] impl.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum BuiltinFn {
     MinUtxo,
@@ -1006,55 +1006,15 @@ pub enum BuiltinFn {
 }
 
 impl BuiltinFn {
-    /// Every built-in. The single source of truth for the set; analysis
-    /// registers `definition()` for each into the program scope.
+    /// Every built-in key. `crate::builtins::resolve` maps each to its
+    /// implementation (exhaustively, so this list and the registry stay in
+    /// sync at compile time).
     pub const ALL: [BuiltinFn; 4] = [
         BuiltinFn::MinUtxo,
         BuiltinFn::TipSlot,
         BuiltinFn::SlotToTime,
         BuiltinFn::TimeToSlot,
     ];
-
-    /// The call-site name of this built-in.
-    pub fn name(self) -> &'static str {
-        match self {
-            BuiltinFn::MinUtxo => "min_utxo",
-            BuiltinFn::TipSlot => "tip_slot",
-            BuiltinFn::SlotToTime => "slot_to_time",
-            BuiltinFn::TimeToSlot => "time_to_slot",
-        }
-    }
-
-    /// The synthetic `FnDef` registered for this built-in: a body-less function
-    /// whose signature the analyzer resolves calls against.
-    pub fn definition(self) -> FnDef {
-        let (params, return_type): (&[(&str, Type)], Type) = match self {
-            BuiltinFn::MinUtxo => (&[("output", Type::Int)], Type::AnyAsset),
-            BuiltinFn::TipSlot => (&[], Type::Int),
-            BuiltinFn::SlotToTime => (&[("slot", Type::Int)], Type::Int),
-            BuiltinFn::TimeToSlot => (&[("time", Type::Int)], Type::Int),
-        };
-
-        FnDef {
-            name: Identifier::new(self.name()),
-            parameters: ParameterList {
-                parameters: params
-                    .iter()
-                    .map(|(name, ty)| ParamDef {
-                        name: Identifier::new(*name),
-                        r#type: ty.clone(),
-                        docstring: None,
-                    })
-                    .collect(),
-                span: Span::DUMMY,
-            },
-            return_type,
-            body: None,
-            builtin: Some(self),
-            span: Span::DUMMY,
-            scope: None,
-        }
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

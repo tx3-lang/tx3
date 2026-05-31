@@ -1482,7 +1482,7 @@ impl Analyzable for Program {
             scope.track_alias_def(alias_def);
         }
 
-        for builtin in BuiltinFn::ALL {
+        for builtin in crate::builtins::all() {
             scope.track_fn_def(&builtin.definition());
         }
 
