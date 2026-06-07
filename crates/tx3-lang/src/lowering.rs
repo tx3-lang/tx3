@@ -1032,11 +1032,15 @@ mod tests {
         }
     }
 
-    fn test_lowering_example(example: &str) {
+    /// Lowers every tx in an example, snapshot-checks each, and returns the
+    /// lowered TIRs keyed by tx name so callers can assert extra invariants.
+    fn test_lowering_example(example: &str) -> std::collections::BTreeMap<String, ir::Tx> {
         let manifest_dir = env!("CARGO_MANIFEST_DIR");
         let mut program = parsing::parse_well_known_example(example);
 
         crate::analyzing::analyze(&mut program).ok().unwrap();
+
+        let mut lowered = std::collections::BTreeMap::new();
 
         for tx in program.txs.iter() {
             let tir = lower(&program, &tx.name.value).unwrap();
@@ -1052,7 +1056,11 @@ mod tests {
             let expected: ir::Tx = serde_json::from_str(&expected).unwrap();
 
             assert_json_eq!(tir, expected);
+
+            lowered.insert(tx.name.value.clone(), tir);
         }
+
+        lowered
     }
 
     #[macro_export]
@@ -1062,6 +1070,17 @@ mod tests {
                 #[test]
                 fn [<test_example_ $name>]() {
                     test_lowering_example(stringify!($name));
+                }
+            }
+        };
+        // Variant with extra assertions: the block receives the lowered TIRs
+        // keyed by tx name (a `BTreeMap<String, ir::Tx>`) bound to `$txs`.
+        ($name:ident, |$txs:ident| $checks:block) => {
+            paste! {
+                #[test]
+                fn [<test_example_ $name>]() {
+                    let $txs = test_lowering_example(stringify!($name));
+                    $checks
                 }
             }
         };
@@ -1089,7 +1108,18 @@ mod tests {
 
     test_lowering!(reference_script);
 
-    test_lowering!(policy_reference_script);
+    test_lowering!(policy_reference_script, |txs| {
+        // A ref-backed policy used as `from` contributes its `ref` UTxO as a
+        // reference input.
+        assert_eq!(txs["spend"].references.len(), 1);
+
+        // The same ref-backed policy across two inputs is deduped to one
+        // reference input.
+        assert_eq!(txs["spend_two"].references.len(), 1);
+
+        // A hash-only policy contributes no reference input.
+        assert!(txs["spend_hash_only"].references.is_empty());
+    });
 
     test_lowering!(withdrawal);
 
@@ -1116,94 +1146,4 @@ mod tests {
     test_lowering!(param_field_shadow);
 
     test_lowering!(oracle_reference_datum);
-
-    fn lower_source(source: &str, template: &str) -> ir::Tx {
-        let mut program = parsing::parse_string(source).unwrap();
-        crate::analyzing::analyze(&mut program).ok().unwrap();
-        lower(&program, template).unwrap()
-    }
-
-    /// A ref-backed policy used as `from` contributes its `ref` UTxO as a
-    /// reference input.
-    #[test]
-    fn policy_ref_becomes_reference_input() {
-        let tir = lower_source(
-            r#"
-            party Receiver;
-            policy Validator {
-                hash: 0xABCD,
-                ref: 0xABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCD#0,
-            }
-            tx spend() {
-                input locked {
-                    from: Validator,
-                    redeemer: (),
-                }
-                output {
-                    to: Receiver,
-                    amount: locked - fees,
-                }
-            }
-            "#,
-            "spend",
-        );
-
-        assert_eq!(tir.references.len(), 1);
-    }
-
-    /// The same ref-backed policy used by two inputs is deduped to one
-    /// reference input.
-    #[test]
-    fn policy_ref_dedups_across_inputs() {
-        let tir = lower_source(
-            r#"
-            party Receiver;
-            policy Validator {
-                hash: 0xABCD,
-                ref: 0xABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCD#0,
-            }
-            tx spend() {
-                input first {
-                    from: Validator,
-                    redeemer: (),
-                }
-                input second {
-                    from: Validator,
-                    redeemer: (),
-                }
-                output {
-                    to: Receiver,
-                    amount: first + second - fees,
-                }
-            }
-            "#,
-            "spend",
-        );
-
-        assert_eq!(tir.references.len(), 1);
-    }
-
-    /// A hash-only policy used as `from` contributes no reference input.
-    #[test]
-    fn hash_only_policy_adds_no_reference_input() {
-        let tir = lower_source(
-            r#"
-            party Receiver;
-            policy Validator = 0xABCD;
-            tx spend() {
-                input locked {
-                    from: Validator,
-                    redeemer: (),
-                }
-                output {
-                    to: Receiver,
-                    amount: locked - fees,
-                }
-            }
-            "#,
-            "spend",
-        );
-
-        assert!(tir.references.is_empty());
-    }
 }

@@ -5,12 +5,48 @@ policy Validator {
     ref: 0xABCDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890#0,
 }
 
+policy HashOnly = 0xABCDEF1234;
+
+// A ref-backed policy used as `from` contributes its `ref` UTxO as a
+// reference input.
 tx spend(
     quantity: Int
 ) {
     input locked {
         from: Validator,
         min_amount: Ada(quantity),
+        redeemer: (),
+    }
+
+    output {
+        to: Receiver,
+        amount: locked - fees,
+    }
+}
+
+// The same ref-backed policy used by two inputs is deduped to one reference
+// input.
+tx spend_two() {
+    input first {
+        from: Validator,
+        redeemer: (),
+    }
+
+    input second {
+        from: Validator,
+        redeemer: (),
+    }
+
+    output {
+        to: Receiver,
+        amount: first + second - fees,
+    }
+}
+
+// A hash-only policy used as `from` contributes no reference input.
+tx spend_hash_only() {
+    input locked {
+        from: HashOnly,
         redeemer: (),
     }
 
