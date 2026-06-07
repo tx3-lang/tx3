@@ -115,6 +115,11 @@ pub(crate) struct Context {
     is_asset_expr: bool,
     is_datum_expr: bool,
     is_address_expr: bool,
+    // Sticky: a policy referenced anywhere in this subtree stands in for a
+    // script that must run (e.g. a mint/burn policy), so its ref UTxO should be
+    // captured even though the policy lowers to a plain hash here. Carried
+    // through the `enter_*` transitions like `script_refs`.
+    capture_policy_ref: bool,
     // Shared across all `enter_*`-derived contexts within one tx lowering so
     // refs captured deep in an expression reach the top-level `Tx` assembly.
     script_refs: Rc<RefCell<RefAccumulator>>,
@@ -126,6 +131,7 @@ impl Context {
             is_asset_expr: true,
             is_datum_expr: false,
             is_address_expr: false,
+            capture_policy_ref: self.capture_policy_ref,
             script_refs: self.script_refs.clone(),
         }
     }
@@ -135,6 +141,7 @@ impl Context {
             is_asset_expr: false,
             is_datum_expr: true,
             is_address_expr: false,
+            capture_policy_ref: self.capture_policy_ref,
             script_refs: self.script_refs.clone(),
         }
     }
@@ -144,7 +151,18 @@ impl Context {
             is_asset_expr: false,
             is_datum_expr: false,
             is_address_expr: true,
+            capture_policy_ref: self.capture_policy_ref,
             script_refs: self.script_refs.clone(),
+        }
+    }
+
+    /// Enter a subtree (e.g. a mint/burn amount) where any referenced policy's
+    /// script must run, so its ref UTxO should be captured as a reference
+    /// input. Sticky across nested `enter_*` transitions.
+    pub fn capturing_policy_refs(&self) -> Self {
+        Self {
+            capture_policy_ref: true,
+            ..self.clone()
         }
     }
 
@@ -158,6 +176,10 @@ impl Context {
 
     pub fn is_datum_expr(&self) -> bool {
         self.is_datum_expr
+    }
+
+    pub fn captures_policy_refs(&self) -> bool {
+        self.capture_policy_ref
     }
 
     /// Record a reference-script UTxO discovered during lowering. Dedups so the
@@ -241,14 +263,17 @@ impl IntoLower for ast::Identifier {
             ast::Symbol::PolicyDef(x) => {
                 let policy = x.into_lower(ctx)?;
 
-                if ctx.is_address_expr() {
-                    // The policy stands in for a script credential here, so the
-                    // script must be available on chain. For a ref-backed
-                    // policy, capture its `ref` UTxO so it lands in the tx's
-                    // reference inputs. Hash-only policies yield `None`.
+                // The policy stands in for a script that must run — as a script
+                // credential in an address (`from`), or as a mint/burn policy.
+                // For a ref-backed policy, capture its `ref` UTxO so it lands in
+                // the tx's reference inputs. Hash-only policies yield `None`.
+                if ctx.is_address_expr() || ctx.captures_policy_refs() {
                     if let Some(r#ref) = policy.script.as_utxo_ref() {
                         ctx.record_script_ref(r#ref);
                     }
+                }
+
+                if ctx.is_address_expr() {
                     Ok(ir::CompilerOp::BuildScriptAddress(policy.hash).into())
                 } else {
                     Ok(policy.hash)
@@ -768,7 +793,10 @@ impl IntoLower for ast::MintBlockField {
 
     fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
         match self {
-            ast::MintBlockField::Amount(x) => x.into_lower(ctx),
+            // A policy referenced in the minted/burned amount is the policy
+            // whose script must run, so capture its ref UTxO as a reference
+            // input (analogous to a script credential in an input's `from`).
+            ast::MintBlockField::Amount(x) => x.into_lower(&ctx.capturing_policy_refs()),
             ast::MintBlockField::Redeemer(x) => x.into_lower(ctx),
         }
     }
@@ -1119,6 +1147,17 @@ mod tests {
 
         // A hash-only policy contributes no reference input.
         assert!(txs["spend_hash_only"].references.is_empty());
+
+        // A ref-backed policy used to mint contributes its `ref` UTxO as a
+        // reference input.
+        assert_eq!(txs["mint_token"].references.len(), 1);
+
+        // A ref-backed policy used to burn contributes its `ref` UTxO as a
+        // reference input.
+        assert_eq!(txs["burn_token"].references.len(), 1);
+
+        // A hash-only policy used to mint contributes no reference input.
+        assert!(txs["mint_hash_only"].references.is_empty());
     });
 
     test_lowering!(withdrawal);

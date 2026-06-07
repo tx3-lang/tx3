@@ -55,3 +55,49 @@ tx spend_hash_only() {
         amount: locked - fees,
     }
 }
+
+// Minting under a ref-backed policy contributes its `ref` UTxO as a reference
+// input.
+tx mint_token() {
+    mint {
+        amount: AnyAsset(Validator, "TOKEN", 1),
+        redeemer: (),
+    }
+
+    output {
+        to: Receiver,
+        amount: AnyAsset(Validator, "TOKEN", 1),
+    }
+}
+
+// Burning under a ref-backed policy contributes its `ref` UTxO as a reference
+// input.
+tx burn_token() {
+    input funding {
+        from: Receiver,
+        min_amount: AnyAsset(Validator, "TOKEN", 1),
+    }
+
+    burn {
+        amount: AnyAsset(Validator, "TOKEN", 1),
+        redeemer: (),
+    }
+
+    output {
+        to: Receiver,
+        amount: funding - AnyAsset(Validator, "TOKEN", 1) - fees,
+    }
+}
+
+// Minting under a hash-only policy contributes no reference input.
+tx mint_hash_only() {
+    mint {
+        amount: AnyAsset(HashOnly, "TOKEN", 1),
+        redeemer: (),
+    }
+
+    output {
+        to: Receiver,
+        amount: AnyAsset(HashOnly, "TOKEN", 1),
+    }
+}
