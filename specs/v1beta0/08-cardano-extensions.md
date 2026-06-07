@@ -50,6 +50,10 @@ withdrawal_field ::=
 A `withdrawal_block` MUST include at least the `from` and `amount`
 fields.
 
+Withdrawing from a script stake credential executes its script, so a
+`ref`-backed `policy` used as `from` is referenced (but not consumed) by
+the transaction, per §7.13.4.
+
 ## 8.4 Plutus witness
 
 ```

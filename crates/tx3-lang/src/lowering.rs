@@ -1136,6 +1136,8 @@ mod tests {
         assert!(txs["mint_hash_only"].references.is_empty());
         // output recipient only: script does not run, no reference input
         assert!(txs["send_to_policy"].references.is_empty());
+        // ref-backed withdrawal stake credential
+        assert_eq!(txs["withdraw"].references.len(), 1);
     });
 
     test_lowering!(withdrawal);
