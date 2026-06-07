@@ -1,0 +1,175 @@
+{
+  "fees": {
+    "EvalParam": "ExpectFees"
+  },
+  "references": [
+    {
+      "UtxoRefs": [
+        {
+          "txid": [
+            171,
+            205,
+            239,
+            18,
+            52,
+            86,
+            120,
+            144,
+            171,
+            205,
+            239,
+            18,
+            52,
+            86,
+            120,
+            144,
+            171,
+            205,
+            239,
+            18,
+            52,
+            86,
+            120,
+            144,
+            171,
+            205,
+            239,
+            18,
+            52,
+            86,
+            120,
+            144
+          ],
+          "index": 0
+        }
+      ]
+    }
+  ],
+  "inputs": [
+    {
+      "name": "locked",
+      "utxos": {
+        "EvalParam": {
+          "ExpectInput": [
+            "locked",
+            {
+              "address": {
+                "EvalCompiler": {
+                  "BuildScriptAddress": {
+                    "Bytes": [
+                      171,
+                      205,
+                      239,
+                      18,
+                      52
+                    ]
+                  }
+                }
+              },
+              "min_amount": {
+                "Assets": [
+                  {
+                    "policy": "None",
+                    "asset_name": "None",
+                    "amount": {
+                      "EvalParam": {
+                        "ExpectValue": [
+                          "quantity",
+                          "Int"
+                        ]
+                      }
+                    }
+                  }
+                ]
+              },
+              "ref": "None",
+              "many": false,
+              "collateral": false
+            }
+          ]
+        }
+      },
+      "redeemer": {
+        "Struct": {
+          "constructor": 0,
+          "fields": []
+        }
+      }
+    }
+  ],
+  "outputs": [
+    {
+      "address": {
+        "EvalParam": {
+          "ExpectValue": [
+            "receiver",
+            "Address"
+          ]
+        }
+      },
+      "datum": "None",
+      "amount": {
+        "EvalBuiltIn": {
+          "Sub": [
+            {
+              "EvalCoerce": {
+                "IntoAssets": {
+                  "EvalParam": {
+                    "ExpectInput": [
+                      "locked",
+                      {
+                        "address": {
+                          "EvalCompiler": {
+                            "BuildScriptAddress": {
+                              "Bytes": [
+                                171,
+                                205,
+                                239,
+                                18,
+                                52
+                              ]
+                            }
+                          }
+                        },
+                        "min_amount": {
+                          "Assets": [
+                            {
+                              "policy": "None",
+                              "asset_name": "None",
+                              "amount": {
+                                "EvalParam": {
+                                  "ExpectValue": [
+                                    "quantity",
+                                    "Int"
+                                  ]
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        "ref": "None",
+                        "many": false,
+                        "collateral": false
+                      }
+                    ]
+                  }
+                }
+              }
+            },
+            {
+              "EvalParam": "ExpectFees"
+            }
+          ]
+        }
+      },
+      "optional": false
+    }
+  ],
+  "validity": null,
+  "mints": [],
+  "burns": [],
+  "adhoc": [],
+  "collateral": [],
+  "signers": null,
+  "metadata": []
+}

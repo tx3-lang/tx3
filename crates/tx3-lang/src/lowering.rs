@@ -3,6 +3,9 @@
 //! This module takes an AST and performs lowering on it. It converts the AST
 //! into the intermediate representation (IR) of the Tx3 language.
 
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use crate::ast;
 use tx3_tir::model::core::{Type, UtxoRef};
 use tx3_tir::model::v1beta0 as ir;
@@ -88,11 +91,38 @@ fn coerce_identifier_into_asset_def(identifier: &ast::Identifier) -> Result<ast:
     }
 }
 
+/// Reference-script UTxOs discovered while lowering a single transaction.
+///
+/// When a ref-backed policy is used in a script-requiring position (e.g. the
+/// `from` of an input), its `ref` UTxO must be added to the transaction's
+/// reference inputs so the script becomes available on chain. We collect those
+/// refs here and drain them into `Tx.references` once the body is lowered.
 #[derive(Debug, Default)]
+struct RefAccumulator {
+    refs: Vec<ir::Expression>,
+}
+
+impl RefAccumulator {
+    fn record(&mut self, r#ref: ir::Expression) {
+        if !self.refs.contains(&r#ref) {
+            self.refs.push(r#ref);
+        }
+    }
+}
+
+#[derive(Debug, Default, Clone)]
 pub(crate) struct Context {
     is_asset_expr: bool,
     is_datum_expr: bool,
     is_address_expr: bool,
+    // Sticky: a policy referenced anywhere in this subtree stands in for a
+    // script that must run (e.g. a mint/burn policy), so its ref UTxO should be
+    // captured even though the policy lowers to a plain hash here. Carried
+    // through the `enter_*` transitions like `script_refs`.
+    capture_policy_ref: bool,
+    // Shared across all `enter_*`-derived contexts within one tx lowering so
+    // refs captured deep in an expression reach the top-level `Tx` assembly.
+    script_refs: Rc<RefCell<RefAccumulator>>,
 }
 
 impl Context {
@@ -101,6 +131,8 @@ impl Context {
             is_asset_expr: true,
             is_datum_expr: false,
             is_address_expr: false,
+            capture_policy_ref: self.capture_policy_ref,
+            script_refs: self.script_refs.clone(),
         }
     }
 
@@ -109,6 +141,8 @@ impl Context {
             is_asset_expr: false,
             is_datum_expr: true,
             is_address_expr: false,
+            capture_policy_ref: self.capture_policy_ref,
+            script_refs: self.script_refs.clone(),
         }
     }
 
@@ -117,6 +151,18 @@ impl Context {
             is_asset_expr: false,
             is_datum_expr: false,
             is_address_expr: true,
+            capture_policy_ref: self.capture_policy_ref,
+            script_refs: self.script_refs.clone(),
+        }
+    }
+
+    /// Enter a subtree (e.g. a mint/burn amount) where any referenced policy's
+    /// script must run, so its ref UTxO should be captured as a reference
+    /// input. Sticky across nested `enter_*` transitions.
+    pub fn capturing_policy_refs(&self) -> Self {
+        Self {
+            capture_policy_ref: true,
+            ..self.clone()
         }
     }
 
@@ -130,6 +176,22 @@ impl Context {
 
     pub fn is_datum_expr(&self) -> bool {
         self.is_datum_expr
+    }
+
+    pub fn captures_policy_refs(&self) -> bool {
+        self.capture_policy_ref
+    }
+
+    /// Record a reference-script UTxO discovered during lowering. Dedups so the
+    /// same ref used by several inputs (or an explicit `reference` block) lands
+    /// once.
+    pub fn record_script_ref(&self, r#ref: ir::Expression) {
+        self.script_refs.borrow_mut().record(r#ref);
+    }
+
+    /// Take all recorded reference-script UTxOs, in discovery order.
+    pub fn drain_script_refs(&self) -> Vec<ir::Expression> {
+        std::mem::take(&mut self.script_refs.borrow_mut().refs)
     }
 }
 
@@ -200,6 +262,16 @@ impl IntoLower for ast::Identifier {
             }
             ast::Symbol::PolicyDef(x) => {
                 let policy = x.into_lower(ctx)?;
+
+                // The policy stands in for a script that must run — as a script
+                // credential in an address (`from`), or as a mint/burn policy.
+                // For a ref-backed policy, capture its `ref` UTxO so it lands in
+                // the tx's reference inputs. Hash-only policies yield `None`.
+                if ctx.is_address_expr() || ctx.captures_policy_refs() {
+                    if let Some(r#ref) = policy.script.as_utxo_ref() {
+                        ctx.record_script_ref(r#ref);
+                    }
+                }
 
                 if ctx.is_address_expr() {
                     Ok(ir::CompilerOp::BuildScriptAddress(policy.hash).into())
@@ -721,7 +793,10 @@ impl IntoLower for ast::MintBlockField {
 
     fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
         match self {
-            ast::MintBlockField::Amount(x) => x.into_lower(ctx),
+            // A policy referenced in the minted/burned amount is the policy
+            // whose script must run, so capture its ref UTxO as a reference
+            // input (analogous to a script credential in an input's `from`).
+            ast::MintBlockField::Amount(x) => x.into_lower(&ctx.capturing_policy_refs()),
             ast::MintBlockField::Redeemer(x) => x.into_lower(ctx),
         }
     }
@@ -861,59 +936,75 @@ impl IntoLower for ast::TxDef {
     type Output = ir::Tx;
 
     fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
+        // Seed the ref accumulator with explicit `reference` blocks first, so a
+        // ref that is also implied by a policy used as `from` dedups to one
+        // entry (and explicit refs keep their leading position).
+        for reference in self.references.iter() {
+            let r#ref = reference.r#ref.into_lower(ctx)?;
+            ctx.record_script_ref(r#ref);
+        }
+
+        // Lowering the body populates the accumulator with the `ref` UTxOs of
+        // any ref-backed policies used in script-requiring positions.
+        let inputs = self
+            .inputs
+            .iter()
+            .map(|x| x.into_lower(ctx))
+            .collect::<Result<Vec<_>, _>>()?;
+        let outputs = self
+            .outputs
+            .iter()
+            .map(|x| x.into_lower(ctx))
+            .collect::<Result<Vec<_>, _>>()?;
+        let validity = self
+            .validity
+            .as_ref()
+            .map(|x| x.into_lower(ctx))
+            .transpose()?;
+        let mints = self
+            .mints
+            .iter()
+            .map(|x| x.into_lower(ctx))
+            .collect::<Result<Vec<_>, _>>()?;
+        let burns = self
+            .burns
+            .iter()
+            .map(|x| x.into_lower(ctx))
+            .collect::<Result<Vec<_>, _>>()?;
+        let adhoc = self
+            .adhoc
+            .iter()
+            .map(|x| x.into_lower(ctx))
+            .collect::<Result<Vec<_>, _>>()?;
+        let collateral = self
+            .collateral
+            .iter()
+            .map(|x| x.into_lower(ctx))
+            .collect::<Result<Vec<_>, _>>()?;
+        let signers = self
+            .signers
+            .as_ref()
+            .map(|x| x.into_lower(ctx))
+            .transpose()?;
+        let metadata = self
+            .metadata
+            .as_ref()
+            .map(|x| x.into_lower(ctx))
+            .transpose()?
+            .unwrap_or(vec![]);
+
         let ir = ir::Tx {
-            references: self
-                .references
-                .iter()
-                .map(|x| x.r#ref.into_lower(ctx))
-                .collect::<Result<Vec<_>, _>>()?,
-            inputs: self
-                .inputs
-                .iter()
-                .map(|x| x.into_lower(ctx))
-                .collect::<Result<Vec<_>, _>>()?,
-            outputs: self
-                .outputs
-                .iter()
-                .map(|x| x.into_lower(ctx))
-                .collect::<Result<Vec<_>, _>>()?,
-            validity: self
-                .validity
-                .as_ref()
-                .map(|x| x.into_lower(ctx))
-                .transpose()?,
-            mints: self
-                .mints
-                .iter()
-                .map(|x| x.into_lower(ctx))
-                .collect::<Result<Vec<_>, _>>()?,
-            burns: self
-                .burns
-                .iter()
-                .map(|x| x.into_lower(ctx))
-                .collect::<Result<Vec<_>, _>>()?,
-            adhoc: self
-                .adhoc
-                .iter()
-                .map(|x| x.into_lower(ctx))
-                .collect::<Result<Vec<_>, _>>()?,
+            references: ctx.drain_script_refs(),
+            inputs,
+            outputs,
+            validity,
+            mints,
+            burns,
+            adhoc,
             fees: ir::Param::ExpectFees.into(),
-            collateral: self
-                .collateral
-                .iter()
-                .map(|x| x.into_lower(ctx))
-                .collect::<Result<Vec<_>, _>>()?,
-            signers: self
-                .signers
-                .as_ref()
-                .map(|x| x.into_lower(ctx))
-                .transpose()?,
-            metadata: self
-                .metadata
-                .as_ref()
-                .map(|x| x.into_lower(ctx))
-                .transpose()?
-                .unwrap_or(vec![]),
+            collateral,
+            signers,
+            metadata,
         };
 
         Ok(ir)
@@ -969,11 +1060,15 @@ mod tests {
         }
     }
 
-    fn test_lowering_example(example: &str) {
+    /// Lowers every tx in an example, snapshot-checks each, and returns the
+    /// lowered TIRs keyed by tx name so callers can assert extra invariants.
+    fn test_lowering_example(example: &str) -> std::collections::BTreeMap<String, ir::Tx> {
         let manifest_dir = env!("CARGO_MANIFEST_DIR");
         let mut program = parsing::parse_well_known_example(example);
 
         crate::analyzing::analyze(&mut program).ok().unwrap();
+
+        let mut lowered = std::collections::BTreeMap::new();
 
         for tx in program.txs.iter() {
             let tir = lower(&program, &tx.name.value).unwrap();
@@ -989,7 +1084,11 @@ mod tests {
             let expected: ir::Tx = serde_json::from_str(&expected).unwrap();
 
             assert_json_eq!(tir, expected);
+
+            lowered.insert(tx.name.value.clone(), tir);
         }
+
+        lowered
     }
 
     #[macro_export]
@@ -999,6 +1098,17 @@ mod tests {
                 #[test]
                 fn [<test_example_ $name>]() {
                     test_lowering_example(stringify!($name));
+                }
+            }
+        };
+        // Variant with extra assertions: the block receives the lowered TIRs
+        // keyed by tx name (a `BTreeMap<String, ir::Tx>`) bound to `$txs`.
+        ($name:ident, |$txs:ident| $checks:block) => {
+            paste! {
+                #[test]
+                fn [<test_example_ $name>]() {
+                    let $txs = test_lowering_example(stringify!($name));
+                    $checks
                 }
             }
         };
@@ -1025,6 +1135,30 @@ mod tests {
     test_lowering!(cardano_witness);
 
     test_lowering!(reference_script);
+
+    test_lowering!(policy_reference_script, |txs| {
+        // A ref-backed policy used as `from` contributes its `ref` UTxO as a
+        // reference input.
+        assert_eq!(txs["spend"].references.len(), 1);
+
+        // The same ref-backed policy across two inputs is deduped to one
+        // reference input.
+        assert_eq!(txs["spend_two"].references.len(), 1);
+
+        // A hash-only policy contributes no reference input.
+        assert!(txs["spend_hash_only"].references.is_empty());
+
+        // A ref-backed policy used to mint contributes its `ref` UTxO as a
+        // reference input.
+        assert_eq!(txs["mint_token"].references.len(), 1);
+
+        // A ref-backed policy used to burn contributes its `ref` UTxO as a
+        // reference input.
+        assert_eq!(txs["burn_token"].references.len(), 1);
+
+        // A hash-only policy used to mint contributes no reference input.
+        assert!(txs["mint_hash_only"].references.is_empty());
+    });
 
     test_lowering!(withdrawal);
 

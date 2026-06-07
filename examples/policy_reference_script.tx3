@@ -1,0 +1,103 @@
+party Receiver;
+
+policy Validator {
+    hash: 0xABCDEF1234,
+    ref: 0xABCDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890#0,
+}
+
+policy HashOnly = 0xABCDEF1234;
+
+// A ref-backed policy used as `from` contributes its `ref` UTxO as a
+// reference input.
+tx spend(
+    quantity: Int
+) {
+    input locked {
+        from: Validator,
+        min_amount: Ada(quantity),
+        redeemer: (),
+    }
+
+    output {
+        to: Receiver,
+        amount: locked - fees,
+    }
+}
+
+// The same ref-backed policy used by two inputs is deduped to one reference
+// input.
+tx spend_two() {
+    input first {
+        from: Validator,
+        redeemer: (),
+    }
+
+    input second {
+        from: Validator,
+        redeemer: (),
+    }
+
+    output {
+        to: Receiver,
+        amount: first + second - fees,
+    }
+}
+
+// A hash-only policy used as `from` contributes no reference input.
+tx spend_hash_only() {
+    input locked {
+        from: HashOnly,
+        redeemer: (),
+    }
+
+    output {
+        to: Receiver,
+        amount: locked - fees,
+    }
+}
+
+// Minting under a ref-backed policy contributes its `ref` UTxO as a reference
+// input.
+tx mint_token() {
+    mint {
+        amount: AnyAsset(Validator, "TOKEN", 1),
+        redeemer: (),
+    }
+
+    output {
+        to: Receiver,
+        amount: AnyAsset(Validator, "TOKEN", 1),
+    }
+}
+
+// Burning under a ref-backed policy contributes its `ref` UTxO as a reference
+// input.
+tx burn_token() {
+    input funding {
+        from: Receiver,
+        min_amount: AnyAsset(Validator, "TOKEN", 1),
+    }
+
+    burn {
+        amount: AnyAsset(Validator, "TOKEN", 1),
+        redeemer: (),
+    }
+
+    output {
+        to: Receiver,
+        amount: funding - AnyAsset(Validator, "TOKEN", 1) - fees,
+    }
+}
+
+// Minting under a hash-only policy contributes no reference input.
+tx mint_hash_only() {
+    mint {
+        amount: AnyAsset(HashOnly, "TOKEN", 1),
+        redeemer: (),
+    }
+
+    output {
+        to: Receiver,
+        amount: AnyAsset(HashOnly, "TOKEN", 1),
+    }
+}

@@ -1,0 +1,103 @@
+{
+  "fees": {
+    "EvalParam": "ExpectFees"
+  },
+  "references": [],
+  "inputs": [
+    {
+      "name": "locked",
+      "utxos": {
+        "EvalParam": {
+          "ExpectInput": [
+            "locked",
+            {
+              "address": {
+                "EvalCompiler": {
+                  "BuildScriptAddress": {
+                    "Hash": [
+                      171,
+                      205,
+                      239,
+                      18,
+                      52
+                    ]
+                  }
+                }
+              },
+              "min_amount": "None",
+              "ref": "None",
+              "many": false,
+              "collateral": false
+            }
+          ]
+        }
+      },
+      "redeemer": {
+        "Struct": {
+          "constructor": 0,
+          "fields": []
+        }
+      }
+    }
+  ],
+  "outputs": [
+    {
+      "address": {
+        "EvalParam": {
+          "ExpectValue": [
+            "receiver",
+            "Address"
+          ]
+        }
+      },
+      "datum": "None",
+      "amount": {
+        "EvalBuiltIn": {
+          "Sub": [
+            {
+              "EvalCoerce": {
+                "IntoAssets": {
+                  "EvalParam": {
+                    "ExpectInput": [
+                      "locked",
+                      {
+                        "address": {
+                          "EvalCompiler": {
+                            "BuildScriptAddress": {
+                              "Hash": [
+                                171,
+                                205,
+                                239,
+                                18,
+                                52
+                              ]
+                            }
+                          }
+                        },
+                        "min_amount": "None",
+                        "ref": "None",
+                        "many": false,
+                        "collateral": false
+                      }
+                    ]
+                  }
+                }
+              }
+            },
+            {
+              "EvalParam": "ExpectFees"
+            }
+          ]
+        }
+      },
+      "optional": false
+    }
+  ],
+  "validity": null,
+  "mints": [],
+  "burns": [],
+  "adhoc": [],
+  "collateral": [],
+  "signers": null,
+  "metadata": []
+}

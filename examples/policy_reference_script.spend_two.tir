@@ -1,0 +1,216 @@
+{
+  "fees": {
+    "EvalParam": "ExpectFees"
+  },
+  "references": [
+    {
+      "UtxoRefs": [
+        {
+          "txid": [
+            171,
+            205,
+            239,
+            18,
+            52,
+            86,
+            120,
+            144,
+            171,
+            205,
+            239,
+            18,
+            52,
+            86,
+            120,
+            144,
+            171,
+            205,
+            239,
+            18,
+            52,
+            86,
+            120,
+            144,
+            171,
+            205,
+            239,
+            18,
+            52,
+            86,
+            120,
+            144
+          ],
+          "index": 0
+        }
+      ]
+    }
+  ],
+  "inputs": [
+    {
+      "name": "first",
+      "utxos": {
+        "EvalParam": {
+          "ExpectInput": [
+            "first",
+            {
+              "address": {
+                "EvalCompiler": {
+                  "BuildScriptAddress": {
+                    "Bytes": [
+                      171,
+                      205,
+                      239,
+                      18,
+                      52
+                    ]
+                  }
+                }
+              },
+              "min_amount": "None",
+              "ref": "None",
+              "many": false,
+              "collateral": false
+            }
+          ]
+        }
+      },
+      "redeemer": {
+        "Struct": {
+          "constructor": 0,
+          "fields": []
+        }
+      }
+    },
+    {
+      "name": "second",
+      "utxos": {
+        "EvalParam": {
+          "ExpectInput": [
+            "second",
+            {
+              "address": {
+                "EvalCompiler": {
+                  "BuildScriptAddress": {
+                    "Bytes": [
+                      171,
+                      205,
+                      239,
+                      18,
+                      52
+                    ]
+                  }
+                }
+              },
+              "min_amount": "None",
+              "ref": "None",
+              "many": false,
+              "collateral": false
+            }
+          ]
+        }
+      },
+      "redeemer": {
+        "Struct": {
+          "constructor": 0,
+          "fields": []
+        }
+      }
+    }
+  ],
+  "outputs": [
+    {
+      "address": {
+        "EvalParam": {
+          "ExpectValue": [
+            "receiver",
+            "Address"
+          ]
+        }
+      },
+      "datum": "None",
+      "amount": {
+        "EvalBuiltIn": {
+          "Sub": [
+            {
+              "EvalBuiltIn": {
+                "Add": [
+                  {
+                    "EvalCoerce": {
+                      "IntoAssets": {
+                        "EvalParam": {
+                          "ExpectInput": [
+                            "first",
+                            {
+                              "address": {
+                                "EvalCompiler": {
+                                  "BuildScriptAddress": {
+                                    "Bytes": [
+                                      171,
+                                      205,
+                                      239,
+                                      18,
+                                      52
+                                    ]
+                                  }
+                                }
+                              },
+                              "min_amount": "None",
+                              "ref": "None",
+                              "many": false,
+                              "collateral": false
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "EvalCoerce": {
+                      "IntoAssets": {
+                        "EvalParam": {
+                          "ExpectInput": [
+                            "second",
+                            {
+                              "address": {
+                                "EvalCompiler": {
+                                  "BuildScriptAddress": {
+                                    "Bytes": [
+                                      171,
+                                      205,
+                                      239,
+                                      18,
+                                      52
+                                    ]
+                                  }
+                                }
+                              },
+                              "min_amount": "None",
+                              "ref": "None",
+                              "many": false,
+                              "collateral": false
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "EvalParam": "ExpectFees"
+            }
+          ]
+        }
+      },
+      "optional": false
+    }
+  ],
+  "validity": null,
+  "mints": [],
+  "burns": [],
+  "adhoc": [],
+  "collateral": [],
+  "signers": null,
+  "metadata": []
+}

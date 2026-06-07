@@ -1,0 +1,227 @@
+{
+  "fees": {
+    "EvalParam": "ExpectFees"
+  },
+  "references": [
+    {
+      "UtxoRefs": [
+        {
+          "txid": [
+            171,
+            205,
+            239,
+            18,
+            52,
+            86,
+            120,
+            144,
+            171,
+            205,
+            239,
+            18,
+            52,
+            86,
+            120,
+            144,
+            171,
+            205,
+            239,
+            18,
+            52,
+            86,
+            120,
+            144,
+            171,
+            205,
+            239,
+            18,
+            52,
+            86,
+            120,
+            144
+          ],
+          "index": 0
+        }
+      ]
+    }
+  ],
+  "inputs": [
+    {
+      "name": "funding",
+      "utxos": {
+        "EvalParam": {
+          "ExpectInput": [
+            "funding",
+            {
+              "address": {
+                "EvalParam": {
+                  "ExpectValue": [
+                    "receiver",
+                    "Address"
+                  ]
+                }
+              },
+              "min_amount": {
+                "Assets": [
+                  {
+                    "policy": {
+                      "Bytes": [
+                        171,
+                        205,
+                        239,
+                        18,
+                        52
+                      ]
+                    },
+                    "asset_name": {
+                      "String": "TOKEN"
+                    },
+                    "amount": {
+                      "Number": 1
+                    }
+                  }
+                ]
+              },
+              "ref": "None",
+              "many": false,
+              "collateral": false
+            }
+          ]
+        }
+      },
+      "redeemer": "None"
+    }
+  ],
+  "outputs": [
+    {
+      "address": {
+        "EvalParam": {
+          "ExpectValue": [
+            "receiver",
+            "Address"
+          ]
+        }
+      },
+      "datum": "None",
+      "amount": {
+        "EvalBuiltIn": {
+          "Sub": [
+            {
+              "EvalBuiltIn": {
+                "Sub": [
+                  {
+                    "EvalCoerce": {
+                      "IntoAssets": {
+                        "EvalParam": {
+                          "ExpectInput": [
+                            "funding",
+                            {
+                              "address": {
+                                "EvalParam": {
+                                  "ExpectValue": [
+                                    "receiver",
+                                    "Address"
+                                  ]
+                                }
+                              },
+                              "min_amount": {
+                                "Assets": [
+                                  {
+                                    "policy": {
+                                      "Bytes": [
+                                        171,
+                                        205,
+                                        239,
+                                        18,
+                                        52
+                                      ]
+                                    },
+                                    "asset_name": {
+                                      "String": "TOKEN"
+                                    },
+                                    "amount": {
+                                      "Number": 1
+                                    }
+                                  }
+                                ]
+                              },
+                              "ref": "None",
+                              "many": false,
+                              "collateral": false
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "Assets": [
+                      {
+                        "policy": {
+                          "Bytes": [
+                            171,
+                            205,
+                            239,
+                            18,
+                            52
+                          ]
+                        },
+                        "asset_name": {
+                          "String": "TOKEN"
+                        },
+                        "amount": {
+                          "Number": 1
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "EvalParam": "ExpectFees"
+            }
+          ]
+        }
+      },
+      "optional": false
+    }
+  ],
+  "validity": null,
+  "mints": [],
+  "burns": [
+    {
+      "amount": {
+        "Assets": [
+          {
+            "policy": {
+              "Bytes": [
+                171,
+                205,
+                239,
+                18,
+                52
+              ]
+            },
+            "asset_name": {
+              "String": "TOKEN"
+            },
+            "amount": {
+              "Number": 1
+            }
+          }
+        ]
+      },
+      "redeemer": {
+        "Struct": {
+          "constructor": 0,
+          "fields": []
+        }
+      }
+    }
+  ],
+  "adhoc": [],
+  "collateral": [],
+  "signers": null,
+  "metadata": []
+}
