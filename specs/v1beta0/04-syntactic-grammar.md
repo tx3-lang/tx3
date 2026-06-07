@@ -82,7 +82,7 @@ policy_def_ref         ::= "ref"    ":" data_expr
 A *policy definition* either binds the policy to a literal hex-string
 identifier (the assign form) or constructs it from a set of named fields
 (the constructor form). The constructor form MAY include any subset of
-`hash`, `script`, and `ref`. Field-level semantics are specified in §7.10.
+`hash`, `script`, and `ref`. Field-level semantics are specified in §7.13.4.
 
 ### 4.2.5 Type
 

@@ -306,8 +306,23 @@ A `policy` identifier may be used as a *party-like* value (in `from`,
 `to`, `signers`), in which case it denotes the script credential
 implied by the policy.
 
-The semantics of `script` and `ref` fields are chain-specific and are
-described in §8 for Cardano targets.
+A policy's script *executes* when the policy is used in a position that
+spends from or runs it: as the `from` of an `input_block`, or as the
+policy of an asset in a `mint` or `burn` block. Used only as an output
+recipient (the `to` of an `output_block`) or as a signer, the script
+does not execute.
+
+When a policy whose script lives at a `ref` is used in an executing
+position, that `ref` UTxO is referenced (but not consumed) by the
+transaction — the same read-only reference described in §7.6 — so the
+script is available for validation. Such references are deduplicated: a
+`ref` reached by several executing uses, or one that coincides with an
+explicit `reference` block (§7.6), is referenced once. A policy declared
+by hash alone contributes no such reference.
+
+How the `script` and `ref` *contents* are interpreted — the kind of
+script and how it is witnessed when not referenced — is chain-specific;
+for Cardano targets see §8.4 and §8.5.
 
 ### 7.13.5 `fn`
 
