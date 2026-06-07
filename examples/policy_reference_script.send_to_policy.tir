@@ -1,0 +1,90 @@
+{
+  "fees": {
+    "EvalParam": "ExpectFees"
+  },
+  "references": [],
+  "inputs": [
+    {
+      "name": "funding",
+      "utxos": {
+        "EvalParam": {
+          "ExpectInput": [
+            "funding",
+            {
+              "address": {
+                "EvalParam": {
+                  "ExpectValue": [
+                    "receiver",
+                    "Address"
+                  ]
+                }
+              },
+              "min_amount": {
+                "Assets": [
+                  {
+                    "policy": "None",
+                    "asset_name": "None",
+                    "amount": {
+                      "EvalParam": {
+                        "ExpectValue": [
+                          "quantity",
+                          "Int"
+                        ]
+                      }
+                    }
+                  }
+                ]
+              },
+              "ref": "None",
+              "many": false,
+              "collateral": false
+            }
+          ]
+        }
+      },
+      "redeemer": "None"
+    }
+  ],
+  "outputs": [
+    {
+      "address": {
+        "EvalCompiler": {
+          "BuildScriptAddress": {
+            "Bytes": [
+              171,
+              205,
+              239,
+              18,
+              52
+            ]
+          }
+        }
+      },
+      "datum": "None",
+      "amount": {
+        "Assets": [
+          {
+            "policy": "None",
+            "asset_name": "None",
+            "amount": {
+              "EvalParam": {
+                "ExpectValue": [
+                  "quantity",
+                  "Int"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "optional": false
+    }
+  ],
+  "validity": null,
+  "mints": [],
+  "burns": [],
+  "adhoc": [],
+  "collateral": [],
+  "signers": null,
+  "metadata": []
+}
