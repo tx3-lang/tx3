@@ -1,0 +1,21 @@
+party Receiver;
+
+policy Validator {
+    hash: 0xABCDEF1234,
+    ref: 0xABCDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890#0,
+}
+
+tx spend(
+    quantity: Int
+) {
+    input locked {
+        from: Validator,
+        min_amount: Ada(quantity),
+        redeemer: (),
+    }
+
+    output {
+        to: Receiver,
+        amount: locked - fees,
+    }
+}

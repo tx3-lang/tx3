@@ -3,6 +3,9 @@
 //! This module takes an AST and performs lowering on it. It converts the AST
 //! into the intermediate representation (IR) of the Tx3 language.
 
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use crate::ast;
 use tx3_tir::model::core::{Type, UtxoRef};
 use tx3_tir::model::v1beta0 as ir;
@@ -88,11 +91,33 @@ fn coerce_identifier_into_asset_def(identifier: &ast::Identifier) -> Result<ast:
     }
 }
 
+/// Reference-script UTxOs discovered while lowering a single transaction.
+///
+/// When a ref-backed policy is used in a script-requiring position (e.g. the
+/// `from` of an input), its `ref` UTxO must be added to the transaction's
+/// reference inputs so the script becomes available on chain. We collect those
+/// refs here and drain them into `Tx.references` once the body is lowered.
 #[derive(Debug, Default)]
+struct RefAccumulator {
+    refs: Vec<ir::Expression>,
+}
+
+impl RefAccumulator {
+    fn record(&mut self, r#ref: ir::Expression) {
+        if !self.refs.contains(&r#ref) {
+            self.refs.push(r#ref);
+        }
+    }
+}
+
+#[derive(Debug, Default, Clone)]
 pub(crate) struct Context {
     is_asset_expr: bool,
     is_datum_expr: bool,
     is_address_expr: bool,
+    // Shared across all `enter_*`-derived contexts within one tx lowering so
+    // refs captured deep in an expression reach the top-level `Tx` assembly.
+    script_refs: Rc<RefCell<RefAccumulator>>,
 }
 
 impl Context {
@@ -101,6 +126,7 @@ impl Context {
             is_asset_expr: true,
             is_datum_expr: false,
             is_address_expr: false,
+            script_refs: self.script_refs.clone(),
         }
     }
 
@@ -109,6 +135,7 @@ impl Context {
             is_asset_expr: false,
             is_datum_expr: true,
             is_address_expr: false,
+            script_refs: self.script_refs.clone(),
         }
     }
 
@@ -117,6 +144,7 @@ impl Context {
             is_asset_expr: false,
             is_datum_expr: false,
             is_address_expr: true,
+            script_refs: self.script_refs.clone(),
         }
     }
 
@@ -130,6 +158,18 @@ impl Context {
 
     pub fn is_datum_expr(&self) -> bool {
         self.is_datum_expr
+    }
+
+    /// Record a reference-script UTxO discovered during lowering. Dedups so the
+    /// same ref used by several inputs (or an explicit `reference` block) lands
+    /// once.
+    pub fn record_script_ref(&self, r#ref: ir::Expression) {
+        self.script_refs.borrow_mut().record(r#ref);
+    }
+
+    /// Take all recorded reference-script UTxOs, in discovery order.
+    pub fn drain_script_refs(&self) -> Vec<ir::Expression> {
+        std::mem::take(&mut self.script_refs.borrow_mut().refs)
     }
 }
 
@@ -202,6 +242,13 @@ impl IntoLower for ast::Identifier {
                 let policy = x.into_lower(ctx)?;
 
                 if ctx.is_address_expr() {
+                    // The policy stands in for a script credential here, so the
+                    // script must be available on chain. For a ref-backed
+                    // policy, capture its `ref` UTxO so it lands in the tx's
+                    // reference inputs. Hash-only policies yield `None`.
+                    if let Some(r#ref) = policy.script.as_utxo_ref() {
+                        ctx.record_script_ref(r#ref);
+                    }
                     Ok(ir::CompilerOp::BuildScriptAddress(policy.hash).into())
                 } else {
                     Ok(policy.hash)
@@ -861,59 +908,75 @@ impl IntoLower for ast::TxDef {
     type Output = ir::Tx;
 
     fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
+        // Seed the ref accumulator with explicit `reference` blocks first, so a
+        // ref that is also implied by a policy used as `from` dedups to one
+        // entry (and explicit refs keep their leading position).
+        for reference in self.references.iter() {
+            let r#ref = reference.r#ref.into_lower(ctx)?;
+            ctx.record_script_ref(r#ref);
+        }
+
+        // Lowering the body populates the accumulator with the `ref` UTxOs of
+        // any ref-backed policies used in script-requiring positions.
+        let inputs = self
+            .inputs
+            .iter()
+            .map(|x| x.into_lower(ctx))
+            .collect::<Result<Vec<_>, _>>()?;
+        let outputs = self
+            .outputs
+            .iter()
+            .map(|x| x.into_lower(ctx))
+            .collect::<Result<Vec<_>, _>>()?;
+        let validity = self
+            .validity
+            .as_ref()
+            .map(|x| x.into_lower(ctx))
+            .transpose()?;
+        let mints = self
+            .mints
+            .iter()
+            .map(|x| x.into_lower(ctx))
+            .collect::<Result<Vec<_>, _>>()?;
+        let burns = self
+            .burns
+            .iter()
+            .map(|x| x.into_lower(ctx))
+            .collect::<Result<Vec<_>, _>>()?;
+        let adhoc = self
+            .adhoc
+            .iter()
+            .map(|x| x.into_lower(ctx))
+            .collect::<Result<Vec<_>, _>>()?;
+        let collateral = self
+            .collateral
+            .iter()
+            .map(|x| x.into_lower(ctx))
+            .collect::<Result<Vec<_>, _>>()?;
+        let signers = self
+            .signers
+            .as_ref()
+            .map(|x| x.into_lower(ctx))
+            .transpose()?;
+        let metadata = self
+            .metadata
+            .as_ref()
+            .map(|x| x.into_lower(ctx))
+            .transpose()?
+            .unwrap_or(vec![]);
+
         let ir = ir::Tx {
-            references: self
-                .references
-                .iter()
-                .map(|x| x.r#ref.into_lower(ctx))
-                .collect::<Result<Vec<_>, _>>()?,
-            inputs: self
-                .inputs
-                .iter()
-                .map(|x| x.into_lower(ctx))
-                .collect::<Result<Vec<_>, _>>()?,
-            outputs: self
-                .outputs
-                .iter()
-                .map(|x| x.into_lower(ctx))
-                .collect::<Result<Vec<_>, _>>()?,
-            validity: self
-                .validity
-                .as_ref()
-                .map(|x| x.into_lower(ctx))
-                .transpose()?,
-            mints: self
-                .mints
-                .iter()
-                .map(|x| x.into_lower(ctx))
-                .collect::<Result<Vec<_>, _>>()?,
-            burns: self
-                .burns
-                .iter()
-                .map(|x| x.into_lower(ctx))
-                .collect::<Result<Vec<_>, _>>()?,
-            adhoc: self
-                .adhoc
-                .iter()
-                .map(|x| x.into_lower(ctx))
-                .collect::<Result<Vec<_>, _>>()?,
+            references: ctx.drain_script_refs(),
+            inputs,
+            outputs,
+            validity,
+            mints,
+            burns,
+            adhoc,
             fees: ir::Param::ExpectFees.into(),
-            collateral: self
-                .collateral
-                .iter()
-                .map(|x| x.into_lower(ctx))
-                .collect::<Result<Vec<_>, _>>()?,
-            signers: self
-                .signers
-                .as_ref()
-                .map(|x| x.into_lower(ctx))
-                .transpose()?,
-            metadata: self
-                .metadata
-                .as_ref()
-                .map(|x| x.into_lower(ctx))
-                .transpose()?
-                .unwrap_or(vec![]),
+            collateral,
+            signers,
+            metadata,
         };
 
         Ok(ir)
@@ -1026,6 +1089,8 @@ mod tests {
 
     test_lowering!(reference_script);
 
+    test_lowering!(policy_reference_script);
+
     test_lowering!(withdrawal);
 
     test_lowering!(map);
@@ -1051,4 +1116,94 @@ mod tests {
     test_lowering!(param_field_shadow);
 
     test_lowering!(oracle_reference_datum);
+
+    fn lower_source(source: &str, template: &str) -> ir::Tx {
+        let mut program = parsing::parse_string(source).unwrap();
+        crate::analyzing::analyze(&mut program).ok().unwrap();
+        lower(&program, template).unwrap()
+    }
+
+    /// A ref-backed policy used as `from` contributes its `ref` UTxO as a
+    /// reference input.
+    #[test]
+    fn policy_ref_becomes_reference_input() {
+        let tir = lower_source(
+            r#"
+            party Receiver;
+            policy Validator {
+                hash: 0xABCD,
+                ref: 0xABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCD#0,
+            }
+            tx spend() {
+                input locked {
+                    from: Validator,
+                    redeemer: (),
+                }
+                output {
+                    to: Receiver,
+                    amount: locked - fees,
+                }
+            }
+            "#,
+            "spend",
+        );
+
+        assert_eq!(tir.references.len(), 1);
+    }
+
+    /// The same ref-backed policy used by two inputs is deduped to one
+    /// reference input.
+    #[test]
+    fn policy_ref_dedups_across_inputs() {
+        let tir = lower_source(
+            r#"
+            party Receiver;
+            policy Validator {
+                hash: 0xABCD,
+                ref: 0xABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCD#0,
+            }
+            tx spend() {
+                input first {
+                    from: Validator,
+                    redeemer: (),
+                }
+                input second {
+                    from: Validator,
+                    redeemer: (),
+                }
+                output {
+                    to: Receiver,
+                    amount: first + second - fees,
+                }
+            }
+            "#,
+            "spend",
+        );
+
+        assert_eq!(tir.references.len(), 1);
+    }
+
+    /// A hash-only policy used as `from` contributes no reference input.
+    #[test]
+    fn hash_only_policy_adds_no_reference_input() {
+        let tir = lower_source(
+            r#"
+            party Receiver;
+            policy Validator = 0xABCD;
+            tx spend() {
+                input locked {
+                    from: Validator,
+                    redeemer: (),
+                }
+                output {
+                    to: Receiver,
+                    amount: locked - fees,
+                }
+            }
+            "#,
+            "spend",
+        );
+
+        assert!(tir.references.is_empty());
+    }
 }
