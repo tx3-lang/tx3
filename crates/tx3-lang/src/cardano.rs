@@ -130,7 +130,8 @@ impl IntoLower for WithdrawalField {
         ctx: &crate::lowering::Context,
     ) -> Result<Self::Output, crate::lowering::Error> {
         match self {
-            WithdrawalField::From(x) => x.into_lower(ctx),
+            // Withdrawing from a script stake credential runs its script.
+            WithdrawalField::From(x) => x.into_lower(&ctx.capturing_policy_refs()),
             WithdrawalField::Amount(x) => x.into_lower(ctx),
             WithdrawalField::Redeemer(x) => x.into_lower(ctx),
         }

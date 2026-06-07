@@ -114,3 +114,18 @@ tx send_to_policy(
         amount: Ada(quantity),
     }
 }
+
+// ref-backed policy as a withdrawal stake credential: script runs, ref UTxO
+// becomes a reference input
+tx withdraw() {
+    cardano::withdrawal {
+        from: Validator,
+        amount: 0,
+        redeemer: (),
+    }
+
+    output {
+        to: Receiver,
+        amount: Ada(0),
+    }
+}

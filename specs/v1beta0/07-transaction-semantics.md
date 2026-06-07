@@ -310,7 +310,8 @@ A policy's script *executes* when the policy is used in a position that
 spends from or runs it: as the `from` of an `input_block`, or as the
 policy of an asset in a `mint` or `burn` block. Used only as an output
 recipient (the `to` of an `output_block`) or as a signer, the script
-does not execute.
+does not execute. Chain extensions may define further executing
+positions (for Cardano, see §8.3).
 
 When a policy whose script lives at a `ref` is used in an executing
 position, that `ref` UTxO is referenced (but not consumed) by the
