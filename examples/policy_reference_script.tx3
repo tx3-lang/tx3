@@ -7,8 +7,7 @@ policy Validator {
 
 policy HashOnly = 0xABCDEF1234;
 
-// A ref-backed policy used as `from` contributes its `ref` UTxO as a
-// reference input.
+// ref-backed policy as `from`: ref UTxO becomes a reference input
 tx spend(
     quantity: Int
 ) {
@@ -43,7 +42,7 @@ tx spend_two() {
     }
 }
 
-// A hash-only policy used as `from` contributes no reference input.
+// hash-only policy as `from`: no reference input
 tx spend_hash_only() {
     input locked {
         from: HashOnly,
@@ -56,8 +55,7 @@ tx spend_hash_only() {
     }
 }
 
-// Minting under a ref-backed policy contributes its `ref` UTxO as a reference
-// input.
+// ref-backed mint policy: ref UTxO becomes a reference input
 tx mint_token() {
     mint {
         amount: AnyAsset(Validator, "TOKEN", 1),
@@ -70,8 +68,7 @@ tx mint_token() {
     }
 }
 
-// Burning under a ref-backed policy contributes its `ref` UTxO as a reference
-// input.
+// ref-backed burn policy: ref UTxO becomes a reference input
 tx burn_token() {
     input funding {
         from: Receiver,
@@ -89,7 +86,7 @@ tx burn_token() {
     }
 }
 
-// Minting under a hash-only policy contributes no reference input.
+// hash-only mint policy: no reference input
 tx mint_hash_only() {
     mint {
         amount: AnyAsset(HashOnly, "TOKEN", 1),
@@ -99,5 +96,21 @@ tx mint_hash_only() {
     output {
         to: Receiver,
         amount: AnyAsset(HashOnly, "TOKEN", 1),
+    }
+}
+
+// ref-backed policy as output recipient only: script does not run, no
+// reference input
+tx send_to_policy(
+    quantity: Int
+) {
+    input funding {
+        from: Receiver,
+        min_amount: Ada(quantity),
+    }
+
+    output {
+        to: Validator,
+        amount: Ada(quantity),
     }
 }
