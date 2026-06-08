@@ -1,0 +1,65 @@
+// Demonstrates how complex (custom) types used as transaction parameters are
+// surfaced in the compiled TII under `components.schemas`:
+//
+//   - records      -> object schemas, referenced from params via `$ref`
+//   - nested types -> registered once and referenced recursively
+//   - variants     -> a tagged `oneOf`
+//   - aliases      -> inlined transparently (no schema of their own)
+//   - List<Record> -> an array whose `items` is a `$ref`
+
+party Sender;
+party Receiver;
+
+// Alias: inlined as its target (Int) wherever used; never its own schema.
+type Lovelace = Int;
+
+// Record: becomes an object schema with `policy_id` / `asset_name`.
+type AssetClass {
+    policy_id: Bytes,
+    asset_name: Bytes,
+}
+
+// Nested record: `asset` is a `$ref` to AssetClass; `price` inlines the alias.
+type Order {
+    asset: AssetClass,
+    price: Lovelace,
+}
+
+// Variant: a tagged union, emitted as `oneOf` over its cases.
+type Side {
+    Buy,
+    Sell {
+        min_price: Lovelace,
+    },
+}
+
+// Single record parameter plus a variant parameter.
+tx place(order: Order, side: Side) {
+    input source {
+        from: Sender,
+        min_amount: Ada(order.price),
+    }
+
+    output {
+        to: Receiver,
+        amount: Ada(order.price),
+    }
+
+    output {
+        to: Sender,
+        amount: source - Ada(order.price) - fees,
+    }
+}
+
+// List-of-records parameter: an array of `$ref`s to Order.
+tx place_many(orders: List<Order>, budget: Lovelace) {
+    input source {
+        from: Sender,
+        min_amount: Ada(budget),
+    }
+
+    output {
+        to: Sender,
+        amount: source - fees,
+    }
+}
