@@ -1,105 +1,20 @@
 use anyhow::{anyhow, Context};
 use schemars::Schema;
-use serde_json::{json, Value};
+use serde_json::json;
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
     path::PathBuf,
 };
 
+pub mod schema;
 pub mod types;
 
 use tx3_lang::ast;
 pub use types::*;
 
+use schema::{infer_env_schema, infer_tx_params_schema, SchemaCtx};
+
 use crate::build::Args;
-
-/// Attaches a `description` key to a JSON Schema property when the AST field
-/// carries a docstring. Mutates `schema` in place and is a no-op when the
-/// schema is not a JSON object (the `map_ast_type_to_json_schema` outputs are
-/// always objects, but stay defensive in case the shape changes).
-fn attach_description(schema: &mut Value, docstring: Option<&String>) {
-    let Some(doc) = docstring else { return };
-    if let Some(obj) = schema.as_object_mut() {
-        obj.insert("description".to_string(), json!(doc));
-    }
-}
-
-pub fn map_ast_type_to_json_schema(r#type: &tx3_lang::ast::Type) -> Value {
-    match r#type {
-        tx3_lang::ast::Type::Int => json!({"type": "integer"}),
-        tx3_lang::ast::Type::Bool => json!({"type": "boolean"}),
-        tx3_lang::ast::Type::Bytes => {
-            json!({ "$ref": "https://tx3.land/specs/v1beta0/tii#/$defs/Bytes" })
-        }
-        tx3_lang::ast::Type::Address => {
-            json!({ "$ref": "https://tx3.land/specs/v1beta0/tii#/$defs/Address" })
-        }
-        tx3_lang::ast::Type::UtxoRef => {
-            json!({ "$ref": "https://tx3.land/specs/v1beta0/tii#/$defs/UtxoRef" })
-        }
-        tx3_lang::ast::Type::Unit => json!({"type": "null"}),
-        tx3_lang::ast::Type::List(inner) => json!({
-            "type": "array",
-            "items": map_ast_type_to_json_schema(inner)
-        }),
-        tx3_lang::ast::Type::Map(_, value) => json!({
-            "type": "object",
-            "additionalProperties": map_ast_type_to_json_schema(value)
-        }),
-        tx3_lang::ast::Type::Custom(_) => json!({"type": "object"}),
-        tx3_lang::ast::Type::Undefined => json!({"type": "null"}),
-        tx3_lang::ast::Type::Utxo => {
-            json!({ "$ref": "https://tx3.land/specs/v1beta0/tii#/$defs/Utxo" })
-        }
-        tx3_lang::ast::Type::AnyAsset => {
-            json!({ "$ref": "https://tx3.land/specs/v1beta0/tii#/$defs/AnyAsset" })
-        }
-    }
-}
-
-pub fn infer_env_schema(ast: &tx3_lang::ast::Program) -> Schema {
-    let mut properties = serde_json::Map::new();
-    let mut required = Vec::new();
-
-    if let Some(env) = &ast.env {
-        for field in env.fields.iter() {
-            let mut field_schema = map_ast_type_to_json_schema(&field.r#type);
-            attach_description(&mut field_schema, field.docstring.as_ref());
-            properties.insert(field.name.clone(), field_schema);
-            required.push(field.name.clone());
-        }
-    }
-
-    let schema_json = json!({
-        "type": "object",
-        "properties": properties,
-        "required": required
-    });
-
-    serde_json::from_value(schema_json)
-        .unwrap_or_else(|_| serde_json::from_value(json!({"type": "object"})).unwrap())
-}
-
-pub fn infer_tx_params_schema(ast: &tx3_lang::ast::TxDef) -> Schema {
-    let mut properties = serde_json::Map::new();
-    let mut required = Vec::new();
-
-    for param in ast.parameters.parameters.iter() {
-        let mut field_schema = map_ast_type_to_json_schema(&param.r#type);
-        attach_description(&mut field_schema, param.docstring.as_ref());
-        properties.insert(param.name.value.clone(), field_schema);
-        required.push(param.name.value.clone());
-    }
-
-    let schema_json = json!({
-        "type": "object",
-        "properties": properties,
-        "required": required
-    });
-
-    serde_json::from_value(schema_json)
-        .unwrap_or_else(|_| serde_json::from_value(json!({"type": "object"})).unwrap())
-}
 
 fn infer_available_profiles(args: &Args) -> HashSet<String> {
     let mut profiles = HashSet::new();
@@ -198,7 +113,11 @@ fn load_dotfile(path: Option<&PathBuf>) -> anyhow::Result<BTreeMap<String, Strin
 pub fn emit_tii(args: Args, ws: &tx3_lang::Workspace) -> anyhow::Result<()> {
     let ast = ws.ast().ok_or(anyhow!("Failed to get AST"))?;
 
-    let env_schema = infer_env_schema(ast);
+    // Accumulates custom-type schemas referenced by env + params, emitted under
+    // `components.schemas`.
+    let mut ctx = SchemaCtx::new(ast);
+
+    let env_schema = infer_env_schema(&mut ctx, ast);
 
     let mut tii = TiiFile {
         tii: TiiInfo {
@@ -231,7 +150,7 @@ pub fn emit_tii(args: Args, ws: &tx3_lang::Workspace) -> anyhow::Result<()> {
             .tir(&tx.name.value)
             .ok_or_else(|| anyhow!("Failed to get TIR for transaction: {}", tx.name.value))?;
 
-        let params_schema = infer_tx_params_schema(tx);
+        let params_schema = infer_tx_params_schema(&mut ctx, tx);
 
         // Convert TIR to bytes
         let (bytes, version) = tx3_tir::encoding::to_bytes(tir);
@@ -252,6 +171,15 @@ pub fn emit_tii(args: Args, ws: &tx3_lang::Workspace) -> anyhow::Result<()> {
                 params: params_schema,
             },
         );
+    }
+
+    if !ctx.schemas.is_empty() {
+        let schemas = ctx
+            .schemas
+            .into_iter()
+            .map(|(name, value)| Ok((name, serde_json::from_value(value)?)))
+            .collect::<anyhow::Result<HashMap<String, Schema>>>()?;
+        tii.components = Some(Components { schemas });
     }
 
     for profile in infer_available_profiles(&args) {
