@@ -1558,6 +1558,19 @@ impl Analyzable for Program {
 
         let scope_rc = self.scope.as_mut().unwrap();
 
+        // Policies were tracked before analysis, so the symbol table holds
+        // pre-analysis clones whose field expressions (e.g. `hash`/`ref`
+        // referencing an env var) carry no resolved symbols. Lowering resolves a
+        // policy through its symbol-table entry, so re-track the analyzed
+        // definitions here.
+        {
+            let scope =
+                Rc::get_mut(scope_rc).expect("scope should be unique during resolution");
+            for policy in self.policies.iter() {
+                scope.track_policy_def(policy);
+            }
+        }
+
         let (types, aliases) = resolve_types_and_aliases(scope_rc, &mut types, &mut aliases);
 
         // Functions may call other functions, and lowering inlines a callee's
@@ -1619,9 +1632,48 @@ pub fn analyze(ast: &mut Program) -> AnalyzeReport {
 
 #[cfg(test)]
 mod tests {
-    use crate::parsing::parse_well_known_example;
+    use crate::parsing::{parse_string, parse_well_known_example};
 
     use super::*;
+
+    // A policy is tracked in the symbol table before the policies are analyzed.
+    // Re-tracking the analyzed definitions must leave the stored policy with
+    // resolved field expressions, so a `hash`/`ref` referencing an env var is
+    // usable downstream (lowering resolves a policy through this entry).
+    #[test]
+    fn policy_def_fields_resolved_in_symbol_table() {
+        let mut program = parse_string(
+            r#"
+            env {
+                policy_hash: Bytes,
+                script_ref: UtxoRef,
+            }
+
+            policy P {
+                hash: policy_hash,
+                ref: script_ref,
+            }
+            "#,
+        )
+        .unwrap();
+
+        analyze(&mut program).ok().unwrap();
+
+        let symbol = program
+            .scope
+            .as_ref()
+            .unwrap()
+            .resolve("P")
+            .expect("policy P should be in scope");
+
+        match symbol {
+            Symbol::PolicyDef(policy) => assert!(
+                policy.is_resolved(),
+                "policy stored in the symbol table should have resolved fields"
+            ),
+            other => panic!("expected PolicyDef, got {other:?}"),
+        }
+    }
 
     #[test]
     fn test_program_with_semantic_errors() {
