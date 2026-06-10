@@ -621,6 +621,19 @@ impl Analyzable for MulOp {
     }
 }
 
+impl Analyzable for DivOp {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+        let left = self.lhs.analyze(parent.clone());
+        let right = self.rhs.analyze(parent.clone());
+
+        left + right
+    }
+
+    fn is_resolved(&self) -> bool {
+        self.lhs.is_resolved() && self.rhs.is_resolved()
+    }
+}
+
 impl Analyzable for NegateOp {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
         self.operand.analyze(parent)
@@ -767,6 +780,7 @@ impl Analyzable for DataExpr {
             DataExpr::AddOp(x) => x.analyze(parent),
             DataExpr::SubOp(x) => x.analyze(parent),
             DataExpr::MulOp(x) => x.analyze(parent),
+            DataExpr::DivOp(x) => x.analyze(parent),
             DataExpr::NegateOp(x) => x.analyze(parent),
             DataExpr::PropertyOp(x) => x.analyze(parent),
             DataExpr::AnyAssetConstructor(x) => x.analyze(parent),
@@ -785,6 +799,7 @@ impl Analyzable for DataExpr {
             DataExpr::AddOp(x) => x.is_resolved(),
             DataExpr::SubOp(x) => x.is_resolved(),
             DataExpr::MulOp(x) => x.is_resolved(),
+            DataExpr::DivOp(x) => x.is_resolved(),
             DataExpr::NegateOp(x) => x.is_resolved(),
             DataExpr::PropertyOp(x) => x.is_resolved(),
             DataExpr::AnyAssetConstructor(x) => x.is_resolved(),

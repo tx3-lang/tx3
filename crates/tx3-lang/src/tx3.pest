@@ -138,10 +138,11 @@ fn_call = {
 
 data_expr = { data_prefix* ~ data_primary ~ data_postfix* ~ (data_infix ~ data_prefix* ~ data_primary ~ data_postfix* )* }
 
-    data_infix = _{ data_add | data_sub | data_mul }
+    data_infix = _{ data_add | data_sub | data_mul | data_div }
         data_add = { "+" }
         data_sub = { "-" }
         data_mul = { "*" }
+        data_div = { "/" }
 
     data_prefix = _{ data_negate }
         data_negate = { "!" }

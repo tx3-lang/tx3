@@ -733,6 +733,19 @@ impl MulOp {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DivOp {
+    pub lhs: Box<DataExpr>,
+    pub rhs: Box<DataExpr>,
+    pub span: Span,
+}
+
+impl DivOp {
+    pub fn target_type(&self) -> Option<Type> {
+        self.lhs.target_type()
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ConcatOp {
     pub lhs: Box<DataExpr>,
     pub rhs: Box<DataExpr>,
@@ -777,6 +790,7 @@ pub enum DataExpr {
     AddOp(AddOp),
     SubOp(SubOp),
     MulOp(MulOp),
+    DivOp(DivOp),
     ConcatOp(ConcatOp),
     NegateOp(NegateOp),
     PropertyOp(PropertyOp),
@@ -810,6 +824,7 @@ impl DataExpr {
             DataExpr::AddOp(x) => x.target_type(),
             DataExpr::SubOp(x) => x.target_type(),
             DataExpr::MulOp(x) => x.target_type(),
+            DataExpr::DivOp(x) => x.target_type(),
             DataExpr::ConcatOp(x) => x.target_type(),
             DataExpr::NegateOp(x) => x.target_type(),
             DataExpr::PropertyOp(x) => x.target_type(),

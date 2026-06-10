@@ -210,13 +210,13 @@ designated role, the name is consumed as that role.
 The following tokens are operators or punctuation:
 
 ```
-+   -   !
++   -   *   /   !
 .   [   ]
 (   )   {   }
 ,   ;   :   =
 <   >
 ::   ...   #
-?   *
+?
 ```
 
 Operator precedence and associativity are given in §4.5.
@@ -226,6 +226,12 @@ infix multiplication operator (§5.5.1). The two roles are disambiguated by
 grammatical context: `*` is a block flag only when it immediately follows the
 `input` keyword in a transaction block; in a data expression it is the
 multiplication operator.
+
+The token `/` is the infix division operator (§5.5.1). Because `//` begins a
+line comment and `/*` begins a block comment (§3.3), division must be written
+with a single `/`; a sequence like `a//b` lexes as the identifier `a` followed
+by a line comment, not as two divisions. Separating the operands with
+whitespace (`a / b`) avoids any ambiguity.
 
 The token `?` is used as a flag on `output` blocks (`output?`); it is
 otherwise reserved.
