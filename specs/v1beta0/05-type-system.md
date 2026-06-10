@@ -163,11 +163,25 @@ The infix operator `*` is binary and left-associative, and binds tighter than
 
 Multiplication of one `AnyAsset` by another `AnyAsset` is **not** defined.
 
+The infix operator `/` is binary and left-associative, and shares the
+precedence of `*` (§4.5). It denotes **integer division that truncates toward
+zero** (e.g. `7 / 2` is `3`). It is defined for the following operand-type
+pairs:
+
+| Left type   | Right type  | Result type | Meaning                          |
+| ----------- | ----------- | ----------- | -------------------------------- |
+| `Int`       | `Int`       | `Int`       | Integer division (truncating).   |
+| `AnyAsset`  | `Int`       | `AnyAsset`  | Divide every asset quantity.     |
+
+Division does **not** commute: `Int / AnyAsset` and `AnyAsset / AnyAsset` are
+**not** defined. A division whose right operand reduces to `0` is a
+compile-time error.
+
 Where the left and right operands have compatible compound types that
 contain `Int` or `AnyAsset` components (such as types representing UTxO
-values), implementations MAY extend `+`, `-`, and `*` to those types provided
-the extension is consistent across operand pairs. Such extensions are out of
-the scope of this version of the specification.
+values), implementations MAY extend `+`, `-`, `*`, and `/` to those types
+provided the extension is consistent across operand pairs. Such extensions are
+out of the scope of this version of the specification.
 
 The prefix operator `!` is defined as **arithmetic negation** when applied
 to an operand of numeric type:
