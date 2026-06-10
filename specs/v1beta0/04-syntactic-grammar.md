@@ -164,7 +164,7 @@ A `custom_type` is an identifier that MUST resolve to a `record_def`,
 data_expr ::= data_prefix* data_primary data_postfix*
               ( data_infix data_prefix* data_primary data_postfix* )*
 
-data_infix   ::= "+" | "-"
+data_infix   ::= "+" | "-" | "*"
 data_prefix  ::= "!"
 data_postfix ::= "." identifier
                | "[" data_expr "]"
@@ -255,13 +255,14 @@ tightest binding (highest precedence) to loosest:
 | ----- | -------------------------- | ------------- |
 | 1     | `.` `[…]` (postfix)        | left          |
 | 2     | `!` (prefix)               | non-assoc     |
-| 3     | `+` `-` (infix)            | left          |
+| 3     | `*` (infix)                | left          |
+| 4     | `+` `-` (infix)            | left          |
 
 Parentheses `( data_expr )` may be used to override precedence.
 
 There are no further operators in `v1beta0`. In particular, there are no
-comparison operators, no boolean combinators, no multiplicative or
-shift operators, and no ternary form.
+comparison operators, no boolean combinators, no division or shift
+operators, and no ternary form.
 
 ## 4.6 Transaction-body blocks
 

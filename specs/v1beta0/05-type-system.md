@@ -152,10 +152,21 @@ pairs, both arities binary, left-associative:
 | `Int`       | `Int`       | `Int`       | Integer addition / subtraction. |
 | `AnyAsset`  | `AnyAsset`  | `AnyAsset`  | Asset-quantity aggregation.     |
 
+The infix operator `*` is binary and left-associative, and binds tighter than
+`+` and `-` (§4.5). It is defined for the following operand-type pairs:
+
+| Left type   | Right type  | Result type | Meaning                          |
+| ----------- | ----------- | ----------- | -------------------------------- |
+| `Int`       | `Int`       | `Int`       | Integer multiplication.          |
+| `AnyAsset`  | `Int`       | `AnyAsset`  | Scale every asset quantity.      |
+| `Int`       | `AnyAsset`  | `AnyAsset`  | Scale every asset quantity.      |
+
+Multiplication of one `AnyAsset` by another `AnyAsset` is **not** defined.
+
 Where the left and right operands have compatible compound types that
 contain `Int` or `AnyAsset` components (such as types representing UTxO
-values), implementations MAY extend `+` and `-` to those types provided the
-extension is consistent across operand pairs. Such extensions are out of
+values), implementations MAY extend `+`, `-`, and `*` to those types provided
+the extension is consistent across operand pairs. Such extensions are out of
 the scope of this version of the specification.
 
 The prefix operator `!` is defined as **arithmetic negation** when applied

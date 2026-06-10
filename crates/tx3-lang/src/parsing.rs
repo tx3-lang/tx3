@@ -1327,11 +1327,22 @@ impl DataExpr {
             span,
         }))
     }
+
+    fn mul_op_parse(left: DataExpr, pair: Pair<Rule>, right: DataExpr) -> Result<Self, Error> {
+        let span = pair.as_span().into();
+
+        Ok(DataExpr::MulOp(MulOp {
+            lhs: Box::new(left),
+            rhs: Box::new(right),
+            span,
+        }))
+    }
 }
 
 static DATA_EXPR_PRATT_PARSER: LazyLock<PrattParser<Rule>> = LazyLock::new(|| {
     PrattParser::new()
         .op(Op::infix(Rule::data_add, Assoc::Left) | Op::infix(Rule::data_sub, Assoc::Left))
+        .op(Op::infix(Rule::data_mul, Assoc::Left))
         .op(Op::prefix(Rule::data_negate))
         .op(Op::postfix(Rule::data_property) | Op::postfix(Rule::data_index))
 });
@@ -1372,6 +1383,7 @@ impl AstNode for DataExpr {
             .map_infix(|left, op, right| match op.as_rule() {
                 Rule::data_add => DataExpr::add_op_parse(left?, op, right?),
                 Rule::data_sub => DataExpr::sub_op_parse(left?, op, right?),
+                Rule::data_mul => DataExpr::mul_op_parse(left?, op, right?),
                 x => unreachable!("Unexpected rule as data infix: {:?}", x),
             })
             .parse(inner)
@@ -1392,6 +1404,7 @@ impl AstNode for DataExpr {
             DataExpr::Identifier(x) => x.span(),
             DataExpr::AddOp(x) => &x.span,
             DataExpr::SubOp(x) => &x.span,
+            DataExpr::MulOp(x) => &x.span,
             DataExpr::ConcatOp(x) => &x.span,
             DataExpr::NegateOp(x) => &x.span,
             DataExpr::PropertyOp(x) => &x.span,
@@ -2143,6 +2156,49 @@ mod tests {
         DataExpr::AddOp(AddOp {
             lhs: Box::new(DataExpr::Number(5)),
             rhs: Box::new(DataExpr::Identifier(Identifier::new("var1"))),
+            span: Span::DUMMY,
+        })
+    );
+
+    input_to_ast_check!(
+        DataExpr,
+        "mul_op",
+        "5 * var1",
+        DataExpr::MulOp(MulOp {
+            lhs: Box::new(DataExpr::Number(5)),
+            rhs: Box::new(DataExpr::Identifier(Identifier::new("var1"))),
+            span: Span::DUMMY,
+        })
+    );
+
+    // `*` binds tighter than `+`, so `2 + 3 * 4` parses as `2 + (3 * 4)`.
+    input_to_ast_check!(
+        DataExpr,
+        "mul_binds_tighter_than_add",
+        "2 + 3 * 4",
+        DataExpr::AddOp(AddOp {
+            lhs: Box::new(DataExpr::Number(2)),
+            rhs: Box::new(DataExpr::MulOp(MulOp {
+                lhs: Box::new(DataExpr::Number(3)),
+                rhs: Box::new(DataExpr::Number(4)),
+                span: Span::DUMMY,
+            })),
+            span: Span::DUMMY,
+        })
+    );
+
+    // ... and on the left, `3 * 4 + 2` parses as `(3 * 4) + 2`.
+    input_to_ast_check!(
+        DataExpr,
+        "mul_left_binds_tighter_than_add",
+        "3 * 4 + 2",
+        DataExpr::AddOp(AddOp {
+            lhs: Box::new(DataExpr::MulOp(MulOp {
+                lhs: Box::new(DataExpr::Number(3)),
+                rhs: Box::new(DataExpr::Number(4)),
+                span: Span::DUMMY,
+            })),
+            rhs: Box::new(DataExpr::Number(2)),
             span: Span::DUMMY,
         })
     );

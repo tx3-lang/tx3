@@ -221,8 +221,11 @@ The following tokens are operators or punctuation:
 
 Operator precedence and associativity are given in §4.5.
 
-The token `*` is used both as a flag on `input` blocks (`input*`) and is
-otherwise reserved; it is **not** a multiplication operator.
+The token `*` is used both as a flag on `input` blocks (`input*`) and as the
+infix multiplication operator (§5.5.1). The two roles are disambiguated by
+grammatical context: `*` is a block flag only when it immediately follows the
+`input` keyword in a transaction block; in a data expression it is the
+multiplication operator.
 
 The token `?` is used as a flag on `output` blocks (`output?`); it is
 otherwise reserved.
