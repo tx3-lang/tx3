@@ -13,6 +13,7 @@ type MyRecord {
     field3: Bytes,
     field4: List<Int>,
     field5: Map<Int, Bytes>,
+    field6: Tuple<Int, Bytes>,
 }
 
 type MyVariant {
@@ -80,6 +81,7 @@ tx my_tx(
             field2: (54 + 10) - (8 + 2),
             field4: [1, 2, 3, source.field1],
             field5: {1: "Value1", 2: "Value2",},
+            field6: (quantity, 0xAABB),
             ...source
         },
         amount: AnyAsset(source.field3, source.field2, source.field1) + Ada(40) + min_utxo(named_output),
@@ -102,6 +104,7 @@ tx my_tx(
 
     locals {
         local_var: concat("Lang", "Tour"),
+        tuple_first: source.field6[0],
     }
 
     cardano::vote_delegation_certificate {

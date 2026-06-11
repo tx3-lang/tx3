@@ -165,4 +165,45 @@ pub mod tests {
         workspace.analyze().unwrap();
         workspace.lower().unwrap();
     }
+
+    // End-to-end: a `Tuple<..>` param type, a `(..)` tuple literal, and `[i]`
+    // positional access all flow through parse -> analyze -> lower.
+    #[test]
+    fn tuple_end_to_end() {
+        use tx3_tir::model::v1beta0::Expression;
+
+        let src = r#"
+            party Sender;
+            party Receiver;
+
+            tx swap(
+                pair: Tuple<Int, Bytes>
+            ) {
+                input source {
+                    from: Sender,
+                    min_amount: Ada(pair[0]),
+                }
+
+                output {
+                    to: Receiver,
+                    amount: Ada(pair[0]),
+                    datum: (pair[0], pair[1]),
+                }
+            }
+        "#;
+
+        let mut workspace = Workspace::from_string(src.to_string());
+        workspace.parse().unwrap();
+        workspace.analyze().unwrap();
+        workspace.lower().unwrap();
+
+        let tir = workspace.tir("swap").unwrap();
+
+        // The output datum lowered to an N-element tuple expression.
+        let datum = &tir.outputs[0].datum;
+        assert!(
+            matches!(datum, Expression::Tuple(elements) if elements.len() == 2),
+            "expected a 2-element tuple datum, got {datum:?}"
+        );
+    }
 }

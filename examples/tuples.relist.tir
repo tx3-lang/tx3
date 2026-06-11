@@ -1,0 +1,177 @@
+{
+  "fees": {
+    "EvalParam": "ExpectFees"
+  },
+  "references": [],
+  "inputs": [
+    {
+      "name": "source",
+      "utxos": {
+        "EvalParam": {
+          "ExpectInput": [
+            "source",
+            {
+              "address": {
+                "EvalParam": {
+                  "ExpectValue": [
+                    "seller",
+                    "Address"
+                  ]
+                }
+              },
+              "min_amount": "None",
+              "ref": "None",
+              "many": false,
+              "collateral": false
+            }
+          ]
+        }
+      },
+      "redeemer": "None"
+    }
+  ],
+  "outputs": [
+    {
+      "address": {
+        "EvalParam": {
+          "ExpectValue": [
+            "buyer",
+            "Address"
+          ]
+        }
+      },
+      "datum": {
+        "Struct": {
+          "constructor": 0,
+          "fields": [
+            {
+              "Tuple": [
+                {
+                  "EvalBuiltIn": {
+                    "Property": [
+                      {
+                        "EvalParam": {
+                          "ExpectValue": [
+                            "terms",
+                            "Tuple"
+                          ]
+                        }
+                      },
+                      {
+                        "Number": 0
+                      }
+                    ]
+                  }
+                },
+                {
+                  "EvalBuiltIn": {
+                    "Property": [
+                      {
+                        "EvalBuiltIn": {
+                          "Property": [
+                            {
+                              "EvalCoerce": {
+                                "IntoDatum": {
+                                  "EvalParam": {
+                                    "ExpectInput": [
+                                      "source",
+                                      {
+                                        "address": {
+                                          "EvalParam": {
+                                            "ExpectValue": [
+                                              "seller",
+                                              "Address"
+                                            ]
+                                          }
+                                        },
+                                        "min_amount": "None",
+                                        "ref": "None",
+                                        "many": false,
+                                        "collateral": false
+                                      }
+                                    ]
+                                  }
+                                }
+                              }
+                            },
+                            {
+                              "Number": 0
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "Number": 1
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "amount": {
+        "EvalBuiltIn": {
+          "Sub": [
+            {
+              "EvalCoerce": {
+                "IntoAssets": {
+                  "EvalParam": {
+                    "ExpectInput": [
+                      "source",
+                      {
+                        "address": {
+                          "EvalParam": {
+                            "ExpectValue": [
+                              "seller",
+                              "Address"
+                            ]
+                          }
+                        },
+                        "min_amount": "None",
+                        "ref": "None",
+                        "many": false,
+                        "collateral": false
+                      }
+                    ]
+                  }
+                }
+              }
+            },
+            {
+              "EvalParam": "ExpectFees"
+            }
+          ]
+        }
+      },
+      "optional": false
+    }
+  ],
+  "validity": {
+    "since": "None",
+    "until": {
+      "EvalBuiltIn": {
+        "Property": [
+          {
+            "EvalParam": {
+              "ExpectValue": [
+                "terms",
+                "Tuple"
+              ]
+            }
+          },
+          {
+            "Number": 1
+          }
+        ]
+      }
+    }
+  },
+  "mints": [],
+  "burns": [],
+  "adhoc": [],
+  "collateral": [],
+  "signers": null,
+  "metadata": []
+}
