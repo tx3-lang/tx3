@@ -627,6 +627,25 @@ impl ListConstructor {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct TupleConstructor {
+    pub elements: Vec<DataExpr>,
+    pub span: Span,
+}
+
+impl TupleConstructor {
+    pub fn target_type(&self) -> Option<Type> {
+        // A tuple's type is known only when every element's type is known.
+        let elements = self
+            .elements
+            .iter()
+            .map(|x| x.target_type())
+            .collect::<Option<Vec<_>>>()?;
+
+        Some(Type::Tuple(elements))
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct MapField {
     pub key: DataExpr,
     pub value: DataExpr,
@@ -689,6 +708,14 @@ pub struct PropertyOp {
 
 impl PropertyOp {
     pub fn target_type(&self) -> Option<Type> {
+        // Positional tuple access (`t.0`) resolves to the element type at that
+        // index; for every other operand the property carries its own type.
+        if let (Some(Type::Tuple(elements)), DataExpr::Number(index)) =
+            (self.operand.target_type(), self.property.as_ref())
+        {
+            return elements.get(*index as usize).cloned();
+        }
+
         self.property.target_type()
     }
 }
@@ -785,6 +812,7 @@ pub enum DataExpr {
     StructConstructor(StructConstructor),
     ListConstructor(ListConstructor),
     MapConstructor(MapConstructor),
+    TupleConstructor(TupleConstructor),
     AnyAssetConstructor(AnyAssetConstructor),
     Identifier(Identifier),
     AddOp(AddOp),
@@ -821,6 +849,7 @@ impl DataExpr {
                 Some(inner) => Some(Type::List(Box::new(inner))),
                 None => None,
             },
+            DataExpr::TupleConstructor(x) => x.target_type(),
             DataExpr::AddOp(x) => x.target_type(),
             DataExpr::SubOp(x) => x.target_type(),
             DataExpr::MulOp(x) => x.target_type(),
@@ -864,6 +893,7 @@ pub enum Type {
     AnyAsset,
     List(Box<Type>),
     Map(Box<Type>, Box<Type>),
+    Tuple(Vec<Type>),
     Custom(Identifier),
 }
 
@@ -881,6 +911,14 @@ impl std::fmt::Display for Type {
             Type::Utxo => write!(f, "Utxo"),
             Type::Map(key, value) => write!(f, "Map<{}, {}>", key, value),
             Type::List(inner) => write!(f, "List<{inner}>"),
+            Type::Tuple(elements) => {
+                let inner = elements
+                    .iter()
+                    .map(|t| t.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                write!(f, "Tuple<{inner}>")
+            }
             Type::Custom(id) => write!(f, "{}", id.value),
         }
     }
@@ -932,6 +970,14 @@ impl Type {
                 .target_type()
                 .filter(|ty| *ty == Type::Int)
                 .map(|_| property),
+            // Positional tuple access (`t.0`): the property is a literal index,
+            // valid only when it falls within the tuple's arity.
+            Type::Tuple(elements) => match property {
+                DataExpr::Number(index) if (0..elements.len() as i64).contains(&index) => {
+                    Some(DataExpr::Number(index))
+                }
+                _ => None,
+            },
             _ => None,
         }
     }

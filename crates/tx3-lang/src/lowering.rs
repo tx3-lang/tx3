@@ -412,6 +412,7 @@ impl IntoLower for ast::Type {
             ast::Type::AnyAsset => Ok(Type::AnyAsset),
             ast::Type::List(_) => Ok(Type::List),
             ast::Type::Map(_, _) => Ok(Type::Map),
+            ast::Type::Tuple(_) => Ok(Type::Tuple),
             ast::Type::Custom(x) => Ok(Type::Custom(x.value.clone())),
         }
     }
@@ -611,6 +612,20 @@ impl IntoLower for ast::ListConstructor {
     }
 }
 
+impl IntoLower for ast::TupleConstructor {
+    type Output = ir::Expression;
+
+    fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
+        let elements = self
+            .elements
+            .iter()
+            .map(|x| x.into_lower(ctx))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(ir::Expression::Tuple(elements))
+    }
+}
+
 impl IntoLower for ast::MapConstructor {
     type Output = ir::Expression;
 
@@ -642,6 +657,7 @@ impl IntoLower for ast::DataExpr {
             ast::DataExpr::StructConstructor(x) => ir::Expression::Struct(x.into_lower(ctx)?),
             ast::DataExpr::ListConstructor(x) => ir::Expression::List(x.into_lower(ctx)?),
             ast::DataExpr::MapConstructor(x) => x.into_lower(ctx)?,
+            ast::DataExpr::TupleConstructor(x) => x.into_lower(ctx)?,
             ast::DataExpr::AnyAssetConstructor(x) => x.into_lower(ctx)?,
             ast::DataExpr::Unit => ir::Expression::Struct(ir::StructExpr::unit()),
             ast::DataExpr::Identifier(x) => x.into_lower(ctx)?,
@@ -1128,6 +1144,8 @@ mod tests {
     }
 
     test_lowering!(lang_tour);
+
+    test_lowering!(tuples);
 
     test_lowering!(transfer);
 

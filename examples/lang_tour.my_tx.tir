@@ -308,6 +308,24 @@
                   }
                 ]
               ]
+            },
+            {
+              "Tuple": [
+                {
+                  "EvalParam": {
+                    "ExpectValue": [
+                      "quantity",
+                      "Int"
+                    ]
+                  }
+                },
+                {
+                  "Bytes": [
+                    170,
+                    187
+                  ]
+                }
+              ]
             }
           ]
         }
@@ -645,14 +663,6 @@
     {
       "name": "vote_delegation_certificate",
       "data": {
-        "stake": {
-          "Bytes": [
-            135,
-            101,
-            67,
-            33
-          ]
-        },
         "drep": {
           "Bytes": [
             18,
@@ -660,15 +670,20 @@
             86,
             120
           ]
+        },
+        "stake": {
+          "Bytes": [
+            135,
+            101,
+            67,
+            33
+          ]
         }
       }
     },
     {
       "name": "withdrawal",
       "data": {
-        "amount": {
-          "Number": 100
-        },
         "credential": {
           "EvalParam": {
             "ExpectValue": [
@@ -676,6 +691,9 @@
               "Address"
             ]
           }
+        },
+        "amount": {
+          "Number": 100
         },
         "redeemer": {
           "Struct": {
@@ -688,6 +706,9 @@
     {
       "name": "plutus_witness",
       "data": {
+        "version": {
+          "Number": 2
+        },
         "script": {
           "Bytes": [
             171,
@@ -696,9 +717,6 @@
             18,
             52
           ]
-        },
-        "version": {
-          "Number": 2
         }
       }
     },

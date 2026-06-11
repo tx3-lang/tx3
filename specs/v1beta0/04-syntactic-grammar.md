@@ -147,13 +147,17 @@ A *transaction definition* declares a parameterised template. The
 ## 4.3 Types
 
 ```
-type ::= primitive_type | list_type | map_type | custom_type
+type ::= primitive_type | list_type | map_type | tuple_type | custom_type
 
 primitive_type ::= "Int" | "Bool" | "Bytes" | "AnyAsset" | "Address" | "UtxoRef"
-list_type      ::= "List" "<" type ">"
-map_type       ::= "Map"  "<" type "," type ">"
+list_type      ::= "List"  "<" type ">"
+map_type       ::= "Map"   "<" type "," type ">"
+tuple_type     ::= "Tuple" "<" type ("," type)+ ","? ">"
 custom_type    ::= identifier
 ```
+
+A `tuple_type` has **two or more** element types (the `("," type)+`
+repetition); `Tuple<T>` is not a valid type.
 
 A `custom_type` is an identifier that MUST resolve to a `record_def`,
 `variant_def`, or `alias_def` (§6).
@@ -183,6 +187,7 @@ data_primary ::=
     | any_asset_constructor
     | fn_call
     | identifier
+    | tuple_constructor
     | "(" data_expr ")"
 
 struct_constructor   ::= identifier variant_case_constructor
@@ -200,6 +205,8 @@ spread_expression        ::= "..." data_expr
 
 list_constructor ::= "[" (data_expr ",")* data_expr? "]"
 
+tuple_constructor ::= "(" data_expr ("," data_expr)+ ","? ")"
+
 map_constructor ::= "{" (map_field ",")+ "}"
 map_field        ::= data_expr ":" data_expr
 
@@ -208,6 +215,25 @@ any_asset_constructor ::= "AnyAsset" "(" data_expr "," data_expr "," data_expr "
 
 fn_call ::= identifier "(" (data_expr ("," data_expr)* ","?)? ")"
 ```
+
+### 4.4.0 Disambiguation of `( … )`
+
+A parenthesized form in expression position is parsed by element count:
+
+1. `()` — the `unit_literal`.
+2. `(e)` — grouping; the parenthesized expression `e`, with no change of
+   type. This is **not** a one-element tuple.
+3. `(e1, e2, ...)` with two or more comma-separated expressions — a
+   `tuple_constructor`. A trailing comma is permitted only when at least two
+   elements are present (`(e,)` is not a tuple).
+
+Positional access on a tuple value reuses the `"[" data_expr "]"`
+(`data_postfix`) index form, where the index MUST be an integer literal in
+range (§5.2). Tuples do not introduce a new access operator; `t.0`-style
+syntax is **not** part of `v1beta0` — the `"." identifier` postfix is
+reserved for named record/asset fields, and a `"." integer` form would be
+ambiguous with the `policy "." asset_name` separator of `asset_def`
+(§4.2.2).
 
 ### 4.4.1 Disambiguation of `{ … }`
 

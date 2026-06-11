@@ -30,11 +30,14 @@ primitive_type = {
 custom_type = { identifier }
 list_type = { "List<" ~ type ~ ">" }
 map_type = { "Map<" ~ type ~ "," ~ type ~ ">"}
+// At least two element types; trailing comma optional.
+tuple_type = { "Tuple<" ~ type ~ ("," ~ type)+ ~ ","? ~ ">" }
 
 type = {
     primitive_type |
     list_type |
     map_type |
+    tuple_type |
     custom_type
 }
 
@@ -165,6 +168,7 @@ data_expr = { data_prefix* ~ data_primary ~ data_postfix* ~ (data_infix ~ data_p
         any_asset_constructor |
         fn_call |
         identifier |
+        tuple_constructor |
         "(" ~ data_expr ~ ")"
     }
 
@@ -199,6 +203,12 @@ struct_constructor = {
 
 list_constructor = {
     "[" ~ (data_expr ~ ",")* ~ data_expr? ~ "]"
+}
+
+// At least two elements distinguishes a tuple from a parenthesized expression;
+// `()` is the unit literal and `(x)` is grouping. Trailing comma optional.
+tuple_constructor = {
+    "(" ~ data_expr ~ ("," ~ data_expr)+ ~ ","? ~ ")"
 }
 
 map_field = {

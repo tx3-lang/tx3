@@ -1,0 +1,32 @@
+party Seller;
+party Buyer;
+
+// A datum carrying a tuple field: an (price, token_name) offer.
+type Listing {
+    offer: Tuple<Int, Bytes>,
+}
+
+tx relist(
+    // A tuple parameter: the new (price, deadline_slot) terms.
+    terms: Tuple<Int, Int>,
+) {
+    input source {
+        from: Seller,
+        datum_is: Listing,
+    }
+
+    output {
+        to: Buyer,
+        amount: source - fees,
+        datum: Listing {
+            // Build a tuple literal, reading elements back by position:
+            // the new price from the param, the original token name from
+            // the consumed datum's tuple.
+            offer: (terms[0], source.offer[1]),
+        },
+    }
+
+    validity {
+        until_slot: terms[1],
+    }
+}

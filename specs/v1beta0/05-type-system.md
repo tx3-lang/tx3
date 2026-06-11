@@ -27,19 +27,20 @@ In addition, the type `Unit` exists as the type of the unit literal `()`
 ## 5.2 Compound types
 
 ```
-List<T>      ::  list of values, each of type T
-Map<K, V>    ::  finite mapping from keys of type K to values of type V
+List<T>            ::  list of values, each of type T
+Map<K, V>          ::  finite mapping from keys of type K to values of type V
+Tuple<T1, ..., Tn> ::  fixed-arity, positionally-typed product (n >= 2)
 ```
 
-Both `List` and `Map` are *parametric type constructors* applied at the
+`List`, `Map`, and `Tuple` are *parametric type constructors* applied at the
 syntactic level. They do not introduce parametric polymorphism into the
-expression language: each occurrence of `List<T>` or `Map<K, V>` is a
-distinct concrete type.
+expression language: each occurrence of `List<T>`, `Map<K, V>`, or
+`Tuple<T1, ..., Tn>` is a distinct concrete type.
 
 Constraints:
 
-- `T`, `K`, and `V` MAY be any type, including other compound types and
-  user-defined types.
+- `T`, `K`, `V`, and each `Ti` MAY be any type, including other compound
+  types and user-defined types.
 - A `List<T>` constructed from a `list_constructor` (§4.4) takes its
   element type from the type of its first element; an empty
   `list_constructor` MUST appear in a context that supplies the element
@@ -48,6 +49,17 @@ Constraints:
 - A `Map<K, V>` constructed from a `map_constructor` takes `K` and `V`
   from the first entry; subsequent entries' key and value types MUST match
   (§6.3).
+- A `Tuple<T1, ..., Tn>` has **arity `n >= 2`**: there is no zero- or
+  one-element tuple. A tuple is constructed from a `tuple_constructor`
+  (§4.4) — a parenthesized list of two or more expressions, `(e1, ..., en)`
+  — whose element types become `T1, ..., Tn` positionally. A parenthesized
+  single expression `(e)` is grouping, and `()` is the unit literal; neither
+  is a tuple.
+- A tuple element is read by **positional index**: `t[i]`, where `i` is an
+  integer literal `0 <= i < n`. The result has type `Ti`. The index MUST be
+  a literal — a tuple cannot be indexed by a runtime value, because each
+  position may have a different type. An out-of-range index is a static
+  error.
 
 ## 5.3 User-defined types
 
@@ -287,9 +299,12 @@ results in a duplicate-definition error (§6.2).
 
 Two types `A` and `B` are *type-equivalent* if they are the same primitive,
 the same `List<T>` (with equivalent `T`), the same `Map<K, V>` (with
-equivalent `K` and `V`), refer to the same user-defined type definition
-(after alias chasing), or denote the same internal `Unit`/`Undefined`
-placeholder.
+equivalent `K` and `V`), the same `Tuple<T1, ..., Tn>` (same arity `n`, with
+each `Ti` equivalent positionally), refer to the same user-defined type
+definition (after alias chasing), or denote the same internal
+`Unit`/`Undefined` placeholder. Tuple equivalence is **structural and
+arity-sensitive**: `Tuple<Int, Bytes>` and `Tuple<Int, Bytes, Bool>` are
+distinct types, and tuple order is significant.
 
 A value of type `A` is *assignable* to a position expecting type `B`
 exactly when `A` and `B` are type-equivalent. There are no implicit

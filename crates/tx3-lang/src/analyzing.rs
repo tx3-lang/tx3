@@ -750,6 +750,16 @@ impl Analyzable for ListConstructor {
     }
 }
 
+impl Analyzable for TupleConstructor {
+    fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
+        self.elements.analyze(parent)
+    }
+
+    fn is_resolved(&self) -> bool {
+        self.elements.is_resolved()
+    }
+}
+
 impl Analyzable for MapField {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
         self.key.analyze(parent.clone()) + self.value.analyze(parent.clone())
@@ -776,6 +786,7 @@ impl Analyzable for DataExpr {
             DataExpr::StructConstructor(x) => x.analyze(parent),
             DataExpr::ListConstructor(x) => x.analyze(parent),
             DataExpr::MapConstructor(x) => x.analyze(parent),
+            DataExpr::TupleConstructor(x) => x.analyze(parent),
             DataExpr::Identifier(x) => x.analyze(parent),
             DataExpr::AddOp(x) => x.analyze(parent),
             DataExpr::SubOp(x) => x.analyze(parent),
@@ -795,6 +806,7 @@ impl Analyzable for DataExpr {
             DataExpr::StructConstructor(x) => x.is_resolved(),
             DataExpr::ListConstructor(x) => x.is_resolved(),
             DataExpr::MapConstructor(x) => x.is_resolved(),
+            DataExpr::TupleConstructor(x) => x.is_resolved(),
             DataExpr::Identifier(x) => x.is_resolved(),
             DataExpr::AddOp(x) => x.is_resolved(),
             DataExpr::SubOp(x) => x.is_resolved(),
@@ -942,6 +954,7 @@ impl Analyzable for Type {
             Type::Map(key_type, value_type) => {
                 key_type.analyze(parent.clone()) + value_type.analyze(parent)
             }
+            Type::Tuple(elements) => elements.analyze(parent),
             _ => AnalyzeReport::default(),
         }
     }
@@ -951,6 +964,7 @@ impl Analyzable for Type {
             Type::Custom(x) => x.is_resolved(),
             Type::List(x) => x.is_resolved(),
             Type::Map(key_type, value_type) => key_type.is_resolved() && value_type.is_resolved(),
+            Type::Tuple(elements) => elements.iter().all(|t| t.is_resolved()),
             _ => true,
         }
     }

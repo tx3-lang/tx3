@@ -1232,6 +1232,23 @@ impl AstNode for MapConstructor {
     }
 }
 
+impl AstNode for TupleConstructor {
+    const RULE: Rule = Rule::tuple_constructor;
+
+    fn parse(pair: Pair<Rule>) -> Result<Self, Error> {
+        let span = pair.as_span().into();
+        let inner = pair.into_inner();
+
+        let elements = inner.map(DataExpr::parse).collect::<Result<Vec<_>, _>>()?;
+
+        Ok(TupleConstructor { elements, span })
+    }
+
+    fn span(&self) -> &Span {
+        &self.span
+    }
+}
+
 impl DataExpr {
     fn number_parse(pair: Pair<Rule>) -> Result<Self, Error> {
         Ok(DataExpr::Number(pair.as_str().parse().unwrap()))
@@ -1255,6 +1272,10 @@ impl DataExpr {
 
     fn map_constructor_parse(pair: Pair<Rule>) -> Result<Self, Error> {
         Ok(DataExpr::MapConstructor(MapConstructor::parse(pair)?))
+    }
+
+    fn tuple_constructor_parse(pair: Pair<Rule>) -> Result<Self, Error> {
+        Ok(DataExpr::TupleConstructor(TupleConstructor::parse(pair)?))
     }
 
     fn utxo_ref_parse(pair: Pair<Rule>) -> Result<Self, Error> {
@@ -1372,6 +1393,7 @@ impl AstNode for DataExpr {
                 Rule::struct_constructor => DataExpr::struct_constructor_parse(x),
                 Rule::list_constructor => DataExpr::list_constructor_parse(x),
                 Rule::map_constructor => DataExpr::map_constructor_parse(x),
+                Rule::tuple_constructor => DataExpr::tuple_constructor_parse(x),
                 Rule::unit => Ok(DataExpr::Unit),
                 Rule::identifier => DataExpr::identifier_parse(x),
                 Rule::utxo_ref => DataExpr::utxo_ref_parse(x),
@@ -1411,6 +1433,7 @@ impl AstNode for DataExpr {
             DataExpr::StructConstructor(x) => x.span(),
             DataExpr::ListConstructor(x) => x.span(),
             DataExpr::MapConstructor(x) => x.span(),
+            DataExpr::TupleConstructor(x) => x.span(),
             DataExpr::AnyAssetConstructor(x) => x.span(),
             DataExpr::Identifier(x) => x.span(),
             DataExpr::AddOp(x) => &x.span,
@@ -1451,6 +1474,13 @@ impl AstNode for Type {
                 let key_type = Type::parse(inner.next().unwrap())?;
                 let value_type = Type::parse(inner.next().unwrap())?;
                 Ok(Type::Map(Box::new(key_type), Box::new(value_type)))
+            }
+            Rule::tuple_type => {
+                let elements = inner
+                    .into_inner()
+                    .map(Type::parse)
+                    .collect::<Result<Vec<_>, _>>()?;
+                Ok(Type::Tuple(elements))
             }
             Rule::custom_type => Ok(Type::Custom(Identifier::new(inner.as_str().to_owned()))),
             x => unreachable!("Unexpected rule in type: {:?}", x),
@@ -1754,6 +1784,34 @@ mod tests {
     );
 
     input_to_ast_check!(
+        Type,
+        "tuple",
+        "Tuple<Int, Bytes>",
+        Type::Tuple(vec![Type::Int, Type::Bytes])
+    );
+
+    input_to_ast_check!(
+        Type,
+        "tuple_three_with_nested",
+        "Tuple<Int, Bytes, List<Bool>>",
+        Type::Tuple(vec![
+            Type::Int,
+            Type::Bytes,
+            Type::List(Box::new(Type::Bool)),
+        ])
+    );
+
+    input_to_ast_check!(
+        Type,
+        "tuple_nested",
+        "Tuple<Tuple<Int, Int>, Bytes>",
+        Type::Tuple(vec![
+            Type::Tuple(vec![Type::Int, Type::Int]),
+            Type::Bytes,
+        ])
+    );
+
+    input_to_ast_check!(
         TypeDef,
         "type_def_record",
         "type MyRecord {
@@ -2013,6 +2071,49 @@ mod tests {
             ],
             span: Span::DUMMY,
         }
+    );
+
+    // A two-or-more element parenthesized list is a tuple literal.
+    input_to_ast_check!(
+        DataExpr,
+        "tuple_literal",
+        "(1, 0xFF, true)",
+        DataExpr::TupleConstructor(TupleConstructor {
+            elements: vec![
+                DataExpr::Number(1),
+                DataExpr::HexString(HexStringLiteral::new("FF".to_string())),
+                DataExpr::Bool(true),
+            ],
+            span: Span::DUMMY,
+        })
+    );
+
+    // Trailing comma is permitted in a tuple literal.
+    input_to_ast_check!(
+        DataExpr,
+        "tuple_literal_trailing_comma",
+        "(1, 2,)",
+        DataExpr::TupleConstructor(TupleConstructor {
+            elements: vec![DataExpr::Number(1), DataExpr::Number(2)],
+            span: Span::DUMMY,
+        })
+    );
+
+    // A single parenthesized expression is grouping, NOT a one-tuple.
+    input_to_ast_check!(DataExpr, "grouping_not_tuple", "(42)", DataExpr::Number(42));
+
+    // Positional tuple access uses bracket indexing with a literal index; it
+    // lowers through the same PropertyOp path as struct/list access.
+    input_to_ast_check!(
+        DataExpr,
+        "tuple_index_access",
+        "my_tuple[0]",
+        DataExpr::PropertyOp(PropertyOp {
+            operand: Box::new(DataExpr::Identifier(Identifier::new("my_tuple"))),
+            property: Box::new(DataExpr::Number(0)),
+            span: Span::DUMMY,
+            scope: None,
+        })
     );
 
     input_to_ast_check!(DataExpr, "literal_bool_true", "true", DataExpr::Bool(true));
@@ -3123,6 +3224,8 @@ mod tests {
     }
 
     test_parsing!(lang_tour);
+
+    test_parsing!(tuples);
 
     test_parsing!(transfer);
 
