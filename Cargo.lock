@@ -3037,9 +3037,9 @@ dependencies = [
 
 [[package]]
 name = "tx3-tir"
-version = "0.17.0"
+version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "152e332c5ab744e8f17d54dfa4b6e3e177d5055141a1f37625303d4613277a72"
+checksum = "4bd8b43d04c3d116e901407cf4c6fa4949938f8904dddf7088cb97efcacd8bb2"
 dependencies = [
  "ciborium",
  "hex",

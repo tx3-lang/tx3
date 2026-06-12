@@ -18,7 +18,7 @@ trait-variant = { workspace = true }
 hex = { workspace = true }
 serde = { workspace = true }
 
-tx3-tir = "0.17.0"
+tx3-tir = "0.18.0"
 
 miette = { version = "7.4.0", features = ["fancy"] }
 pest = { version = "2.7.15", features = ["miette-error", "pretty-print"] }
