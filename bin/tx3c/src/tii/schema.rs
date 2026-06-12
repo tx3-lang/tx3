@@ -73,6 +73,14 @@ impl<'a> SchemaCtx<'a> {
                 "type": "object",
                 "additionalProperties": self.map_type(value)
             }),
+            // A tuple is a fixed-length, positionally-typed array.
+            ast::Type::Tuple(elements) => json!({
+                "type": "array",
+                "prefixItems": elements.iter().map(|t| self.map_type(t)).collect::<Vec<_>>(),
+                "items": false,
+                "minItems": elements.len(),
+                "maxItems": elements.len()
+            }),
             ast::Type::Custom(id) => self.map_custom(&id.value),
             ast::Type::Undefined => json!({"type": "null"}),
             ast::Type::Utxo => {

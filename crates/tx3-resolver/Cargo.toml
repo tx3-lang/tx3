@@ -13,7 +13,7 @@ homepage.workspace = true
 readme.workspace = true
 
 [dependencies]
-tx3-tir = "0.17.0"
+tx3-tir = "0.18.0"
 
 thiserror = { workspace = true }
 trait-variant = { workspace = true }
