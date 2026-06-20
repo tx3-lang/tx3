@@ -56,6 +56,18 @@ pub enum Error {
 
     #[error("target type not supported: {0:?}")]
     TargetTypeNotSupported(Type),
+
+    #[error("unknown tag: {0}")]
+    UnknownTag(String),
+
+    #[error("malformed tagged value (expected a single-key object): {0}")]
+    MalformedTaggedArg(Value),
+
+    #[error("malformed tagged map pair (expected a [key, value] array): {0}")]
+    MalformedMapPair(Value),
+
+    #[error("malformed tagged struct (expected {{ constructor, fields }}): {0}")]
+    MalformedStruct(Value),
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -262,31 +274,136 @@ fn value_to_utxo_ref(value: Value) -> Result<UtxoRef, Error> {
     }
 }
 
+/// Returns the single `(key, value)` of a one-key object, else `None`.
+fn single_key(value: &Value) -> Option<(&str, &Value)> {
+    let obj = value.as_object()?;
+    if obj.len() != 1 {
+        return None;
+    }
+    obj.iter().next().map(|(k, v)| (k.as_str(), v))
+}
+
+/// Whether `value` is a tagged node: a single-key object whose key
+/// is one of the wire tags. A tagged value is self-describing and decodes the
+/// same way whatever its kind; anything else is a bare (legacy) scalar.
+fn is_tagged(value: &Value) -> bool {
+    matches!(
+        single_key(value),
+        Some((
+            "int" | "bool" | "string" | "bytes" | "address" | "utxoRef" | "list" | "tuple"
+                | "map" | "struct",
+            _,
+        ))
+    )
+}
+
+/// Binds a JSON argument value to its [`ArgValue`].
+///
+/// One path for every argument: a tagged value decodes from its tags via
+/// [`decode_tagged`] regardless of kind, while a bare value (no tag) is coerced
+/// via the param's flat TIR [`Type`] — the legacy form a top-level scalar may
+/// still take.
 pub fn from_json(value: Value, target: &Type) -> Result<ArgValue, Error> {
+    if is_tagged(&value) {
+        decode_tagged(value)
+    } else {
+        coerce_bare(value, target)
+    }
+}
+
+/// Coerces a bare (untagged) value via the param's flat [`Type`]. Only scalars
+/// may be sent bare; an aggregate must arrive tagged.
+fn coerce_bare(value: Value, target: &Type) -> Result<ArgValue, Error> {
     match target {
-        Type::Int => {
-            let i = value_to_bigint(value)?;
-            Ok(ArgValue::Int(i))
-        }
-        Type::Bool => {
-            let b = value_to_bool(value)?;
-            Ok(ArgValue::Bool(b))
-        }
-        Type::Bytes => {
-            let b = value_to_bytes(value)?;
-            Ok(ArgValue::Bytes(b))
-        }
-        Type::Address => {
-            let a = value_to_address(value)?;
-            Ok(ArgValue::Address(a))
-        }
-        Type::UtxoRef => {
-            let x = value_to_utxo_ref(value)?;
-            Ok(ArgValue::UtxoRef(x))
-        }
+        Type::Int => Ok(ArgValue::Int(value_to_bigint(value)?)),
+        Type::Bool => Ok(ArgValue::Bool(value_to_bool(value)?)),
+        Type::Bytes => Ok(ArgValue::Bytes(value_to_bytes(value)?)),
+        Type::Address => Ok(ArgValue::Address(value_to_address(value)?)),
+        Type::UtxoRef => Ok(ArgValue::UtxoRef(value_to_utxo_ref(value)?)),
         Type::Undefined => value_to_underfined(value),
         x => Err(Error::TargetTypeNotSupported(x.clone())),
     }
+}
+
+/// Decodes a tagged JSON value into an [`ArgValue`], recursively.
+/// Every node carries its own tag and struct fields are positional, so no schema
+/// is needed; scalar leaves reuse the per-scalar coercions.
+fn decode_tagged(value: Value) -> Result<ArgValue, Error> {
+    let Some((tag, _)) = single_key(&value) else {
+        return Err(Error::MalformedTaggedArg(value));
+    };
+    let tag = tag.to_string();
+    // Take ownership of the inner value out of the one-key object.
+    let inner = match value {
+        Value::Object(mut m) => m.remove(&tag).expect("single key present"),
+        _ => unreachable!("single_key guaranteed an object"),
+    };
+
+    match tag.as_str() {
+        "int" => Ok(ArgValue::Int(value_to_bigint(inner)?)),
+        "bool" => Ok(ArgValue::Bool(value_to_bool(inner)?)),
+        "string" => match inner {
+            Value::String(s) => Ok(ArgValue::String(s)),
+            _ => Err(Error::ValueIsNotAString),
+        },
+        "bytes" => Ok(ArgValue::Bytes(value_to_bytes(inner)?)),
+        "address" => Ok(ArgValue::Address(value_to_address(inner)?)),
+        "utxoRef" => Ok(ArgValue::UtxoRef(value_to_utxo_ref(inner)?)),
+        "list" => Ok(ArgValue::List(decode_seq(inner)?)),
+        "tuple" => Ok(ArgValue::Tuple(decode_seq(inner)?)),
+        "map" => Ok(ArgValue::Map(decode_map(inner)?)),
+        "struct" => decode_struct(inner),
+        other => Err(Error::UnknownTag(other.to_string())),
+    }
+}
+
+/// Decodes an array of tagged values (the body of a `list`/`tuple`/struct fields).
+fn decode_seq(value: Value) -> Result<Vec<ArgValue>, Error> {
+    match value {
+        Value::Array(items) => items.into_iter().map(decode_tagged).collect(),
+        x => Err(Error::MalformedTaggedArg(x)),
+    }
+}
+
+/// Decodes a `map` body: an array of `[key, value]` tagged pairs.
+fn decode_map(value: Value) -> Result<Vec<(ArgValue, ArgValue)>, Error> {
+    let arr = match value {
+        Value::Array(a) => a,
+        x => return Err(Error::MalformedTaggedArg(x)),
+    };
+
+    arr.into_iter()
+        .map(|pair| match pair {
+            Value::Array(mut kv) if kv.len() == 2 => {
+                let v = kv.pop().unwrap();
+                let k = kv.pop().unwrap();
+                Ok((decode_tagged(k)?, decode_tagged(v)?))
+            }
+            x => Err(Error::MalformedMapPair(x)),
+        })
+        .collect()
+}
+
+/// Decodes a `struct` body: `{ "constructor": <usize>, "fields": [TaggedArg, …] }`.
+fn decode_struct(value: Value) -> Result<ArgValue, Error> {
+    let mut obj = match value {
+        Value::Object(o) => o,
+        x => return Err(Error::MalformedStruct(x)),
+    };
+
+    let constructor = obj
+        .get("constructor")
+        .and_then(Value::as_u64)
+        .ok_or_else(|| Error::MalformedStruct(Value::Object(obj.clone())))? as usize;
+
+    let fields = obj
+        .remove("fields")
+        .ok_or_else(|| Error::MalformedStruct(Value::Object(obj.clone())))?;
+
+    Ok(ArgValue::Struct {
+        constructor,
+        fields: decode_seq(fields)?,
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -306,6 +423,47 @@ pub fn arg_to_json(arg: &ArgValue) -> Value {
         ArgValue::Address(v) => Value::String(hex::encode(v)),
         ArgValue::UtxoRef(r) => utxo_ref_to_json(r),
         ArgValue::UtxoSet(_) => Value::Null,
+        // Aggregates round-trip through the tagged form (re-decodable by
+        // `decode_tagged`); scalars stay bare above.
+        ArgValue::List(_) | ArgValue::Tuple(_) | ArgValue::Map(_) | ArgValue::Struct { .. } => {
+            tagged_arg_to_json(arg)
+        }
+    }
+}
+
+/// Serializes any [`ArgValue`] into its fully-tagged JSON form — the
+/// inverse of [`decode_tagged`], with every leaf tagged.
+pub fn tagged_arg_to_json(arg: &ArgValue) -> Value {
+    match arg {
+        ArgValue::Int(i) => serde_json::json!({ "int": i }),
+        ArgValue::Bool(b) => serde_json::json!({ "bool": b }),
+        ArgValue::String(s) => serde_json::json!({ "string": s }),
+        ArgValue::Bytes(v) => serde_json::json!({ "bytes": hex::encode(v) }),
+        ArgValue::Address(v) => serde_json::json!({ "address": hex::encode(v) }),
+        ArgValue::UtxoRef(r) => serde_json::json!({ "utxoRef": format!("{}#{}", hex::encode(&r.txid), r.index) }),
+        // A resolved UTxO set is not a tagged leaf; surface it as null.
+        ArgValue::UtxoSet(_) => Value::Null,
+        ArgValue::List(xs) => {
+            serde_json::json!({ "list": xs.iter().map(tagged_arg_to_json).collect::<Vec<_>>() })
+        }
+        ArgValue::Tuple(xs) => {
+            serde_json::json!({ "tuple": xs.iter().map(tagged_arg_to_json).collect::<Vec<_>>() })
+        }
+        ArgValue::Map(pairs) => serde_json::json!({
+            "map": pairs
+                .iter()
+                .map(|(k, v)| vec![tagged_arg_to_json(k), tagged_arg_to_json(v)])
+                .collect::<Vec<_>>()
+        }),
+        ArgValue::Struct {
+            constructor,
+            fields,
+        } => serde_json::json!({
+            "struct": {
+                "constructor": constructor,
+                "fields": fields.iter().map(tagged_arg_to_json).collect::<Vec<_>>(),
+            }
+        }),
     }
 }
 
@@ -387,43 +545,9 @@ mod tests {
     use super::*;
     use serde_json::json;
 
-    // TODO: derive PartialEq in upstream tx3-lang
-    fn partial_eq(a: ArgValue, b: ArgValue) -> bool {
-        match a {
-            ArgValue::Int(a) => match b {
-                ArgValue::Int(b) => dbg!(a) == dbg!(b),
-                _ => false,
-            },
-            ArgValue::Bool(a) => match b {
-                ArgValue::Bool(b) => a == b,
-                _ => false,
-            },
-            ArgValue::String(a) => match b {
-                ArgValue::String(b) => a == b,
-                _ => false,
-            },
-            ArgValue::Bytes(a) => match b {
-                ArgValue::Bytes(b) => a == b,
-                _ => false,
-            },
-            ArgValue::Address(a) => match b {
-                ArgValue::Address(b) => a == b,
-                _ => false,
-            },
-            ArgValue::UtxoSet(hash_set) => match b {
-                ArgValue::UtxoSet(b) => hash_set == b,
-                _ => false,
-            },
-            ArgValue::UtxoRef(utxo_ref) => match b {
-                ArgValue::UtxoRef(b) => utxo_ref == b,
-                _ => false,
-            },
-        }
-    }
-
     fn assert_from_json(provided: Value, target: Type, expected: ArgValue) {
         let value = from_json(provided, &target).unwrap();
-        assert!(partial_eq(value, expected));
+        assert_eq!(value, expected);
     }
 
     // -----------------------------------------------------------------------
@@ -544,6 +668,151 @@ mod tests {
         };
 
         assert_from_json(json, Type::UtxoRef, ArgValue::UtxoRef(utxo_ref));
+    }
+
+    #[test]
+    fn from_json_undefined_infers_from_shape() {
+        // The untyped fallback: a bare value binds by its JSON shape.
+        assert_from_json(json!(true), Type::Undefined, ArgValue::Bool(true));
+        assert_from_json(json!(42), Type::Undefined, ArgValue::Int(42));
+        assert_from_json(json!("hi"), Type::Undefined, ArgValue::String("hi".into()));
+    }
+
+    #[test]
+    fn bytes_envelope_object_is_not_mistaken_for_a_tag() {
+        // A two-key BytesEnvelope (the only object-shaped legacy scalar input)
+        // must route to bare coercion, never to the tagged decoder.
+        let envelope = json!({ "content": "aGVsbG8=", "contentType": "base64" });
+        assert_from_json(envelope, Type::Bytes, ArgValue::Bytes(b"hello".to_vec()));
+    }
+
+    #[test]
+    fn decode_list_of_int() {
+        assert_from_json(
+            json!({ "list": [{ "int": 1 }, { "int": 2 }, { "int": 3 }] }),
+            Type::List,
+            ArgValue::List(vec![ArgValue::Int(1), ArgValue::Int(2), ArgValue::Int(3)]),
+        );
+    }
+
+    #[test]
+    fn decode_tuple_int_bytes() {
+        assert_from_json(
+            json!({ "tuple": [{ "int": 42 }, { "bytes": "cafe" }] }),
+            Type::Tuple,
+            ArgValue::Tuple(vec![ArgValue::Int(42), ArgValue::Bytes(vec![0xca, 0xfe])]),
+        );
+    }
+
+    #[test]
+    fn decode_map_string_keys() {
+        assert_from_json(
+            json!({ "map": [[{ "string": "1" }, { "int": 100 }], [{ "string": "2" }, { "int": 200 }]] }),
+            Type::Map,
+            ArgValue::Map(vec![
+                (ArgValue::String("1".into()), ArgValue::Int(100)),
+                (ArgValue::String("2".into()), ArgValue::Int(200)),
+            ]),
+        );
+    }
+
+    #[test]
+    fn decode_struct_record() {
+        // AssetClass { policy: Bytes, name: Bytes } in declared order.
+        assert_from_json(
+            json!({ "struct": { "constructor": 0, "fields": [{ "bytes": "aabb" }, { "bytes": "0011" }] } }),
+            Type::Custom("AssetClass".into()),
+            ArgValue::Struct {
+                constructor: 0,
+                fields: vec![
+                    ArgValue::Bytes(vec![0xaa, 0xbb]),
+                    ArgValue::Bytes(vec![0x00, 0x11]),
+                ],
+            },
+        );
+    }
+
+    #[test]
+    fn decode_nested_struct_05_invoke() {
+        // The journey-critical shape: Meta { tags: List<Int>, level: Int }.
+        assert_from_json(
+            json!({
+                "struct": {
+                    "constructor": 0,
+                    "fields": [
+                        { "list": [{ "int": 1 }, { "int": 2 }, { "int": 3 }] },
+                        { "int": 7 }
+                    ]
+                }
+            }),
+            Type::Custom("Meta".into()),
+            ArgValue::Struct {
+                constructor: 0,
+                fields: vec![
+                    ArgValue::List(vec![ArgValue::Int(1), ArgValue::Int(2), ArgValue::Int(3)]),
+                    ArgValue::Int(7),
+                ],
+            },
+        );
+    }
+
+    #[test]
+    fn decode_accepts_tagged_scalar_leniently() {
+        assert_from_json(json!({ "int": 5 }), Type::Int, ArgValue::Int(5));
+        assert_from_json(json!({ "bytes": "cafe" }), Type::Bytes, ArgValue::Bytes(vec![0xca, 0xfe]));
+    }
+
+    #[test]
+    fn decode_round_trips_through_encoded_json() {
+        let encoded = json!({
+            "struct": {
+                "constructor": 0,
+                "fields": [{ "list": [{ "int": 1 }, { "int": 2 }] }, { "int": 7 }]
+            }
+        });
+        let arg = from_json(encoded.clone(), &Type::Custom("Meta".into())).unwrap();
+        assert_eq!(tagged_arg_to_json(&arg), encoded);
+    }
+
+    #[test]
+    fn decode_rejects_unknown_tag() {
+        // A single-key object whose key is a known tag but unknown nested tag.
+        let err = from_json(json!({ "list": [{ "bogus": 1 }] }), &Type::List).unwrap_err();
+        assert!(matches!(err, Error::UnknownTag(_)), "got {err:?}");
+    }
+
+    #[test]
+    fn bare_aggregate_is_rejected() {
+        // A bare array carries no tag, so it can't bind to an aggregate param.
+        let err = from_json(json!([1, 2, 3]), &Type::List).unwrap_err();
+        assert!(
+            matches!(err, Error::TargetTypeNotSupported(_)),
+            "got {err:?}"
+        );
+    }
+
+    #[test]
+    fn decode_rejects_malformed_struct() {
+        // Missing `fields`.
+        let err = from_json(
+            json!({ "struct": { "constructor": 0 } }),
+            &Type::Custom("Meta".into()),
+        )
+        .unwrap_err();
+        assert!(matches!(err, Error::MalformedStruct(_)), "got {err:?}");
+    }
+
+    #[test]
+    fn decode_rejects_malformed_map_pair() {
+        let err = from_json(json!({ "map": [[{ "int": 1 }]] }), &Type::Map).unwrap_err();
+        assert!(matches!(err, Error::MalformedMapPair(_)), "got {err:?}");
+    }
+
+    #[test]
+    fn decode_rejects_untagged_nested_value() {
+        // A bare element inside a tagged list has no tag to decode by.
+        let err = from_json(json!({ "list": [5] }), &Type::List).unwrap_err();
+        assert!(matches!(err, Error::MalformedTaggedArg(_)), "got {err:?}");
     }
 
     // -----------------------------------------------------------------------
