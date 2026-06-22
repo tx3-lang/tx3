@@ -2980,7 +2980,7 @@ checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 
 [[package]]
 name = "tx3-cardano"
-version = "0.22.0"
+version = "0.23.0"
 dependencies = [
  "hex",
  "pallas",
@@ -2996,7 +2996,7 @@ dependencies = [
 
 [[package]]
 name = "tx3-lang"
-version = "0.22.0"
+version = "0.23.0"
 dependencies = [
  "assert-json-diff",
  "ciborium",
@@ -3015,7 +3015,7 @@ dependencies = [
 
 [[package]]
 name = "tx3-resolver"
-version = "0.22.0"
+version = "0.23.0"
 dependencies = [
  "approx",
  "base64 0.22.1",
@@ -3049,7 +3049,7 @@ dependencies = [
 
 [[package]]
 name = "tx3c"
-version = "0.22.0"
+version = "0.23.0"
 dependencies = [
  "anyhow",
  "clap",
