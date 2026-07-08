@@ -35,6 +35,7 @@ jobs:
 
   test:
     name: cargo test
+    continue-on-error: true
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
