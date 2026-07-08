@@ -1,5 +1,6 @@
 [package]
 name = "tx3c"
+description = "The Tx3 language compiler and CLI"
 publish.workspace = true
 authors.workspace = true
 edition.workspace = true
