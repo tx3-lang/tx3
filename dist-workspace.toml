@@ -8,13 +8,11 @@ cargo-dist-version = "0.31.0"
 # CI backends to support
 ci = "github"
 # The installers to generate for each app
-installers = ["shell", "powershell", "npm", "homebrew"]
-# A GitHub repo to push Homebrew formulas to
-tap = "txpipe/homebrew-tap"
+installers = ["shell"]
 # Target platforms to build apps for (Rust target-triple syntax)
 targets = ["aarch64-apple-darwin", "aarch64-unknown-linux-gnu", "x86_64-unknown-linux-gnu", "x86_64-pc-windows-msvc"]
-# Publish jobs to run in CI
-publish-jobs = ["homebrew", "npm", "./publish-crates"]
+# Custom publish jobs to run during a release (publishes crates to crates.io)
+publish-jobs = ["./publish-crates"]
 # Whether to publish prereleases to package managers
 publish-prereleases = true
 # Which actions to run on pull requests
@@ -27,8 +25,6 @@ rust-toolchain-version = "1.91"
 windows-archive = ".tar.gz"
 # The archive format to use for non-windows builds (defaults .tar.xz)
 unix-archive = ".tar.gz"
-# A namespace to use when publishing this package to the npm registry
-npm-scope = "@tx3-lang"
 # Path that installers should place binaries in
 install-path = "CARGO_HOME"
 
