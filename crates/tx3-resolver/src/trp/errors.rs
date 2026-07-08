@@ -115,12 +115,12 @@ impl TrpError for crate::Error {
 
                 Some(json!(data))
             }
-            Error::InputNotResolved(name, q, pool) => {
+            Error::InputNotResolved(boxed) => {
                 let data = spec::InputNotResolvedDiagnostic {
-                    name: name.to_string(),
-                    query: q.clone().into_error_data(),
+                    name: boxed.name.to_string(),
+                    query: boxed.query.clone().into_error_data(),
                     search_space: spec::SearchSpaceDiagnostic {
-                        matched: pool.iter().map(ToString::to_string).collect(),
+                        matched: boxed.pool.iter().map(ToString::to_string).collect(),
                         by_address_count: None,
                         by_asset_class_count: None,
                         by_ref_count: None,

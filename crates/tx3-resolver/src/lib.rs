@@ -1,5 +1,3 @@
-#![allow(dead_code, clippy::result_large_err, clippy::from_str_radix_10)]
-
 use std::collections::HashSet;
 
 use crate::inputs::CanonicalQuery;
@@ -41,7 +39,7 @@ pub enum Error {
     InputQueryTooBroad,
 
     #[error("input not resolved: {0}")]
-    InputNotResolved(String, CanonicalQuery, Vec<UtxoRef>),
+    InputNotResolved(Box<InputNotResolvedError>),
 
     #[error("missing argument `{key}` of type {ty:?}")]
     MissingTxArg {
@@ -63,6 +61,19 @@ pub enum Error {
 
     #[error("tx script returned failure")]
     TxScriptFailure(Vec<String>),
+}
+
+#[derive(Debug)]
+pub struct InputNotResolvedError {
+    pub name: String,
+    pub query: CanonicalQuery,
+    pub pool: Vec<UtxoRef>,
+}
+
+impl std::fmt::Display for InputNotResolvedError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.name)
+    }
 }
 
 pub enum UtxoPattern<'a> {

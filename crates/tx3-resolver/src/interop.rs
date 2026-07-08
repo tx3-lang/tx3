@@ -159,7 +159,8 @@ pub fn string_to_bigint(s: String) -> Result<i128, Error> {
             .map_err(|x| Error::InvalidBytesForNumber(hex::encode(x)))?;
         Ok(i128::from_be_bytes(bytes))
     } else {
-        let i = i128::from_str_radix(&s, 10)
+        let i = s
+            .parse::<i128>()
             .map_err(|x| Error::InvalidBytesForNumber(x.to_string()))?;
         Ok(i)
     }

@@ -122,7 +122,7 @@ macro_rules! builtin_boilerplate {
                             $name,
                             stringify!($param),
                         )))?
-                        .into_lower(ctx)?;
+                        .lower(ctx)?;
                 )*
                 Ok(ir::Expression::EvalCompiler(Box::new(
                     ir::CompilerOp::$op $(( $( $oparg ),* ))?

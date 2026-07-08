@@ -11,7 +11,7 @@ use tx3_tir::reduce::{Apply as _, ArgMap};
 use tx3_tir::Node as _;
 
 use crate::inputs::CanonicalQuery;
-use crate::{Error, UtxoStore};
+use crate::{Error, InputNotResolvedError, UtxoStore};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ResolveLog {
@@ -68,11 +68,11 @@ impl QueryResolution {
     pub fn ensure_resolved(&self, pool_refs: &[UtxoRef]) -> Result<(), Error> {
         match &self.selection {
             Some(sel) if !sel.is_empty() => Ok(()),
-            _ => Err(Error::InputNotResolved(
-                self.name.clone(),
-                self.query.clone(),
-                pool_refs.to_vec(),
-            )),
+            _ => Err(Error::InputNotResolved(Box::new(InputNotResolvedError {
+                name: self.name.clone(),
+                query: self.query.clone(),
+                pool: pool_refs.to_vec(),
+            }))),
         }
     }
 }

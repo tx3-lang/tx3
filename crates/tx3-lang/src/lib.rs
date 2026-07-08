@@ -1,5 +1,3 @@
-#![allow(dead_code, clippy::wrong_self_convention)]
-
 //! The Tx3 language
 //!
 //! This crate provides the parser, analyzer and lowering logic for the Tx3
