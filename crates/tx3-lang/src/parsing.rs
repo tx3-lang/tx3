@@ -643,7 +643,7 @@ impl AstNode for OutputBlock {
 
         let optional = inner
             .peek()
-            .map_or(false, |first| first.as_rule() == Rule::output_optional);
+            .is_some_and(|first| first.as_rule() == Rule::output_optional);
 
         if optional {
             inner.next();

@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, HashSet};
 use pallas::{
     codec::{
         minicbor,
-        utils::{KeepRaw, MaybeIndefArray, NonEmptySet},
+        utils::{KeepRaw, NonEmptySet},
     },
     ledger::{
         primitives::{
@@ -824,11 +824,9 @@ fn infer_required_scripts(
 
     // TODO: other sources for scripts
 
-    let all_scripts = HashSet::from_iter(mint_policies);
-
     // TODO: remove if script is already present via reference inputs
 
-    all_scripts
+    HashSet::from_iter(mint_policies)
 }
 
 fn find_script_for_hash(tx: &tir::Tx, hash: primitives::Hash<28>) -> Option<tir::Expression> {

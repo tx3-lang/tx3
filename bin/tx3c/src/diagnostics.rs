@@ -47,7 +47,7 @@ fn code_of(d: &dyn Diagnostic) -> Option<String> {
 fn from_analysis_error(e: &analyzing::Error) -> DiagnosticJson {
     let span = e.span();
     // The dummy span is (0, 0); only emit a real one.
-    let span = (span.start != span.end).then(|| Span {
+    let span = (span.start != span.end).then_some(Span {
         start: span.start,
         end: span.end,
     });

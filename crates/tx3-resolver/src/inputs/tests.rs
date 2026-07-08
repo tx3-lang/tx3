@@ -107,7 +107,7 @@ async fn test_input_query_too_broad() {
 async fn test_resolve_anything() {
     let store = mock::seed_random_memory_store(
         |_: &mock::FuzzTxoRef, x: &mock::KnownAddress, seq: u64| {
-            if seq % 2 == 0 {
+            if seq.is_multiple_of(2) {
                 mock::utxo_with_random_amount(x, 4_000_000..5_000_000)
             } else {
                 mock::utxo_with_random_asset(x, mock::KnownAsset::Hosky, 500..1000)
@@ -219,7 +219,7 @@ async fn test_resolve_by_asset_amount() {
 async fn test_resolve_by_collateral() {
     let store = mock::seed_random_memory_store(
         |_: &mock::FuzzTxoRef, x: &mock::KnownAddress, sequence: u64| {
-            if sequence % 2 == 0 {
+            if sequence.is_multiple_of(2) {
                 mock::utxo_with_random_amount(x, 4_000_000..5_000_000)
             } else {
                 mock::utxo_with_random_asset(x, mock::KnownAsset::Hosky, 500..1000)
@@ -266,7 +266,7 @@ async fn test_resolve_same_collateral_and_input() {
 async fn test_resolve_exclusive_assignments() {
     let store = mock::seed_random_memory_store(
         |_: &mock::FuzzTxoRef, x: &mock::KnownAddress, seq: u64| {
-            if seq % 2 == 0 {
+            if seq.is_multiple_of(2) {
                 mock::utxo_with_random_amount(x, 1_000..1_500)
             } else {
                 mock::utxo_with_random_amount(x, 100..150)
@@ -299,7 +299,7 @@ async fn test_resolve_exclusive_assignments() {
 async fn test_resolve_competing_queries() {
     let store = mock::seed_random_memory_store(
         |_: &mock::FuzzTxoRef, x: &mock::KnownAddress, seq: u64| {
-            if seq % 2 == 0 {
+            if seq.is_multiple_of(2) {
                 UtxoBuilder::new()
                     .with_address(x)
                     .with_naked_value(4_000_000)
@@ -342,7 +342,7 @@ async fn test_resolve_competing_queries() {
 
     let target_asset = CanonicalAssets::from_asset(
         Some(mock::KnownAsset::Hosky.policy().as_ref()),
-        Some(mock::KnownAsset::Hosky.name().as_ref()),
+        Some(mock::KnownAsset::Hosky.name()),
         1,
     );
     assert!(asset_utxos
@@ -392,7 +392,7 @@ async fn test_resolve_competing_queries_no_solution() {
 async fn test_resolve_by_naked_and_asset_amount() {
     let store = mock::seed_random_memory_store(
         |_: &mock::FuzzTxoRef, x: &mock::KnownAddress, sequence: u64| {
-            if sequence % 2 == 0 {
+            if sequence.is_multiple_of(2) {
                 mock::utxo_with_random_amount(x, 4_000_000..5_000_000)
             } else {
                 mock::utxo_with_random_asset(x, mock::KnownAsset::Hosky, 500..1000)
@@ -417,7 +417,7 @@ async fn test_resolve_by_naked_and_asset_amount() {
 async fn test_cross_query_pool_doesnt_leak_wrong_address() {
     let store = mock::seed_random_memory_store(
         |_: &mock::FuzzTxoRef, x: &mock::KnownAddress, seq: u64| {
-            if x.to_bytes() == mock::KnownAddress::Bob.to_bytes() && seq % 2 == 0 {
+            if x.to_bytes() == mock::KnownAddress::Bob.to_bytes() && seq.is_multiple_of(2) {
                 UtxoBuilder::new()
                     .with_address(x)
                     .with_naked_value(4_000_000)

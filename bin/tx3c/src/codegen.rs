@@ -385,7 +385,7 @@ fn register_templates(
 }
 
 fn render_templates(handlebars: &Handlebars<'_>, data: &Value, output_dir: &Path) -> Result<()> {
-    for (name, _) in handlebars.get_templates() {
+    for name in handlebars.get_templates().keys() {
         let rendered = handlebars
             .render(name, data)
             .with_context(|| format!("rendering template {name}"))?;

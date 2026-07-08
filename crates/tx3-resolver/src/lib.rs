@@ -1,3 +1,5 @@
+#![allow(dead_code, clippy::result_large_err, clippy::from_str_radix_10)]
+
 use std::collections::HashSet;
 
 use crate::inputs::CanonicalQuery;

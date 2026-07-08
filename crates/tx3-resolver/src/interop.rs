@@ -532,14 +532,14 @@ pub fn utxo_from_json(value: &Value) -> Result<Utxo, Error> {
         .filter(|v| !v.is_null())
         .map(|v| serde_json::from_value(v.clone()))
         .transpose()
-        .map_err(|e| Error::InvalidBytesEnvelope(e))?;
+        .map_err(Error::InvalidBytesEnvelope)?;
 
     let script = value
         .get("script")
         .filter(|v| !v.is_null())
         .map(|v| serde_json::from_value(v.clone()))
         .transpose()
-        .map_err(|e| Error::InvalidBytesEnvelope(e))?;
+        .map_err(Error::InvalidBytesEnvelope)?;
 
     Ok(Utxo {
         r#ref: utxo_ref,

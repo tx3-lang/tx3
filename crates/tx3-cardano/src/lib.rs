@@ -1,3 +1,10 @@
+#![allow(
+    dead_code,
+    unused_variables,
+    irrefutable_let_patterns,
+    clippy::useless_conversion
+)]
+
 use std::collections::HashMap;
 
 pub mod coercion;

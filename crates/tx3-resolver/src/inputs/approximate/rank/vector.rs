@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use std::collections::HashSet;
 use tx3_tir::model::{
     assets::{AssetClass, CanonicalAssets},
@@ -192,7 +193,7 @@ mod tests {
                 let expected = f64::hypot(delta_x, delta_y).round() as u32;
                 approx::assert_abs_diff_eq!(distance, expected, epsilon = 1);
             } else {
-                let expected = (vec_a[0] as i64 - vec_b[0] as i64).abs() as u32;
+                let expected = (vec_a[0] as i64 - vec_b[0] as i64).unsigned_abs() as u32;
                 approx::assert_abs_diff_eq!(distance, expected, epsilon = 1);
             }
         }

@@ -187,7 +187,7 @@ impl ResolveJob {
 
         let eval = compiler.compile(&attempt)?;
 
-        let converged = self.last_eval.as_ref().map_or(false, |prev| eval == *prev);
+        let converged = self.last_eval.as_ref().is_some_and(|prev| eval == *prev);
 
         self.record(ResolveLog::Compiled(eval.clone()));
         self.last_eval = Some(eval);
