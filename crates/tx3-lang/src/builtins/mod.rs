@@ -171,7 +171,11 @@ mod tests {
             assert_eq!(def.name.value, b.name());
             assert_eq!(def.parameters.parameters.len(), b.signature().params.len());
             // Names are unique across the set.
-            assert!(names.insert(b.name()), "duplicate built-in name: {}", b.name());
+            assert!(
+                names.insert(b.name()),
+                "duplicate built-in name: {}",
+                b.name()
+            );
         }
     }
 }

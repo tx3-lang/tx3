@@ -254,7 +254,10 @@ mod tests {
             schemas["Outer"]["properties"]["inner"]["$ref"],
             json!("#/components/schemas/Inner")
         );
-        assert_eq!(schemas["Inner"]["properties"]["x"]["type"], json!("integer"));
+        assert_eq!(
+            schemas["Inner"]["properties"]["x"]["type"],
+            json!("integer")
+        );
     }
 
     #[test]

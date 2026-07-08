@@ -72,10 +72,7 @@ fn print_json(diagnostics: Vec<DiagnosticJson>) {
 /// Report a phase failure that aborts the build (e.g. a parse error). In JSON
 /// mode this emits the uniform envelope and exits non-zero; in human mode it
 /// returns the error so the caller's `?` surfaces it normally.
-pub fn report_fatal(
-    format: DiagnosticsFormat,
-    err: tx3_lang::Error,
-) -> anyhow::Result<()> {
+pub fn report_fatal(format: DiagnosticsFormat, err: tx3_lang::Error) -> anyhow::Result<()> {
     match format {
         DiagnosticsFormat::Json => {
             print_json(vec![DiagnosticJson {

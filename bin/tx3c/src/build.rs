@@ -112,10 +112,7 @@ pub fn run(args: Args) -> anyhow::Result<()> {
     }
     ws.analyze()?;
 
-    let errors = ws
-        .analisis()
-        .map(|r| r.errors.clone())
-        .unwrap_or_default();
+    let errors = ws.analisis().map(|r| r.errors.clone()).unwrap_or_default();
 
     diagnostics::report_analysis(format, &errors)?;
     if !errors.is_empty() {

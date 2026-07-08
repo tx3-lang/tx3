@@ -290,8 +290,16 @@ fn is_tagged(value: &Value) -> bool {
     matches!(
         single_key(value),
         Some((
-            "int" | "bool" | "string" | "bytes" | "address" | "utxoRef" | "list" | "tuple"
-                | "map" | "struct",
+            "int"
+                | "bool"
+                | "string"
+                | "bytes"
+                | "address"
+                | "utxoRef"
+                | "list"
+                | "tuple"
+                | "map"
+                | "struct",
             _,
         ))
     )
@@ -391,10 +399,10 @@ fn decode_struct(value: Value) -> Result<ArgValue, Error> {
         x => return Err(Error::MalformedStruct(x)),
     };
 
-    let constructor = obj
-        .get("constructor")
-        .and_then(Value::as_u64)
-        .ok_or_else(|| Error::MalformedStruct(Value::Object(obj.clone())))? as usize;
+    let constructor =
+        obj.get("constructor")
+            .and_then(Value::as_u64)
+            .ok_or_else(|| Error::MalformedStruct(Value::Object(obj.clone())))? as usize;
 
     let fields = obj
         .remove("fields")
@@ -440,7 +448,9 @@ pub fn tagged_arg_to_json(arg: &ArgValue) -> Value {
         ArgValue::String(s) => serde_json::json!({ "string": s }),
         ArgValue::Bytes(v) => serde_json::json!({ "bytes": hex::encode(v) }),
         ArgValue::Address(v) => serde_json::json!({ "address": hex::encode(v) }),
-        ArgValue::UtxoRef(r) => serde_json::json!({ "utxoRef": format!("{}#{}", hex::encode(&r.txid), r.index) }),
+        ArgValue::UtxoRef(r) => {
+            serde_json::json!({ "utxoRef": format!("{}#{}", hex::encode(&r.txid), r.index) })
+        }
         // A resolved UTxO set is not a tagged leaf; surface it as null.
         ArgValue::UtxoSet(_) => Value::Null,
         ArgValue::List(xs) => {
@@ -759,7 +769,11 @@ mod tests {
     #[test]
     fn decode_accepts_tagged_scalar_leniently() {
         assert_from_json(json!({ "int": 5 }), Type::Int, ArgValue::Int(5));
-        assert_from_json(json!({ "bytes": "cafe" }), Type::Bytes, ArgValue::Bytes(vec![0xca, 0xfe]));
+        assert_from_json(
+            json!({ "bytes": "cafe" }),
+            Type::Bytes,
+            ArgValue::Bytes(vec![0xca, 0xfe]),
+        );
     }
 
     #[test]

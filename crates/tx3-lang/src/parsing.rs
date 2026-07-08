@@ -1805,10 +1805,7 @@ mod tests {
         Type,
         "tuple_nested",
         "Tuple<Tuple<Int, Int>, Bytes>",
-        Type::Tuple(vec![
-            Type::Tuple(vec![Type::Int, Type::Int]),
-            Type::Bytes,
-        ])
+        Type::Tuple(vec![Type::Tuple(vec![Type::Int, Type::Int]), Type::Bytes,])
     );
 
     input_to_ast_check!(

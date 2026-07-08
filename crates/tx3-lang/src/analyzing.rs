@@ -717,10 +717,7 @@ impl Analyzable for StructConstructor {
                 bail_report!(Error::invalid_symbol("struct type", symbol, &self.r#type));
             }
             None => {
-                bail_report!(Error::not_in_scope(
-                    self.r#type.value.clone(),
-                    &self.r#type
-                ));
+                bail_report!(Error::not_in_scope(self.r#type.value.clone(), &self.r#type));
             }
         };
 
@@ -843,7 +840,12 @@ impl Analyzable for crate::ast::FnCall {
             .symbol
             .as_ref()
             .and_then(|s| s.as_fn_def())
-            .map(|fn_def| (fn_def.name.value.clone(), fn_def.parameters.parameters.len()));
+            .map(|fn_def| {
+                (
+                    fn_def.name.value.clone(),
+                    fn_def.parameters.parameters.len(),
+                )
+            });
 
         if let Some((name, expected)) = signature {
             let got = self.args.len();
@@ -1387,8 +1389,7 @@ impl Analyzable for FnDef {
     }
 
     fn is_resolved(&self) -> bool {
-        self.parameters.is_resolved()
-            && self.body.as_ref().map_or(true, |b| b.is_resolved())
+        self.parameters.is_resolved() && self.body.as_ref().map_or(true, |b| b.is_resolved())
     }
 }
 
@@ -1608,8 +1609,7 @@ impl Analyzable for Program {
         // policy through its symbol-table entry, so re-track the analyzed
         // definitions here.
         {
-            let scope =
-                Rc::get_mut(scope_rc).expect("scope should be unique during resolution");
+            let scope = Rc::get_mut(scope_rc).expect("scope should be unique during resolution");
             for policy in self.policies.iter() {
                 scope.track_policy_def(policy);
             }

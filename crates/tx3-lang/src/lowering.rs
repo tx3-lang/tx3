@@ -559,10 +559,7 @@ struct ParamSubstituter<'a> {
 }
 
 impl tx3_tir::Visitor for ParamSubstituter<'_> {
-    fn reduce(
-        &mut self,
-        expr: ir::Expression,
-    ) -> Result<ir::Expression, tx3_tir::reduce::Error> {
+    fn reduce(&mut self, expr: ir::Expression) -> Result<ir::Expression, tx3_tir::reduce::Error> {
         if let ir::Expression::EvalParam(ref param) = expr {
             if let ir::Param::ExpectValue(name, _) = param.as_ref() {
                 if let Some(replacement) = self.subs.get(name) {
