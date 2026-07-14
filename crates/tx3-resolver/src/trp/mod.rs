@@ -15,7 +15,7 @@ pub fn parse_resolve_request(request: spec::ResolveParams) -> Result<(AnyTir, Ar
 
     for (key, val) in request.args {
         if let Some(ty) = params.get(&key) {
-            let arg = interop::from_json(val.clone(), &ty)?;
+            let arg = interop::from_json(val.clone(), ty)?;
             args.insert(key, arg);
         }
     }

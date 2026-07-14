@@ -16,7 +16,7 @@ fn matches_address_constraint(query: &CanonicalQuery, utxo: &Utxo) -> bool {
     query
         .address
         .as_ref()
-        .map_or(true, |addr| utxo.address == *addr)
+        .is_none_or(|addr| utxo.address == *addr)
 }
 
 fn matches_ref_constraint(query: &CanonicalQuery, utxo: &Utxo) -> bool {

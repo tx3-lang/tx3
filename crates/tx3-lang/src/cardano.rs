@@ -125,15 +125,15 @@ impl Analyzable for WithdrawalBlock {
 impl IntoLower for WithdrawalField {
     type Output = ir::Expression;
 
-    fn into_lower(
+    fn lower(
         &self,
         ctx: &crate::lowering::Context,
     ) -> Result<Self::Output, crate::lowering::Error> {
         match self {
             // Withdrawing from a script stake credential runs its script.
-            WithdrawalField::From(x) => x.into_lower(&ctx.capturing_policy_refs()),
-            WithdrawalField::Amount(x) => x.into_lower(ctx),
-            WithdrawalField::Redeemer(x) => x.into_lower(ctx),
+            WithdrawalField::From(x) => x.lower(&ctx.capturing_policy_refs()),
+            WithdrawalField::Amount(x) => x.lower(ctx),
+            WithdrawalField::Redeemer(x) => x.lower(ctx),
         }
     }
 }
@@ -141,7 +141,7 @@ impl IntoLower for WithdrawalField {
 impl IntoLower for WithdrawalBlock {
     type Output = ir::AdHocDirective;
 
-    fn into_lower(
+    fn lower(
         &self,
         ctx: &crate::lowering::Context,
     ) -> Result<Self::Output, crate::lowering::Error> {
@@ -150,7 +150,7 @@ impl IntoLower for WithdrawalBlock {
             .ok_or_else(|| {
                 crate::lowering::Error::MissingRequiredField("from".to_string(), "WithdrawalBlock")
             })?
-            .into_lower(ctx)?;
+            .lower(ctx)?;
 
         let amount = self
             .find("amount")
@@ -160,11 +160,11 @@ impl IntoLower for WithdrawalBlock {
                     "WithdrawalBlock",
                 )
             })?
-            .into_lower(ctx)?;
+            .lower(ctx)?;
 
         let redeemer = self
             .find("redeemer")
-            .map(|r| r.into_lower(ctx))
+            .map(|r| r.lower(ctx))
             .transpose()?
             .unwrap_or(ir::Expression::None);
 
@@ -221,15 +221,15 @@ impl Analyzable for VoteDelegationCertificate {
 impl IntoLower for VoteDelegationCertificate {
     type Output = ir::AdHocDirective;
 
-    fn into_lower(
+    fn lower(
         &self,
         ctx: &crate::lowering::Context,
     ) -> Result<Self::Output, crate::lowering::Error> {
         Ok(ir::AdHocDirective {
             name: "vote_delegation_certificate".to_string(),
             data: HashMap::from([
-                ("drep".to_string(), self.drep.into_lower(ctx)?),
-                ("stake".to_string(), self.stake.into_lower(ctx)?),
+                ("drep".to_string(), self.drep.lower(ctx)?),
+                ("stake".to_string(), self.stake.lower(ctx)?),
             ]),
         })
     }
@@ -277,7 +277,7 @@ impl Analyzable for StakeDelegationCertificate {
 impl IntoLower for StakeDelegationCertificate {
     type Output = ir::AdHocDirective;
 
-    fn into_lower(
+    fn lower(
         &self,
         _ctx: &crate::lowering::Context,
     ) -> Result<Self::Output, crate::lowering::Error> {
@@ -294,13 +294,13 @@ pub enum PlutusWitnessField {
 impl IntoLower for PlutusWitnessField {
     type Output = (String, ir::Expression);
 
-    fn into_lower(
+    fn lower(
         &self,
         ctx: &crate::lowering::Context,
     ) -> Result<Self::Output, crate::lowering::Error> {
         match self {
-            PlutusWitnessField::Version(x, _) => Ok(("version".to_string(), x.into_lower(ctx)?)),
-            PlutusWitnessField::Script(x, _) => Ok(("script".to_string(), x.into_lower(ctx)?)),
+            PlutusWitnessField::Version(x, _) => Ok(("version".to_string(), x.lower(ctx)?)),
+            PlutusWitnessField::Script(x, _) => Ok(("script".to_string(), x.lower(ctx)?)),
         }
     }
 }
@@ -384,14 +384,14 @@ impl Analyzable for PlutusWitnessBlock {
 impl IntoLower for PlutusWitnessBlock {
     type Output = ir::AdHocDirective;
 
-    fn into_lower(
+    fn lower(
         &self,
         ctx: &crate::lowering::Context,
     ) -> Result<Self::Output, crate::lowering::Error> {
         let data = self
             .fields
             .iter()
-            .map(|x| x.into_lower(ctx))
+            .map(|x| x.lower(ctx))
             .collect::<Result<_, _>>()?;
 
         Ok(ir::AdHocDirective {
@@ -409,12 +409,12 @@ pub enum NativeWitnessField {
 impl IntoLower for NativeWitnessField {
     type Output = (String, ir::Expression);
 
-    fn into_lower(
+    fn lower(
         &self,
         ctx: &crate::lowering::Context,
     ) -> Result<Self::Output, crate::lowering::Error> {
         match self {
-            NativeWitnessField::Script(x, _) => Ok(("script".to_string(), x.into_lower(ctx)?)),
+            NativeWitnessField::Script(x, _) => Ok(("script".to_string(), x.lower(ctx)?)),
         }
     }
 }
@@ -492,14 +492,14 @@ impl Analyzable for NativeWitnessBlock {
 impl IntoLower for NativeWitnessBlock {
     type Output = ir::AdHocDirective;
 
-    fn into_lower(
+    fn lower(
         &self,
         ctx: &crate::lowering::Context,
     ) -> Result<Self::Output, crate::lowering::Error> {
         let data = self
             .fields
             .iter()
-            .map(|x| x.into_lower(ctx))
+            .map(|x| x.lower(ctx))
             .collect::<Result<_, _>>()?;
 
         Ok(ir::AdHocDirective {
@@ -548,11 +548,11 @@ impl Analyzable for TreasuryDonationBlock {
 impl IntoLower for TreasuryDonationBlock {
     type Output = ir::AdHocDirective;
 
-    fn into_lower(
+    fn lower(
         &self,
         ctx: &crate::lowering::Context,
     ) -> Result<Self::Output, crate::lowering::Error> {
-        let coin = self.coin.into_lower(ctx)?;
+        let coin = self.coin.lower(ctx)?;
 
         Ok(ir::AdHocDirective {
             name: "treasury_donation".to_string(),
@@ -570,29 +570,11 @@ pub enum CardanoPublishBlockField {
     Script(Box<DataExpr>),
 }
 
-impl CardanoPublishBlockField {
-    fn key(&self) -> &str {
-        match self {
-            CardanoPublishBlockField::To(_) => "to",
-            CardanoPublishBlockField::Amount(_) => "amount",
-            CardanoPublishBlockField::Datum(_) => "datum",
-            CardanoPublishBlockField::Version(_) => "version",
-            CardanoPublishBlockField::Script(_) => "script",
-        }
-    }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CardanoPublishBlock {
     pub name: Option<Identifier>,
     pub fields: Vec<CardanoPublishBlockField>,
     pub span: Span,
-}
-
-impl CardanoPublishBlock {
-    pub(crate) fn find(&self, key: &str) -> Option<&CardanoPublishBlockField> {
-        self.fields.iter().find(|x| x.key() == key)
-    }
 }
 
 impl AstNode for CardanoPublishBlockField {
@@ -707,25 +689,25 @@ impl Analyzable for CardanoPublishBlock {
 impl IntoLower for CardanoPublishBlockField {
     type Output = (String, ir::Expression);
 
-    fn into_lower(
+    fn lower(
         &self,
         ctx: &crate::lowering::Context,
     ) -> Result<Self::Output, crate::lowering::Error> {
         match self {
             CardanoPublishBlockField::To(x) => {
                 let ctx = ctx.enter_address_expr();
-                Ok(("to".to_string(), x.into_lower(&ctx)?))
+                Ok(("to".to_string(), x.lower(&ctx)?))
             }
             CardanoPublishBlockField::Amount(x) => {
                 let ctx = ctx.enter_asset_expr();
-                Ok(("amount".to_string(), x.into_lower(&ctx)?))
+                Ok(("amount".to_string(), x.lower(&ctx)?))
             }
             CardanoPublishBlockField::Datum(x) => {
                 let ctx = ctx.enter_datum_expr();
-                Ok(("datum".to_string(), x.into_lower(&ctx)?))
+                Ok(("datum".to_string(), x.lower(&ctx)?))
             }
-            CardanoPublishBlockField::Version(x) => Ok(("version".to_string(), x.into_lower(ctx)?)),
-            CardanoPublishBlockField::Script(x) => Ok(("script".to_string(), x.into_lower(ctx)?)),
+            CardanoPublishBlockField::Version(x) => Ok(("version".to_string(), x.lower(ctx)?)),
+            CardanoPublishBlockField::Script(x) => Ok(("script".to_string(), x.lower(ctx)?)),
         }
     }
 }
@@ -733,14 +715,14 @@ impl IntoLower for CardanoPublishBlockField {
 impl IntoLower for CardanoPublishBlock {
     type Output = ir::AdHocDirective;
 
-    fn into_lower(
+    fn lower(
         &self,
         ctx: &crate::lowering::Context,
     ) -> Result<Self::Output, crate::lowering::Error> {
         let data = self
             .fields
             .iter()
-            .map(|x| x.into_lower(ctx))
+            .map(|x| x.lower(ctx))
             .collect::<Result<_, _>>()?;
 
         Ok(ir::AdHocDirective {
@@ -836,18 +818,18 @@ impl Analyzable for CardanoBlock {
 impl IntoLower for CardanoBlock {
     type Output = ir::AdHocDirective;
 
-    fn into_lower(
+    fn lower(
         &self,
         ctx: &crate::lowering::Context,
     ) -> Result<<CardanoBlock as IntoLower>::Output, crate::lowering::Error> {
         match self {
-            CardanoBlock::VoteDelegationCertificate(x) => x.into_lower(ctx),
-            CardanoBlock::StakeDelegationCertificate(x) => x.into_lower(ctx),
-            CardanoBlock::Withdrawal(x) => x.into_lower(ctx),
-            CardanoBlock::PlutusWitness(x) => x.into_lower(ctx),
-            CardanoBlock::NativeWitness(x) => x.into_lower(ctx),
-            CardanoBlock::TreasuryDonation(x) => x.into_lower(ctx),
-            CardanoBlock::Publish(x) => x.into_lower(ctx),
+            CardanoBlock::VoteDelegationCertificate(x) => x.lower(ctx),
+            CardanoBlock::StakeDelegationCertificate(x) => x.lower(ctx),
+            CardanoBlock::Withdrawal(x) => x.lower(ctx),
+            CardanoBlock::PlutusWitness(x) => x.lower(ctx),
+            CardanoBlock::NativeWitness(x) => x.lower(ctx),
+            CardanoBlock::TreasuryDonation(x) => x.lower(ctx),
+            CardanoBlock::Publish(x) => x.lower(ctx),
         }
     }
 }
@@ -855,10 +837,7 @@ impl IntoLower for CardanoBlock {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        analyzing::analyze,
-        ast::{self, *},
-    };
+    use crate::{analyzing::analyze, ast::*};
     use pest::Parser;
 
     macro_rules! input_to_ast_check {

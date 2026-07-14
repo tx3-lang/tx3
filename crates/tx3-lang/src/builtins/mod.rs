@@ -122,7 +122,7 @@ macro_rules! builtin_boilerplate {
                             $name,
                             stringify!($param),
                         )))?
-                        .into_lower(ctx)?;
+                        .lower(ctx)?;
                 )*
                 Ok(ir::Expression::EvalCompiler(Box::new(
                     ir::CompilerOp::$op $(( $( $oparg ),* ))?
@@ -171,7 +171,11 @@ mod tests {
             assert_eq!(def.name.value, b.name());
             assert_eq!(def.parameters.parameters.len(), b.signature().params.len());
             // Names are unique across the set.
-            assert!(names.insert(b.name()), "duplicate built-in name: {}", b.name());
+            assert!(
+                names.insert(b.name()),
+                "duplicate built-in name: {}",
+                b.name()
+            );
         }
     }
 }

@@ -188,7 +188,7 @@ impl Context {
 pub(crate) trait IntoLower {
     type Output;
 
-    fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error>;
+    fn lower(&self, ctx: &Context) -> Result<Self::Output, Error>;
 }
 
 impl<T> IntoLower for Option<&T>
@@ -197,8 +197,8 @@ where
 {
     type Output = Option<T::Output>;
 
-    fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
-        self.map(|x| x.into_lower(ctx)).transpose()
+    fn lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
+        self.map(|x| x.lower(ctx)).transpose()
     }
 }
 
@@ -208,15 +208,15 @@ where
 {
     type Output = T::Output;
 
-    fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
-        self.as_ref().into_lower(ctx)
+    fn lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
+        self.as_ref().lower(ctx)
     }
 }
 
 impl IntoLower for ast::Identifier {
     type Output = ir::Expression;
 
-    fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
+    fn lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
         let symbol = self
             .symbol
             .as_ref()
@@ -224,16 +224,16 @@ impl IntoLower for ast::Identifier {
 
         match symbol {
             ast::Symbol::ParamVar(n, ty) => {
-                Ok(ir::Param::ExpectValue(n.to_lowercase().clone(), ty.into_lower(ctx)?).into())
+                Ok(ir::Param::ExpectValue(n.to_lowercase().clone(), ty.lower(ctx)?).into())
             }
-            ast::Symbol::LocalExpr(expr) => Ok(expr.into_lower(ctx)?),
+            ast::Symbol::LocalExpr(expr) => Ok(expr.lower(ctx)?),
             ast::Symbol::PartyDef(x) => Ok(ir::Param::ExpectValue(
                 x.name.value.to_lowercase().clone(),
                 Type::Address,
             )
             .into()),
             ast::Symbol::Input(def) => {
-                let inner = def.into_lower(ctx)?.utxos;
+                let inner = def.lower(ctx)?.utxos;
 
                 let out = if ctx.is_asset_expr() {
                     ir::Coerce::IntoAssets(inner).into()
@@ -245,13 +245,13 @@ impl IntoLower for ast::Identifier {
 
                 Ok(out)
             }
-            ast::Symbol::Reference(def) => def.into_lower(ctx),
+            ast::Symbol::Reference(def) => def.lower(ctx),
             ast::Symbol::Fees => Ok(ir::Param::ExpectFees.into()),
             ast::Symbol::EnvVar(n, ty) => {
-                Ok(ir::Param::ExpectValue(n.to_lowercase().clone(), ty.into_lower(ctx)?).into())
+                Ok(ir::Param::ExpectValue(n.to_lowercase().clone(), ty.lower(ctx)?).into())
             }
             ast::Symbol::PolicyDef(x) => {
-                let policy = x.into_lower(ctx)?;
+                let policy = x.lower(ctx)?;
 
                 // Capture the ref UTxO only where the script runs, not in every
                 // address position (an output `to` receives funds without
@@ -280,7 +280,7 @@ impl IntoLower for ast::Identifier {
 impl IntoLower for ast::UtxoRef {
     type Output = ir::Expression;
 
-    fn into_lower(&self, _: &Context) -> Result<Self::Output, Error> {
+    fn lower(&self, _: &Context) -> Result<Self::Output, Error> {
         let x = ir::Expression::UtxoRefs(vec![UtxoRef {
             txid: self.txid.clone(),
             index: self.index as u32,
@@ -293,7 +293,7 @@ impl IntoLower for ast::UtxoRef {
 impl IntoLower for ast::StructConstructor {
     type Output = ir::StructExpr;
 
-    fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
+    fn lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
         let type_def = expect_type_def(&self.r#type)
             .or_else(|_| {
                 expect_alias_def(&self.r#type).and_then(|alias_def| {
@@ -316,14 +316,14 @@ impl IntoLower for ast::StructConstructor {
             let value = self.case.find_field_value(&field_def.name.value);
 
             if let Some(value) = value {
-                fields.push(value.into_lower(ctx)?);
+                fields.push(value.lower(ctx)?);
             } else {
                 let spread_target = self
                     .case
                     .spread
                     .as_ref()
                     .expect("spread must be set for missing explicit field")
-                    .into_lower(ctx)?;
+                    .lower(ctx)?;
 
                 fields.push(ir::Expression::EvalBuiltIn(Box::new(
                     ir::BuiltInOp::Property(spread_target, ir::Expression::Number(index as i128)),
@@ -341,11 +341,11 @@ impl IntoLower for ast::StructConstructor {
 impl IntoLower for ast::PolicyField {
     type Output = ir::Expression;
 
-    fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
+    fn lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
         match self {
-            ast::PolicyField::Hash(x) => x.into_lower(ctx),
-            ast::PolicyField::Script(x) => x.into_lower(ctx),
-            ast::PolicyField::Ref(x) => x.into_lower(ctx),
+            ast::PolicyField::Hash(x) => x.lower(ctx),
+            ast::PolicyField::Script(x) => x.lower(ctx),
+            ast::PolicyField::Ref(x) => x.lower(ctx),
         }
     }
 }
@@ -353,7 +353,7 @@ impl IntoLower for ast::PolicyField {
 impl IntoLower for ast::PolicyDef {
     type Output = ir::PolicyExpr;
 
-    fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
+    fn lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
         match &self.value {
             ast::PolicyValue::Assign(x) => {
                 let out = ir::PolicyExpr {
@@ -368,14 +368,11 @@ impl IntoLower for ast::PolicyDef {
                 let hash = x
                     .find_field("hash")
                     .ok_or(Error::InvalidAst("Missing policy hash".to_string()))?
-                    .into_lower(ctx)?;
+                    .lower(ctx)?;
 
-                let rf = x.find_field("ref").map(|x| x.into_lower(ctx)).transpose()?;
+                let rf = x.find_field("ref").map(|x| x.lower(ctx)).transpose()?;
 
-                let script = x
-                    .find_field("script")
-                    .map(|x| x.into_lower(ctx))
-                    .transpose()?;
+                let script = x.find_field("script").map(|x| x.lower(ctx)).transpose()?;
 
                 let script = match (rf, script) {
                     (Some(rf), Some(script)) => ir::ScriptSource::new_ref(rf, script),
@@ -399,7 +396,7 @@ impl IntoLower for ast::PolicyDef {
 impl IntoLower for ast::Type {
     type Output = Type;
 
-    fn into_lower(&self, _: &Context) -> Result<Self::Output, Error> {
+    fn lower(&self, _: &Context) -> Result<Self::Output, Error> {
         match self {
             ast::Type::Undefined => Ok(Type::Undefined),
             ast::Type::Unit => Ok(Type::Unit),
@@ -421,9 +418,9 @@ impl IntoLower for ast::Type {
 impl IntoLower for ast::AddOp {
     type Output = ir::Expression;
 
-    fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
-        let left = self.lhs.into_lower(ctx)?;
-        let right = self.rhs.into_lower(ctx)?;
+    fn lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
+        let left = self.lhs.lower(ctx)?;
+        let right = self.rhs.lower(ctx)?;
 
         Ok(ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Add(
             left, right,
@@ -434,9 +431,9 @@ impl IntoLower for ast::AddOp {
 impl IntoLower for ast::SubOp {
     type Output = ir::Expression;
 
-    fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
-        let left = self.lhs.into_lower(ctx)?;
-        let right = self.rhs.into_lower(ctx)?;
+    fn lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
+        let left = self.lhs.lower(ctx)?;
+        let right = self.rhs.lower(ctx)?;
 
         Ok(ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Sub(
             left, right,
@@ -447,9 +444,9 @@ impl IntoLower for ast::SubOp {
 impl IntoLower for ast::MulOp {
     type Output = ir::Expression;
 
-    fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
-        let left = self.lhs.into_lower(ctx)?;
-        let right = self.rhs.into_lower(ctx)?;
+    fn lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
+        let left = self.lhs.lower(ctx)?;
+        let right = self.rhs.lower(ctx)?;
 
         Ok(ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Mul(
             left, right,
@@ -460,9 +457,9 @@ impl IntoLower for ast::MulOp {
 impl IntoLower for ast::DivOp {
     type Output = ir::Expression;
 
-    fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
-        let left = self.lhs.into_lower(ctx)?;
-        let right = self.rhs.into_lower(ctx)?;
+    fn lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
+        let left = self.lhs.lower(ctx)?;
+        let right = self.rhs.lower(ctx)?;
 
         Ok(ir::Expression::EvalBuiltIn(Box::new(ir::BuiltInOp::Div(
             left, right,
@@ -473,9 +470,9 @@ impl IntoLower for ast::DivOp {
 impl IntoLower for ast::ConcatOp {
     type Output = ir::Expression;
 
-    fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
-        let left = self.lhs.into_lower(ctx)?;
-        let right = self.rhs.into_lower(ctx)?;
+    fn lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
+        let left = self.lhs.lower(ctx)?;
+        let right = self.rhs.lower(ctx)?;
 
         Ok(ir::Expression::EvalBuiltIn(Box::new(
             ir::BuiltInOp::Concat(left, right),
@@ -486,8 +483,8 @@ impl IntoLower for ast::ConcatOp {
 impl IntoLower for ast::NegateOp {
     type Output = ir::Expression;
 
-    fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
-        let operand = self.operand.into_lower(ctx)?;
+    fn lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
+        let operand = self.operand.lower(ctx)?;
 
         Ok(ir::Expression::EvalBuiltIn(Box::new(
             ir::BuiltInOp::Negate(operand),
@@ -498,7 +495,7 @@ impl IntoLower for ast::NegateOp {
 impl IntoLower for ast::FnCall {
     type Output = ir::Expression;
 
-    fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
+    fn lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
         // A callee that resolves to a function definition is either a built-in
         // (lowered to a dedicated compiler op) or a user-defined function
         // (inlined below).
@@ -516,11 +513,11 @@ impl IntoLower for ast::FnCall {
                 ))
             })?;
 
-            let lowered_body = body.result.into_lower(ctx)?;
+            let lowered_body = body.result.lower(ctx)?;
 
             let mut subs = std::collections::HashMap::new();
             for (param, arg) in fn_def.parameters.parameters.iter().zip(&self.args) {
-                subs.insert(param.name.value.to_lowercase(), arg.into_lower(ctx)?);
+                subs.insert(param.name.value.to_lowercase(), arg.lower(ctx)?);
             }
 
             use tx3_tir::Node;
@@ -534,9 +531,9 @@ impl IntoLower for ast::FnCall {
         // constructor.
         match coerce_identifier_into_asset_def(&self.callee) {
             Ok(asset_def) => {
-                let policy = asset_def.policy.into_lower(ctx)?;
-                let asset_name = asset_def.asset_name.into_lower(ctx)?;
-                let amount = self.args[0].into_lower(ctx)?;
+                let policy = asset_def.policy.lower(ctx)?;
+                let asset_name = asset_def.asset_name.lower(ctx)?;
+                let amount = self.args[0].lower(ctx)?;
 
                 Ok(ir::Expression::Assets(vec![ir::AssetExpr {
                     policy,
@@ -559,10 +556,7 @@ struct ParamSubstituter<'a> {
 }
 
 impl tx3_tir::Visitor for ParamSubstituter<'_> {
-    fn reduce(
-        &mut self,
-        expr: ir::Expression,
-    ) -> Result<ir::Expression, tx3_tir::reduce::Error> {
+    fn reduce(&mut self, expr: ir::Expression) -> Result<ir::Expression, tx3_tir::reduce::Error> {
         if let ir::Expression::EvalParam(ref param) = expr {
             if let ir::Param::ExpectValue(name, _) = param.as_ref() {
                 if let Some(replacement) = self.subs.get(name) {
@@ -577,8 +571,8 @@ impl tx3_tir::Visitor for ParamSubstituter<'_> {
 impl IntoLower for ast::PropertyOp {
     type Output = ir::Expression;
 
-    fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
-        let object = self.operand.into_lower(ctx)?;
+    fn lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
+        let object = self.operand.lower(ctx)?;
 
         let ty = self
             .operand
@@ -593,7 +587,7 @@ impl IntoLower for ast::PropertyOp {
                 ))?;
 
         Ok(ir::Expression::EvalBuiltIn(Box::new(
-            ir::BuiltInOp::Property(object, prop_index.into_lower(ctx)?),
+            ir::BuiltInOp::Property(object, prop_index.lower(ctx)?),
         )))
     }
 }
@@ -601,11 +595,11 @@ impl IntoLower for ast::PropertyOp {
 impl IntoLower for ast::ListConstructor {
     type Output = Vec<ir::Expression>;
 
-    fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
+    fn lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
         let elements = self
             .elements
             .iter()
-            .map(|x| x.into_lower(ctx))
+            .map(|x| x.lower(ctx))
             .collect::<Result<Vec<_>, _>>()?;
 
         Ok(elements)
@@ -615,11 +609,11 @@ impl IntoLower for ast::ListConstructor {
 impl IntoLower for ast::TupleConstructor {
     type Output = ir::Expression;
 
-    fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
+    fn lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
         let elements = self
             .elements
             .iter()
-            .map(|x| x.into_lower(ctx))
+            .map(|x| x.lower(ctx))
             .collect::<Result<Vec<_>, _>>()?;
 
         Ok(ir::Expression::Tuple(elements))
@@ -629,13 +623,13 @@ impl IntoLower for ast::TupleConstructor {
 impl IntoLower for ast::MapConstructor {
     type Output = ir::Expression;
 
-    fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
+    fn lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
         let pairs = self
             .fields
             .iter()
             .map(|field| {
-                let key = field.key.into_lower(ctx)?;
-                let value = field.value.into_lower(ctx)?;
+                let key = field.key.lower(ctx)?;
+                let value = field.value.lower(ctx)?;
                 Ok((key, value))
             })
             .collect::<Result<Vec<_>, _>>()?;
@@ -647,29 +641,29 @@ impl IntoLower for ast::MapConstructor {
 impl IntoLower for ast::DataExpr {
     type Output = ir::Expression;
 
-    fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
+    fn lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
         let out = match self {
             ast::DataExpr::None => ir::Expression::None,
             ast::DataExpr::Number(x) => Self::Output::Number(*x as i128),
             ast::DataExpr::Bool(x) => ir::Expression::Bool(*x),
             ast::DataExpr::String(x) => ir::Expression::String(x.value.clone()),
             ast::DataExpr::HexString(x) => ir::Expression::Bytes(hex_decode(&x.value)?),
-            ast::DataExpr::StructConstructor(x) => ir::Expression::Struct(x.into_lower(ctx)?),
-            ast::DataExpr::ListConstructor(x) => ir::Expression::List(x.into_lower(ctx)?),
-            ast::DataExpr::MapConstructor(x) => x.into_lower(ctx)?,
-            ast::DataExpr::TupleConstructor(x) => x.into_lower(ctx)?,
-            ast::DataExpr::AnyAssetConstructor(x) => x.into_lower(ctx)?,
+            ast::DataExpr::StructConstructor(x) => ir::Expression::Struct(x.lower(ctx)?),
+            ast::DataExpr::ListConstructor(x) => ir::Expression::List(x.lower(ctx)?),
+            ast::DataExpr::MapConstructor(x) => x.lower(ctx)?,
+            ast::DataExpr::TupleConstructor(x) => x.lower(ctx)?,
+            ast::DataExpr::AnyAssetConstructor(x) => x.lower(ctx)?,
             ast::DataExpr::Unit => ir::Expression::Struct(ir::StructExpr::unit()),
-            ast::DataExpr::Identifier(x) => x.into_lower(ctx)?,
-            ast::DataExpr::AddOp(x) => x.into_lower(ctx)?,
-            ast::DataExpr::SubOp(x) => x.into_lower(ctx)?,
-            ast::DataExpr::MulOp(x) => x.into_lower(ctx)?,
-            ast::DataExpr::DivOp(x) => x.into_lower(ctx)?,
-            ast::DataExpr::ConcatOp(x) => x.into_lower(ctx)?,
-            ast::DataExpr::NegateOp(x) => x.into_lower(ctx)?,
-            ast::DataExpr::PropertyOp(x) => x.into_lower(ctx)?,
-            ast::DataExpr::UtxoRef(x) => x.into_lower(ctx)?,
-            ast::DataExpr::FnCall(x) => x.into_lower(ctx)?,
+            ast::DataExpr::Identifier(x) => x.lower(ctx)?,
+            ast::DataExpr::AddOp(x) => x.lower(ctx)?,
+            ast::DataExpr::SubOp(x) => x.lower(ctx)?,
+            ast::DataExpr::MulOp(x) => x.lower(ctx)?,
+            ast::DataExpr::DivOp(x) => x.lower(ctx)?,
+            ast::DataExpr::ConcatOp(x) => x.lower(ctx)?,
+            ast::DataExpr::NegateOp(x) => x.lower(ctx)?,
+            ast::DataExpr::PropertyOp(x) => x.lower(ctx)?,
+            ast::DataExpr::UtxoRef(x) => x.lower(ctx)?,
+            ast::DataExpr::FnCall(x) => x.lower(ctx)?,
         };
 
         Ok(out)
@@ -679,15 +673,15 @@ impl IntoLower for ast::DataExpr {
 impl IntoLower for ast::AnyAssetConstructor {
     type Output = ir::Expression;
 
-    fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
+    fn lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
         let ctx = &ctx.enter_datum_expr();
-        let policy = self.policy.into_lower(ctx)?;
+        let policy = self.policy.lower(ctx)?;
 
         let ctx = &ctx.enter_datum_expr();
-        let asset_name = self.asset_name.into_lower(ctx)?;
+        let asset_name = self.asset_name.lower(ctx)?;
 
         let ctx = &ctx.enter_datum_expr();
-        let amount = self.amount.into_lower(ctx)?;
+        let amount = self.amount.lower(ctx)?;
 
         Ok(ir::Expression::Assets(vec![ir::AssetExpr {
             policy,
@@ -700,23 +694,23 @@ impl IntoLower for ast::AnyAssetConstructor {
 impl IntoLower for ast::InputBlockField {
     type Output = ir::Expression;
 
-    fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
+    fn lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
         match self {
             ast::InputBlockField::From(x) => {
                 // Spending from a script address runs its script.
                 let ctx = ctx.enter_address_expr().capturing_policy_refs();
-                x.into_lower(&ctx)
+                x.lower(&ctx)
             }
             ast::InputBlockField::DatumIs(_) => todo!(),
             ast::InputBlockField::MinAmount(x) => {
                 let ctx = ctx.enter_asset_expr();
-                x.into_lower(&ctx)
+                x.lower(&ctx)
             }
             ast::InputBlockField::Redeemer(x) => {
                 let ctx = ctx.enter_datum_expr();
-                x.into_lower(&ctx)
+                x.lower(&ctx)
             }
-            ast::InputBlockField::Ref(x) => x.into_lower(ctx),
+            ast::InputBlockField::Ref(x) => x.lower(ctx),
         }
     }
 }
@@ -724,21 +718,18 @@ impl IntoLower for ast::InputBlockField {
 impl IntoLower for ast::InputBlock {
     type Output = ir::Input;
 
-    fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
+    fn lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
         let from_field = self.find("from");
 
-        let address = from_field.map(|x| x.into_lower(ctx)).transpose()?;
+        let address = from_field.map(|x| x.lower(ctx)).transpose()?;
 
-        let min_amount = self
-            .find("min_amount")
-            .map(|x| x.into_lower(ctx))
-            .transpose()?;
+        let min_amount = self.find("min_amount").map(|x| x.lower(ctx)).transpose()?;
 
-        let r#ref = self.find("ref").map(|x| x.into_lower(ctx)).transpose()?;
+        let r#ref = self.find("ref").map(|x| x.lower(ctx)).transpose()?;
 
         let redeemer = self
             .find("redeemer")
-            .map(|x| x.into_lower(ctx))
+            .map(|x| x.lower(ctx))
             .transpose()?
             .unwrap_or(ir::Expression::None);
 
@@ -765,19 +756,19 @@ impl IntoLower for ast::InputBlock {
 impl IntoLower for ast::OutputBlockField {
     type Output = ir::Expression;
 
-    fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
+    fn lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
         match self {
             ast::OutputBlockField::To(x) => {
                 let ctx = ctx.enter_address_expr();
-                x.into_lower(&ctx)
+                x.lower(&ctx)
             }
             ast::OutputBlockField::Amount(x) => {
                 let ctx = ctx.enter_asset_expr();
-                x.into_lower(&ctx)
+                x.lower(&ctx)
             }
             ast::OutputBlockField::Datum(x) => {
                 let ctx = ctx.enter_datum_expr();
-                x.into_lower(&ctx)
+                x.lower(&ctx)
             }
         }
     }
@@ -786,10 +777,10 @@ impl IntoLower for ast::OutputBlockField {
 impl IntoLower for ast::OutputBlock {
     type Output = ir::Output;
 
-    fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
-        let address = self.find("to").into_lower(ctx)?.unwrap_or_default();
-        let datum = self.find("datum").into_lower(ctx)?.unwrap_or_default();
-        let amount = self.find("amount").into_lower(ctx)?.unwrap_or_default();
+    fn lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
+        let address = self.find("to").lower(ctx)?.unwrap_or_default();
+        let datum = self.find("datum").lower(ctx)?.unwrap_or_default();
+        let amount = self.find("amount").lower(ctx)?.unwrap_or_default();
 
         Ok(ir::Output {
             address,
@@ -803,10 +794,10 @@ impl IntoLower for ast::OutputBlock {
 impl IntoLower for ast::ValidityBlockField {
     type Output = ir::Expression;
 
-    fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
+    fn lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
         match self {
-            ast::ValidityBlockField::SinceSlot(x) => x.into_lower(ctx),
-            ast::ValidityBlockField::UntilSlot(x) => x.into_lower(ctx),
+            ast::ValidityBlockField::SinceSlot(x) => x.lower(ctx),
+            ast::ValidityBlockField::UntilSlot(x) => x.lower(ctx),
         }
     }
 }
@@ -814,9 +805,9 @@ impl IntoLower for ast::ValidityBlockField {
 impl IntoLower for ast::ValidityBlock {
     type Output = ir::Validity;
 
-    fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
-        let since = self.find("since_slot").into_lower(ctx)?.unwrap_or_default();
-        let until = self.find("until_slot").into_lower(ctx)?.unwrap_or_default();
+    fn lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
+        let since = self.find("since_slot").lower(ctx)?.unwrap_or_default();
+        let until = self.find("until_slot").lower(ctx)?.unwrap_or_default();
 
         Ok(ir::Validity { since, until })
     }
@@ -825,11 +816,11 @@ impl IntoLower for ast::ValidityBlock {
 impl IntoLower for ast::MintBlockField {
     type Output = ir::Expression;
 
-    fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
+    fn lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
         match self {
             // Minting/burning runs the asset's policy script.
-            ast::MintBlockField::Amount(x) => x.into_lower(&ctx.capturing_policy_refs()),
-            ast::MintBlockField::Redeemer(x) => x.into_lower(ctx),
+            ast::MintBlockField::Amount(x) => x.lower(&ctx.capturing_policy_refs()),
+            ast::MintBlockField::Redeemer(x) => x.lower(ctx),
         }
     }
 }
@@ -837,9 +828,9 @@ impl IntoLower for ast::MintBlockField {
 impl IntoLower for ast::MintBlock {
     type Output = ir::Mint;
 
-    fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
-        let amount = self.find("amount").into_lower(ctx)?.unwrap_or_default();
-        let redeemer = self.find("redeemer").into_lower(ctx)?.unwrap_or_default();
+    fn lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
+        let amount = self.find("amount").lower(ctx)?.unwrap_or_default();
+        let redeemer = self.find("redeemer").lower(ctx)?.unwrap_or_default();
 
         Ok(ir::Mint { amount, redeemer })
     }
@@ -847,10 +838,10 @@ impl IntoLower for ast::MintBlock {
 
 impl IntoLower for ast::MetadataBlockField {
     type Output = ir::Metadata;
-    fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
+    fn lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
         Ok(ir::Metadata {
-            key: self.key.into_lower(ctx)?,
-            value: self.value.into_lower(ctx)?,
+            key: self.key.lower(ctx)?,
+            value: self.value.lower(ctx)?,
         })
     }
 }
@@ -858,11 +849,11 @@ impl IntoLower for ast::MetadataBlockField {
 impl IntoLower for ast::MetadataBlock {
     type Output = Vec<ir::Metadata>;
 
-    fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
+    fn lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
         let fields = self
             .fields
             .iter()
-            .map(|metadata_field| metadata_field.into_lower(ctx))
+            .map(|metadata_field| metadata_field.lower(ctx))
             .collect::<Result<Vec<_>, _>>()?;
 
         Ok(fields)
@@ -872,9 +863,9 @@ impl IntoLower for ast::MetadataBlock {
 impl IntoLower for ast::ChainSpecificBlock {
     type Output = ir::AdHocDirective;
 
-    fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
+    fn lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
         match self {
-            ast::ChainSpecificBlock::Cardano(x) => x.into_lower(ctx),
+            ast::ChainSpecificBlock::Cardano(x) => x.lower(ctx),
         }
     }
 }
@@ -882,8 +873,8 @@ impl IntoLower for ast::ChainSpecificBlock {
 impl IntoLower for ast::ReferenceBlock {
     type Output = ir::Expression;
 
-    fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
-        let r#ref = self.r#ref.into_lower(ctx)?;
+    fn lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
+        let r#ref = self.r#ref.lower(ctx)?;
 
         let query = ir::InputQuery {
             address: ir::Expression::None,
@@ -910,11 +901,11 @@ impl IntoLower for ast::ReferenceBlock {
 impl IntoLower for ast::CollateralBlockField {
     type Output = ir::Expression;
 
-    fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
+    fn lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
         match self {
-            ast::CollateralBlockField::From(x) => x.into_lower(ctx),
-            ast::CollateralBlockField::MinAmount(x) => x.into_lower(ctx),
-            ast::CollateralBlockField::Ref(x) => x.into_lower(ctx),
+            ast::CollateralBlockField::From(x) => x.lower(ctx),
+            ast::CollateralBlockField::MinAmount(x) => x.lower(ctx),
+            ast::CollateralBlockField::Ref(x) => x.lower(ctx),
         }
     }
 }
@@ -922,15 +913,12 @@ impl IntoLower for ast::CollateralBlockField {
 impl IntoLower for ast::CollateralBlock {
     type Output = ir::Collateral;
 
-    fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
-        let from = self.find("from").map(|x| x.into_lower(ctx)).transpose()?;
+    fn lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
+        let from = self.find("from").map(|x| x.lower(ctx)).transpose()?;
 
-        let min_amount = self
-            .find("min_amount")
-            .map(|x| x.into_lower(ctx))
-            .transpose()?;
+        let min_amount = self.find("min_amount").map(|x| x.lower(ctx)).transpose()?;
 
-        let r#ref = self.find("ref").map(|x| x.into_lower(ctx)).transpose()?;
+        let r#ref = self.find("ref").map(|x| x.lower(ctx)).transpose()?;
 
         let query = ir::InputQuery {
             address: from.unwrap_or(ir::Expression::None),
@@ -953,12 +941,12 @@ impl IntoLower for ast::CollateralBlock {
 impl IntoLower for ast::SignersBlock {
     type Output = ir::Signers;
 
-    fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
+    fn lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
         Ok(ir::Signers {
             signers: self
                 .signers
                 .iter()
-                .map(|x| x.into_lower(ctx))
+                .map(|x| x.lower(ctx))
                 .collect::<Result<Vec<_>, _>>()?,
         })
     }
@@ -967,58 +955,50 @@ impl IntoLower for ast::SignersBlock {
 impl IntoLower for ast::TxDef {
     type Output = ir::Tx;
 
-    fn into_lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
+    fn lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
         // Seed with explicit `reference` blocks first so they dedup against,
         // and precede, refs that the body derives from ref-backed policies.
         for reference in self.references.iter() {
-            let r#ref = reference.r#ref.into_lower(ctx)?;
+            let r#ref = reference.r#ref.lower(ctx)?;
             ctx.record_script_ref(r#ref);
         }
 
         let inputs = self
             .inputs
             .iter()
-            .map(|x| x.into_lower(ctx))
+            .map(|x| x.lower(ctx))
             .collect::<Result<Vec<_>, _>>()?;
         let outputs = self
             .outputs
             .iter()
-            .map(|x| x.into_lower(ctx))
+            .map(|x| x.lower(ctx))
             .collect::<Result<Vec<_>, _>>()?;
-        let validity = self
-            .validity
-            .as_ref()
-            .map(|x| x.into_lower(ctx))
-            .transpose()?;
+        let validity = self.validity.as_ref().map(|x| x.lower(ctx)).transpose()?;
         let mints = self
             .mints
             .iter()
-            .map(|x| x.into_lower(ctx))
+            .map(|x| x.lower(ctx))
             .collect::<Result<Vec<_>, _>>()?;
         let burns = self
             .burns
             .iter()
-            .map(|x| x.into_lower(ctx))
+            .map(|x| x.lower(ctx))
             .collect::<Result<Vec<_>, _>>()?;
         let adhoc = self
             .adhoc
             .iter()
-            .map(|x| x.into_lower(ctx))
+            .map(|x| x.lower(ctx))
             .collect::<Result<Vec<_>, _>>()?;
         let collateral = self
             .collateral
             .iter()
-            .map(|x| x.into_lower(ctx))
+            .map(|x| x.lower(ctx))
             .collect::<Result<Vec<_>, _>>()?;
-        let signers = self
-            .signers
-            .as_ref()
-            .map(|x| x.into_lower(ctx))
-            .transpose()?;
+        let signers = self.signers.as_ref().map(|x| x.lower(ctx)).transpose()?;
         let metadata = self
             .metadata
             .as_ref()
-            .map(|x| x.into_lower(ctx))
+            .map(|x| x.lower(ctx))
             .transpose()?
             .unwrap_or(vec![]);
 
@@ -1043,7 +1023,7 @@ impl IntoLower for ast::TxDef {
 pub fn lower_tx(ast: &ast::TxDef) -> Result<ir::Tx, Error> {
     let ctx = &Context::default();
 
-    let tx = ast.into_lower(ctx)?;
+    let tx = ast.lower(ctx)?;
 
     Ok(tx)
 }

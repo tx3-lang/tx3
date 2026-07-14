@@ -80,10 +80,8 @@ fn address_to_bytes(address: &str) -> ArgValue {
 }
 
 fn wildcard_utxos(datum: Option<tir::Expression>) -> UtxoSet {
-    let tx_hash = hex::decode("267aae354f0d14d82877fa5720f7ddc9b0e3eea3cd2a0757af77db4d975ba81c")
-        .unwrap()
-        .try_into()
-        .unwrap();
+    let tx_hash =
+        hex::decode("267aae354f0d14d82877fa5720f7ddc9b0e3eea3cd2a0757af77db4d975ba81c").unwrap();
 
     let address = pallas::ledger::addresses::Address::from_bech32("addr1qx0rs5qrvx9qkndwu0w88t0xghgy3f53ha76kpx8uf496m9rn2ursdm3r0fgf5pmm4lpufshl8lquk5yykg4pd00hp6quf2hh2").unwrap().to_vec();
 

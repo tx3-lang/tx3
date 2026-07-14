@@ -73,7 +73,7 @@ impl DiagnosticDump for Utxo {
 impl DiagnosticDump for CanonicalQuery {
     fn to_dump(&self) -> Value {
         json!({
-            "address": self.address.as_ref().map(|a| hex::encode(a)),
+            "address": self.address.as_ref().map(hex::encode),
             "min_amount": self.min_amount.as_ref().map(|a| a.to_dump()),
             "refs": self.refs.iter().map(|r| r.to_dump()).collect::<Vec<_>>(),
             "support_many": self.support_many,
@@ -164,8 +164,7 @@ pub fn dump_to_dir(job: &ResolveJob, dir: &Path) -> Result<String, std::io::Erro
     let dump_id = uuid::Uuid::new_v4().to_string();
     let path = dir.join(format!("resolve-job-{dump_id}.json"));
     let file = std::fs::File::create(&path)?;
-    serde_json::to_writer_pretty(file, &job.to_dump())
-        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+    serde_json::to_writer_pretty(file, &job.to_dump()).map_err(std::io::Error::other)?;
     tracing::debug!(dump_id = %dump_id, path = %path.display(), "diagnostic dump written");
     Ok(dump_id)
 }

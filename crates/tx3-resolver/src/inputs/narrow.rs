@@ -250,11 +250,7 @@ mod tests {
     use crate::test_utils as mock;
 
     fn assets_for(asset: mock::KnownAsset, amount: i128) -> CanonicalAssets {
-        CanonicalAssets::from_asset(
-            Some(asset.policy().as_ref()),
-            Some(asset.name().as_ref()),
-            amount,
-        )
+        CanonicalAssets::from_asset(Some(asset.policy().as_ref()), Some(asset.name()), amount)
     }
 
     fn cq(
@@ -274,7 +270,7 @@ mod tests {
     fn prepare_store() -> mock::MockStore {
         mock::seed_random_memory_store(
             |_: &mock::FuzzTxoRef, x: &mock::KnownAddress, seq: u64| {
-                if seq % 2 == 0 {
+                if seq.is_multiple_of(2) {
                     mock::utxo_with_random_asset(x, mock::KnownAsset::Hosky, 500..1000)
                 } else {
                     mock::utxo_with_random_amount(x, 4_000_000..5_000_000)

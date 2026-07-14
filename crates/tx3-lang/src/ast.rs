@@ -845,10 +845,9 @@ impl DataExpr {
             DataExpr::HexString(_) => Some(Type::Bytes),
             DataExpr::StructConstructor(x) => x.target_type(),
             DataExpr::MapConstructor(x) => x.target_type(),
-            DataExpr::ListConstructor(x) => match x.target_type() {
-                Some(inner) => Some(Type::List(Box::new(inner))),
-                None => None,
-            },
+            DataExpr::ListConstructor(x) => {
+                x.target_type().map(|inner| Type::List(Box::new(inner)))
+            }
             DataExpr::TupleConstructor(x) => x.target_type(),
             DataExpr::AddOp(x) => x.target_type(),
             DataExpr::SubOp(x) => x.target_type(),

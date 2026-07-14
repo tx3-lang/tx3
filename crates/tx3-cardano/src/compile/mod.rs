@@ -1,9 +1,9 @@
-use std::collections::{BTreeMap, HashSet};
+use std::collections::BTreeMap;
 
 use pallas::{
     codec::{
         minicbor,
-        utils::{KeepRaw, MaybeIndefArray, NonEmptySet},
+        utils::{KeepRaw, NonEmptySet},
     },
     ledger::{
         primitives::{
@@ -805,35 +805,6 @@ fn compile_redeemers(
     } else {
         Ok(Some(primitives::Redeemers::Map(map)))
     }
-}
-
-/// Crawls the transaction body to find all the required scripts.
-fn infer_required_scripts(
-    compiled_body: &primitives::TransactionBody,
-) -> HashSet<primitives::Hash<28>> {
-    let mint_policies = compiled_body
-        .mint
-        .iter()
-        .flatten()
-        .map(|(p, _)| *p)
-        .collect::<Vec<_>>();
-
-    // TODO: evaluate inputs searching for script addresses
-
-    // TODO: evaluate withdrawals searching for script addresses
-
-    // TODO: other sources for scripts
-
-    let all_scripts = HashSet::from_iter(mint_policies);
-
-    // TODO: remove if script is already present via reference inputs
-
-    all_scripts
-}
-
-fn find_script_for_hash(tx: &tir::Tx, hash: primitives::Hash<28>) -> Option<tir::Expression> {
-    // TODO: we need to track script symbols as part of the IR
-    todo!()
 }
 
 fn compile_adhoc_plutus_witness<const V: usize>(tx: &tir::Tx) -> Vec<PlutusScript<V>> {

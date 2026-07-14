@@ -79,9 +79,7 @@ impl tx3_tir::compile::Compiler for Compiler {
     type Expression = tir::Expression;
 
     fn compile(&mut self, tir: &AnyTir) -> Result<CompiledTx, CompileError> {
-        let AnyTir::V1Beta0(tx) = tir else {
-            return Err(CompileError::UnsupportedTirVersion(tir.version()));
-        };
+        let AnyTir::V1Beta0(tx) = tir;
 
         let compiled_tx = compile::entry_point(tx, &self.pparams)?;
 

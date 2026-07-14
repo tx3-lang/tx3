@@ -48,8 +48,9 @@ pub fn run(args: Args) -> anyhow::Result<()> {
         .tir;
 
     let raw = match envelope.encoding {
-        BytesEncoding::Hex => hex::decode(&envelope.content)
-            .map_err(|e| anyhow::anyhow!("decoding hex TIR: {e}"))?,
+        BytesEncoding::Hex => {
+            hex::decode(&envelope.content).map_err(|e| anyhow::anyhow!("decoding hex TIR: {e}"))?
+        }
         BytesEncoding::Base64 => anyhow::bail!(
             "interface TIR is base64-encoded, which this tx3c does not support; \
              ask the publisher to re-publish"

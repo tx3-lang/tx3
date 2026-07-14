@@ -159,7 +159,8 @@ pub fn string_to_bigint(s: String) -> Result<i128, Error> {
             .map_err(|x| Error::InvalidBytesForNumber(hex::encode(x)))?;
         Ok(i128::from_be_bytes(bytes))
     } else {
-        let i = i128::from_str_radix(&s, 10)
+        let i = s
+            .parse::<i128>()
             .map_err(|x| Error::InvalidBytesForNumber(x.to_string()))?;
         Ok(i)
     }
@@ -290,8 +291,16 @@ fn is_tagged(value: &Value) -> bool {
     matches!(
         single_key(value),
         Some((
-            "int" | "bool" | "string" | "bytes" | "address" | "utxoRef" | "list" | "tuple"
-                | "map" | "struct",
+            "int"
+                | "bool"
+                | "string"
+                | "bytes"
+                | "address"
+                | "utxoRef"
+                | "list"
+                | "tuple"
+                | "map"
+                | "struct",
             _,
         ))
     )
@@ -391,10 +400,10 @@ fn decode_struct(value: Value) -> Result<ArgValue, Error> {
         x => return Err(Error::MalformedStruct(x)),
     };
 
-    let constructor = obj
-        .get("constructor")
-        .and_then(Value::as_u64)
-        .ok_or_else(|| Error::MalformedStruct(Value::Object(obj.clone())))? as usize;
+    let constructor =
+        obj.get("constructor")
+            .and_then(Value::as_u64)
+            .ok_or_else(|| Error::MalformedStruct(Value::Object(obj.clone())))? as usize;
 
     let fields = obj
         .remove("fields")
@@ -440,7 +449,9 @@ pub fn tagged_arg_to_json(arg: &ArgValue) -> Value {
         ArgValue::String(s) => serde_json::json!({ "string": s }),
         ArgValue::Bytes(v) => serde_json::json!({ "bytes": hex::encode(v) }),
         ArgValue::Address(v) => serde_json::json!({ "address": hex::encode(v) }),
-        ArgValue::UtxoRef(r) => serde_json::json!({ "utxoRef": format!("{}#{}", hex::encode(&r.txid), r.index) }),
+        ArgValue::UtxoRef(r) => {
+            serde_json::json!({ "utxoRef": format!("{}#{}", hex::encode(&r.txid), r.index) })
+        }
         // A resolved UTxO set is not a tagged leaf; surface it as null.
         ArgValue::UtxoSet(_) => Value::Null,
         ArgValue::List(xs) => {
@@ -522,14 +533,14 @@ pub fn utxo_from_json(value: &Value) -> Result<Utxo, Error> {
         .filter(|v| !v.is_null())
         .map(|v| serde_json::from_value(v.clone()))
         .transpose()
-        .map_err(|e| Error::InvalidBytesEnvelope(e))?;
+        .map_err(Error::InvalidBytesEnvelope)?;
 
     let script = value
         .get("script")
         .filter(|v| !v.is_null())
         .map(|v| serde_json::from_value(v.clone()))
         .transpose()
-        .map_err(|e| Error::InvalidBytesEnvelope(e))?;
+        .map_err(Error::InvalidBytesEnvelope)?;
 
     Ok(Utxo {
         r#ref: utxo_ref,
@@ -759,7 +770,11 @@ mod tests {
     #[test]
     fn decode_accepts_tagged_scalar_leniently() {
         assert_from_json(json!({ "int": 5 }), Type::Int, ArgValue::Int(5));
-        assert_from_json(json!({ "bytes": "cafe" }), Type::Bytes, ArgValue::Bytes(vec![0xca, 0xfe]));
+        assert_from_json(
+            json!({ "bytes": "cafe" }),
+            Type::Bytes,
+            ArgValue::Bytes(vec![0xca, 0xfe]),
+        );
     }
 
     #[test]

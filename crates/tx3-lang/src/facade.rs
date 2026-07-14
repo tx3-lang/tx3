@@ -159,7 +159,7 @@ pub mod tests {
         let manifest_dir = env!("CARGO_MANIFEST_DIR");
 
         let mut workspace =
-            Workspace::from_file(&format!("{manifest_dir}/../..//examples/transfer.tx3")).unwrap();
+            Workspace::from_file(format!("{manifest_dir}/../..//examples/transfer.tx3")).unwrap();
 
         workspace.parse().unwrap();
         workspace.analyze().unwrap();

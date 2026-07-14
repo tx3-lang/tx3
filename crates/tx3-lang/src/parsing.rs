@@ -643,7 +643,7 @@ impl AstNode for OutputBlock {
 
         let optional = inner
             .peek()
-            .map_or(false, |first| first.as_rule() == Rule::output_optional);
+            .is_some_and(|first| first.as_rule() == Rule::output_optional);
 
         if optional {
             inner.next();
@@ -1805,10 +1805,7 @@ mod tests {
         Type,
         "tuple_nested",
         "Tuple<Tuple<Int, Int>, Bytes>",
-        Type::Tuple(vec![
-            Type::Tuple(vec![Type::Int, Type::Int]),
-            Type::Bytes,
-        ])
+        Type::Tuple(vec![Type::Tuple(vec![Type::Int, Type::Int]), Type::Bytes,])
     );
 
     input_to_ast_check!(

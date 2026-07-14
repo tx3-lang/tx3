@@ -9,6 +9,7 @@ use tx3_tir::model::{
 };
 
 pub mod naive;
+#[cfg(not(feature = "naive_selector"))]
 pub mod vector;
 
 /// Rank candidates by relevance to a target asset composition.

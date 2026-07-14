@@ -272,7 +272,7 @@ impl UtxoStore for MockStore {
     async fn narrow_refs(&self, pattern: UtxoPattern<'_>) -> Result<HashSet<UtxoRef>, Error> {
         match pattern {
             UtxoPattern::ByAddress(address) => {
-                let address = chainfuzz::Address::try_from(address).unwrap();
+                let address = chainfuzz::Address::from(address);
 
                 let narrow = self
                     .utxos
@@ -301,7 +301,7 @@ impl UtxoStore for MockStore {
             }
             UtxoPattern::ByAsset(policy, name) => {
                 let policy = chainfuzz::AssetPolicy::try_from(policy).unwrap();
-                let name = chainfuzz::AssetName::try_from(name).unwrap();
+                let name = chainfuzz::AssetName::from(name);
                 let asset_class = chainfuzz::AssetClass::new(policy, name);
 
                 let narrow = self
@@ -330,7 +330,7 @@ impl UtxoStore for MockStore {
                 chainfuzz::TxoRef::new(tx_hash, ordinal)
             })
             .map(|txo| (txo, self.utxos.get(&txo).unwrap()))
-            .map(|(txo, fuzz_utxo)| from_fuzz_utxo(&txo, &fuzz_utxo))
+            .map(|(txo, fuzz_utxo)| from_fuzz_utxo(&txo, fuzz_utxo))
             .collect::<Vec<_>>();
 
         Ok(utxos.into_iter().collect())
@@ -348,7 +348,7 @@ impl MockStore {
     pub async fn by_known_asset(&self, asset: &KnownAsset) -> HashSet<UtxoRef> {
         let policy = asset.policy();
         let name = asset.name();
-        let pattern = UtxoPattern::ByAsset(policy.as_ref(), name.as_ref());
+        let pattern = UtxoPattern::ByAsset(policy.as_ref(), name);
 
         self.narrow_refs(pattern).await.unwrap()
     }

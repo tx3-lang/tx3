@@ -717,10 +717,7 @@ impl Analyzable for StructConstructor {
                 bail_report!(Error::invalid_symbol("struct type", symbol, &self.r#type));
             }
             None => {
-                bail_report!(Error::not_in_scope(
-                    self.r#type.value.clone(),
-                    &self.r#type
-                ));
+                bail_report!(Error::not_in_scope(self.r#type.value.clone(), &self.r#type));
             }
         };
 
@@ -843,7 +840,12 @@ impl Analyzable for crate::ast::FnCall {
             .symbol
             .as_ref()
             .and_then(|s| s.as_fn_def())
-            .map(|fn_def| (fn_def.name.value.clone(), fn_def.parameters.parameters.len()));
+            .map(|fn_def| {
+                (
+                    fn_def.name.value.clone(),
+                    fn_def.parameters.parameters.len(),
+                )
+            });
 
         if let Some((name, expected)) = signature {
             let got = self.args.len();
@@ -1071,15 +1073,19 @@ impl Analyzable for MetadataBlockField {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
         let mut report = self.key.analyze(parent.clone()) + self.value.analyze(parent.clone());
 
-        validate_metadata_key_type(&self.key)
+        if let Some(e) = validate_metadata_key_type(&self.key)
             .map_err(Error::MetadataInvalidKeyType)
             .err()
-            .map(|e| report.errors.push(e));
+        {
+            report.errors.push(e)
+        }
 
-        validate_metadata_value_size(&self.value)
+        if let Some(e) = validate_metadata_value_size(&self.value)
             .map_err(Error::MetadataSizeLimitExceeded)
             .err()
-            .map(|e| report.errors.push(e));
+        {
+            report.errors.push(e)
+        }
 
         report
     }
@@ -1146,7 +1152,7 @@ impl Analyzable for OutputBlock {
     fn analyze(&mut self, parent: Option<Rc<Scope>>) -> AnalyzeReport {
         validate_optional_output(self)
             .map(AnalyzeReport::from)
-            .unwrap_or_else(|| AnalyzeReport::default())
+            .unwrap_or_default()
             + self.fields.analyze(parent)
     }
 
@@ -1387,8 +1393,7 @@ impl Analyzable for FnDef {
     }
 
     fn is_resolved(&self) -> bool {
-        self.parameters.is_resolved()
-            && self.body.as_ref().map_or(true, |b| b.is_resolved())
+        self.parameters.is_resolved() && self.body.as_ref().is_none_or(|b| b.is_resolved())
     }
 }
 
@@ -1421,7 +1426,7 @@ impl TxDef {
             }
         }
 
-        for (_, input) in self.inputs.iter().enumerate() {
+        for input in self.inputs.iter() {
             scope.track_input(&input.name, input.clone())
         }
 
@@ -1608,8 +1613,7 @@ impl Analyzable for Program {
         // policy through its symbol-table entry, so re-track the analyzed
         // definitions here.
         {
-            let scope =
-                Rc::get_mut(scope_rc).expect("scope should be unique during resolution");
+            let scope = Rc::get_mut(scope_rc).expect("scope should be unique during resolution");
             for policy in self.policies.iter() {
                 scope.track_policy_def(policy);
             }
