@@ -577,15 +577,12 @@ impl IntoLower for ast::PropertyOp {
             .target_type()
             .ok_or(Error::MissingAnalyzePhase(format!("{0:?}", self.operand)))?;
 
-        // `datum_is`-annotated operands report a `Type::Custom` datum type.
-        // Force datum context so the operand coerces to its datum (which is
-        // `Indexable`) instead of its assets (which is not), even inside
+        // Property access is a structured-data read, so the operand must
+        // lower in datum context regardless of the surrounding expression:
+        // `datum_is`-annotated operands then coerce to their datum (which is
+        // `Indexable`) instead of their assets (which are not), even inside
         // amount/min_amount/change expressions.
-        let object = if matches!(ty, ast::Type::Custom(_)) {
-            self.operand.lower(&ctx.enter_datum_expr())?
-        } else {
-            self.operand.lower(ctx)?
-        };
+        let object = self.operand.lower(&ctx.enter_datum_expr())?;
 
         let prop_index =
             ty.property_index(*self.property.clone())
