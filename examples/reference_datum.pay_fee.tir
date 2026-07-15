@@ -1,0 +1,630 @@
+{
+  "fees": {
+    "EvalParam": "ExpectFees"
+  },
+  "references": [
+    {
+      "EvalParam": {
+        "ExpectValue": [
+          "settings_ref",
+          "UtxoRef"
+        ]
+      }
+    },
+    {
+      "EvalParam": {
+        "ExpectValue": [
+          "oracle_ref",
+          "UtxoRef"
+        ]
+      }
+    }
+  ],
+  "inputs": [
+    {
+      "name": "funds",
+      "utxos": {
+        "EvalParam": {
+          "ExpectInput": [
+            "funds",
+            {
+              "address": {
+                "EvalParam": {
+                  "ExpectValue": [
+                    "user",
+                    "Address"
+                  ]
+                }
+              },
+              "min_amount": {
+                "EvalBuiltIn": {
+                  "Add": [
+                    {
+                      "EvalBuiltIn": {
+                        "Add": [
+                          {
+                            "Assets": [
+                              {
+                                "policy": "None",
+                                "asset_name": "None",
+                                "amount": {
+                                  "EvalBuiltIn": {
+                                    "Property": [
+                                      {
+                                        "EvalCoerce": {
+                                          "IntoDatum": {
+                                            "EvalParam": {
+                                              "ExpectInput": [
+                                                "settings",
+                                                {
+                                                  "address": "None",
+                                                  "min_amount": "None",
+                                                  "ref": {
+                                                    "EvalParam": {
+                                                      "ExpectValue": [
+                                                        "settings_ref",
+                                                        "UtxoRef"
+                                                      ]
+                                                    }
+                                                  },
+                                                  "many": false,
+                                                  "collateral": false
+                                                }
+                                              ]
+                                            }
+                                          }
+                                        }
+                                      },
+                                      {
+                                        "Number": 0
+                                      }
+                                    ]
+                                  }
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "Assets": [
+                              {
+                                "policy": "None",
+                                "asset_name": "None",
+                                "amount": {
+                                  "EvalParam": {
+                                    "ExpectValue": [
+                                      "funds_amount",
+                                      "Int"
+                                    ]
+                                  }
+                                }
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "EvalParam": "ExpectFees"
+                    }
+                  ]
+                }
+              },
+              "ref": "None",
+              "many": false,
+              "collateral": false
+            }
+          ]
+        }
+      },
+      "redeemer": "None"
+    }
+  ],
+  "outputs": [
+    {
+      "address": {
+        "EvalParam": {
+          "ExpectValue": [
+            "vault",
+            "Address"
+          ]
+        }
+      },
+      "datum": {
+        "Struct": {
+          "constructor": 0,
+          "fields": [
+            {
+              "EvalBuiltIn": {
+                "Property": [
+                  {
+                    "EvalCoerce": {
+                      "IntoDatum": {
+                        "EvalParam": {
+                          "ExpectInput": [
+                            "settings",
+                            {
+                              "address": "None",
+                              "min_amount": "None",
+                              "ref": {
+                                "EvalParam": {
+                                  "ExpectValue": [
+                                    "settings_ref",
+                                    "UtxoRef"
+                                  ]
+                                }
+                              },
+                              "many": false,
+                              "collateral": false
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "Number": 0
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "amount": {
+        "EvalBuiltIn": {
+          "Add": [
+            {
+              "Assets": [
+                {
+                  "policy": "None",
+                  "asset_name": "None",
+                  "amount": {
+                    "EvalBuiltIn": {
+                      "Property": [
+                        {
+                          "EvalCoerce": {
+                            "IntoDatum": {
+                              "EvalParam": {
+                                "ExpectInput": [
+                                  "settings",
+                                  {
+                                    "address": "None",
+                                    "min_amount": "None",
+                                    "ref": {
+                                      "EvalParam": {
+                                        "ExpectValue": [
+                                          "settings_ref",
+                                          "UtxoRef"
+                                        ]
+                                      }
+                                    },
+                                    "many": false,
+                                    "collateral": false
+                                  }
+                                ]
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "Number": 0
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "Assets": [
+                {
+                  "policy": {
+                    "EvalBuiltIn": {
+                      "Property": [
+                        {
+                          "EvalCoerce": {
+                            "IntoDatum": {
+                              "EvalParam": {
+                                "ExpectInput": [
+                                  "settings",
+                                  {
+                                    "address": "None",
+                                    "min_amount": "None",
+                                    "ref": {
+                                      "EvalParam": {
+                                        "ExpectValue": [
+                                          "settings_ref",
+                                          "UtxoRef"
+                                        ]
+                                      }
+                                    },
+                                    "many": false,
+                                    "collateral": false
+                                  }
+                                ]
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "Number": 1
+                        }
+                      ]
+                    }
+                  },
+                  "asset_name": {
+                    "EvalBuiltIn": {
+                      "Property": [
+                        {
+                          "EvalCoerce": {
+                            "IntoDatum": {
+                              "EvalParam": {
+                                "ExpectInput": [
+                                  "settings",
+                                  {
+                                    "address": "None",
+                                    "min_amount": "None",
+                                    "ref": {
+                                      "EvalParam": {
+                                        "ExpectValue": [
+                                          "settings_ref",
+                                          "UtxoRef"
+                                        ]
+                                      }
+                                    },
+                                    "many": false,
+                                    "collateral": false
+                                  }
+                                ]
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "Number": 2
+                        }
+                      ]
+                    }
+                  },
+                  "amount": {
+                    "EvalParam": {
+                      "ExpectValue": [
+                        "share_amount",
+                        "Int"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "optional": false
+    },
+    {
+      "address": {
+        "EvalParam": {
+          "ExpectValue": [
+            "vault",
+            "Address"
+          ]
+        }
+      },
+      "datum": "None",
+      "amount": {
+        "Assets": [
+          {
+            "policy": "None",
+            "asset_name": "None",
+            "amount": {
+              "EvalBuiltIn": {
+                "Property": [
+                  {
+                    "EvalBuiltIn": {
+                      "Property": [
+                        {
+                          "EvalCoerce": {
+                            "IntoDatum": {
+                              "EvalParam": {
+                                "ExpectInput": [
+                                  "oracle",
+                                  {
+                                    "address": "None",
+                                    "min_amount": "None",
+                                    "ref": {
+                                      "EvalParam": {
+                                        "ExpectValue": [
+                                          "oracle_ref",
+                                          "UtxoRef"
+                                        ]
+                                      }
+                                    },
+                                    "many": false,
+                                    "collateral": false
+                                  }
+                                ]
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "Number": 0
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "Number": 0
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "optional": false
+    },
+    {
+      "address": {
+        "EvalParam": {
+          "ExpectValue": [
+            "user",
+            "Address"
+          ]
+        }
+      },
+      "datum": "None",
+      "amount": {
+        "EvalBuiltIn": {
+          "Sub": [
+            {
+              "EvalBuiltIn": {
+                "Sub": [
+                  {
+                    "EvalBuiltIn": {
+                      "Sub": [
+                        {
+                          "EvalCoerce": {
+                            "IntoAssets": {
+                              "EvalParam": {
+                                "ExpectInput": [
+                                  "funds",
+                                  {
+                                    "address": {
+                                      "EvalParam": {
+                                        "ExpectValue": [
+                                          "user",
+                                          "Address"
+                                        ]
+                                      }
+                                    },
+                                    "min_amount": {
+                                      "EvalBuiltIn": {
+                                        "Add": [
+                                          {
+                                            "EvalBuiltIn": {
+                                              "Add": [
+                                                {
+                                                  "Assets": [
+                                                    {
+                                                      "policy": "None",
+                                                      "asset_name": "None",
+                                                      "amount": {
+                                                        "EvalBuiltIn": {
+                                                          "Property": [
+                                                            {
+                                                              "EvalCoerce": {
+                                                                "IntoDatum": {
+                                                                  "EvalParam": {
+                                                                    "ExpectInput": [
+                                                                      "settings",
+                                                                      {
+                                                                        "address": "None",
+                                                                        "min_amount": "None",
+                                                                        "ref": {
+                                                                          "EvalParam": {
+                                                                            "ExpectValue": [
+                                                                              "settings_ref",
+                                                                              "UtxoRef"
+                                                                            ]
+                                                                          }
+                                                                        },
+                                                                        "many": false,
+                                                                        "collateral": false
+                                                                      }
+                                                                    ]
+                                                                  }
+                                                                }
+                                                              }
+                                                            },
+                                                            {
+                                                              "Number": 0
+                                                            }
+                                                          ]
+                                                        }
+                                                      }
+                                                    }
+                                                  ]
+                                                },
+                                                {
+                                                  "Assets": [
+                                                    {
+                                                      "policy": "None",
+                                                      "asset_name": "None",
+                                                      "amount": {
+                                                        "EvalParam": {
+                                                          "ExpectValue": [
+                                                            "funds_amount",
+                                                            "Int"
+                                                          ]
+                                                        }
+                                                      }
+                                                    }
+                                                  ]
+                                                }
+                                              ]
+                                            }
+                                          },
+                                          {
+                                            "EvalParam": "ExpectFees"
+                                          }
+                                        ]
+                                      }
+                                    },
+                                    "ref": "None",
+                                    "many": false,
+                                    "collateral": false
+                                  }
+                                ]
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "Assets": [
+                            {
+                              "policy": "None",
+                              "asset_name": "None",
+                              "amount": {
+                                "EvalBuiltIn": {
+                                  "Property": [
+                                    {
+                                      "EvalCoerce": {
+                                        "IntoDatum": {
+                                          "EvalParam": {
+                                            "ExpectInput": [
+                                              "settings",
+                                              {
+                                                "address": "None",
+                                                "min_amount": "None",
+                                                "ref": {
+                                                  "EvalParam": {
+                                                    "ExpectValue": [
+                                                      "settings_ref",
+                                                      "UtxoRef"
+                                                    ]
+                                                  }
+                                                },
+                                                "many": false,
+                                                "collateral": false
+                                              }
+                                            ]
+                                          }
+                                        }
+                                      }
+                                    },
+                                    {
+                                      "Number": 0
+                                    }
+                                  ]
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "Assets": [
+                      {
+                        "policy": {
+                          "EvalBuiltIn": {
+                            "Property": [
+                              {
+                                "EvalCoerce": {
+                                  "IntoDatum": {
+                                    "EvalParam": {
+                                      "ExpectInput": [
+                                        "settings",
+                                        {
+                                          "address": "None",
+                                          "min_amount": "None",
+                                          "ref": {
+                                            "EvalParam": {
+                                              "ExpectValue": [
+                                                "settings_ref",
+                                                "UtxoRef"
+                                              ]
+                                            }
+                                          },
+                                          "many": false,
+                                          "collateral": false
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              {
+                                "Number": 1
+                              }
+                            ]
+                          }
+                        },
+                        "asset_name": {
+                          "EvalBuiltIn": {
+                            "Property": [
+                              {
+                                "EvalCoerce": {
+                                  "IntoDatum": {
+                                    "EvalParam": {
+                                      "ExpectInput": [
+                                        "settings",
+                                        {
+                                          "address": "None",
+                                          "min_amount": "None",
+                                          "ref": {
+                                            "EvalParam": {
+                                              "ExpectValue": [
+                                                "settings_ref",
+                                                "UtxoRef"
+                                              ]
+                                            }
+                                          },
+                                          "many": false,
+                                          "collateral": false
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              {
+                                "Number": 2
+                              }
+                            ]
+                          }
+                        },
+                        "amount": {
+                          "EvalParam": {
+                            "ExpectValue": [
+                              "share_amount",
+                              "Int"
+                            ]
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "EvalParam": "ExpectFees"
+            }
+          ]
+        }
+      },
+      "optional": false
+    }
+  ],
+  "validity": null,
+  "mints": [],
+  "burns": [],
+  "adhoc": [],
+  "collateral": [],
+  "signers": null,
+  "metadata": []
+}

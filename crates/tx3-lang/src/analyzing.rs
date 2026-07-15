@@ -440,9 +440,36 @@ impl Scope {
     }
 
     pub fn track_record_fields_for_type(&mut self, ty: &Type) {
-        let schema = ty.properties();
+        // `track_type_def` clones the def before field-type analysis resolves
+        // the original, so cloned/nested `Type::Custom` identifiers can carry a
+        // stale `None` symbol. Re-resolve against the scope so nested access
+        // (`ref.outer.inner`) tracks fields and yields a resolved type for
+        // lowering's `property_index`.
+        let resolved_ty = match ty {
+            Type::Custom(id) if id.symbol.is_none() => {
+                if let Some(symbol) = self.resolve(&id.value) {
+                    let mut resolved = ty.clone();
+                    if let Type::Custom(cloned_id) = &mut resolved {
+                        cloned_id.symbol = Some(symbol);
+                    }
+                    resolved
+                } else {
+                    ty.clone()
+                }
+            }
+            _ => ty.clone(),
+        };
 
-        for (name, subty) in schema {
+        let schema = resolved_ty.properties();
+
+        for (name, mut subty) in schema {
+            if let Type::Custom(id) = &mut subty {
+                if id.symbol.is_none() {
+                    if let Some(symbol) = self.resolve(&id.value) {
+                        id.symbol = Some(symbol);
+                    }
+                }
+            }
             self.track_record_field(&RecordField {
                 name: Identifier::new(name),
                 r#type: subty,

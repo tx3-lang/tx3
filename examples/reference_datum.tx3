@@ -1,0 +1,67 @@
+/// Reference-datum field access across every expression context:
+/// `Ada(...)` amount, `min_amount`, change math, `AnyAsset(...)`, datum
+/// construction, and multi-level nested access (`ref.outer.inner`).
+
+party User;
+party Vault;
+
+type SettingsDatum {
+    fee: Int,
+    token_policy: Bytes,
+    token_name: Bytes,
+}
+
+type FeedReport {
+    price: Int,
+}
+
+type OracleDatum {
+    feed: FeedReport,
+}
+
+type EchoDatum {
+    echoed_fee: Int,
+}
+
+env {
+    settings_ref: UtxoRef,
+    oracle_ref: UtxoRef,
+}
+
+tx pay_fee(
+    funds_amount: Int,
+    share_amount: Int,
+) {
+    reference settings {
+        ref: settings_ref,
+        datum_is: SettingsDatum,
+    }
+
+    reference oracle {
+        ref: oracle_ref,
+        datum_is: OracleDatum,
+    }
+
+    input funds {
+        from: User,
+        min_amount: Ada(settings.fee) + Ada(funds_amount) + fees,
+    }
+
+    output paid {
+        to: Vault,
+        amount: Ada(settings.fee) + AnyAsset(settings.token_policy, settings.token_name, share_amount),
+        datum: EchoDatum {
+            echoed_fee: settings.fee,
+        },
+    }
+
+    output oracle_echo {
+        to: Vault,
+        amount: Ada(oracle.feed.price),
+    }
+
+    output change {
+        to: User,
+        amount: funds - Ada(settings.fee) - AnyAsset(settings.token_policy, settings.token_name, share_amount) - fees,
+    }
+}

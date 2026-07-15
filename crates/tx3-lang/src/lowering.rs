@@ -572,12 +572,17 @@ impl IntoLower for ast::PropertyOp {
     type Output = ir::Expression;
 
     fn lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
-        let object = self.operand.lower(ctx)?;
-
         let ty = self
             .operand
             .target_type()
             .ok_or(Error::MissingAnalyzePhase(format!("{0:?}", self.operand)))?;
+
+        // Property access is a structured-data read, so the operand must
+        // lower in datum context regardless of the surrounding expression:
+        // `datum_is`-annotated operands then coerce to their datum (which is
+        // `Indexable`) instead of their assets (which are not), even inside
+        // amount/min_amount/change expressions.
+        let object = self.operand.lower(&ctx.enter_datum_expr())?;
 
         let prop_index =
             ty.property_index(*self.property.clone())
@@ -701,7 +706,7 @@ impl IntoLower for ast::InputBlockField {
                 let ctx = ctx.enter_address_expr().capturing_policy_refs();
                 x.lower(&ctx)
             }
-            ast::InputBlockField::DatumIs(_) => todo!(),
+            ast::InputBlockField::DatumIs(_) => Ok(ir::Expression::None),
             ast::InputBlockField::MinAmount(x) => {
                 let ctx = ctx.enter_asset_expr();
                 x.lower(&ctx)
@@ -1191,4 +1196,6 @@ mod tests {
     test_lowering!(param_field_shadow);
 
     test_lowering!(oracle_reference_datum);
+
+    test_lowering!(reference_datum);
 }
