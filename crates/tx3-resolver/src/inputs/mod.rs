@@ -18,7 +18,7 @@ mod narrow;
 #[cfg(test)]
 mod tests;
 
-pub use canonical::CanonicalQuery;
+pub use canonical::{required_collateral, CanonicalQuery};
 
 impl ResolveJob {
     /// Run the full input resolution pipeline: narrow, approximate, assign.
@@ -38,8 +38,20 @@ impl ResolveJob {
     ) -> Result<AnyTir, Error> {
         let mut queries: Vec<(String, CanonicalQuery)> = Vec::new();
 
+        // What the ledger will demand of the collateral inputs for the fee this
+        // pass is resolving against. The TIR only carries what the `.tx3`
+        // source declared — typically `min_amount: fees`, which is a full
+        // `collateralPercentage - 100` short of what the ledger accepts.
+        let min_collateral = required_collateral(self.fees, self.collateral_percentage);
+
         for (name, query) in tx3_tir::reduce::find_queries(&tx) {
-            queries.push((name, CanonicalQuery::try_from(query)?));
+            let mut query = CanonicalQuery::try_from(query)?;
+
+            if query.collateral {
+                query.raise_lovelace_floor(min_collateral);
+            }
+
+            queries.push((name, query));
         }
 
         self.set_input_queries(queries);
