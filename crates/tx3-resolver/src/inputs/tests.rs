@@ -539,24 +539,31 @@ async fn test_collateral_sized_from_percentage_of_fee() {
     }
 }
 
+/// Every UTxO holds 2.5 ADA: enough for a 2 ADA fee at 100%, short of it at
+/// 150%.
+fn store_with_tight_utxos_only() -> mock::MockStore {
+    mock::seed_random_memory_store(
+        |_: &mock::FuzzTxoRef, x: &mock::KnownAddress, _: u64| {
+            mock::utxo_with_random_amount(x, 2_500_000..2_500_001)
+        },
+        2..3,
+    )
+}
+
 #[pollster::test]
 async fn test_collateral_percentage_is_configurable() {
-    let store = store_with_tight_and_ample_utxos();
+    let store = store_with_tight_utxos_only();
     let fees = 2_000_000;
 
     for address in mock::KnownAddress::everyone() {
-        // At 100% the tight UTxO is enough, and the ranker prefers it as the
-        // closest fit to the target.
+        // The same pool that fails at 150% resolves at 100%, so the floor
+        // really is driven by the option rather than hardcoded.
         let utxos = resolve_collateral(&store, &address, fees, 100)
             .await
-            .expect("collateral should resolve");
+            .expect("collateral should resolve at 100%");
 
         assert_eq!(utxos.len(), 1);
-        assert_eq!(
-            utxos.total_assets().naked_amount().unwrap(),
-            2_500_000,
-            "at 100% the tight UTxO is the closest fit"
-        );
+        assert!(utxos.total_assets().naked_amount().unwrap() >= fees as i128);
     }
 }
 
@@ -564,12 +571,7 @@ async fn test_collateral_percentage_is_configurable() {
 async fn test_collateral_short_of_percentage_does_not_resolve() {
     // Every candidate covers the fee but none covers 150% of it: resolution
     // must fail loudly rather than emit a tx the ledger will reject.
-    let store = mock::seed_random_memory_store(
-        |_: &mock::FuzzTxoRef, x: &mock::KnownAddress, _: u64| {
-            mock::utxo_with_random_amount(x, 2_500_000..2_500_001)
-        },
-        2..3,
-    );
+    let store = store_with_tight_utxos_only();
 
     for address in mock::KnownAddress::everyone() {
         let result = resolve_collateral(&store, &address, 2_000_000, 150).await;
