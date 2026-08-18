@@ -572,10 +572,15 @@ impl IntoLower for ast::PropertyOp {
     type Output = ir::Expression;
 
     fn lower(&self, ctx: &Context) -> Result<Self::Output, Error> {
+        // `ok_or_else`, not `ok_or`: the error payload Debug-formats the whole
+        // operand subtree, and an analyzed operand embeds its resolved symbols
+        // (a `Symbol::Input` carries an entire `InputBlock` by value). Building
+        // it eagerly on the success path is what made a feature-dense tx take
+        // seconds to lower.
         let ty = self
             .operand
             .target_type()
-            .ok_or(Error::MissingAnalyzePhase(format!("{0:?}", self.operand)))?;
+            .ok_or_else(|| Error::MissingAnalyzePhase(format!("{0:?}", self.operand)))?;
 
         // Property access is a structured-data read, so the operand must
         // lower in datum context regardless of the surrounding expression:
@@ -584,12 +589,9 @@ impl IntoLower for ast::PropertyOp {
         // amount/min_amount/change expressions.
         let object = self.operand.lower(&ctx.enter_datum_expr())?;
 
-        let prop_index =
-            ty.property_index(*self.property.clone())
-                .ok_or(Error::InvalidProperty(
-                    format!("{:?}", self.property),
-                    ty.to_string(),
-                ))?;
+        let prop_index = ty.property_index(*self.property.clone()).ok_or_else(|| {
+            Error::InvalidProperty(format!("{:?}", self.property), ty.to_string())
+        })?;
 
         Ok(ir::Expression::EvalBuiltIn(Box::new(
             ir::BuiltInOp::Property(object, prop_index.lower(ctx)?),
