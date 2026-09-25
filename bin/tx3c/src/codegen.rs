@@ -1,4 +1,7 @@
-use std::path::{Path, PathBuf};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    path::{Path, PathBuf},
+};
 
 use anyhow::{Context, Result};
 use clap::Parser;
@@ -40,6 +43,10 @@ where
 }
 
 fn schema_type_for(schema: &Value, language: &str) -> String {
+    if language == "swift" {
+        return swift_type_for(schema, None).unwrap_or_else(|_| "ArgValue".to_string());
+    }
+
     if let Some(schema_map) = schema.as_object() {
         if let Some(reference) = schema_map.get("$ref").and_then(|r| r.as_str()) {
             return map_ref_type(extract_ref_name(reference), language);
@@ -51,6 +58,445 @@ fn schema_type_for(schema: &Value, language: &str) -> String {
     }
 
     default_json_type(language)
+}
+
+fn swift_identifier(input: &str, case: Case) -> Result<String> {
+    let mut identifier = input.to_case(case);
+    if identifier.is_empty() {
+        anyhow::bail!("Swift identifier is empty after normalizing {input:?}");
+    }
+    if identifier
+        .chars()
+        .next()
+        .is_some_and(|c| c.is_ascii_digit())
+    {
+        identifier.insert(0, '_');
+    }
+    if SWIFT_KEYWORDS.contains(&identifier.as_str()) {
+        identifier.push('_');
+    }
+    Ok(identifier)
+}
+
+const SWIFT_KEYWORDS: &[&str] = &[
+    "Any",
+    "Self",
+    "Type",
+    "Protocol",
+    "actor",
+    "any",
+    "as",
+    "associatedtype",
+    "associativity",
+    "async",
+    "await",
+    "break",
+    "case",
+    "catch",
+    "class",
+    "continue",
+    "convenience",
+    "copy",
+    "default",
+    "defer",
+    "deinit",
+    "didSet",
+    "do",
+    "dynamic",
+    "else",
+    "enum",
+    "extension",
+    "fallthrough",
+    "false",
+    "fileprivate",
+    "final",
+    "for",
+    "func",
+    "get",
+    "guard",
+    "if",
+    "import",
+    "in",
+    "indirect",
+    "infix",
+    "init",
+    "inout",
+    "internal",
+    "is",
+    "isolated",
+    "lazy",
+    "let",
+    "macro",
+    "mutating",
+    "nil",
+    "nonisolated",
+    "nonmutating",
+    "open",
+    "operator",
+    "optional",
+    "override",
+    "package",
+    "postfix",
+    "precedence",
+    "prefix",
+    "private",
+    "protocol",
+    "public",
+    "repeat",
+    "required",
+    "rethrows",
+    "return",
+    "self",
+    "set",
+    "some",
+    "static",
+    "struct",
+    "subscript",
+    "super",
+    "switch",
+    "throws",
+    "true",
+    "try",
+    "typealias",
+    "unowned",
+    "var",
+    "weak",
+    "where",
+    "while",
+    "willSet",
+];
+
+/// Maps a schema to its public Swift type.
+///
+/// Inline records, tuples, and variants need `name_hint` because Swift bindings
+/// represent them with named declarations. Template authors normally use
+/// `swiftDeclarations` to allocate those names across a complete TII document;
+/// `schemaTypeFor` accepts the hint as its optional third argument.
+fn swift_type_for(schema: &Value, name_hint: Option<&str>) -> Result<String> {
+    let Some(schema) = schema.as_object() else {
+        return Ok("ArgValue".to_string());
+    };
+
+    if let Some(reference) = schema.get("$ref").and_then(Value::as_str) {
+        let name = extract_ref_name(reference);
+        let ty = match name {
+            "Bytes" => "Data".to_string(),
+            "Address" => "Address".to_string(),
+            "UtxoRef" => "UtxoRef".to_string(),
+            "Utxo" | "AnyAsset" => "ArgValue".to_string(),
+            _ if reference.starts_with("#/components/schemas/") => {
+                swift_identifier(name, Case::Pascal)?
+            }
+            _ => "ArgValue".to_string(),
+        };
+        return Ok(ty);
+    }
+
+    if schema.get("oneOf").and_then(Value::as_array).is_some() {
+        return name_hint
+            .map(|name| swift_identifier(name, Case::Pascal))
+            .transpose()?
+            .context("Swift variant schemas require a declaration name");
+    }
+
+    match schema.get("type").and_then(Value::as_str) {
+        Some("null") => Ok("Void".to_string()),
+        Some("boolean") => Ok("Bool".to_string()),
+        Some("integer") => Ok("BigInt".to_string()),
+        Some("string") => Ok("ArgValue".to_string()),
+        Some("array") if schema.get("prefixItems").is_some() => name_hint
+            .map(|name| swift_identifier(name, Case::Pascal))
+            .transpose()?
+            .context("Swift tuple schemas require a declaration name"),
+        Some("array") => {
+            let item = schema
+                .get("items")
+                .map(|item| swift_type_for(item, name_hint))
+                .transpose()?
+                .unwrap_or_else(|| "ArgValue".to_string());
+            Ok(format!("[{item}]"))
+        }
+        Some("object") if schema.get("additionalProperties").is_some() => {
+            let value = swift_type_for(&schema["additionalProperties"], name_hint)?;
+            Ok(format!("[String: {value}]"))
+        }
+        Some("object") if schema.get("properties").is_some() => name_hint
+            .map(|name| swift_identifier(name, Case::Pascal))
+            .transpose()?
+            .context("Swift record schemas require a declaration name"),
+        _ => Ok("ArgValue".to_string()),
+    }
+}
+
+fn ordered_properties(schema: &Value) -> Vec<(&str, &Value)> {
+    let Some(properties) = schema.get("properties").and_then(Value::as_object) else {
+        return Vec::new();
+    };
+    let mut output = Vec::new();
+    let mut seen = BTreeSet::new();
+    if let Some(required) = schema.get("required").and_then(Value::as_array) {
+        for name in required.iter().filter_map(Value::as_str) {
+            if let Some(value) = properties.get(name) {
+                output.push((name, value));
+                seen.insert(name);
+            }
+        }
+    }
+    output.extend(
+        properties
+            .iter()
+            .filter(|(name, _)| !seen.contains(name.as_str()))
+            .map(|(name, value)| (name.as_str(), value)),
+    );
+    output
+}
+
+#[derive(Default)]
+struct SwiftRenderer {
+    declarations: Vec<String>,
+    names: BTreeMap<String, String>,
+}
+
+impl SwiftRenderer {
+    fn render_named(&mut self, source_name: &str, schema: &Value) -> Result<String> {
+        let type_name = swift_identifier(source_name, Case::Pascal)?;
+        if let Some(previous) = self.names.get(&type_name) {
+            anyhow::bail!(
+                "Swift type-name collision: {previous:?} and {source_name:?} both normalize to {type_name:?}"
+            );
+        }
+        self.names
+            .insert(type_name.clone(), source_name.to_string());
+
+        let declaration = if schema.get("oneOf").and_then(Value::as_array).is_some() {
+            self.render_variant(&type_name, schema)?
+        } else if schema
+            .get("prefixItems")
+            .and_then(Value::as_array)
+            .is_some()
+        {
+            self.render_tuple(&type_name, schema)?
+        } else if schema.get("type").and_then(Value::as_str) == Some("object")
+            && schema.get("properties").is_some()
+        {
+            self.render_record(&type_name, schema)?
+        } else {
+            format!(
+                "public typealias {type_name} = {}",
+                swift_type_for(schema, Some(&type_name))?
+            )
+        };
+        self.declarations.push(declaration);
+        Ok(type_name)
+    }
+
+    fn field_type(&mut self, parent: &str, field: &str, schema: &Value) -> Result<String> {
+        let nested_name = format!("{parent}{}", swift_identifier(field, Case::Pascal)?);
+        let is_declaration = schema.get("oneOf").is_some()
+            || schema.get("prefixItems").is_some()
+            || (schema.get("type").and_then(Value::as_str) == Some("object")
+                && schema.get("properties").is_some());
+        if is_declaration {
+            return self.render_named(&nested_name, schema);
+        }
+        if schema.get("type").and_then(Value::as_str) == Some("array") {
+            if let Some(item) = schema.get("items") {
+                let item_type = self.field_type(&nested_name, "Element", item)?;
+                return Ok(format!("[{item_type}]"));
+            }
+        }
+        if schema.get("type").and_then(Value::as_str) == Some("object") {
+            if let Some(value) = schema.get("additionalProperties") {
+                let value_type = self.field_type(&nested_name, "Value", value)?;
+                return Ok(format!("[String: {value_type}]"));
+            }
+        }
+        swift_type_for(schema, Some(&nested_name))
+    }
+
+    fn render_record(&mut self, type_name: &str, schema: &Value) -> Result<String> {
+        let fields = ordered_properties(schema);
+        let mut seen = BTreeMap::<String, String>::new();
+        let mut rendered = Vec::new();
+        for (source, value) in fields {
+            let name = swift_identifier(source, Case::Camel)?;
+            if let Some(previous) = seen.insert(name.clone(), source.to_string()) {
+                anyhow::bail!(
+                    "Swift field-name collision in {type_name}: {previous:?} and {source:?} both normalize to {name:?}"
+                );
+            }
+            let ty = self.field_type(type_name, source, value)?;
+            rendered.push((name, ty));
+        }
+
+        let properties = rendered
+            .iter()
+            .map(|(name, ty)| format!("    public let {name}: {ty}\n"))
+            .collect::<String>();
+        let parameters = rendered
+            .iter()
+            .map(|(name, ty)| format!("{name}: {ty}"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let assignments = rendered
+            .iter()
+            .map(|(name, _)| format!("        self.{name} = {name}\n"))
+            .collect::<String>();
+        Ok(format!(
+            "public struct {type_name}: Sendable {{\n{properties}\n    public init({parameters}) {{\n{assignments}    }}\n}}"
+        ))
+    }
+
+    fn render_tuple(&mut self, type_name: &str, schema: &Value) -> Result<String> {
+        let items = schema
+            .get("prefixItems")
+            .and_then(Value::as_array)
+            .context("Swift tuple is missing prefixItems")?;
+        let mut properties = String::new();
+        let mut parameters = Vec::new();
+        let mut assignments = String::new();
+        for (index, item) in items.iter().enumerate() {
+            let name = format!("item{index}");
+            let ty = self.field_type(type_name, &name, item)?;
+            properties.push_str(&format!("    public let {name}: {ty}\n"));
+            parameters.push(format!("{name}: {ty}"));
+            assignments.push_str(&format!("        self.{name} = {name}\n"));
+        }
+        Ok(format!(
+            "public struct {type_name}: Sendable {{\n{properties}\n    public init({}) {{\n{assignments}    }}\n}}",
+            parameters.join(", ")
+        ))
+    }
+
+    fn render_variant(&mut self, type_name: &str, schema: &Value) -> Result<String> {
+        let cases = schema
+            .get("oneOf")
+            .and_then(Value::as_array)
+            .context("Swift variant is missing oneOf")?;
+        let mut seen = BTreeMap::<String, String>::new();
+        let mut body = String::new();
+        for (index, case) in cases.iter().enumerate() {
+            let tag = case
+                .get("required")
+                .and_then(Value::as_array)
+                .and_then(|required| required.first())
+                .and_then(Value::as_str)
+                .with_context(|| format!("Swift variant {type_name} case {index} has no tag"))?;
+            let case_name = swift_identifier(tag, Case::Camel)?;
+            if let Some(previous) = seen.insert(case_name.clone(), tag.to_string()) {
+                anyhow::bail!(
+                    "Swift case-name collision in {type_name}: {previous:?} and {tag:?} both normalize to {case_name:?}"
+                );
+            }
+            let fields_schema = case
+                .get("properties")
+                .and_then(Value::as_object)
+                .and_then(|properties| properties.get(tag))
+                .with_context(|| {
+                    format!("Swift variant {type_name} case {tag:?} has no fields schema")
+                })?;
+            let fields = ordered_properties(fields_schema);
+            if fields.is_empty() {
+                body.push_str(&format!("    case {case_name}\n"));
+                continue;
+            }
+            let mut labels = BTreeMap::<String, String>::new();
+            let mut associated = Vec::new();
+            for (source, value) in fields {
+                let label = swift_identifier(source, Case::Camel)?;
+                if let Some(previous) = labels.insert(label.clone(), source.to_string()) {
+                    anyhow::bail!(
+                        "Swift associated-value collision in {type_name}.{case_name}: {previous:?} and {source:?} both normalize to {label:?}"
+                    );
+                }
+                let parent = format!("{type_name}{}", swift_identifier(tag, Case::Pascal)?);
+                associated.push(format!(
+                    "{label}: {}",
+                    self.field_type(&parent, source, value)?
+                ));
+            }
+            body.push_str(&format!(
+                "    case {case_name}({})\n",
+                associated.join(", ")
+            ));
+        }
+        Ok(format!("public enum {type_name}: Sendable {{\n{body}}}"))
+    }
+
+    fn finish(self) -> String {
+        self.declarations.join("\n\n")
+    }
+}
+
+/// Renders all component and per-transaction parameter declarations for Swift.
+/// Name normalization collisions are errors instead of silently shadowing a type.
+fn render_swift_declarations(tii: &Value) -> Result<String> {
+    let mut renderer = SwiftRenderer::default();
+    if let Some(schemas) = tii
+        .pointer("/components/schemas")
+        .and_then(Value::as_object)
+    {
+        let mut names = schemas.keys().collect::<Vec<_>>();
+        names.sort();
+        for name in names {
+            renderer.render_named(name, &schemas[name])?;
+        }
+    }
+    if let Some(transactions) = tii.get("transactions").and_then(Value::as_object) {
+        let mut names = transactions.keys().collect::<Vec<_>>();
+        names.sort();
+        for name in names {
+            if let Some(params) = transactions[name].get("params") {
+                let declaration_name = format!("{}Params", swift_identifier(name, Case::Pascal)?);
+                renderer.render_named(&declaration_name, params)?;
+            }
+        }
+    }
+    Ok(renderer.finish())
+}
+
+/// Returns only the Swift module imports required by the supplied TII subtree.
+fn swift_imports(value: &Value) -> String {
+    fn visit(value: &Value, imports: &mut BTreeSet<&'static str>) {
+        match value {
+            Value::Array(values) => values.iter().for_each(|value| visit(value, imports)),
+            Value::Object(map) => {
+                if map.get("type").and_then(Value::as_str) == Some("integer") {
+                    imports.insert("BigInt");
+                }
+                if let Some(reference) = map.get("$ref").and_then(Value::as_str) {
+                    match extract_ref_name(reference) {
+                        "Bytes" => {
+                            imports.insert("Foundation");
+                        }
+                        "Address" | "UtxoRef" | "Utxo" | "AnyAsset" => {
+                            imports.insert("Tx3SDK");
+                        }
+                        _ if !reference.starts_with("#/components/schemas/") => {
+                            imports.insert("Tx3SDK");
+                        }
+                        _ => {}
+                    }
+                }
+                if map.get("type").and_then(Value::as_str) == Some("string") {
+                    imports.insert("Tx3SDK");
+                }
+                if swift_type_for(value, None).is_ok_and(|ty| ty.contains("ArgValue")) {
+                    imports.insert("Tx3SDK");
+                }
+                map.values().for_each(|value| visit(value, imports));
+            }
+            _ => {}
+        }
+    }
+
+    let mut imports = BTreeSet::new();
+    visit(value, &mut imports);
+    ["Foundation", "BigInt", "Tx3SDK"]
+        .into_iter()
+        .filter(|name| imports.contains(name))
+        .map(|name| format!("import {name}\n"))
+        .collect()
 }
 
 /// Extracts the bare type name from a `$ref`, handling both the builtin form
@@ -303,7 +749,13 @@ fn register_helpers(handlebars: &mut Handlebars<'_>) {
                     handlebars::RenderErrorReason::InvalidParamType("Expected language as string")
                 })?;
 
-                let output_type = schema_type_for(schema_param.value(), language);
+                let output_type = if language == "swift" {
+                    let name_hint = h.param(2).and_then(|param| param.value().as_str());
+                    swift_type_for(schema_param.value(), name_hint)
+                        .map_err(|error| handlebars::RenderErrorReason::Other(error.to_string()))?
+                } else {
+                    schema_type_for(schema_param.value(), language)
+                };
                 out.write(&output_type)?;
                 Ok(())
             },
@@ -328,7 +780,59 @@ fn register_helpers(handlebars: &mut Handlebars<'_>) {
                     handlebars::RenderErrorReason::InvalidParamType("Expected language as string")
                 })?;
 
-                out.write(&render_component_types(schemas, language))?;
+                if language == "swift" {
+                    let mut renderer = SwiftRenderer::default();
+                    if let Some(schemas) = schemas.as_object() {
+                        let mut names = schemas.keys().collect::<Vec<_>>();
+                        names.sort();
+                        for name in names {
+                            renderer
+                                .render_named(name, &schemas[name])
+                                .map_err(|error| {
+                                    handlebars::RenderErrorReason::Other(error.to_string())
+                                })?;
+                        }
+                    }
+                    out.write(&renderer.finish())?;
+                } else {
+                    out.write(&render_component_types(schemas, language))?;
+                }
+                Ok(())
+            },
+        ),
+    );
+
+    handlebars.register_helper(
+        "swiftDeclarations",
+        Box::new(
+            |h: &Helper,
+             _: &Handlebars,
+             _: &HbContext,
+             _: &mut RenderContext,
+             out: &mut dyn Output| {
+                let tii = h.param(0).ok_or_else(|| {
+                    handlebars::RenderErrorReason::ParamNotFoundForIndex("swiftDeclarations", 0)
+                })?;
+                let declarations = render_swift_declarations(tii.value())
+                    .map_err(|error| handlebars::RenderErrorReason::Other(error.to_string()))?;
+                out.write(&declarations)?;
+                Ok(())
+            },
+        ),
+    );
+
+    handlebars.register_helper(
+        "swiftImports",
+        Box::new(
+            |h: &Helper,
+             _: &Handlebars,
+             _: &HbContext,
+             _: &mut RenderContext,
+             out: &mut dyn Output| {
+                let value = h.param(0).ok_or_else(|| {
+                    handlebars::RenderErrorReason::ParamNotFoundForIndex("swiftImports", 0)
+                })?;
+                out.write(&swift_imports(value.value()))?;
                 Ok(())
             },
         ),
@@ -443,4 +947,130 @@ pub fn run(args: Args) -> Result<()> {
     );
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn swift_schema_mapping_covers_the_approved_table() {
+        let cases = [
+            (json!({"type": "null"}), "Void"),
+            (json!({"type": "boolean"}), "Bool"),
+            (json!({"type": "integer"}), "BigInt"),
+            (json!({"type": "string"}), "ArgValue"),
+            (
+                json!({"$ref": "https://tx3.land/specs/v1beta0/tii#/$defs/Bytes"}),
+                "Data",
+            ),
+            (
+                json!({"$ref": "https://tx3.land/specs/v1beta0/tii#/$defs/Address"}),
+                "Address",
+            ),
+            (
+                json!({"$ref": "https://tx3.land/specs/v1beta0/tii#/$defs/UtxoRef"}),
+                "UtxoRef",
+            ),
+            (
+                json!({"$ref": "https://tx3.land/specs/v1beta0/tii#/$defs/Utxo"}),
+                "ArgValue",
+            ),
+            (
+                json!({"$ref": "https://tx3.land/specs/v1beta0/tii#/$defs/AnyAsset"}),
+                "ArgValue",
+            ),
+            (
+                json!({"$ref": "#/components/schemas/order-item"}),
+                "OrderItem",
+            ),
+            (
+                json!({"type": "array", "items": {"type": "integer"}}),
+                "[BigInt]",
+            ),
+            (
+                json!({"type": "object", "additionalProperties": {"type": "boolean"}}),
+                "[String: Bool]",
+            ),
+            (json!({"type": "object"}), "ArgValue"),
+        ];
+
+        for (schema, expected) in cases {
+            assert_eq!(swift_type_for(&schema, None).unwrap(), expected);
+        }
+
+        let tuple = json!({"type": "array", "prefixItems": [], "items": false});
+        assert_eq!(swift_type_for(&tuple, Some("pair")).unwrap(), "Pair");
+        assert!(swift_type_for(&tuple, None).is_err());
+    }
+
+    #[test]
+    fn swift_fixture_matches_exact_output() {
+        let tii: Value =
+            serde_json::from_str(include_str!("../tests/fixtures/swift/complex.tii")).unwrap();
+        let mut handlebars = Handlebars::new();
+        register_helpers(&mut handlebars);
+        handlebars
+            .register_template_string(
+                "Types.swift",
+                include_str!("../tests/fixtures/swift/Types.swift.hbs"),
+            )
+            .unwrap();
+
+        let rendered = handlebars
+            .render("Types.swift", &json!({"tii": tii}))
+            .unwrap();
+        assert_eq!(
+            rendered,
+            include_str!("../tests/fixtures/swift/Types.swift")
+        );
+        assert_eq!(
+            rendered,
+            handlebars
+                .render("Types.swift", &json!({"tii": tii}))
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn swift_declarations_escape_keywords_and_reject_collisions() {
+        let keyword = json!({
+            "type": "object",
+            "properties": {"class": {"type": "boolean"}},
+            "required": ["class"]
+        });
+        let mut renderer = SwiftRenderer::default();
+        renderer.render_named("protocol", &keyword).unwrap();
+        let output = renderer.finish();
+        assert!(output.contains("struct Protocol_: Sendable"));
+        assert!(output.contains("public let class_: Bool"));
+
+        let collision = json!({
+            "type": "object",
+            "properties": {
+                "some-value": {"type": "boolean"},
+                "some_value": {"type": "boolean"}
+            },
+            "required": ["some-value", "some_value"]
+        });
+        let error = SwiftRenderer::default()
+            .render_named("Collision", &collision)
+            .unwrap_err();
+        assert!(error.to_string().contains("field-name collision"));
+
+        let mut renderer = SwiftRenderer::default();
+        renderer.render_named("foo-bar", &keyword).unwrap();
+        let error = renderer.render_named("foo_bar", &keyword).unwrap_err();
+        assert!(error.to_string().contains("type-name collision"));
+
+        let fallback = json!({
+            "components": {"schemas": {"Opaque": {"type": "object"}}}
+        });
+        assert_eq!(swift_imports(&fallback), "import Tx3SDK\n");
+        assert_eq!(
+            render_swift_declarations(&fallback).unwrap(),
+            "public typealias Opaque = ArgValue"
+        );
+    }
 }
