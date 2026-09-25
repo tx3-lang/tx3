@@ -179,15 +179,13 @@ fn swift_type_for(schema: &Value, name_hint: Option<&str>) -> Result<String> {
 
     if let Some(reference) = schema.get("$ref").and_then(Value::as_str) {
         let name = extract_ref_name(reference);
-        let ty = match name {
-            "Bytes" => "Data".to_string(),
-            "Address" => "Address".to_string(),
-            "UtxoRef" => "UtxoRef".to_string(),
-            "Utxo" | "AnyAsset" => "ArgValue".to_string(),
-            _ if reference.starts_with("#/components/schemas/") => {
-                swift_identifier(name, Case::Pascal)?
-            }
-            _ => "ArgValue".to_string(),
+        let ty = match (reference.starts_with("#/components/schemas/"), name) {
+            (true, name) => swift_identifier(name, Case::Pascal)?,
+            (false, "Bytes") => "Data".to_string(),
+            (false, "Address") => "Address".to_string(),
+            (false, "UtxoRef") => "UtxoRef".to_string(),
+            (false, "Utxo" | "AnyAsset") => "ArgValue".to_string(),
+            (false, _) => "ArgValue".to_string(),
         };
         return Ok(ty);
     }
@@ -465,17 +463,20 @@ fn swift_imports(value: &Value) -> String {
                     imports.insert("BigInt");
                 }
                 if let Some(reference) = map.get("$ref").and_then(Value::as_str) {
-                    match extract_ref_name(reference) {
-                        "Bytes" => {
+                    match (
+                        reference.starts_with("#/components/schemas/"),
+                        extract_ref_name(reference),
+                    ) {
+                        (true, _) => {}
+                        (false, "Bytes") => {
                             imports.insert("Foundation");
                         }
-                        "Address" | "UtxoRef" | "Utxo" | "AnyAsset" => {
+                        (false, "Address" | "UtxoRef" | "Utxo" | "AnyAsset") => {
                             imports.insert("Tx3SDK");
                         }
-                        _ if !reference.starts_with("#/components/schemas/") => {
+                        (false, _) => {
                             imports.insert("Tx3SDK");
                         }
-                        _ => {}
                     }
                 }
                 if map.get("type").and_then(Value::as_str) == Some("string") {
@@ -985,6 +986,7 @@ mod tests {
                 json!({"$ref": "#/components/schemas/order-item"}),
                 "OrderItem",
             ),
+            (json!({"$ref": "#/components/schemas/Bytes"}), "Bytes"),
             (
                 json!({"type": "array", "items": {"type": "integer"}}),
                 "[BigInt]",
@@ -1068,6 +1070,10 @@ mod tests {
             "components": {"schemas": {"Opaque": {"type": "object"}}}
         });
         assert_eq!(swift_imports(&fallback), "import Tx3SDK\n");
+        assert_eq!(
+            swift_imports(&json!({"$ref": "#/components/schemas/Bytes"})),
+            ""
+        );
         assert_eq!(
             render_swift_declarations(&fallback).unwrap(),
             "public typealias Opaque = ArgValue"
