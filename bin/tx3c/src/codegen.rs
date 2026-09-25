@@ -112,18 +112,17 @@ fn map_ref_type(reference: &str, language: &str) -> String {
 }
 
 fn map_java_ref_type(reference: &str) -> String {
-    let fragment = reference
-        .split_once('#')
-        .map(|(_, fragment)| fragment)
-        .unwrap_or(reference);
-
-    if let Some(type_name) = fragment.strip_prefix("/components/schemas/") {
+    if let Some(type_name) = reference.strip_prefix("#/components/schemas/") {
         if !type_name.is_empty() && !type_name.contains('/') {
             return java_identifier(type_name, Case::Pascal);
         }
     }
 
-    if let Some(type_name) = fragment.strip_prefix("/$defs/") {
+    let builtin_name = reference
+        .strip_prefix("https://tx3.land/specs/v1beta0/tii#/$defs/")
+        .or_else(|| reference.strip_prefix("https://tx3.land/specs/v1beta0/core#"));
+
+    if let Some(type_name) = builtin_name.filter(|name| !name.is_empty() && !name.contains('/')) {
         let builtin = match type_name {
             "Bytes" => Some("byte[]"),
             "Address" => Some("land.tx3.sdk.Address"),
@@ -898,6 +897,31 @@ mod tests {
         );
         assert_eq!(
             java_type(json!({ "future": true })),
+            "land.tx3.sdk.ArgValue"
+        );
+    }
+
+    #[test]
+    fn java_builtin_refs_accept_canonical_and_legacy_forms() {
+        let expected = [
+            ("Bytes", "byte[]"),
+            ("Address", "land.tx3.sdk.Address"),
+            ("UtxoRef", "land.tx3.sdk.UtxoRef"),
+            ("Utxo", "land.tx3.sdk.ArgValue"),
+            ("AnyAsset", "land.tx3.sdk.ArgValue"),
+        ];
+
+        for (name, mapped) in expected {
+            let canonical = format!("https://tx3.land/specs/v1beta0/tii#/$defs/{name}");
+            let legacy = format!("https://tx3.land/specs/v1beta0/core#{name}");
+            assert_eq!(java_type(json!({ "$ref": canonical })), mapped);
+            assert_eq!(java_type(json!({ "$ref": legacy })), mapped);
+        }
+
+        assert_eq!(
+            java_type(json!({
+                "$ref": "https://example.com/schema#/$defs/Address"
+            })),
             "land.tx3.sdk.ArgValue"
         );
     }
