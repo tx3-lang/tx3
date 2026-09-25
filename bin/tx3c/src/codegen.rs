@@ -45,7 +45,7 @@ where
 fn schema_type_for(schema: &Value, language: &str) -> String {
     if let Some(schema_map) = schema.as_object() {
         if let Some(reference) = schema_map.get("$ref").and_then(|r| r.as_str()) {
-            return map_ref_type(extract_ref_name(reference), language);
+            return map_ref_type(reference, language);
         }
 
         if let Some(schema_type) = schema_map.get("type").and_then(|t| t.as_str()) {
@@ -64,10 +64,16 @@ fn extract_ref_name(reference: &str) -> &str {
     fragment.rsplit('/').next().unwrap_or(fragment)
 }
 
-/// Maps a referenced type name to a language type. Builtins map to native
-/// types; any other name is a user-defined type from `components.schemas` and
-/// maps to its generated name (PascalCase).
-fn map_ref_type(type_name: &str, language: &str) -> String {
+/// Maps a reference to a language type. Existing renderers historically use
+/// the final path segment. Java also considers the reference origin so a
+/// component named like a builtin remains a generated declaration and an
+/// unknown external reference uses the safe SDK fallback.
+fn map_ref_type(reference: &str, language: &str) -> String {
+    if language == "java" {
+        return map_java_ref_type(reference);
+    }
+
+    let type_name = extract_ref_name(reference);
     let builtin = match language {
         "rust" => match type_name {
             "Bytes" => Some("Vec<u8>"),
@@ -95,22 +101,42 @@ fn map_ref_type(type_name: &str, language: &str) -> String {
             "Utxo" => Some("interface{}"),
             _ => None,
         },
-        "java" => match type_name {
-            "Bytes" => Some("byte[]"),
-            "Address" => Some("land.tx3.sdk.Address"),
-            "UtxoRef" => Some("land.tx3.sdk.UtxoRef"),
-            "AnyAsset" | "Utxo" => Some("land.tx3.sdk.ArgValue"),
-            _ => None,
-        },
         _ => None,
     };
 
     match builtin {
         Some(ty) => ty.to_string(),
         // Not a builtin: a user-defined type, referenced by its generated name.
-        None if language == "java" => java_identifier(type_name, Case::Pascal),
         None => type_name.to_case(Case::Pascal),
     }
+}
+
+fn map_java_ref_type(reference: &str) -> String {
+    let fragment = reference
+        .split_once('#')
+        .map(|(_, fragment)| fragment)
+        .unwrap_or(reference);
+
+    if let Some(type_name) = fragment.strip_prefix("/components/schemas/") {
+        if !type_name.is_empty() && !type_name.contains('/') {
+            return java_identifier(type_name, Case::Pascal);
+        }
+    }
+
+    if let Some(type_name) = fragment.strip_prefix("/$defs/") {
+        let builtin = match type_name {
+            "Bytes" => Some("byte[]"),
+            "Address" => Some("land.tx3.sdk.Address"),
+            "UtxoRef" => Some("land.tx3.sdk.UtxoRef"),
+            "AnyAsset" | "Utxo" => Some("land.tx3.sdk.ArgValue"),
+            _ => None,
+        };
+        if let Some(mapped) = builtin {
+            return mapped.to_string();
+        }
+    }
+
+    default_json_type("java")
 }
 
 fn map_schema_type(
@@ -176,6 +202,7 @@ fn map_array_type(schema: &serde_json::Map<String, Value>, language: &str) -> St
 fn map_object_type(schema: &serde_json::Map<String, Value>, language: &str) -> String {
     let value_type = schema
         .get("additionalProperties")
+        .filter(|value| language != "java" || value.is_object())
         .map(|value| schema_type_for(value, language));
 
     match (language, value_type) {
@@ -892,6 +919,27 @@ mod tests {
                 "}\n",
                 "\n",
             )
+        );
+    }
+
+    #[test]
+    fn java_refs_preserve_origin_and_closed_objects_are_not_maps() {
+        assert_eq!(
+            java_type(json!({ "$ref": "#/components/schemas/Address" })),
+            "Address"
+        );
+        assert_eq!(
+            java_type(json!({
+                "$ref": "https://example.com/schema#/$defs/FutureType"
+            })),
+            "land.tx3.sdk.ArgValue"
+        );
+        assert_eq!(
+            java_type(json!({
+                "type": "object",
+                "additionalProperties": false
+            })),
+            "land.tx3.sdk.ArgValue"
         );
     }
 
