@@ -1,6 +1,6 @@
 use convert_case::Case;
 
-use super::{tuple_as_fallback_list, Backend, FieldOrder, Placement, TemplateFile};
+use super::{tuple_as_fallback_list, Backend, FieldOrder, Placement};
 use crate::codegen::{
     names::Role,
     plan::{DeclKind, Declaration},
@@ -57,10 +57,6 @@ impl Backend for Python {
             Role::Field | Role::Param | Role::Method => Case::Snake,
             Role::Constant => Case::UpperSnake,
         })
-    }
-
-    fn client_templates(&self) -> &'static [TemplateFile] {
-        client_templates!("python": "README.md.hbs", "__init__.py.hbs", "requirements.txt.hbs")
     }
 
     fn placement(&self) -> Placement {
