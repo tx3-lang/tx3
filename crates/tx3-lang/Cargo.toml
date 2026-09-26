@@ -33,8 +33,11 @@ proptest = "1.7.0"
 serde_json = "1.0.137"
 
 [package.metadata.release]
+# The one changelog hook for the workspace release. `--include-path` keeps
+# git-cliff from limiting itself to the working directory, which older
+# git-cliff releases resolve wrongly inside a git submodule.
 pre-release-hook = [
     "sh",
     "-c",
-    "git -C \"$WORKSPACE_ROOT\" cliff -o CHANGELOG.md --config cliff.toml --tag {{version}}",
+    "git -C \"$WORKSPACE_ROOT\" cliff -o CHANGELOG.md --config cliff.toml --tag v{{version}} --include-path '**/*'",
 ]
