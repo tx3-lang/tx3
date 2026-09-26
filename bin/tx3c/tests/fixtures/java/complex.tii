@@ -1,0 +1,119 @@
+{
+  "tii": {
+    "version": "v1beta0"
+  },
+  "protocol": {
+    "name": "complex-types",
+    "scope": "unknown",
+    "version": "0.0.1",
+    "description": "Schema-only fixture exercising every ParamType kind. The TIR envelope is a non-resolvable placeholder; this vector is for parameter-type interpretation tests, not TRP resolution."
+  },
+  "environment": {
+    "type": "object",
+    "properties": {
+      "fee": {
+        "type": "integer"
+      }
+    },
+    "required": ["fee"]
+  },
+  "parties": {
+    "sender": {},
+    "receiver": {}
+  },
+  "profiles": {
+    "local": {
+      "environment": {},
+      "parties": {}
+    }
+  },
+  "components": {
+    "schemas": {
+      "AssetClass": {
+        "type": "object",
+        "properties": {
+          "policy": { "$ref": "https://tx3.land/specs/v1beta0/tii#/$defs/Bytes" },
+          "name": { "$ref": "https://tx3.land/specs/v1beta0/tii#/$defs/Bytes" }
+        },
+        "required": ["policy", "name"]
+      },
+      "Side": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["Buy"],
+            "properties": {
+              "Buy": { "type": "object", "properties": {}, "required": [] }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["Sell"],
+            "properties": {
+              "Sell": {
+                "type": "object",
+                "properties": { "price": { "type": "integer" } },
+                "required": ["price"]
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  "transactions": {
+    "complex": {
+      "params": {
+        "type": "object",
+        "properties": {
+          "quantity": { "type": "integer" },
+          "flag": { "type": "boolean" },
+          "nothing": { "type": "null" },
+          "recipient": { "$ref": "https://tx3.land/specs/v1beta0/tii#/$defs/Address" },
+          "source": { "$ref": "https://tx3.land/specs/v1beta0/tii#/$defs/UtxoRef" },
+          "bag": { "$ref": "https://tx3.land/specs/v1beta0/tii#/$defs/AnyAsset" },
+          "amounts": {
+            "type": "array",
+            "items": { "type": "integer" }
+          },
+          "pair": {
+            "type": "array",
+            "prefixItems": [
+              { "type": "integer" },
+              { "$ref": "https://tx3.land/specs/v1beta0/tii#/$defs/Bytes" }
+            ],
+            "items": false,
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "labels": {
+            "type": "object",
+            "additionalProperties": { "type": "integer" }
+          },
+          "asset": { "$ref": "#/components/schemas/AssetClass" },
+          "side": { "$ref": "#/components/schemas/Side" }
+        },
+        "required": [
+          "quantity",
+          "flag",
+          "nothing",
+          "recipient",
+          "source",
+          "bag",
+          "amounts",
+          "pair",
+          "labels",
+          "asset",
+          "side"
+        ]
+      },
+      "tir": {
+        "content": "00",
+        "encoding": "hex",
+        "version": "v1beta0"
+      }
+    }
+  }
+}
