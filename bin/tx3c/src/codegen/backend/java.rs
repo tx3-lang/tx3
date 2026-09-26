@@ -127,7 +127,8 @@ impl Backend for Java {
     fn naming(&self, role: Role) -> Option<Case> {
         Some(match role {
             Role::Type | Role::Case => Case::Pascal,
-            Role::Field | Role::Param => Case::Camel,
+            Role::Field | Role::Param | Role::Method => Case::Camel,
+            Role::Constant => Case::UpperSnake,
         })
     }
 

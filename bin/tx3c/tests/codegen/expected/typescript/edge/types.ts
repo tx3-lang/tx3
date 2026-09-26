@@ -1,4 +1,3 @@
-// Named types for the protocol's custom (record / variant) types.
 export type Address = {
     line: string;
 };
@@ -14,7 +13,6 @@ export type OrderLine = {
     class: boolean;
     zeta: number;
 };
-
 
 export type ClassParams = {
 };
@@ -33,3 +31,6 @@ export type PlaceOrderParams = {
     weights: Record<string, Array<any>>;
 };
 
+
+export function class(args: ClassParams): void {}
+export function placeOrder(args: PlaceOrderParams): void {}

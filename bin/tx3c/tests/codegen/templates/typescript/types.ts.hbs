@@ -1,12 +1,4 @@
-{{#if tii.components.schemas}}
-// Named types for the protocol's custom (record / variant) types.
-{{{componentTypes tii.components.schemas "typescript"}}}
-{{/if}}
+{{{imports tii "typescript"}}}{{{declarations tii "typescript"}}}
 {{#each tii.transactions}}
-export type {{pascalCase @key}}Params = {
-{{#each params.properties}}
-    {{camelCase @key}}: {{schemaTypeFor this "typescript"}};
-{{/each}}
-};
-
+export function {{identifier @key "typescript" "method"}}(args: {{paramsTypeName @key "typescript"}}): void {}
 {{/each}}

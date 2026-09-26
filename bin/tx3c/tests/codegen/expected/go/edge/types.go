@@ -1,4 +1,3 @@
-// Named types for the protocol's custom (record / variant) types.
 type Address struct {
 	Line string `json:"line"`
 }
@@ -14,7 +13,6 @@ type OrderLine struct {
 	Class bool `json:"class"`
 	Zeta int64 `json:"zeta"`
 }
-
 
 // ClassParams holds the arguments for the class transaction.
 type ClassParams struct {
@@ -33,5 +31,27 @@ type PlaceOrderParams struct {
 	Shape Shape `json:"shape"`
 	ShipTo Address `json:"ship_to"`
 	Weights map[string][]interface{} `json:"weights"`
+}
+
+
+func Class(args ClassParams) map[string]interface{} {
+	return map[string]interface{}{
+	}
+}
+
+func PlaceOrder(args PlaceOrderParams) map[string]interface{} {
+	return map[string]interface{}{
+		"blob": args.Blob,
+		"external": args.External,
+		"legacy_payer": args.LegacyPayer,
+		"legs": args.Legs,
+		"line": args.Line,
+		"memo": args.Memo,
+		"nested": args.Nested,
+		"payer": args.Payer,
+		"shape": args.Shape,
+		"ship_to": args.ShipTo,
+		"weights": args.Weights,
+	}
 }
 

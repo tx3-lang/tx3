@@ -22,6 +22,27 @@ pub enum Role {
     Param,
     /// Variant case names.
     Case,
+    /// Generated methods and functions, such as per-transaction builders.
+    Method,
+    /// Generated constants.
+    Constant,
+}
+
+impl Role {
+    pub const NAMES: &'static [&'static str] =
+        &["type", "field", "param", "case", "method", "constant"];
+
+    pub fn parse(name: &str) -> Option<Self> {
+        match name {
+            "type" => Some(Self::Type),
+            "field" => Some(Self::Field),
+            "param" => Some(Self::Param),
+            "case" => Some(Self::Case),
+            "method" => Some(Self::Method),
+            "constant" => Some(Self::Constant),
+            _ => None,
+        }
+    }
 }
 
 /// Normalizes `source` for `role`, then escapes it for the backend.

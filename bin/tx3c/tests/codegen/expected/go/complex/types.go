@@ -1,4 +1,3 @@
-// Named types for the protocol's custom (record / variant) types.
 type AssetClass struct {
 	Name []byte `json:"name"`
 	Policy []byte `json:"policy"`
@@ -6,7 +5,6 @@ type AssetClass struct {
 
 // TODO: tagged-union codegen pending the variant arg encoder
 type Side = interface{}
-
 
 // ComplexParams holds the arguments for the complex transaction.
 type ComplexParams struct {
@@ -21,5 +19,22 @@ type ComplexParams struct {
 	Recipient string `json:"recipient"`
 	Side Side `json:"side"`
 	Source string `json:"source"`
+}
+
+
+func Complex(args ComplexParams) map[string]interface{} {
+	return map[string]interface{}{
+		"amounts": args.Amounts,
+		"asset": args.Asset,
+		"bag": args.Bag,
+		"flag": args.Flag,
+		"labels": args.Labels,
+		"nothing": args.Nothing,
+		"pair": args.Pair,
+		"quantity": args.Quantity,
+		"recipient": args.Recipient,
+		"side": args.Side,
+		"source": args.Source,
+	}
 }
 

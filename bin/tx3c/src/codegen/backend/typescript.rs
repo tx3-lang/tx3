@@ -56,7 +56,8 @@ impl Backend for TypeScript {
         match role {
             Role::Type => Some(Case::Pascal),
             Role::Field => None,
-            Role::Param => Some(Case::Camel),
+            Role::Param | Role::Method => Some(Case::Camel),
+            Role::Constant => Some(Case::UpperSnake),
             Role::Case => Some(Case::Pascal),
         }
     }

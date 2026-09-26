@@ -54,7 +54,8 @@ impl Backend for Python {
     fn naming(&self, role: Role) -> Option<Case> {
         Some(match role {
             Role::Type | Role::Case => Case::Pascal,
-            Role::Field | Role::Param => Case::Snake,
+            Role::Field | Role::Param | Role::Method => Case::Snake,
+            Role::Constant => Case::UpperSnake,
         })
     }
 
@@ -68,18 +69,27 @@ impl Backend for Python {
 
     fn declaration(&self, declaration: &Declaration) -> String {
         let name = &declaration.name;
-        match &declaration.kind {
-            DeclKind::Record(fields) if !fields.is_empty() => {
+        match (&declaration.kind, declaration.params_of.as_deref()) {
+            (DeclKind::Record(fields), Some(transaction)) => {
+                let body: String = fields
+                    .iter()
+                    .map(|field| format!("    {}: {}\n", field.name, field.ty))
+                    .collect();
+                format!(
+                    "@dataclass\nclass {name}:\n    \"\"\"Arguments for the {transaction} transaction.\"\"\"\n\n{body}"
+                )
+            }
+            (DeclKind::Record(fields), None) if !fields.is_empty() => {
                 let body: String = fields
                     .iter()
                     .map(|field| format!("    {}: {}\n", field.name, field.ty))
                     .collect();
                 format!("@dataclass\nclass {name}:\n{body}")
             }
-            DeclKind::Variant(_) => format!(
+            (DeclKind::Variant(_), _) => format!(
                 "# TODO: tagged-union codegen pending the variant arg encoder\n{name} = Any\n"
             ),
-            DeclKind::Record(_) | DeclKind::Tuple(_) | DeclKind::Alias(_) => {
+            (DeclKind::Record(_) | DeclKind::Tuple(_) | DeclKind::Alias(_), _) => {
                 format!("@dataclass\nclass {name}:\n    pass\n")
             }
         }

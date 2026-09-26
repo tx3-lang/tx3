@@ -1,16 +1,11 @@
-{{#if tii.components.schemas}}
-# Named types for the protocol's custom (record / variant) types.
-{{{componentTypes tii.components.schemas "python"}}}
-
-{{/if}}
+{{{imports tii "python"}}}{{{declarations tii "python"}}}
 {{#each tii.transactions}}
-@dataclass
-class {{pascalCase @key}}Params:
-    """Arguments for the {{@key}} transaction."""
-
+def {{identifier @key "python" "method"}}(args: {{paramsTypeName @key "python"}}) -> dict:
+    return {
 {{#each params.properties}}
-    {{snakeCase @key}}: {{schemaTypeFor this "python"}}
+        "{{@key}}": args.{{identifier @key "python" "param"}},
 {{/each}}
+    }
 
 
 {{/each}}

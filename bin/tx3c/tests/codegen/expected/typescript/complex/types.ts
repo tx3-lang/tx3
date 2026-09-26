@@ -1,4 +1,3 @@
-// Named types for the protocol's custom (record / variant) types.
 export type AssetClass = {
     name: Uint8Array;
     policy: Uint8Array;
@@ -6,7 +5,6 @@ export type AssetClass = {
 
 // TODO: tagged-union codegen pending the variant arg encoder
 export type Side = unknown;
-
 
 export type ComplexParams = {
     amounts: Array<number>;
@@ -22,3 +20,5 @@ export type ComplexParams = {
     source: string;
 };
 
+
+export function complex(args: ComplexParams): void {}

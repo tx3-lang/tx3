@@ -1,5 +1,4 @@
-{{{componentTypes tii.components.schemas "java"}}}
+{{{imports tii "java"}}}{{{declarations tii "java"}}}
 {{#each tii.transactions}}
-record {{javaPascalCase @key}}Params({{#each params.properties}}{{schemaTypeFor this "java"}} {{javaCamelCase @key}}{{#unless @last}}, {{/unless}}{{/each}}) {}
-
+TxBuilder {{identifier @key "java" "method"}}({{paramsTypeName @key "java"}} args);
 {{/each}}

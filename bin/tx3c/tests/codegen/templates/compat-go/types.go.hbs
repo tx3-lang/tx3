@@ -1,0 +1,13 @@
+{{#if tii.components.schemas}}
+// Named types for the protocol's custom (record / variant) types.
+{{{componentTypes tii.components.schemas "go"}}}
+{{/if}}
+{{#each tii.transactions}}
+// {{pascalCase @key}}Params holds the arguments for the {{@key}} transaction.
+type {{pascalCase @key}}Params struct {
+{{#each params.properties}}
+	{{pascalCase @key}} {{schemaTypeFor this "go"}} `json:"{{@key}}"`
+{{/each}}
+}
+
+{{/each}}

@@ -141,7 +141,8 @@ impl Backend for Swift {
     fn naming(&self, role: Role) -> Option<Case> {
         Some(match role {
             Role::Type => Case::Pascal,
-            Role::Field | Role::Param | Role::Case => Case::Camel,
+            Role::Field | Role::Param | Role::Case | Role::Method => Case::Camel,
+            Role::Constant => Case::UpperSnake,
         })
     }
 

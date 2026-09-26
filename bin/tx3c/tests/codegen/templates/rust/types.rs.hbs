@@ -1,14 +1,16 @@
-{{#if tii.components.schemas}}
-// Named types for the protocol's custom (record / variant) types.
-{{{componentTypes tii.components.schemas "rust"}}}
-{{/if}}
+{{{imports tii "rust"}}}{{{declarations tii "rust"}}}
 {{#each tii.transactions}}
-/// Arguments for the {{@key}} transaction.
-#[derive(Debug, Clone, Serialize)]
-pub struct {{pascalCase @key}}Params {
+impl From<{{paramsTypeName @key "rust"}}> for ArgMap {
+    fn from(args: {{paramsTypeName @key "rust"}}) -> Self {
+        let mut map = ArgMap::new();
 {{#each params.properties}}
-    pub {{snakeCase @key}}: {{schemaTypeFor this "rust"}},
+        map.insert("{{@key}}".to_string(), serde_json::to_value(&args.{{identifier @key "rust" "param"}}).unwrap());
 {{/each}}
+        map
+    }
 }
+
+pub fn {{identifier @key "rust" "method"}}(args: {{paramsTypeName @key "rust"}}) {}
+pub const {{identifier @key "rust" "constant"}}_TIR: &str = "";
 
 {{/each}}
