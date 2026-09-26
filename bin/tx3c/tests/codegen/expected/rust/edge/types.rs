@@ -28,7 +28,7 @@ pub struct ClassParams {
 #[derive(Debug, Clone, Serialize)]
 pub struct PlaceOrderParams {
     pub blob: serde_json::Value,
-    pub external: Address,
+    pub external: serde_json::Value,
     pub legacy_payer: Address,
     pub legs: Vec<Vec<serde_json::Value>>,
     pub line: OrderLine,

@@ -90,7 +90,7 @@ public struct PlaceOrderParams: Sendable {
     public let shipTo: Address
     public let payer: Address
     public let legacyPayer: Address
-    public let external: Address
+    public let external: ArgValue
     public let line: OrderLine
     public let shape: Shape
     public let legs: [PlaceOrderParamsLegsElement]
@@ -99,7 +99,7 @@ public struct PlaceOrderParams: Sendable {
     public let blob: ArgValue
     public let memo: ArgValue
 
-    public init(shipTo: Address, payer: Address, legacyPayer: Address, external: Address, line: OrderLine, shape: Shape, legs: [PlaceOrderParamsLegsElement], weights: [String: PlaceOrderParamsWeightsValue], nested: PlaceOrderParamsNested, blob: ArgValue, memo: ArgValue) {
+    public init(shipTo: Address, payer: Address, legacyPayer: Address, external: ArgValue, line: OrderLine, shape: Shape, legs: [PlaceOrderParamsLegsElement], weights: [String: PlaceOrderParamsWeightsValue], nested: PlaceOrderParamsNested, blob: ArgValue, memo: ArgValue) {
         self.shipTo = shipTo
         self.payer = payer
         self.legacyPayer = legacyPayer
