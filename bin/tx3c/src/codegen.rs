@@ -214,7 +214,11 @@ fn swift_type_for(schema: &Value, name_hint: Option<&str>) -> Result<String> {
                 .unwrap_or_else(|| "ArgValue".to_string());
             Ok(format!("[{item}]"))
         }
-        Some("object") if schema.get("additionalProperties").is_some() => {
+        Some("object")
+            if schema
+                .get("additionalProperties")
+                .is_some_and(Value::is_object) =>
+        {
             let value = swift_type_for(&schema["additionalProperties"], name_hint)?;
             Ok(format!("[String: {value}]"))
         }
@@ -281,7 +285,10 @@ impl SwiftRenderer {
             }
         }
         if schema.get("type").and_then(Value::as_str) == Some("object") {
-            if let Some(value) = schema.get("additionalProperties") {
+            if let Some(value) = schema
+                .get("additionalProperties")
+                .filter(|value| value.is_object())
+            {
                 let value_type = self.field_type(&nested_name, "Value", value)?;
                 return Ok(format!("[String: {value_type}]"));
             }
@@ -1368,6 +1375,10 @@ mod tests {
                 "[String: Bool]",
             ),
             (json!({"type": "object"}), "ArgValue"),
+            (
+                json!({"type": "object", "additionalProperties": false}),
+                "ArgValue",
+            ),
         ];
 
         for (schema, expected) in cases {
