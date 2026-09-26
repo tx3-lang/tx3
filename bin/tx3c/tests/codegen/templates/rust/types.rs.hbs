@@ -1,0 +1,14 @@
+{{#if tii.components.schemas}}
+// Named types for the protocol's custom (record / variant) types.
+{{{componentTypes tii.components.schemas "rust"}}}
+{{/if}}
+{{#each tii.transactions}}
+/// Arguments for the {{@key}} transaction.
+#[derive(Debug, Clone, Serialize)]
+pub struct {{pascalCase @key}}Params {
+{{#each params.properties}}
+    pub {{snakeCase @key}}: {{schemaTypeFor this "rust"}},
+{{/each}}
+}
+
+{{/each}}

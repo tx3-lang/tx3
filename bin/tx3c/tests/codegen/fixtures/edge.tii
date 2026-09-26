@@ -1,0 +1,153 @@
+{
+  "tii": { "version": "v1beta0" },
+  "protocol": {
+    "name": "codegen-edge-cases",
+    "scope": "unknown",
+    "version": "0.0.1",
+    "description": "Schema-only fixture for renderer edge cases: builtin-named components, ref origins, keyword names, declaration order, and anonymous tuples inside containers."
+  },
+  "parties": {},
+  "components": {
+    "schemas": {
+      "Address": {
+        "type": "object",
+        "properties": { "line": { "type": "string" } },
+        "required": ["line"]
+      },
+      "order_line": {
+        "type": "object",
+        "properties": {
+          "zeta": { "type": "integer" },
+          "alpha": { "$ref": "https://tx3.land/specs/v1beta0/tii#/$defs/Bytes" },
+          "class": { "type": "boolean" }
+        },
+        "required": ["zeta", "alpha", "class"]
+      },
+      "Shape": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["Circle"],
+            "properties": {
+              "Circle": {
+                "type": "object",
+                "properties": { "radius": { "type": "integer" } },
+                "required": ["radius"]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["Polygon"],
+            "properties": {
+              "Polygon": {
+                "type": "object",
+                "properties": {
+                  "points": {
+                    "type": "array",
+                    "items": {
+                      "type": "array",
+                      "prefixItems": [{ "type": "integer" }, { "type": "integer" }],
+                      "items": false,
+                      "minItems": 2,
+                      "maxItems": 2
+                    }
+                  }
+                },
+                "required": ["points"]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["Empty"],
+            "properties": {
+              "Empty": { "type": "object", "properties": {}, "required": [] }
+            }
+          }
+        ]
+      },
+      "Opaque": { "type": "object" }
+    }
+  },
+  "transactions": {
+    "place-order": {
+      "params": {
+        "type": "object",
+        "properties": {
+          "ship_to": { "$ref": "#/components/schemas/Address" },
+          "payer": { "$ref": "https://tx3.land/specs/v1beta0/tii#/$defs/Address" },
+          "legacy_payer": { "$ref": "https://tx3.land/specs/v1beta0/core#Address" },
+          "external": { "$ref": "https://example.com/schema#/$defs/Address" },
+          "line": { "$ref": "#/components/schemas/order_line" },
+          "shape": { "$ref": "#/components/schemas/Shape" },
+          "legs": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "prefixItems": [
+                { "type": "integer" },
+                { "$ref": "#/components/schemas/Address" }
+              ],
+              "items": false,
+              "minItems": 2,
+              "maxItems": 2
+            }
+          },
+          "weights": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "prefixItems": [
+                { "$ref": "https://tx3.land/specs/v1beta0/tii#/$defs/Bytes" },
+                { "type": "boolean" }
+              ],
+              "items": false,
+              "minItems": 2,
+              "maxItems": 2
+            }
+          },
+          "nested": {
+            "type": "array",
+            "prefixItems": [
+              { "type": "integer" },
+              {
+                "type": "array",
+                "prefixItems": [{ "type": "boolean" }, { "type": "string" }],
+                "items": false,
+                "minItems": 2,
+                "maxItems": 2
+              }
+            ],
+            "items": false,
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "blob": { "type": "object" },
+          "memo": { "type": "string" }
+        },
+        "required": [
+          "ship_to",
+          "payer",
+          "legacy_payer",
+          "external",
+          "line",
+          "shape",
+          "legs",
+          "weights",
+          "nested",
+          "blob",
+          "memo"
+        ]
+      },
+      "tir": { "content": "00", "encoding": "hex", "version": "v1beta0" }
+    },
+    "class": {
+      "params": { "type": "object", "properties": {}, "required": [] },
+      "tir": { "content": "00", "encoding": "hex", "version": "v1beta0" }
+    }
+  }
+}

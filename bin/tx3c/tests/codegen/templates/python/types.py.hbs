@@ -1,0 +1,16 @@
+{{#if tii.components.schemas}}
+# Named types for the protocol's custom (record / variant) types.
+{{{componentTypes tii.components.schemas "python"}}}
+
+{{/if}}
+{{#each tii.transactions}}
+@dataclass
+class {{pascalCase @key}}Params:
+    """Arguments for the {{@key}} transaction."""
+
+{{#each params.properties}}
+    {{snakeCase @key}}: {{schemaTypeFor this "python"}}
+{{/each}}
+
+
+{{/each}}
