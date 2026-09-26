@@ -1,9 +1,10 @@
 //! Golden-output tests for `tx3c codegen`.
 //!
-//! Every template directory under `tests/codegen/templates/<language>` is
-//! rendered by the real `tx3c` binary against every fixture in
-//! `tests/codegen/fixtures`. The rendered files must match
-//! `tests/codegen/expected/<language>/<fixture>/` byte for byte. A render
+//! The real `tx3c` binary renders every fixture in `tests/codegen/fixtures`
+//! once per language client (`--language <language>`, expected under
+//! `expected/<language>/`) and once per custom template directory under
+//! `tests/codegen/custom/<name>` (`--template`, expected under
+//! `expected/custom/<name>/`). The rendered files must match byte for byte. A render
 //! failure is recorded as an `ERROR` file holding the binary's stderr, so error
 //! behavior is pinned the same way as successful output.
 //!
@@ -67,20 +68,25 @@ fn write_tree(dir: &Path, files: &BTreeMap<String, String>) {
     }
 }
 
-fn render(language: &str, template: &Path, fixture: &Path) -> BTreeMap<String, String> {
+/// How a golden case selects its templates.
+enum Source {
+    Language(String),
+    Custom(PathBuf),
+}
+
+fn render(label: &str, source: &Source, fixture: &Path) -> BTreeMap<String, String> {
     let stem = fixture.file_stem().unwrap().to_string_lossy();
-    let output = std::env::temp_dir().join(format!(
-        "tx3c-golden-{}-{language}-{stem}",
-        std::process::id()
-    ));
+    let output =
+        std::env::temp_dir().join(format!("tx3c-golden-{}-{label}-{stem}", std::process::id()));
     let _ = fs::remove_dir_all(&output);
 
-    let result = Command::new(env!("CARGO_BIN_EXE_tx3c"))
-        .arg("codegen")
-        .arg("--tii")
-        .arg(fixture)
-        .arg("--template")
-        .arg(template)
+    let mut command = Command::new(env!("CARGO_BIN_EXE_tx3c"));
+    command.arg("codegen").arg("--tii").arg(fixture);
+    match source {
+        Source::Language(language) => command.arg("--language").arg(language),
+        Source::Custom(template) => command.arg("--template").arg(template),
+    };
+    let result = command
         .arg("--output")
         .arg(&output)
         .output()
@@ -107,13 +113,24 @@ fn codegen_templates_match_golden_output() {
         .filter(|path| path.extension().is_some_and(|ext| ext == "tii"))
         .collect();
 
+    let languages = sorted_entries(&Path::new(env!("CARGO_MANIFEST_DIR")).join("templates"))
+        .into_iter()
+        .map(|dir| {
+            let language = dir.file_name().unwrap().to_string_lossy().into_owned();
+            (language.clone(), Source::Language(language))
+        });
+    let custom = sorted_entries(&root.join("custom")).into_iter().map(|dir| {
+        let name = dir.file_name().unwrap().to_string_lossy().into_owned();
+        (format!("custom/{name}"), Source::Custom(dir))
+    });
+    let cases: Vec<(String, Source)> = languages.chain(custom).collect();
+
     let mut failures = Vec::new();
-    for template in sorted_entries(&root.join("templates")) {
-        let language = template.file_name().unwrap().to_string_lossy().into_owned();
+    for (language, source) in &cases {
         for fixture in &fixtures {
             let stem = fixture.file_stem().unwrap().to_string_lossy().into_owned();
-            let actual = render(&language, &template, fixture);
-            let expected_dir = root.join("expected").join(&language).join(&stem);
+            let actual = render(language, source, fixture);
+            let expected_dir = root.join("expected").join(language).join(&stem);
 
             if bless {
                 write_tree(&expected_dir, &actual);

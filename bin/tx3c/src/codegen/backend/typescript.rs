@@ -1,6 +1,6 @@
 use convert_case::Case;
 
-use super::{tuple_as_fallback_list, Backend, FieldOrder, Placement};
+use super::{tuple_as_fallback_list, Backend, FieldOrder, Placement, TemplateFile};
 use crate::codegen::{
     names::Role,
     plan::{DeclKind, Declaration},
@@ -60,6 +60,10 @@ impl Backend for TypeScript {
             Role::Constant => Some(Case::UpperSnake),
             Role::Case => Some(Case::Pascal),
         }
+    }
+
+    fn client_templates(&self) -> &'static [TemplateFile] {
+        client_templates!("typescript": "README.md.hbs", "package.json.hbs", "protocol.ts.hbs", "tsconfig.json.hbs")
     }
 
     fn placement(&self) -> Placement {

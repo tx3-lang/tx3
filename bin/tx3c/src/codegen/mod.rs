@@ -1,4 +1,8 @@
-//! `tx3c codegen`: renders a template directory against a TII document.
+//! `tx3c codegen`: renders client code for a TII document.
+//!
+//! `--language <language>` renders tx3c's client for that language, laid out by
+//! the client templates its backend lists. `--template <dir>` renders custom
+//! templates with the same helpers.
 //!
 //! Type rendering is split into layers so every language shares one
 //! traversal: [`schema`] parses JSON Schema nodes into shapes, [`plan`] turns
@@ -20,14 +24,19 @@ mod plan;
 mod schema;
 
 #[derive(Parser)]
+#[command(group(clap::ArgGroup::new("source").required(true).args(["language", "template"])))]
 pub struct Args {
     /// Path to the TII JSON file
     #[arg(long)]
     pub tii: PathBuf,
 
-    /// Path to the template directory
+    /// Render tx3c's client for this language (rust, typescript, python, go)
     #[arg(long)]
-    pub template: PathBuf,
+    pub language: Option<String>,
+
+    /// Render custom templates from this directory instead
+    #[arg(long)]
+    pub template: Option<PathBuf>,
 
     /// Output directory for rendered templates
     #[arg(short, long)]
@@ -64,6 +73,24 @@ fn register_templates(
     Ok(static_files)
 }
 
+/// Registers the client templates for `language`. Every client template file
+/// is text; non-`.hbs` files are returned as static files to write verbatim.
+fn register_client(
+    handlebars: &mut Handlebars<'_>,
+    language: &str,
+) -> Result<Vec<(&'static str, &'static str)>> {
+    let mut static_files = Vec::new();
+    for file in backend::client_templates(language)? {
+        match file.path.strip_suffix(".hbs") {
+            Some(template_name) => handlebars
+                .register_template_string(template_name, file.content)
+                .with_context(|| format!("registering client template {template_name}"))?,
+            None => static_files.push((file.path, file.content)),
+        }
+    }
+    Ok(static_files)
+}
+
 fn render_templates(handlebars: &Handlebars<'_>, data: &Value, output_dir: &Path) -> Result<()> {
     for name in handlebars.get_templates().keys() {
         let rendered = handlebars
@@ -95,6 +122,11 @@ fn copy_static_files(static_files: &[(PathBuf, PathBuf)], output_dir: &Path) -> 
     Ok(())
 }
 
+fn create_output(output: &Path) -> Result<()> {
+    std::fs::create_dir_all(output)
+        .with_context(|| format!("creating output dir {}", output.display()))
+}
+
 pub fn run(args: Args) -> Result<()> {
     let tii_contents = std::fs::read_to_string(&args.tii)
         .with_context(|| format!("reading TII file {}", args.tii.display()))?;
@@ -104,17 +136,31 @@ pub fn run(args: Args) -> Result<()> {
     let mut handlebars = Handlebars::new();
     helpers::register(&mut handlebars);
 
-    let static_files = register_templates(&mut handlebars, &args.template)?;
-
-    std::fs::create_dir_all(&args.output)
-        .with_context(|| format!("creating output dir {}", args.output.display()))?;
-
     let data = serde_json::json!({
         "tii": tii,
     });
 
-    render_templates(&handlebars, &data, &args.output)?;
-    copy_static_files(&static_files, &args.output)?;
+    match (&args.language, &args.template) {
+        (Some(language), _) => {
+            let static_files = register_client(&mut handlebars, language)?;
+            create_output(&args.output)?;
+            render_templates(&handlebars, &data, &args.output)?;
+            for (relative, content) in static_files {
+                let dest_path = args.output.join(relative);
+                if let Some(parent) = dest_path.parent() {
+                    std::fs::create_dir_all(parent)?;
+                }
+                std::fs::write(dest_path, content)?;
+            }
+        }
+        (None, Some(template)) => {
+            let static_files = register_templates(&mut handlebars, template)?;
+            create_output(&args.output)?;
+            render_templates(&handlebars, &data, &args.output)?;
+            copy_static_files(&static_files, &args.output)?;
+        }
+        (None, None) => unreachable!("clap requires --language or --template"),
+    }
 
     println!(
         "Generated code from {} into {}",

@@ -1,6 +1,6 @@
 use convert_case::Case;
 
-use super::{tuple_as_fallback_list, Backend, FieldOrder, Placement};
+use super::{tuple_as_fallback_list, Backend, FieldOrder, Placement, TemplateFile};
 use crate::codegen::{
     names::Role,
     plan::{DeclKind, Declaration},
@@ -60,6 +60,10 @@ impl Backend for Rust {
             Role::Constant => Case::UpperSnake,
             Role::Case => Case::Pascal,
         })
+    }
+
+    fn client_templates(&self) -> &'static [TemplateFile] {
+        client_templates!("rust": "Cargo.toml.hbs", "README.md.hbs", "lib.rs.hbs")
     }
 
     fn placement(&self) -> Placement {
