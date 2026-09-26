@@ -2,4 +2,6 @@ push = false
 publish = false
 tag-name = "v{{version}}"
 pre-release-commit-message = "release: v{{version}}"
-pre-release-hook = ["git", "cliff", "-o", "CHANGELOG.md", "--tag", "v{{version}}"]
+# The changelog hook lives only in crates/tx3-lang/Cargo.toml. A hook set here
+# runs once per crate from that crate's directory, which wrote a stray
+# CHANGELOG.md into every other crate.
