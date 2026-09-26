@@ -23,7 +23,7 @@ type ClassParams struct {
 // PlaceOrderParams holds the arguments for the place-order transaction.
 type PlaceOrderParams struct {
 	Blob interface{} `json:"blob"`
-	External string `json:"external"`
+	External interface{} `json:"external"`
 	LegacyPayer string `json:"legacy_payer"`
 	Legs [][]interface{} `json:"legs"`
 	Line OrderLine `json:"line"`
@@ -31,7 +31,7 @@ type PlaceOrderParams struct {
 	Nested []interface{} `json:"nested"`
 	Payer string `json:"payer"`
 	Shape Shape `json:"shape"`
-	ShipTo string `json:"ship_to"`
+	ShipTo Address `json:"ship_to"`
 	Weights map[string][]interface{} `json:"weights"`
 }
 

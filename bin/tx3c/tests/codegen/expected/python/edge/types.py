@@ -29,7 +29,7 @@ class PlaceOrderParams:
     """Arguments for the place-order transaction."""
 
     blob: Any
-    external: str
+    external: Any
     legacy_payer: str
     legs: list[list[Any]]
     line: OrderLine
@@ -37,7 +37,7 @@ class PlaceOrderParams:
     nested: list[Any]
     payer: str
     shape: Shape
-    ship_to: str
+    ship_to: Address
     weights: dict[str, list[Any]]
 
 

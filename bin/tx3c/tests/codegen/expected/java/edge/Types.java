@@ -4,7 +4,9 @@ record Opaque() {}
 
 sealed interface Shape permits Shape.Circle, Shape.Polygon, Shape.Empty {
     record Circle(java.math.BigInteger radius) implements Shape {}
-    record Polygon(java.util.List<land.tx3.sdk.ArgValue> points) implements Shape {}
+    record Polygon(java.util.List<PolygonPointsElement> points) implements Shape {
+        record PolygonPointsElement(java.math.BigInteger item0, java.math.BigInteger item1) {}
+    }
     record Empty() implements Shape {}
 }
 

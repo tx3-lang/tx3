@@ -21,7 +21,7 @@ export type ClassParams = {
 
 export type PlaceOrderParams = {
     blob: any;
-    external: string;
+    external: any;
     legacyPayer: string;
     legs: Array<Array<any>>;
     line: OrderLine;
@@ -29,7 +29,7 @@ export type PlaceOrderParams = {
     nested: Array<any>;
     payer: string;
     shape: Shape;
-    shipTo: string;
+    shipTo: Address;
     weights: Record<string, Array<any>>;
 };
 
