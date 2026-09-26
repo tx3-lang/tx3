@@ -53,7 +53,8 @@ impl Backend for Go {
 
     fn naming(&self, role: Role) -> Option<Case> {
         Some(match role {
-            Role::Type | Role::Field | Role::Param | Role::Case => Case::Pascal,
+            Role::Type | Role::Field | Role::Param | Role::Case | Role::Method => Case::Pascal,
+            Role::Constant => Case::UpperSnake,
         })
     }
 
@@ -75,7 +76,14 @@ impl Backend for Go {
                         format!("\t{} {} `json:\"{}\"`\n", field.name, field.ty, field.source)
                     })
                     .collect();
-                format!("type {name} struct {{\n{body}}}\n")
+                let doc = declaration
+                    .params_of
+                    .as_deref()
+                    .map(|transaction| {
+                        format!("// {name} holds the arguments for the {transaction} transaction.\n")
+                    })
+                    .unwrap_or_default();
+                format!("{doc}type {name} struct {{\n{body}}}\n")
             }
             DeclKind::Variant(_) => format!(
                 "// TODO: tagged-union codegen pending the variant arg encoder\ntype {name} = interface{{}}\n"

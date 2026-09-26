@@ -1,4 +1,3 @@
-# Named types for the protocol's custom (record / variant) types.
 @dataclass
 class AssetClass:
     name: bytes
@@ -6,8 +5,6 @@ class AssetClass:
 
 # TODO: tagged-union codegen pending the variant arg encoder
 Side = Any
-
-
 
 @dataclass
 class ComplexParams:
@@ -24,5 +21,21 @@ class ComplexParams:
     recipient: str
     side: Side
     source: str
+
+
+def complex(args: ComplexParams) -> dict:
+    return {
+        "amounts": args.amounts,
+        "asset": args.asset,
+        "bag": args.bag,
+        "flag": args.flag,
+        "labels": args.labels,
+        "nothing": args.nothing,
+        "pair": args.pair,
+        "quantity": args.quantity,
+        "recipient": args.recipient,
+        "side": args.side,
+        "source": args.source,
+    }
 
 

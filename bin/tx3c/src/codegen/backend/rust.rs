@@ -56,7 +56,8 @@ impl Backend for Rust {
     fn naming(&self, role: Role) -> Option<Case> {
         Some(match role {
             Role::Type => Case::Pascal,
-            Role::Field | Role::Param => Case::Snake,
+            Role::Field | Role::Param | Role::Method => Case::Snake,
+            Role::Constant => Case::UpperSnake,
             Role::Case => Case::Pascal,
         })
     }
@@ -71,8 +72,19 @@ impl Backend for Rust {
 
     fn declaration(&self, declaration: &Declaration) -> String {
         let name = &declaration.name;
-        match &declaration.kind {
-            DeclKind::Record(fields) => {
+        match (&declaration.kind, declaration.params_of.as_deref()) {
+            (DeclKind::Record(fields), Some(transaction)) => {
+                // Params are converted to an `ArgMap` by wire name in the
+                // template, so they carry no serde renames.
+                let body: String = fields
+                    .iter()
+                    .map(|field| format!("    pub {}: {},\n", field.name, field.ty))
+                    .collect();
+                format!(
+                    "/// Arguments for the {transaction} transaction.\n#[derive(Debug, Clone, Serialize)]\npub struct {name} {{\n{body}}}\n"
+                )
+            }
+            (DeclKind::Record(fields), None) => {
                 let mut body = String::new();
                 for field in fields {
                     if field.name != field.source {
@@ -82,10 +94,10 @@ impl Backend for Rust {
                 }
                 format!("#[derive(Debug, Clone, Serialize)]\npub struct {name} {{\n{body}}}\n")
             }
-            DeclKind::Variant(_) => format!(
+            (DeclKind::Variant(_), _) => format!(
                 "// TODO: tagged-union codegen pending the variant arg encoder\npub type {name} = serde_json::Value;\n"
             ),
-            DeclKind::Tuple(_) | DeclKind::Alias(_) => {
+            (DeclKind::Tuple(_) | DeclKind::Alias(_), _) => {
                 format!("#[derive(Debug, Clone, Serialize)]\npub struct {name} {{\n}}\n")
             }
         }

@@ -1,0 +1,5 @@
+{{{componentTypes tii.components.schemas "java"}}}
+{{#each tii.transactions}}
+record {{javaPascalCase @key}}Params({{#each params.properties}}{{schemaTypeFor this "java"}} {{javaCamelCase @key}}{{#unless @last}}, {{/unless}}{{/each}}) {}
+
+{{/each}}

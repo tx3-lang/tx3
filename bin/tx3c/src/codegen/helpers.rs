@@ -7,7 +7,12 @@ use handlebars::{
 };
 use serde_json::Value;
 
-use super::{backend, names::identifier_in, plan::Planner, schema::Shape};
+use super::{
+    backend,
+    names::{identifier, Role},
+    plan::{params_type_name, Planner},
+    schema::Shape,
+};
 
 /// Wraps a fallible function of the helper's positional arguments.
 fn helper<F>(name: &'static str, f: F) -> impl HelperDef + Send + Sync + 'static
@@ -43,7 +48,36 @@ fn schema_type_for(args: &[&Value]) -> Result<String> {
     Planner::new(backend).type_of(&shape, hint)
 }
 
-/// `componentTypes <components.schemas> <language>`
+/// `declarations <tii> <language>`: every component and transaction params
+/// declaration, including nested declarations for anonymous shapes.
+fn declarations(tii: &Value, language: &str) -> Result<String> {
+    let mut planner = Planner::new(backend::for_language(language)?);
+    let declarations = planner.document(tii)?;
+    Ok(planner.render(declarations))
+}
+
+/// `imports <tii> <language>`: import lines needed by `declarations`.
+fn imports(tii: &Value, language: &str) -> Result<String> {
+    let backend = backend::for_language(language)?;
+    let mut planner = Planner::new(backend);
+    planner.document(tii)?;
+    Ok(backend.imports(planner.usage()))
+}
+
+/// `identifier <name> <language> <role>`: the escaped identifier the
+/// renderer uses for `name` in that role.
+fn identifier_for(name: &str, language: &str, role: &str) -> Result<String> {
+    let role = Role::parse(role).ok_or_else(|| {
+        anyhow!(
+            "unknown identifier role `{role}`; expected one of: {}",
+            Role::NAMES.join(", ")
+        )
+    })?;
+    identifier(backend::for_language(language)?, name, role)
+}
+
+/// `componentTypes <components.schemas> <language>`: component declarations
+/// only. Superseded by `declarations`; kept for existing templates.
 fn component_types(args: &[&Value]) -> Result<String> {
     let backend = backend::for_language(str_arg(args, 1)?)?;
     // The schemas table is absent when a protocol declares no custom types.
@@ -51,21 +85,6 @@ fn component_types(args: &[&Value]) -> Result<String> {
     let mut planner = Planner::new(backend);
     let declarations = planner.components(schemas)?;
     Ok(planner.render(declarations))
-}
-
-/// `swiftDeclarations <tii>`: components and transaction params.
-fn swift_declarations(args: &[&Value]) -> Result<String> {
-    let mut planner = Planner::new(backend::for_language("swift")?);
-    let declarations = planner.document(arg(args, 0)?)?;
-    Ok(planner.render(declarations))
-}
-
-/// `swiftImports <tii>`: modules used by `swiftDeclarations`.
-fn swift_imports(args: &[&Value]) -> Result<String> {
-    let backend = backend::for_language("swift")?;
-    let mut planner = Planner::new(backend);
-    planner.document(arg(args, 0)?)?;
-    Ok(backend.imports(planner.usage()))
 }
 
 pub fn register(handlebars: &mut Handlebars<'_>) {
@@ -85,36 +104,33 @@ pub fn register(handlebars: &mut Handlebars<'_>) {
         );
     }
 
-    let java_cases: &[(&'static str, Case)] = &[
-        ("javaPascalCase", Case::Pascal),
-        ("javaCamelCase", Case::Camel),
-        ("javaConstantCase", Case::UpperSnake),
-    ];
-    for (name, case) in java_cases {
-        let case = *case;
-        handlebars.register_helper(
-            name,
-            Box::new(helper(name, move |args| {
-                identifier_in(backend::for_language("java")?, str_arg(args, 0)?, case)
-            })),
-        );
-    }
-
     handlebars.register_helper(
         "schemaTypeFor",
         Box::new(helper("schemaTypeFor", schema_type_for)),
     );
     handlebars.register_helper(
-        "componentTypes",
-        Box::new(helper("componentTypes", component_types)),
+        "declarations",
+        Box::new(helper("declarations", |args| {
+            declarations(arg(args, 0)?, str_arg(args, 1)?)
+        })),
     );
     handlebars.register_helper(
-        "swiftDeclarations",
-        Box::new(helper("swiftDeclarations", swift_declarations)),
+        "imports",
+        Box::new(helper("imports", |args| {
+            imports(arg(args, 0)?, str_arg(args, 1)?)
+        })),
     );
     handlebars.register_helper(
-        "swiftImports",
-        Box::new(helper("swiftImports", swift_imports)),
+        "identifier",
+        Box::new(helper("identifier", |args| {
+            identifier_for(str_arg(args, 0)?, str_arg(args, 1)?, str_arg(args, 2)?)
+        })),
+    );
+    handlebars.register_helper(
+        "paramsTypeName",
+        Box::new(helper("paramsTypeName", |args| {
+            params_type_name(backend::for_language(str_arg(args, 1)?)?, str_arg(args, 0)?)
+        })),
     );
     handlebars.register_helper(
         "json",
@@ -122,6 +138,37 @@ pub fn register(handlebars: &mut Handlebars<'_>) {
             Ok(serde_json::to_string(arg(args, 0)?)?)
         })),
     );
+
+    // Superseded helpers, kept so existing templates keep rendering.
+    handlebars.register_helper(
+        "componentTypes",
+        Box::new(helper("componentTypes", component_types)),
+    );
+    handlebars.register_helper(
+        "swiftDeclarations",
+        Box::new(helper("swiftDeclarations", |args| {
+            declarations(arg(args, 0)?, "swift")
+        })),
+    );
+    handlebars.register_helper(
+        "swiftImports",
+        Box::new(helper("swiftImports", |args| {
+            imports(arg(args, 0)?, "swift")
+        })),
+    );
+    let java_aliases: &[(&'static str, &'static str)] = &[
+        ("javaPascalCase", "type"),
+        ("javaCamelCase", "method"),
+        ("javaConstantCase", "constant"),
+    ];
+    for (name, role) in java_aliases {
+        handlebars.register_helper(
+            name,
+            Box::new(helper(name, move |args| {
+                identifier_for(str_arg(args, 0)?, "java", role)
+            })),
+        );
+    }
 }
 
 #[cfg(test)]
@@ -418,5 +465,71 @@ mod tests {
             render("{{{swiftDeclarations tii}}}", json!({ "tii": opaque })).unwrap(),
             "public typealias Opaque = ArgValue"
         );
+    }
+
+    #[test]
+    fn identifier_applies_each_role() {
+        let template = concat!(
+            "{{identifier name \"rust\" \"type\"}} ",
+            "{{identifier name \"rust\" \"param\"}} ",
+            "{{identifier name \"rust\" \"constant\"}} ",
+            "{{identifier name \"typescript\" \"field\"}} ",
+            "{{identifier name \"typescript\" \"param\"}} ",
+            "{{identifier name \"java\" \"method\"}} ",
+            "{{identifier name \"swift\" \"case\"}}",
+        );
+        assert_eq!(
+            render(template, json!({ "name": "place_order" })).unwrap(),
+            "PlaceOrder place_order PLACE_ORDER place_order placeOrder placeOrder placeOrder"
+        );
+        assert_eq!(
+            render(
+                "{{identifier name \"java\" \"field\"}}",
+                json!({ "name": "class" })
+            )
+            .unwrap(),
+            "class_"
+        );
+
+        let error = render(
+            "{{identifier name \"java\" \"module\"}}",
+            json!({ "name": "x" }),
+        )
+        .unwrap_err();
+        assert!(
+            error.contains("unknown identifier role `module`; expected one of: type, field, param, case, method, constant"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn params_type_names_match_declarations() {
+        let tii = json!({
+            "transactions": {
+                "place-order": {
+                    "params": {
+                        "type": "object",
+                        "properties": { "quantity": { "type": "integer" } },
+                        "required": ["quantity"]
+                    }
+                }
+            }
+        });
+        let data = json!({ "tii": tii });
+        assert_eq!(
+            render("{{paramsTypeName \"place-order\" \"go\"}}", data.clone()).unwrap(),
+            "PlaceOrderParams"
+        );
+        assert_eq!(
+            render("{{{declarations tii \"go\"}}}", data.clone()).unwrap(),
+            concat!(
+                "// PlaceOrderParams holds the arguments for the place-order transaction.\n",
+                "type PlaceOrderParams struct {\n",
+                "\tQuantity int64 `json:\"quantity\"`\n",
+                "}\n",
+                "\n",
+            )
+        );
+        assert_eq!(render("{{{imports tii \"go\"}}}", data).unwrap(), "");
     }
 }

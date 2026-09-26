@@ -138,8 +138,7 @@ impl Planner {
             };
             let mut plan = || -> Result<Declaration> {
                 let shape = Shape::parse(params)?;
-                let base = identifier(self.backend, source, Role::Type)?;
-                let name = identifier(self.backend, &format!("{base}Params"), Role::Type)?;
+                let name = params_type_name(self.backend, source)?;
                 let name = self.claim_top(source, name)?;
                 self.declaration(name, &shape, Some(source))
             };
@@ -345,6 +344,13 @@ impl Planner {
         };
         Ok(ty)
     }
+}
+
+/// Name of the params declaration for transaction `source`. Templates reach
+/// it through the `paramsTypeName` helper so references always match.
+pub fn params_type_name(backend: &dyn Backend, source: &str) -> Result<String> {
+    let base = identifier(backend, source, Role::Type)?;
+    identifier(backend, &format!("{base}Params"), Role::Type)
 }
 
 /// Moves nested declarations to top level, each before its parent.
