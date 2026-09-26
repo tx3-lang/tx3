@@ -18,7 +18,7 @@ struct Cli {
 enum Commands {
     /// Build and compile Tx3 source files
     Build(build::Args),
-    /// Render codegen templates from a TII file
+    /// Render client code from a TII file
     Codegen(codegen::Args),
     /// Decode a compiled artifact (the reverse of `build`)
     Decode(decode::Args),

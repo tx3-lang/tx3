@@ -1,0 +1,26 @@
+{{#if options.standalone}}
+{
+  "name": "{{tii.protocol.name}}",
+  "version": "{{tii.protocol.version}}",
+  "description": "A simple Node.js library for the TX3 protocol",
+  "main": "dist/protocol.js",
+  "types": "dist/protocol.d.ts",
+  {{#if options.package_type}}
+  "type": "{{options.package_type}}",
+  {{/if}}
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "tx3-sdk": "^0.15.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.1",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
+{{/if}}

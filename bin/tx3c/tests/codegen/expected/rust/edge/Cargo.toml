@@ -1,0 +1,14 @@
+[package]
+name = "codegen-edge-cases"
+version = "0.0.1"
+edition = "2021"
+
+[dependencies]
+# Floor: the first release carrying `Tx3ClientBuilder::with_tx_params` and
+# `tx3_sdk::tii::params_from_schema`, which this generated client calls.
+tx3-sdk = { version = "^0.15.0" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+[lib]
+path = "lib.rs"

@@ -59,3 +59,31 @@ jobs:
       - uses: dtolnay/rust-toolchain@1.91
       - uses: Swatinem/rust-cache@v2
       - run: cargo test --workspace --all-targets --all-features
+
+  codegen:
+    name: codegen compile (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [rust, typescript, python, go]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@1.91
+      - uses: Swatinem/rust-cache@v2
+      - if: matrix.language == 'typescript'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - if: matrix.language == 'python'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - if: matrix.language == 'go'
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+      - run: cargo build -p tx3c --locked
+      - run: bash .github/scripts/codegen-compile-check.sh ${{ matrix.language }} target/debug/tx3c
