@@ -1,6 +1,6 @@
 use convert_case::Case;
 
-use super::{tuple_as_fallback_list, Backend, FieldOrder, Placement, TemplateFile};
+use super::{tuple_as_fallback_list, Backend, FieldOrder, Placement};
 use crate::codegen::{
     names::Role,
     plan::{DeclKind, Declaration},
@@ -56,10 +56,6 @@ impl Backend for Go {
             Role::Type | Role::Field | Role::Param | Role::Case | Role::Method => Case::Pascal,
             Role::Constant => Case::UpperSnake,
         })
-    }
-
-    fn client_templates(&self) -> &'static [TemplateFile] {
-        client_templates!("go": "README.md.hbs", "go.mod.hbs", "protocol.go.hbs")
     }
 
     fn placement(&self) -> Placement {

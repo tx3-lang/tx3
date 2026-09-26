@@ -1,8 +1,9 @@
-//! `tx3c codegen`: renders client code for a TII document.
+//! `tx3c codegen`: renders a template against a TII document.
 //!
-//! `--language <language>` renders tx3c's client for that language, laid out by
-//! the client templates its backend lists. `--template <dir>` renders custom
-//! templates with the same helpers.
+//! A template is one use case in one language, such as `rust-client`.
+//! `--template <name>` renders a built-in template from [`templates`];
+//! `--template <dir>` renders a custom template directory with the same
+//! helpers.
 //!
 //! Type rendering is split into layers so every language shares one
 //! traversal: [`schema`] parses JSON Schema nodes into shapes, [`plan`] turns
@@ -11,7 +12,7 @@
 
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use clap::Parser;
 use handlebars::Handlebars;
 use serde_json::Value;
@@ -22,21 +23,20 @@ mod helpers;
 mod names;
 mod plan;
 mod schema;
+mod templates;
 
 #[derive(Parser)]
-#[command(group(clap::ArgGroup::new("source").required(true).args(["language", "template"])))]
 pub struct Args {
     /// Path to the TII JSON file
     #[arg(long)]
     pub tii: PathBuf,
 
-    /// Render tx3c's client for this language (rust, typescript, python, go)
+    /// Template to render: a built-in template name (ts-client, rust-client,
+    /// python-client, go-client) or a path to a custom template directory.
+    /// A bare name is looked up among the built-in templates first; use
+    /// `./name` to force a directory.
     #[arg(long)]
-    pub language: Option<String>,
-
-    /// Render custom templates from this directory instead
-    #[arg(long)]
-    pub template: Option<PathBuf>,
+    pub template: String,
 
     /// Output directory for rendered templates
     #[arg(short, long)]
@@ -73,18 +73,51 @@ fn register_templates(
     Ok(static_files)
 }
 
-/// Registers the client templates for `language`. Every client template file
-/// is text; non-`.hbs` files are returned as static files to write verbatim.
-fn register_client(
+/// Where a `--template` value points.
+enum TemplateSource {
+    BuiltIn(&'static [templates::File]),
+    Directory(PathBuf),
+}
+
+/// Resolves a `--template` value. A bare name, with no path separator and no
+/// leading `.`, is a built-in template if one has that name; anything else is
+/// a directory.
+fn resolve_template(value: &str) -> Result<TemplateSource> {
+    let bare_name = !value.starts_with('.')
+        && !value.contains('/')
+        && !value.contains(std::path::MAIN_SEPARATOR);
+
+    if bare_name {
+        if let Some(files) = templates::built_in(value) {
+            return Ok(TemplateSource::BuiltIn(files));
+        }
+    }
+
+    let path = PathBuf::from(value);
+    if path.is_dir() {
+        return Ok(TemplateSource::Directory(path));
+    }
+    if bare_name {
+        bail!(
+            "unknown template `{value}`: it is neither a built-in template ({}) nor a directory",
+            templates::names()
+        );
+    }
+    bail!("template directory `{value}` does not exist")
+}
+
+/// Registers a built-in template. Every built-in file is text; non-`.hbs`
+/// files are returned as static files to write verbatim.
+fn register_built_in(
     handlebars: &mut Handlebars<'_>,
-    language: &str,
+    files: &'static [templates::File],
 ) -> Result<Vec<(&'static str, &'static str)>> {
     let mut static_files = Vec::new();
-    for file in backend::client_templates(language)? {
+    for file in files {
         match file.path.strip_suffix(".hbs") {
             Some(template_name) => handlebars
                 .register_template_string(template_name, file.content)
-                .with_context(|| format!("registering client template {template_name}"))?,
+                .with_context(|| format!("registering template {template_name}"))?,
             None => static_files.push((file.path, file.content)),
         }
     }
@@ -140,9 +173,9 @@ pub fn run(args: Args) -> Result<()> {
         "tii": tii,
     });
 
-    match (&args.language, &args.template) {
-        (Some(language), _) => {
-            let static_files = register_client(&mut handlebars, language)?;
+    match resolve_template(&args.template)? {
+        TemplateSource::BuiltIn(files) => {
+            let static_files = register_built_in(&mut handlebars, files)?;
             create_output(&args.output)?;
             render_templates(&handlebars, &data, &args.output)?;
             for (relative, content) in static_files {
@@ -153,13 +186,12 @@ pub fn run(args: Args) -> Result<()> {
                 std::fs::write(dest_path, content)?;
             }
         }
-        (None, Some(template)) => {
-            let static_files = register_templates(&mut handlebars, template)?;
+        TemplateSource::Directory(template) => {
+            let static_files = register_templates(&mut handlebars, &template)?;
             create_output(&args.output)?;
             render_templates(&handlebars, &data, &args.output)?;
             copy_static_files(&static_files, &args.output)?;
         }
-        (None, None) => unreachable!("clap requires --language or --template"),
     }
 
     println!(
@@ -169,4 +201,39 @@ pub fn run(args: Args) -> Result<()> {
     );
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn resolved(value: &str) -> std::result::Result<&'static str, String> {
+        match resolve_template(value) {
+            Ok(TemplateSource::BuiltIn(_)) => Ok("built-in"),
+            Ok(TemplateSource::Directory(_)) => Ok("directory"),
+            Err(error) => Err(error.to_string()),
+        }
+    }
+
+    #[test]
+    fn template_values_resolve_to_built_ins_or_directories() {
+        let custom = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/codegen/custom/java");
+        let custom = custom.to_str().unwrap();
+
+        assert_eq!(resolved("rust-client"), Ok("built-in"));
+        assert_eq!(resolved(custom), Ok("directory"));
+        assert_eq!(resolved("."), Ok("directory"));
+        assert_eq!(
+            resolved("kotlin-client"),
+            Err(
+                "unknown template `kotlin-client`: it is neither a built-in template \
+                 (ts-client, rust-client, python-client, go-client) nor a directory"
+                    .to_string()
+            )
+        );
+        assert_eq!(
+            resolved("./rust-client"),
+            Err("template directory `./rust-client` does not exist".to_string())
+        );
+    }
 }
