@@ -60,7 +60,8 @@ pub fn identifier_in(backend: &dyn Backend, source: &str, case: Case) -> Result<
     escape(backend, source, source.to_case(case))
 }
 
-fn escape(backend: &dyn Backend, source: &str, mut normalized: String) -> Result<String> {
+fn escape(backend: &dyn Backend, source: &str, normalized: String) -> Result<String> {
+    let mut normalized = backend.sanitize(normalized);
     if normalized.is_empty() {
         bail!(
             "{} identifier `{source}` is empty after normalization",

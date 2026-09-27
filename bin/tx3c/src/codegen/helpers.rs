@@ -121,6 +121,36 @@ fn identifier_for(name: &str, language: &str, role: &str) -> Result<String> {
     identifier(backend::for_language(language)?, name, role)
 }
 
+/// `stringLiteral <text> <language>`: `text` as a string literal of that
+/// language, quoted and escaped.
+fn string_literal(args: &[&Value]) -> Result<String> {
+    let backend = backend::for_language(str_arg(args, 1)?)?;
+    Ok(backend.string_literal(str_arg(args, 0)?))
+}
+
+/// `indent <text> <columns>`: `text` with every non-empty line indented by
+/// `columns` spaces, so a rendered block can nest inside a declaration.
+/// Trailing newlines are dropped; the template controls the spacing after
+/// the block.
+fn indent(args: &[&Value]) -> Result<String> {
+    let text = str_arg(args, 0)?.trim_end_matches('\n');
+    let columns = arg(args, 1)?
+        .as_u64()
+        .ok_or_else(|| anyhow!("argument 1 must be a non-negative integer"))?;
+    let pad = " ".repeat(columns as usize);
+    let mut out = String::with_capacity(text.len());
+    for (index, line) in text.split('\n').enumerate() {
+        if index > 0 {
+            out.push('\n');
+        }
+        if !line.is_empty() {
+            out.push_str(&pad);
+            out.push_str(line);
+        }
+    }
+    Ok(out)
+}
+
 /// `componentTypes <components.schemas> <language>`: component declarations
 /// only. Superseded by `declarations`; kept for existing templates.
 fn component_types(args: &[&Value]) -> Result<String> {
@@ -139,6 +169,7 @@ pub fn register(handlebars: &mut Handlebars<'_>) {
         ("camelCase", |s| s.to_case(Case::Camel)),
         ("constantCase", |s| s.to_case(Case::UpperSnake)),
         ("snakeCase", |s| s.to_case(Case::Snake)),
+        ("kebabCase", |s| s.to_case(Case::Kebab)),
         ("lowerCase", |s| s.to_case(Case::Lower)),
     ];
     for (name, convert) in cases {
@@ -177,6 +208,11 @@ pub fn register(handlebars: &mut Handlebars<'_>) {
             params_type_name(backend::for_language(str_arg(args, 1)?)?, str_arg(args, 0)?)
         })),
     );
+    handlebars.register_helper(
+        "stringLiteral",
+        Box::new(helper("stringLiteral", string_literal)),
+    );
+    handlebars.register_helper("indent", Box::new(helper("indent", indent)));
     handlebars.register_helper(
         "json",
         Box::new(helper("json", |args| {
@@ -429,13 +465,260 @@ mod tests {
         assert_eq!(
             declarations("java", schemas).unwrap(),
             concat!(
-                "record Envelope(Boolean class_, EnvelopePair pair) {\n",
-                "    record EnvelopePair(java.math.BigInteger item0, EnvelopePairItem1 item1) {\n",
-                "        record EnvelopePairItem1(String record_) {}\n",
+                "public record Envelope(Boolean class_, EnvelopePair pair) {\n",
+                "    /** Converts this value to the SDK's canonical tagged argument. */\n",
+                "    public land.tx3.sdk.ArgValue toArgValue() {\n",
+                "        return land.tx3.sdk.ArgValue.struct(0, java.util.List.of(\n",
+                "            land.tx3.sdk.ArgValue.bool(class_),\n",
+                "            pair.toArgValue()));\n",
+                "    }\n",
+                "\n",
+                "    public record EnvelopePair(java.math.BigInteger item0, EnvelopePairItem1 item1) {\n",
+                "        /** Converts this value to the SDK's canonical tagged argument. */\n",
+                "        public land.tx3.sdk.ArgValue toArgValue() {\n",
+                "            return land.tx3.sdk.ArgValue.tuple(java.util.List.of(\n",
+                "                land.tx3.sdk.ArgValue.integer(item0),\n",
+                "                item1.toArgValue()));\n",
+                "        }\n",
+                "\n",
+                "        public record EnvelopePairItem1(String record_) {\n",
+                "            /** Converts this value to the SDK's canonical tagged argument. */\n",
+                "            public land.tx3.sdk.ArgValue toArgValue() {\n",
+                "                return land.tx3.sdk.ArgValue.struct(0, java.util.List.of(\n",
+                "                    land.tx3.sdk.ArgValue.string(record_)));\n",
+                "            }\n",
+                "        }\n",
                 "    }\n",
                 "}\n",
                 "\n",
             )
+        );
+    }
+
+    #[test]
+    fn java_variants_number_their_cases_and_aliases_wrap_their_value() {
+        let schemas = json!({
+            "Side": {
+                "oneOf": [
+                    { "type": "object", "required": ["Buy"], "properties": { "Buy": { "type": "object", "properties": {} } } },
+                    { "type": "object", "required": ["Sell"], "properties": { "Sell": {
+                        "type": "object",
+                        "properties": { "price": { "type": "integer" } },
+                        "required": ["price"]
+                    } } }
+                ]
+            },
+            "Amount": { "type": "integer" },
+            "Opaque": { "type": "object" }
+        });
+
+        assert_eq!(
+            declarations("java", schemas).unwrap(),
+            concat!(
+                "public record Amount(java.math.BigInteger value) {\n",
+                "    /** Converts this value to the SDK's canonical tagged argument. */\n",
+                "    public land.tx3.sdk.ArgValue toArgValue() {\n",
+                "        return land.tx3.sdk.ArgValue.integer(value);\n",
+                "    }\n",
+                "}\n",
+                "\n",
+                "public record Opaque(land.tx3.sdk.ArgValue value) {\n",
+                "    /** Converts this value to the SDK's canonical tagged argument. */\n",
+                "    public land.tx3.sdk.ArgValue toArgValue() {\n",
+                "        return value;\n",
+                "    }\n",
+                "}\n",
+                "\n",
+                "public sealed interface Side permits Side.Buy, Side.Sell {\n",
+                "    /** Converts this value to the SDK's canonical tagged argument. */\n",
+                "    land.tx3.sdk.ArgValue toArgValue();\n",
+                "\n",
+                "    record Buy() implements Side {\n",
+                "        @Override\n",
+                "        public land.tx3.sdk.ArgValue toArgValue() {\n",
+                "            return land.tx3.sdk.ArgValue.struct(0, java.util.List.of());\n",
+                "        }\n",
+                "    }\n",
+                "\n",
+                "    record Sell(java.math.BigInteger price) implements Side {\n",
+                "        @Override\n",
+                "        public land.tx3.sdk.ArgValue toArgValue() {\n",
+                "            return land.tx3.sdk.ArgValue.struct(1, java.util.List.of(\n",
+                "                land.tx3.sdk.ArgValue.integer(price)));\n",
+                "        }\n",
+                "    }\n",
+                "}\n",
+                "\n",
+            )
+        );
+    }
+
+    #[test]
+    fn java_params_records_carry_no_conversion() {
+        let tii = json!({
+            "transactions": {
+                "transfer": {
+                    "params": {
+                        "type": "object",
+                        "properties": { "quantity": { "type": "integer" } },
+                        "required": ["quantity"]
+                    }
+                }
+            }
+        });
+        assert_eq!(
+            render("{{{declarations tii \"java\"}}}", json!({ "tii": tii })).unwrap(),
+            "public record TransferParams(java.math.BigInteger quantity) {}\n\n"
+        );
+    }
+
+    #[test]
+    fn java_arg_values_follow_the_params_declaration() {
+        let tii = json!({
+            "components": { "schemas": {
+                "Amount": { "type": "integer" },
+                "Side": { "oneOf": [
+                    { "type": "object", "required": ["Buy"], "properties": { "Buy": { "type": "object", "properties": {} } } }
+                ] },
+                "Opaque": { "type": "object" }
+            } },
+            "transactions": { "place-order": { "params": {
+                "type": "object",
+                "properties": {
+                    "flag": { "type": "boolean" },
+                    "quantity": { "type": "integer" },
+                    "memo": { "type": "string" },
+                    "nothing": { "type": "null" },
+                    "datum": builtin("Bytes"),
+                    "ship-to": builtin("Address"),
+                    "source": builtin("UtxoRef"),
+                    "input": builtin("Utxo"),
+                    "bag": builtin("AnyAsset"),
+                    "future": { "future": true },
+                    "amount": { "$ref": "#/components/schemas/Amount" },
+                    "side": { "$ref": "#/components/schemas/Side" },
+                    "opaque": { "$ref": "#/components/schemas/Opaque" },
+                    "pair": {
+                        "type": "array",
+                        "prefixItems": [{ "type": "integer" }],
+                        "items": false
+                    },
+                    "amounts": { "type": "array", "items": { "type": "integer" } },
+                    "inputs": { "type": "array", "items": builtin("Utxo") },
+                    "matrix": {
+                        "type": "array",
+                        "items": { "type": "array", "items": { "type": "boolean" } }
+                    },
+                    "sides": { "type": "object", "additionalProperties": { "$ref": "#/components/schemas/Side" } },
+                    "class": { "type": "boolean" }
+                },
+                "required": [
+                    "flag", "quantity", "memo", "nothing", "datum", "ship-to", "source", "input",
+                    "bag", "future", "amount", "side", "opaque", "pair", "amounts", "inputs",
+                    "matrix", "sides", "class"
+                ]
+            } } }
+        });
+        let data = json!({ "tii": tii });
+        let cases = [
+            ("flag", "land.tx3.sdk.ArgValue.bool(args.flag())"),
+            ("quantity", "land.tx3.sdk.ArgValue.integer(args.quantity())"),
+            ("memo", "land.tx3.sdk.ArgValue.string(args.memo())"),
+            ("nothing", "args.nothing()"),
+            ("datum", "land.tx3.sdk.ArgValue.bytes(args.datum())"),
+            ("ship-to", "land.tx3.sdk.ArgValue.address(args.shipTo())"),
+            ("source", "land.tx3.sdk.ArgValue.utxoRef(args.source())"),
+            ("input", "args.input()"),
+            ("bag", "args.bag()"),
+            ("future", "args.future()"),
+            // An alias is a wrapper record in Java, so it converts itself
+            // like a record or variant; an opaque component is already an
+            // `ArgValue` held by its wrapper.
+            ("amount", "args.amount().toArgValue()"),
+            ("side", "args.side().toArgValue()"),
+            ("opaque", "args.opaque().toArgValue()"),
+            ("pair", "args.pair().toArgValue()"),
+            (
+                "amounts",
+                "land.tx3.sdk.ArgValue.list(args.amounts().stream().map(v0 -> land.tx3.sdk.ArgValue.integer(v0)).toList())",
+            ),
+            ("inputs", "land.tx3.sdk.ArgValue.list(args.inputs())"),
+            (
+                "matrix",
+                "land.tx3.sdk.ArgValue.list(args.matrix().stream().map(v0 -> land.tx3.sdk.ArgValue.list(v0.stream().map(v1 -> land.tx3.sdk.ArgValue.bool(v1)).toList())).toList())",
+            ),
+            (
+                "sides",
+                "land.tx3.sdk.ArgValue.map(args.sides().entrySet().stream().sorted(java.util.Map.Entry.comparingByKey()).map(v0 -> new land.tx3.sdk.ArgValue.MapEntry(land.tx3.sdk.ArgValue.string(v0.getKey()), v0.getValue().toArgValue())).toList())",
+            ),
+            // Keywords are read through their escaped accessor.
+            ("class", "land.tx3.sdk.ArgValue.bool(args.class_())"),
+        ];
+        for (param, expected) in cases {
+            let template =
+                format!("{{{{{{argValue tii \"place-order\" \"{param}\" \"java\" \"args\"}}}}}}");
+            assert_eq!(
+                render(&template, data.clone()).unwrap(),
+                expected,
+                "{param}"
+            );
+        }
+    }
+
+    #[test]
+    fn java_identifiers_collapse_illegal_characters() {
+        assert_eq!(
+            render(
+                "{{identifier a \"java\" \"method\"}} {{identifier b \"java\" \"type\"}} {{identifier c \"java\" \"method\"}}",
+                json!({ "a": "my.protocol", "b": "acme@v2!", "c": "9.lives" }),
+            )
+            .unwrap(),
+            "my_protocol Acme_v2_ _9_lives"
+        );
+    }
+
+    #[test]
+    fn string_literals_escape_for_the_language() {
+        assert_eq!(
+            render(
+                "{{{stringLiteral text \"java\"}}}",
+                json!({ "text": "say \"hi\"\n\\ \u{1}" }),
+            )
+            .unwrap(),
+            "\"say \\\"hi\\\"\\n\\\\ \\u0001\""
+        );
+    }
+
+    #[test]
+    fn long_java_string_literals_are_joined_at_runtime() {
+        let text = "a".repeat(65535 * 2 + 1);
+        let literal = render("{{{stringLiteral text \"java\"}}}", json!({ "text": text })).unwrap();
+        // The separator after the empty joiner, then one between each chunk.
+        let pieces: Vec<&str> = literal.split("\", \"").collect();
+        assert_eq!(pieces.len(), 4, "{}", &literal[..40]);
+        assert_eq!(pieces[0], "String.join(\"");
+        assert_eq!(pieces[1].len(), 65535);
+        assert_eq!(pieces[2].len(), 65535);
+        assert_eq!(pieces[3], "a\")");
+    }
+
+    #[test]
+    fn indent_pads_non_empty_lines_and_drops_trailing_newlines() {
+        assert_eq!(
+            render(
+                "{{{indent text 4}}}|",
+                json!({ "text": "a {\n\n    b\n}\n\n" }),
+            )
+            .unwrap(),
+            "    a {\n\n        b\n    }|"
+        );
+    }
+
+    #[test]
+    fn kebab_case_names_maven_artifacts() {
+        assert_eq!(
+            render("{{kebabCase name}}", json!({ "name": "My Protocol_v2" })).unwrap(),
+            "my-protocol-v-2"
         );
     }
 

@@ -7,8 +7,9 @@
 # they target, so this job checks that pairing: the SDK release must already
 # exist before the templates may target it.
 #
-# Usage: codegen-compile-check.sh <rust-client|ts-client|python-client|go-client|swift-client> [path/to/tx3c]
-# Needs the matching toolchain on PATH: cargo, node/npm, python3, go, or swift.
+# Usage: codegen-compile-check.sh <rust-client|ts-client|python-client|go-client|java-client|swift-client> [path/to/tx3c]
+# Needs the matching toolchain on PATH: cargo, node/npm, python3, go, a JDK
+# (java-client also needs git; Maven comes from the SDK checkout's wrapper), or swift.
 set -euo pipefail
 
 template="$1"
@@ -18,6 +19,28 @@ fixtures="$repo_root/bin/tx3c/tests/codegen/fixtures"
 template_dir="$repo_root/bin/tx3c/templates/$template"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
+
+# Until land.tx3:tx3-sdk:0.15.0 is on Maven Central, the Java client compiles
+# against the java-sdk repository at this commit, installed into the local
+# Maven repository as 0.15.0-SNAPSHOT and selected through the generated
+# project's tx3.sdk.version property. Once the release exists, drop this block
+# and the -Dtx3.sdk.version override so the check builds against the
+# published package like the other languages.
+java_sdk_repo="https://github.com/tx3-lang/java-sdk.git"
+java_sdk_pin="d7a6dc4da56f73a7a47fe2e77444ad056885cfe7"
+java_sdk_version="0.15.0-SNAPSHOT"
+mvn=""
+if [ "$template" = "java-client" ]; then
+  sdk="$work/java-sdk"
+  git clone --quiet "$java_sdk_repo" "$sdk"
+  git -C "$sdk" checkout --quiet "$java_sdk_pin"
+  mvn="$sdk/mvnw"
+  (
+    cd "$sdk"
+    "$mvn" -B -ntp -q versions:set -DnewVersion="$java_sdk_version" -DgenerateBackupPoms=false
+    "$mvn" -B -ntp -q -DskipTests install
+  )
+fi
 
 # The Swift client pins swift-sdk `from: "0.15.0"`, which has no tagged release
 # yet. Until it does, the check builds against the swift-sdk repository at this
@@ -76,6 +99,17 @@ PY
       ;;
     go-client)
       (cd "$gen" && go mod tidy && go build ./...)
+      ;;
+    java-client)
+      # Compile the generated Maven project, then run a smoke consumer inside
+      # it: the rendered files are the only thing in the directory, so the
+      # client runs without its source TII.
+      mkdir -p "$gen/src/main/java/smoke"
+      cp "$repo_root/.github/scripts/java-client-smoke/$fixture/Smoke.java" "$gen/src/main/java/smoke/"
+      "$mvn" -B -ntp -q -f "$gen/pom.xml" -Dtx3.sdk.version="$java_sdk_version" verify
+      "$mvn" -B -ntp -q -f "$gen/pom.xml" -Dtx3.sdk.version="$java_sdk_version" \
+        dependency:build-classpath -Dmdep.outputFile="$gen/classpath.txt"
+      java -cp "$gen/target/classes:$(cat "$gen/classpath.txt")" smoke.Smoke
       ;;
     swift-client)
       swift package --package-path "$gen" config set-mirror \

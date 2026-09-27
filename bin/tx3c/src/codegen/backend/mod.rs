@@ -69,8 +69,27 @@ pub trait Backend: Sync {
     fn needs_leading_underscore(&self, first: char) -> bool {
         first.is_ascii_digit()
     }
+    /// Rewrites a case-normalized identifier so it is lexically legal, for
+    /// example by collapsing characters the language forbids. The default
+    /// keeps it as is.
+    fn sanitize(&self, normalized: String) -> String {
+        normalized
+    }
+
+    /// Spells `text` as a string literal. JSON escaping is valid in most
+    /// C-family languages; backends whose escapes differ override it.
+    fn string_literal(&self, text: &str) -> String {
+        serde_json::to_string(text).expect("strings serialize")
+    }
 
     fn placement(&self) -> Placement;
+    /// Whether an aliased shape is declared as a type of its own that
+    /// converts itself, like a record, rather than as a transparent alias of
+    /// its target. Decides how a reference to an alias component is encoded:
+    /// by the declaration, or by the target it stands for.
+    fn declares_aliases(&self) -> bool {
+        false
+    }
     fn field_order(&self) -> FieldOrder {
         FieldOrder::Declared
     }

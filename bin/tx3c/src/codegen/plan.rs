@@ -154,7 +154,7 @@ impl Planner {
             };
             declarations.push(plan().with_context(|| format!("component `{source}`"))?);
         }
-        resolve_components(&mut declarations);
+        resolve_components(&mut declarations, self.backend.declares_aliases());
         Ok(declarations)
     }
 
@@ -189,7 +189,7 @@ impl Planner {
         let mut declarations =
             self.components(tii.pointer("/components/schemas").unwrap_or(&Value::Null))?;
         declarations.extend(self.params(tii)?);
-        resolve_components(&mut declarations);
+        resolve_components(&mut declarations, self.backend.declares_aliases());
         Ok(declarations)
     }
 
@@ -424,9 +424,12 @@ impl Planner {
 /// Resolves every [`Encoding::Component`] in `declarations` against the
 /// top-level declarations of the same plan: a component declared as a record,
 /// tuple or variant converts itself, while an alias converts as its target.
-fn resolve_components(declarations: &mut [Declaration]) {
+/// A backend that declares aliases as types of their own
+/// ([`Backend::declares_aliases`]) has them convert themselves too.
+fn resolve_components(declarations: &mut [Declaration], declared_aliases: bool) {
     let aliases: BTreeMap<String, Encoding> = declarations
         .iter()
+        .filter(|_| !declared_aliases)
         .filter_map(|declaration| match &declaration.kind {
             DeclKind::Alias { encoding, .. } => Some((declaration.name.clone(), encoding.clone())),
             _ => None,
