@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.25.0] - 2026-09-27
+
+### 🚀 Features
+
+- *(tx3c)* Render template output paths through Handlebars (#363)
+- *(tx3c)* Generate the first-party Swift client with --template swift-client (#365)
+- *(tx3c)* Add the java-client template (#364)
+
+### ⚙️ Miscellaneous Tasks
+
+- *(release)* One changelog hook, with the full history (#362)
+
 ## [0.24.0] - 2026-09-26
 
 ### 🚀 Features
