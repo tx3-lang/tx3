@@ -34,8 +34,10 @@ pub enum DeclKind {
     /// Positional members named `item0`, `item1`, and so on.
     Tuple(Vec<Member>),
     Variant(Vec<VariantCase>),
-    /// A named declaration for a shape that is not a record, tuple, or variant.
-    Alias(String),
+    /// A named declaration for a shape that is not a record, tuple, or
+    /// variant. The member is named `value` and carries the aliased type;
+    /// backends with type aliases use only its type.
+    Alias(Member),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -46,6 +48,10 @@ pub struct Member {
     pub name: String,
     /// Rendered type expression.
     pub ty: String,
+    /// The SDK's canonical tagged argument built from this member, spelled
+    /// by [`Backend::argument`] with the member's name as the expression.
+    /// `None` for backends without static construction.
+    pub argument: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -206,10 +212,12 @@ impl Planner {
                 let mut members = Vec::with_capacity(items.len());
                 for (index, item) in items.iter().enumerate() {
                     let hint = format!("{name}Item{index}");
+                    let member = format!("item{index}");
                     members.push(Member {
-                        source: format!("item{index}"),
-                        name: format!("item{index}"),
                         ty: self.type_expr(item, Some(&hint), Some(&mut children))?,
+                        argument: self.backend.argument(item, &member),
+                        source: member.clone(),
+                        name: member,
                     });
                 }
                 DeclKind::Tuple(members)
@@ -248,7 +256,12 @@ impl Planner {
                 }
                 DeclKind::Variant(planned)
             }
-            other => DeclKind::Alias(self.type_expr(other, Some(&name), Some(&mut children))?),
+            other => DeclKind::Alias(Member {
+                source: "value".to_string(),
+                name: "value".to_string(),
+                ty: self.type_expr(other, Some(&name), Some(&mut children))?,
+                argument: self.backend.argument(other, "value"),
+            }),
         };
 
         Ok(Declaration {
@@ -283,8 +296,9 @@ impl Planner {
             );
             members.push(Member {
                 source: field.name.to_string(),
-                name,
                 ty: self.type_expr(&field.shape, Some(&hint), Some(children))?,
+                argument: self.backend.argument(&field.shape, &name),
+                name,
             });
         }
         Ok(members)

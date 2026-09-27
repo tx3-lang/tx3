@@ -158,7 +158,7 @@ impl Backend for Swift {
         let name = &declaration.name;
         match &declaration.kind {
             DeclKind::Record(members) | DeclKind::Tuple(members) => structure(name, members),
-            DeclKind::Alias(target) => format!("public typealias {name} = {target}"),
+            DeclKind::Alias(target) => format!("public typealias {name} = {}", target.ty),
             DeclKind::Variant(cases) => {
                 let body: String = cases
                     .iter()

@@ -1,4 +1,4 @@
-record TransferParams(java.math.BigInteger quantity) {}
+public record TransferParams(java.math.BigInteger quantity) {}
 
 
 TxBuilder transfer(TransferParams args);

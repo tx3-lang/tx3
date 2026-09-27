@@ -68,6 +68,29 @@ pub trait Backend: Sync {
     fn needs_leading_underscore(&self, first: char) -> bool {
         first.is_ascii_digit()
     }
+    /// Rewrites a case-normalized identifier so it is lexically legal, for
+    /// example by collapsing characters the language forbids. The default
+    /// keeps it as is.
+    fn sanitize(&self, normalized: String) -> String {
+        normalized
+    }
+
+    /// Spells the SDK's canonical tagged argument built from `expr`, a value
+    /// of the type this backend gives `shape`. `None` when the language has
+    /// no static construction, in which case templates use the SDK's dynamic
+    /// encoding instead.
+    fn argument(&self, _shape: &Shape, _expr: &str) -> Option<String> {
+        None
+    }
+    /// Spells reading the member `member` of the value `receiver`.
+    fn accessor(&self, receiver: &str, member: &str) -> String {
+        format!("{receiver}.{member}")
+    }
+    /// Spells `text` as a string literal. JSON escaping is valid in most
+    /// C-family languages; backends whose escapes differ override it.
+    fn string_literal(&self, text: &str) -> String {
+        serde_json::to_string(text).expect("strings serialize")
+    }
 
     fn placement(&self) -> Placement;
     fn field_order(&self) -> FieldOrder {

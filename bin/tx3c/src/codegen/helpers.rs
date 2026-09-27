@@ -76,6 +76,60 @@ fn identifier_for(name: &str, language: &str, role: &str) -> Result<String> {
     identifier(backend::for_language(language)?, name, role)
 }
 
+/// `argValue <schema> <language> <expr> [<member>]`: the SDK's canonical
+/// tagged argument built from `expr`, a value of the type `declarations`
+/// gives `schema`; with `member`, from that member of `expr` instead, read
+/// through the backend's accessor syntax. Compound shapes convert through
+/// the `toArgValue()` their declaration carries, so the value must have been
+/// typed by `declarations` or `paramsTypeName`.
+fn arg_value(args: &[&Value]) -> Result<String> {
+    let backend = backend::for_language(str_arg(args, 1)?)?;
+    let shape = Shape::parse(arg(args, 0)?)?;
+    let mut expr = str_arg(args, 2)?.to_string();
+    if let Some(member) = args.get(3) {
+        let member = member
+            .as_str()
+            .ok_or_else(|| anyhow!("argument 3 must be a string"))?;
+        expr = backend.accessor(&expr, &identifier(backend, member, Role::Param)?);
+    }
+    backend.argument(&shape, &expr).ok_or_else(|| {
+        anyhow!(
+            "{} has no static argument construction; use the SDK's dynamic encoding",
+            backend.display_name()
+        )
+    })
+}
+
+/// `stringLiteral <text> <language>`: `text` as a string literal of that
+/// language, quoted and escaped.
+fn string_literal(args: &[&Value]) -> Result<String> {
+    let backend = backend::for_language(str_arg(args, 1)?)?;
+    Ok(backend.string_literal(str_arg(args, 0)?))
+}
+
+/// `indent <text> <columns>`: `text` with every non-empty line indented by
+/// `columns` spaces, so a rendered block can nest inside a declaration.
+/// Trailing newlines are dropped; the template controls the spacing after
+/// the block.
+fn indent(args: &[&Value]) -> Result<String> {
+    let text = str_arg(args, 0)?.trim_end_matches('\n');
+    let columns = arg(args, 1)?
+        .as_u64()
+        .ok_or_else(|| anyhow!("argument 1 must be a non-negative integer"))?;
+    let pad = " ".repeat(columns as usize);
+    let mut out = String::with_capacity(text.len());
+    for (index, line) in text.split('\n').enumerate() {
+        if index > 0 {
+            out.push('\n');
+        }
+        if !line.is_empty() {
+            out.push_str(&pad);
+            out.push_str(line);
+        }
+    }
+    Ok(out)
+}
+
 /// `componentTypes <components.schemas> <language>`: component declarations
 /// only. Superseded by `declarations`; kept for existing templates.
 fn component_types(args: &[&Value]) -> Result<String> {
@@ -94,6 +148,7 @@ pub fn register(handlebars: &mut Handlebars<'_>) {
         ("camelCase", |s| s.to_case(Case::Camel)),
         ("constantCase", |s| s.to_case(Case::UpperSnake)),
         ("snakeCase", |s| s.to_case(Case::Snake)),
+        ("kebabCase", |s| s.to_case(Case::Kebab)),
         ("lowerCase", |s| s.to_case(Case::Lower)),
     ];
     for (name, convert) in cases {
@@ -132,6 +187,12 @@ pub fn register(handlebars: &mut Handlebars<'_>) {
             params_type_name(backend::for_language(str_arg(args, 1)?)?, str_arg(args, 0)?)
         })),
     );
+    handlebars.register_helper("argValue", Box::new(helper("argValue", arg_value)));
+    handlebars.register_helper(
+        "stringLiteral",
+        Box::new(helper("stringLiteral", string_literal)),
+    );
+    handlebars.register_helper("indent", Box::new(helper("indent", indent)));
     handlebars.register_helper(
         "json",
         Box::new(helper("json", |args| {
@@ -360,13 +421,251 @@ mod tests {
         assert_eq!(
             declarations("java", schemas).unwrap(),
             concat!(
-                "record Envelope(Boolean class_, EnvelopePair pair) {\n",
-                "    record EnvelopePair(java.math.BigInteger item0, EnvelopePairItem1 item1) {\n",
-                "        record EnvelopePairItem1(String record_) {}\n",
+                "public record Envelope(Boolean class_, EnvelopePair pair) {\n",
+                "    /** Converts this value to the SDK's canonical tagged argument. */\n",
+                "    public land.tx3.sdk.ArgValue toArgValue() {\n",
+                "        return land.tx3.sdk.ArgValue.struct(0, java.util.List.of(\n",
+                "            land.tx3.sdk.ArgValue.bool(class_),\n",
+                "            pair.toArgValue()));\n",
+                "    }\n",
+                "\n",
+                "    public record EnvelopePair(java.math.BigInteger item0, EnvelopePairItem1 item1) {\n",
+                "        /** Converts this value to the SDK's canonical tagged argument. */\n",
+                "        public land.tx3.sdk.ArgValue toArgValue() {\n",
+                "            return land.tx3.sdk.ArgValue.tuple(java.util.List.of(\n",
+                "                land.tx3.sdk.ArgValue.integer(item0),\n",
+                "                item1.toArgValue()));\n",
+                "        }\n",
+                "\n",
+                "        public record EnvelopePairItem1(String record_) {\n",
+                "            /** Converts this value to the SDK's canonical tagged argument. */\n",
+                "            public land.tx3.sdk.ArgValue toArgValue() {\n",
+                "                return land.tx3.sdk.ArgValue.struct(0, java.util.List.of(\n",
+                "                    land.tx3.sdk.ArgValue.string(record_)));\n",
+                "            }\n",
+                "        }\n",
                 "    }\n",
                 "}\n",
                 "\n",
             )
+        );
+    }
+
+    #[test]
+    fn java_variants_number_their_cases_and_aliases_wrap_their_value() {
+        let schemas = json!({
+            "Side": {
+                "oneOf": [
+                    { "type": "object", "required": ["Buy"], "properties": { "Buy": { "type": "object", "properties": {} } } },
+                    { "type": "object", "required": ["Sell"], "properties": { "Sell": {
+                        "type": "object",
+                        "properties": { "price": { "type": "integer" } },
+                        "required": ["price"]
+                    } } }
+                ]
+            },
+            "Amount": { "type": "integer" },
+            "Opaque": { "type": "object" }
+        });
+
+        assert_eq!(
+            declarations("java", schemas).unwrap(),
+            concat!(
+                "public record Amount(java.math.BigInteger value) {\n",
+                "    /** Converts this value to the SDK's canonical tagged argument. */\n",
+                "    public land.tx3.sdk.ArgValue toArgValue() {\n",
+                "        return land.tx3.sdk.ArgValue.integer(value);\n",
+                "    }\n",
+                "}\n",
+                "\n",
+                "public record Opaque(land.tx3.sdk.ArgValue value) {\n",
+                "    /** Converts this value to the SDK's canonical tagged argument. */\n",
+                "    public land.tx3.sdk.ArgValue toArgValue() {\n",
+                "        return value;\n",
+                "    }\n",
+                "}\n",
+                "\n",
+                "public sealed interface Side permits Side.Buy, Side.Sell {\n",
+                "    /** Converts this value to the SDK's canonical tagged argument. */\n",
+                "    land.tx3.sdk.ArgValue toArgValue();\n",
+                "\n",
+                "    record Buy() implements Side {\n",
+                "        @Override\n",
+                "        public land.tx3.sdk.ArgValue toArgValue() {\n",
+                "            return land.tx3.sdk.ArgValue.struct(0, java.util.List.of());\n",
+                "        }\n",
+                "    }\n",
+                "\n",
+                "    record Sell(java.math.BigInteger price) implements Side {\n",
+                "        @Override\n",
+                "        public land.tx3.sdk.ArgValue toArgValue() {\n",
+                "            return land.tx3.sdk.ArgValue.struct(1, java.util.List.of(\n",
+                "                land.tx3.sdk.ArgValue.integer(price)));\n",
+                "        }\n",
+                "    }\n",
+                "}\n",
+                "\n",
+            )
+        );
+    }
+
+    #[test]
+    fn java_params_records_carry_no_conversion() {
+        let tii = json!({
+            "transactions": {
+                "transfer": {
+                    "params": {
+                        "type": "object",
+                        "properties": { "quantity": { "type": "integer" } },
+                        "required": ["quantity"]
+                    }
+                }
+            }
+        });
+        assert_eq!(
+            render("{{{declarations tii \"java\"}}}", json!({ "tii": tii })).unwrap(),
+            "public record TransferParams(java.math.BigInteger quantity) {}\n\n"
+        );
+    }
+
+    fn arg_value(schema: Value, expr: &str) -> std::result::Result<String, String> {
+        render(
+            &format!("{{{{{{argValue schema \"java\" \"{expr}\"}}}}}}"),
+            json!({ "schema": schema }),
+        )
+    }
+
+    #[test]
+    fn java_arg_values_cover_every_shape() {
+        let cases = [
+            (json!({ "type": "boolean" }), "land.tx3.sdk.ArgValue.bool(x)"),
+            (json!({ "type": "integer" }), "land.tx3.sdk.ArgValue.integer(x)"),
+            (json!({ "type": "string" }), "land.tx3.sdk.ArgValue.string(x)"),
+            (json!({ "type": "null" }), "x"),
+            (builtin("Bytes"), "land.tx3.sdk.ArgValue.bytes(x)"),
+            (builtin("Address"), "land.tx3.sdk.ArgValue.address(x)"),
+            (builtin("UtxoRef"), "land.tx3.sdk.ArgValue.utxoRef(x)"),
+            (builtin("Utxo"), "x"),
+            (builtin("AnyAsset"), "x"),
+            (json!({ "future": true }), "x"),
+            (json!({ "$ref": "#/components/schemas/asset-class" }), "x.toArgValue()"),
+            (
+                json!({ "type": "array", "prefixItems": [{ "type": "integer" }], "items": false }),
+                "x.toArgValue()",
+            ),
+            (
+                json!({ "type": "array", "items": { "type": "integer" } }),
+                "land.tx3.sdk.ArgValue.list(x.stream().map(v0 -> land.tx3.sdk.ArgValue.integer(v0)).toList())",
+            ),
+            (
+                json!({ "type": "array", "items": builtin("Utxo") }),
+                "land.tx3.sdk.ArgValue.list(x)",
+            ),
+            (
+                json!({ "type": "array", "items": { "type": "array", "items": { "type": "boolean" } } }),
+                "land.tx3.sdk.ArgValue.list(x.stream().map(v0 -> land.tx3.sdk.ArgValue.list(v0.stream().map(v1 -> land.tx3.sdk.ArgValue.bool(v1)).toList())).toList())",
+            ),
+            (
+                json!({ "type": "object", "additionalProperties": { "$ref": "#/components/schemas/Side" } }),
+                "land.tx3.sdk.ArgValue.map(x.entrySet().stream().sorted(java.util.Map.Entry.comparingByKey()).map(v0 -> new land.tx3.sdk.ArgValue.MapEntry(land.tx3.sdk.ArgValue.string(v0.getKey()), v0.getValue().toArgValue())).toList())",
+            ),
+        ];
+        for (schema, expected) in cases {
+            assert_eq!(
+                arg_value(schema.clone(), "x").unwrap(),
+                expected,
+                "{schema}"
+            );
+        }
+    }
+
+    #[test]
+    fn arg_value_reads_members_through_the_backend_accessor() {
+        assert_eq!(
+            render(
+                "{{{argValue schema \"java\" \"args\" \"ship-to\"}}}",
+                json!({ "schema": { "$ref": "#/components/schemas/Address" } }),
+            )
+            .unwrap(),
+            "args.shipTo().toArgValue()"
+        );
+        assert_eq!(
+            render(
+                "{{{argValue schema \"java\" \"args\" \"class\"}}}",
+                json!({ "schema": { "type": "boolean" } }),
+            )
+            .unwrap(),
+            "land.tx3.sdk.ArgValue.bool(args.class_())"
+        );
+    }
+
+    #[test]
+    fn arg_value_needs_a_backend_with_static_construction() {
+        let error = render(
+            "{{{argValue schema \"rust\" \"x\"}}}",
+            json!({ "schema": { "type": "integer" } }),
+        )
+        .unwrap_err();
+        assert!(
+            error.contains("Rust has no static argument construction"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn java_identifiers_collapse_illegal_characters() {
+        assert_eq!(
+            render(
+                "{{identifier a \"java\" \"method\"}} {{identifier b \"java\" \"type\"}} {{identifier c \"java\" \"method\"}}",
+                json!({ "a": "my.protocol", "b": "acme@v2!", "c": "9.lives" }),
+            )
+            .unwrap(),
+            "my_protocol Acme_v2_ _9_lives"
+        );
+    }
+
+    #[test]
+    fn string_literals_escape_for_the_language() {
+        assert_eq!(
+            render(
+                "{{{stringLiteral text \"java\"}}}",
+                json!({ "text": "say \"hi\"\n\\ \u{1}" }),
+            )
+            .unwrap(),
+            "\"say \\\"hi\\\"\\n\\\\ \\u0001\""
+        );
+    }
+
+    #[test]
+    fn long_java_string_literals_are_joined_at_runtime() {
+        let text = "a".repeat(65535 * 2 + 1);
+        let literal = render("{{{stringLiteral text \"java\"}}}", json!({ "text": text })).unwrap();
+        // The separator after the empty joiner, then one between each chunk.
+        let pieces: Vec<&str> = literal.split("\", \"").collect();
+        assert_eq!(pieces.len(), 4, "{}", &literal[..40]);
+        assert_eq!(pieces[0], "String.join(\"");
+        assert_eq!(pieces[1].len(), 65535);
+        assert_eq!(pieces[2].len(), 65535);
+        assert_eq!(pieces[3], "a\")");
+    }
+
+    #[test]
+    fn indent_pads_non_empty_lines_and_drops_trailing_newlines() {
+        assert_eq!(
+            render(
+                "{{{indent text 4}}}|",
+                json!({ "text": "a {\n\n    b\n}\n\n" }),
+            )
+            .unwrap(),
+            "    a {\n\n        b\n    }|"
+        );
+    }
+
+    #[test]
+    fn kebab_case_names_maven_artifacts() {
+        assert_eq!(
+            render("{{kebabCase name}}", json!({ "name": "My Protocol_v2" })).unwrap(),
+            "my-protocol-v-2"
         );
     }
 
