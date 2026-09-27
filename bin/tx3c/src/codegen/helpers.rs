@@ -645,6 +645,49 @@ mod tests {
     }
 
     #[test]
+    fn alias_cycles_through_containers_pass_the_value_through() {
+        // `Loop` is a list of itself and `Twin` aliases `Loop`: neither can be
+        // declared, so their values pass through instead of resolving forever.
+        let tii = json!({
+            "components": { "schemas": {
+                "Loop": { "type": "array", "items": { "$ref": "#/components/schemas/Loop" } },
+                "Twin": { "$ref": "#/components/schemas/Loop" }
+            } },
+            "transactions": { "spin": { "params": {
+                "type": "object",
+                "properties": {
+                    "direct": { "$ref": "#/components/schemas/Loop" },
+                    "via": { "$ref": "#/components/schemas/Twin" },
+                    "nested": {
+                        "type": "object",
+                        "additionalProperties": { "$ref": "#/components/schemas/Loop" }
+                    }
+                },
+                "required": ["direct", "via", "nested"]
+            } } }
+        });
+        let data = json!({ "tii": tii });
+        let cases = [
+            ("direct", "ArgValue.list(params.direct.map { $0 })"),
+            ("via", "ArgValue.list(params.via.map { $0 })"),
+            (
+                "nested",
+                "ArgValue.mapPairs(params.nested.sorted { $0.key < $1.key }.map { \
+                 ArgMapEntry(key: ArgValue.string($0.key), value: ArgValue.list($0.value.map { $0 })) })",
+            ),
+        ];
+        for (param, expected) in cases {
+            let template =
+                format!("{{{{argValue tii \"spin\" \"{param}\" \"swift\" \"params\"}}}}");
+            assert_eq!(
+                render(&template, data.clone()).unwrap(),
+                expected,
+                "{param}"
+            );
+        }
+    }
+
+    #[test]
     fn swift_declarations_convert_themselves() {
         let schemas = json!({
             "Side": { "oneOf": [

@@ -434,7 +434,17 @@ fn resolve_components(declarations: &mut [Declaration]) {
         .collect();
 
     fn resolve(encoding: &mut Encoding, aliases: &BTreeMap<String, Encoding>) {
-        let mut visited = BTreeSet::new();
+        resolve_through(encoding, aliases, &mut BTreeSet::new());
+    }
+
+    /// `visited` follows the one path from a member down through containers,
+    /// so an alias met twice on it, directly or inside a list or map, is a
+    /// cycle.
+    fn resolve_through(
+        encoding: &mut Encoding,
+        aliases: &BTreeMap<String, Encoding>,
+        visited: &mut BTreeSet<String>,
+    ) {
         while let Encoding::Component(name) = encoding {
             // An alias cycle cannot be declared in any language; the value is
             // passed through rather than looping.
@@ -448,7 +458,7 @@ fn resolve_components(declarations: &mut [Declaration]) {
             };
         }
         match encoding {
-            Encoding::List(item) | Encoding::Map(item) => resolve(item, aliases),
+            Encoding::List(item) | Encoding::Map(item) => resolve_through(item, aliases, visited),
             _ => {}
         }
     }
@@ -470,7 +480,11 @@ fn resolve_components(declarations: &mut [Declaration]) {
                     }
                 }
             }
-            DeclKind::Alias { encoding, .. } => resolve(encoding, aliases),
+            DeclKind::Alias { encoding, .. } => {
+                // The alias's own name is already on the path.
+                let mut visited = BTreeSet::from([declaration.name.clone()]);
+                resolve_through(encoding, aliases, &mut visited)
+            }
         }
         for nested in &mut declaration.nested {
             resolve_declaration(nested, aliases);
