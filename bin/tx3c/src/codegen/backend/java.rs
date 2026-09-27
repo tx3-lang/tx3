@@ -8,13 +8,14 @@
 //! files nest the declarations next to the client, so imports could be
 //! shadowed.
 
+use anyhow::Result;
 use convert_case::Case;
 
 use super::{indent, Backend, Placement};
 use crate::codegen::{
     names::Role,
-    plan::{DeclKind, Declaration, Member},
-    schema::{Builtin, Scalar, Shape},
+    plan::{DeclKind, Declaration, Encoding, Member},
+    schema::{Builtin, Scalar},
 };
 
 const ARG_VALUE: &str = "land.tx3.sdk.ArgValue";
@@ -173,12 +174,13 @@ impl Backend for Java {
         out
     }
 
-    fn argument(&self, shape: &Shape, expr: &str) -> Option<String> {
-        Some(tagged(shape, expr, 0))
+    /// Record components are read through their accessor methods.
+    fn member(&self, receiver: &str, member: &str) -> String {
+        format!("{receiver}.{member}()")
     }
 
-    fn accessor(&self, receiver: &str, member: &str) -> String {
-        format!("{receiver}.{member}()")
+    fn argument(&self, encoding: &Encoding, value: &str) -> Result<String> {
+        Ok(tagged(encoding, value, 0))
     }
 
     /// A string literal, or `String.join` over literal chunks when the text
@@ -205,6 +207,12 @@ impl Backend for Java {
         Placement::Nested
     }
 
+    /// Aliases are wrapper records, so a value of an alias type converts
+    /// itself like any other declared type.
+    fn declares_aliases(&self) -> bool {
+        true
+    }
+
     fn declaration(&self, declaration: &Declaration) -> String {
         render(declaration, 0)
     }
@@ -217,26 +225,24 @@ fn literal(text: &str) -> String {
     serde_json::to_string(text).expect("strings serialize")
 }
 
-/// Spells the `ArgValue` built from `expr`, a value of the Java type of
-/// `shape`. Lambda parameters are numbered by nesting depth so nested
-/// container conversions never shadow each other.
-fn tagged(shape: &Shape, expr: &str, depth: usize) -> String {
-    match shape {
-        Shape::Scalar(Scalar::Boolean) => format!("{ARG_VALUE}.bool({expr})"),
-        Shape::Scalar(Scalar::Integer) => format!("{ARG_VALUE}.integer({expr})"),
-        Shape::Scalar(Scalar::String) => format!("{ARG_VALUE}.string({expr})"),
-        Shape::Builtin(Builtin::Bytes) => format!("{ARG_VALUE}.bytes({expr})"),
-        Shape::Builtin(Builtin::Address) => format!("{ARG_VALUE}.address({expr})"),
-        Shape::Builtin(Builtin::UtxoRef) => format!("{ARG_VALUE}.utxoRef({expr})"),
+/// Spells the `ArgValue` built from `expr`, a value of the Java type the
+/// backend gives `encoding`. Lambda parameters are numbered by nesting depth
+/// so nested container conversions never shadow each other.
+fn tagged(encoding: &Encoding, expr: &str, depth: usize) -> String {
+    match encoding {
+        Encoding::Scalar(Scalar::Boolean) => format!("{ARG_VALUE}.bool({expr})"),
+        Encoding::Scalar(Scalar::Integer) => format!("{ARG_VALUE}.integer({expr})"),
+        Encoding::Scalar(Scalar::String) => format!("{ARG_VALUE}.string({expr})"),
+        Encoding::Builtin(Builtin::Bytes) => format!("{ARG_VALUE}.bytes({expr})"),
+        Encoding::Builtin(Builtin::Address) => format!("{ARG_VALUE}.address({expr})"),
+        Encoding::Builtin(Builtin::UtxoRef) => format!("{ARG_VALUE}.utxoRef({expr})"),
         // Typed as `ArgValue` already: the caller supplies the tagged value.
-        Shape::Scalar(Scalar::Null)
-        | Shape::Builtin(Builtin::AnyAsset | Builtin::Utxo)
-        | Shape::Unknown => expr.to_string(),
-        // Declared types convert themselves.
-        Shape::Component(_) | Shape::Record(_) | Shape::Tuple(_) | Shape::Variant(_) => {
-            format!("{expr}.toArgValue()")
-        }
-        Shape::List(item) => {
+        Encoding::Scalar(Scalar::Null)
+        | Encoding::Builtin(Builtin::AnyAsset | Builtin::Utxo)
+        | Encoding::Fallback => expr.to_string(),
+        // Declared types, aliases included, convert themselves.
+        Encoding::Declared(_) | Encoding::Component(_) => format!("{expr}.toArgValue()"),
+        Encoding::List(item) => {
             let element = format!("v{depth}");
             let converted = tagged(item, &element, depth + 1);
             if converted == element {
@@ -245,7 +251,7 @@ fn tagged(shape: &Shape, expr: &str, depth: usize) -> String {
                 format!("{ARG_VALUE}.list({expr}.stream().map({element} -> {converted}).toList())")
             }
         }
-        Shape::Map(value) => {
+        Encoding::Map(value) => {
             let entry = format!("v{depth}");
             let converted = tagged(value, &format!("{entry}.getValue()"), depth + 1);
             format!(
@@ -283,10 +289,15 @@ fn render(declaration: &Declaration, depth: usize) -> String {
             depth,
         ),
         // Java has no type aliases; an aliased shape becomes a record holding
-        // one `value` of the aliased type.
-        DeclKind::Alias(value) => record(
+        // one `value` of the aliased type, which converts as that type.
+        DeclKind::Alias { target, encoding } => record(
             name,
-            std::slice::from_ref(value),
+            &[Member {
+                source: "value".to_string(),
+                name: "value".to_string(),
+                ty: target.clone(),
+                encoding: encoding.clone(),
+            }],
             None,
             Some(Value::Alias),
             &declaration.nested,
@@ -372,17 +383,12 @@ fn record(
 
 fn to_arg_value(members: &[Member], value: Value, overrides: bool, depth: usize) -> String {
     let pad = indent(depth);
-    let arguments: Vec<&str> = members
+    let arguments: Vec<String> = members
         .iter()
-        .map(|member| {
-            member
-                .argument
-                .as_deref()
-                .expect("the Java backend spells every member's argument")
-        })
+        .map(|member| tagged(&member.encoding, &member.name, 0))
         .collect();
     let expression = match value {
-        Value::Alias => arguments[0].to_string(),
+        Value::Alias => arguments[0].clone(),
         Value::Struct(_) | Value::Tuple => {
             let constructor = match value {
                 Value::Struct(index) => format!("{ARG_VALUE}.struct({index}, "),

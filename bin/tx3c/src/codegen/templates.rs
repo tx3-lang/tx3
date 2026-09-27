@@ -33,6 +33,13 @@ pub const BUILT_IN: &[(&str, &[File])] = &[
         "pom.xml.hbs",
         "src/main/java/land/tx3/generated/{{identifier tii.protocol.name 'java' 'method'}}/{{identifier tii.protocol.name 'java' 'type'}}Client.java.hbs",
     ),
+    template!(
+        "swift-client":
+        "Package.swift.hbs",
+        "README.md.hbs",
+        "Sources/{{identifier tii.protocol.name 'swift' 'type'}}Client/Client.swift.hbs",
+        "Sources/{{identifier tii.protocol.name 'swift' 'type'}}Client/Types.swift.hbs",
+    ),
 ];
 
 /// The built-in template called `name`, if there is one.

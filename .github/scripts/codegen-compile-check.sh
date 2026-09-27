@@ -7,9 +7,9 @@
 # they target, so this job checks that pairing: the SDK release must already
 # exist before the templates may target it.
 #
-# Usage: codegen-compile-check.sh <rust-client|ts-client|python-client|go-client|java-client> [path/to/tx3c]
-# Needs the matching toolchain on PATH: cargo, node/npm, python3, go, or a JDK
-# (java-client also needs git; Maven comes from the SDK checkout's wrapper).
+# Usage: codegen-compile-check.sh <rust-client|ts-client|python-client|go-client|java-client|swift-client> [path/to/tx3c]
+# Needs the matching toolchain on PATH: cargo, node/npm, python3, go, a JDK
+# (java-client also needs git; Maven comes from the SDK checkout's wrapper), or swift.
 set -euo pipefail
 
 template="$1"
@@ -40,6 +40,22 @@ if [ "$template" = "java-client" ]; then
     "$mvn" -B -ntp -q versions:set -DnewVersion="$java_sdk_version" -DgenerateBackupPoms=false
     "$mvn" -B -ntp -q -DskipTests install
   )
+fi
+
+# The Swift client pins swift-sdk `from: "0.15.0"`, which has no tagged release
+# yet. Until it does, the check builds against the swift-sdk repository at this
+# commit: a clone tagged `0.15.0` locally stands in for the release through a
+# SwiftPM mirror, so the generated Package.swift is built exactly as rendered.
+# Once the tag exists, delete this block and the mirror step below so the
+# check resolves the published release directly.
+swift_sdk_url="https://github.com/tx3-lang/swift-sdk.git"
+swift_sdk_rev="02fa0f2cc70d38f2623141035b3eb18509854b9a"
+swift_sdk_tag="0.15.0"
+if [[ "$template" == "swift-client" ]]; then
+  swift_sdk="$work/swift-sdk"
+  git clone --quiet "$swift_sdk_url" "$swift_sdk"
+  git -C "$swift_sdk" checkout --quiet "$swift_sdk_rev"
+  git -C "$swift_sdk" tag "$swift_sdk_tag"
 fi
 
 # Only fixtures that model real protocols. `edge.tii` deliberately collides
@@ -94,6 +110,11 @@ PY
       "$mvn" -B -ntp -q -f "$gen/pom.xml" -Dtx3.sdk.version="$java_sdk_version" \
         dependency:build-classpath -Dmdep.outputFile="$gen/classpath.txt"
       java -cp "$gen/target/classes:$(cat "$gen/classpath.txt")" smoke.Smoke
+      ;;
+    swift-client)
+      swift package --package-path "$gen" config set-mirror \
+        --original "$swift_sdk_url" --mirror "file://$swift_sdk"
+      swift build --package-path "$gen"
       ;;
     *)
       echo "unknown template: $template" >&2

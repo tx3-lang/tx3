@@ -40,8 +40,8 @@ pub struct Args {
     pub tii: PathBuf,
 
     /// Template to render: a built-in template name (ts-client, rust-client,
-    /// python-client, go-client, java-client) or a path to a custom template
-    /// directory.
+    /// python-client, go-client, java-client, swift-client) or a path to a
+    /// custom template directory.
     /// A bare name is looked up among the built-in templates first; use
     /// `./name` to force a directory.
     #[arg(long)]
@@ -359,7 +359,8 @@ mod tests {
             resolved("kotlin-client"),
             Err(
                 "unknown template `kotlin-client`: it is neither a built-in template \
-                 (ts-client, rust-client, python-client, go-client, java-client) nor a \
+                 (ts-client, rust-client, python-client, go-client, java-client, \
+                 swift-client) nor a \
                  directory"
                     .to_string()
             )

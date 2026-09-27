@@ -88,7 +88,7 @@ impl Backend for Go {
             DeclKind::Variant(_) => format!(
                 "// TODO: tagged-union codegen pending the variant arg encoder\ntype {name} = interface{{}}\n"
             ),
-            DeclKind::Tuple(_) | DeclKind::Alias(_) => format!("type {name} struct {{\n}}\n"),
+            DeclKind::Tuple(_) | DeclKind::Alias { .. } => format!("type {name} struct {{\n}}\n"),
         }
     }
 }

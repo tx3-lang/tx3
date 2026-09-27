@@ -102,15 +102,15 @@ public final class {{identifier tii.protocol.name "java" "type"}}Client {
     }
 
 {{/each}}
-{{#each tii.transactions}}
+{{#each tii.transactions as |transaction name|}}
     /**
-     * Builds the {{@key}} transaction with its arguments already tagged. Drive the returned
+     * Builds the {{name}} transaction with its arguments already tagged. Drive the returned
      * builder with {@code resolve()} and the rest of the lifecycle chain.
      */
-    public land.tx3.sdk.TxBuilder {{identifier @key "java" "method"}}({{paramsTypeName @key "java"}} args) {
-        return inner.tx("{{@key}}"){{#unless params.properties}};{{/unless}}
-{{#each params.properties}}
-            .argTagged("{{@key}}", {{{argValue this "java" "args" @key}}}){{#if @last}};{{/if}}
+    public land.tx3.sdk.TxBuilder {{identifier name "java" "method"}}({{paramsTypeName name "java"}} args) {
+        return inner.tx("{{name}}"){{#unless transaction.params.properties}};{{/unless}}
+{{#each transaction.params.properties}}
+            .argTagged("{{@key}}", {{{argValue @root.tii name @key "java" "args"}}}){{#if @last}};{{/if}}
 {{/each}}
     }
 

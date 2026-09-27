@@ -9,10 +9,11 @@
 
 use anyhow::{bail, Result};
 use convert_case::Case;
+use serde_json::Value;
 
 use super::{
     names::Role,
-    plan::{Declaration, Usage},
+    plan::{Declaration, Encoding, Usage},
     schema::{Builtin, Scalar, Shape},
 };
 
@@ -75,17 +76,6 @@ pub trait Backend: Sync {
         normalized
     }
 
-    /// Spells the SDK's canonical tagged argument built from `expr`, a value
-    /// of the type this backend gives `shape`. `None` when the language has
-    /// no static construction, in which case templates use the SDK's dynamic
-    /// encoding instead.
-    fn argument(&self, _shape: &Shape, _expr: &str) -> Option<String> {
-        None
-    }
-    /// Spells reading the member `member` of the value `receiver`.
-    fn accessor(&self, receiver: &str, member: &str) -> String {
-        format!("{receiver}.{member}")
-    }
     /// Spells `text` as a string literal. JSON escaping is valid in most
     /// C-family languages; backends whose escapes differ override it.
     fn string_literal(&self, text: &str) -> String {
@@ -93,6 +83,13 @@ pub trait Backend: Sync {
     }
 
     fn placement(&self) -> Placement;
+    /// Whether an aliased shape is declared as a type of its own that
+    /// converts itself, like a record, rather than as a transparent alias of
+    /// its target. Decides how a reference to an alias component is encoded:
+    /// by the declaration, or by the target it stands for.
+    fn declares_aliases(&self) -> bool {
+        false
+    }
     fn field_order(&self) -> FieldOrder {
         FieldOrder::Declared
     }
@@ -109,6 +106,34 @@ pub trait Backend: Sync {
     /// Import lines needed by the planned declarations.
     fn imports(&self, _usage: &Usage) -> String {
         String::new()
+    }
+    /// Modules the planned declarations import, in the order [`imports`]
+    /// writes them.
+    ///
+    /// [`imports`]: Backend::imports
+    fn modules(&self, _usage: &Usage) -> Vec<&'static str> {
+        Vec::new()
+    }
+
+    /// Spells the expression that reads `member` from the value `receiver`.
+    fn member(&self, receiver: &str, member: &str) -> String {
+        format!("{receiver}.{member}")
+    }
+    /// Spells the SDK's canonical argument value for `value`, an expression
+    /// of the type the backend gives `encoding`. Only backends whose
+    /// generated clients construct arguments statically support this.
+    fn argument(&self, _encoding: &Encoding, _value: &str) -> Result<String> {
+        bail!(
+            "{} clients do not construct argument values statically",
+            self.display_name()
+        )
+    }
+    /// Spells the SDK's `Profile` value for one `tii.profiles` entry.
+    fn profile(&self, _profile: &Value) -> Result<String> {
+        bail!(
+            "{} clients do not embed profiles as SDK values",
+            self.display_name()
+        )
     }
 }
 
