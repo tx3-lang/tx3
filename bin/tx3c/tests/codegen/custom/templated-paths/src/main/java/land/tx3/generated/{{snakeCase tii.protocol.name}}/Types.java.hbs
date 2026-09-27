@@ -1,0 +1,4 @@
+{{{imports tii "java"}}}{{{declarations tii "java"}}}
+{{#each tii.transactions}}
+TxBuilder {{identifier @key "java" "method"}}({{paramsTypeName @key "java"}} args);
+{{/each}}
