@@ -5,12 +5,20 @@
 //! `--template <dir>` renders a custom template directory with the same
 //! helpers.
 //!
+//! A template file's relative path is itself a Handlebars template, rendered
+//! with the same helpers and data as the file's contents, so a template can
+//! lay its output out by protocol name (`Sources/{{pascalCase
+//! tii.protocol.name}}Client/`). Paths without expressions render unchanged.
+//!
 //! Type rendering is split into layers so every language shares one
 //! traversal: [`schema`] parses JSON Schema nodes into shapes, [`plan`] turns
 //! shapes into named declarations, and each module under [`backend`] only
 //! spells them. [`helpers`] exposes the result to Handlebars templates.
 
-use std::path::{Path, PathBuf};
+use std::{
+    collections::BTreeMap,
+    path::{Component, Path, PathBuf},
+};
 
 use anyhow::{bail, Context, Result};
 use clap::Parser;
@@ -41,36 +49,6 @@ pub struct Args {
     /// Output directory for rendered templates
     #[arg(short, long)]
     pub output: PathBuf,
-}
-
-fn register_templates(
-    handlebars: &mut Handlebars<'_>,
-    template_dir: &Path,
-) -> Result<Vec<(PathBuf, PathBuf)>> {
-    let mut static_files = Vec::new();
-
-    for entry in WalkDir::new(template_dir) {
-        let entry = entry?;
-        if !entry.file_type().is_file() {
-            continue;
-        }
-
-        let path = entry.path();
-        let relative = path.strip_prefix(template_dir).context("template path")?;
-        let relative_str = relative.to_string_lossy();
-
-        if relative_str.ends_with(".hbs") {
-            let template_name = relative_str.trim_end_matches(".hbs");
-            let content = std::fs::read_to_string(path)?;
-            handlebars
-                .register_template_string(template_name, content)
-                .with_context(|| format!("registering template {template_name}"))?;
-        } else {
-            static_files.push((path.to_path_buf(), relative.to_path_buf()));
-        }
-    }
-
-    Ok(static_files)
 }
 
 /// Where a `--template` value points.
@@ -106,58 +84,226 @@ fn resolve_template(value: &str) -> Result<TemplateSource> {
     bail!("template directory `{value}` does not exist")
 }
 
-/// Registers a built-in template. Every built-in file is text; non-`.hbs`
-/// files are returned as static files to write verbatim.
-fn register_built_in(
-    handlebars: &mut Handlebars<'_>,
-    files: &'static [templates::File],
-) -> Result<Vec<(&'static str, &'static str)>> {
-    let mut static_files = Vec::new();
-    for file in files {
-        match file.path.strip_suffix(".hbs") {
-            Some(template_name) => handlebars
-                .register_template_string(template_name, file.content)
-                .with_context(|| format!("registering template {template_name}"))?,
-            None => static_files.push((file.path, file.content)),
-        }
-    }
-    Ok(static_files)
+/// What a template file writes to its output path.
+enum Content {
+    /// A `.hbs` file, registered with Handlebars under its source path and
+    /// rendered against the TII.
+    Rendered,
+    /// A static file compiled into tx3c, written verbatim.
+    Text(&'static str),
+    /// A static file in a custom template directory, copied verbatim.
+    Copy(PathBuf),
 }
 
-fn render_templates(handlebars: &Handlebars<'_>, data: &Value, output_dir: &Path) -> Result<()> {
-    for name in handlebars.get_templates().keys() {
-        let rendered = handlebars
-            .render(name, data)
-            .with_context(|| format!("rendering template {name}"))?;
-        if rendered.is_empty() {
+/// One file of a template.
+struct TemplateFile {
+    /// The file's path relative to the template root, with `/` separators,
+    /// as written in the template. It names the file in errors.
+    source: String,
+    content: Content,
+}
+
+impl TemplateFile {
+    /// The output path template: the source path without its `.hbs` suffix.
+    fn path_template(&self) -> &str {
+        self.source.strip_suffix(".hbs").unwrap_or(&self.source)
+    }
+}
+
+/// Registers a template's `.hbs` files with Handlebars, under their source
+/// paths, and lists every file of the template in source order.
+fn load_built_in(
+    handlebars: &mut Handlebars<'_>,
+    files: &'static [templates::File],
+) -> Result<Vec<TemplateFile>> {
+    files
+        .iter()
+        .map(|file| {
+            let content = if file.path.ends_with(".hbs") {
+                handlebars
+                    .register_template_string(file.path, file.content)
+                    .with_context(|| format!("registering template {}", file.path))?;
+                Content::Rendered
+            } else {
+                Content::Text(file.content)
+            };
+            Ok(TemplateFile {
+                source: file.path.to_string(),
+                content,
+            })
+        })
+        .collect()
+}
+
+/// Registers a custom template directory's `.hbs` files with Handlebars,
+/// under their source paths, and lists every file of the directory in path
+/// order.
+fn load_directory(
+    handlebars: &mut Handlebars<'_>,
+    template_dir: &Path,
+) -> Result<Vec<TemplateFile>> {
+    let mut files = Vec::new();
+
+    for entry in WalkDir::new(template_dir).sort_by_file_name() {
+        let entry = entry?;
+        if !entry.file_type().is_file() {
             continue;
         }
 
-        let output_path = output_dir.join(name);
-        if let Some(parent) = output_path.parent() {
-            std::fs::create_dir_all(parent)?;
+        let path = entry.path();
+        let relative = path.strip_prefix(template_dir).context("template path")?;
+        let source = relative
+            .components()
+            .map(|component| component.as_os_str().to_string_lossy())
+            .collect::<Vec<_>>()
+            .join("/");
+
+        let content = if source.ends_with(".hbs") {
+            let content = std::fs::read_to_string(path)
+                .with_context(|| format!("reading template {}", path.display()))?;
+            handlebars
+                .register_template_string(&source, content)
+                .with_context(|| format!("registering template {source}"))?;
+            Content::Rendered
+        } else {
+            Content::Copy(path.to_path_buf())
+        };
+        files.push(TemplateFile { source, content });
+    }
+
+    Ok(files)
+}
+
+/// Renders a template file's output path. A path without a Handlebars
+/// expression is its own rendering, so existing templates keep their layout.
+fn render_output_path(
+    handlebars: &Handlebars<'_>,
+    file: &TemplateFile,
+    data: &Value,
+) -> Result<String> {
+    let template = file.path_template();
+    let rendered = if template.contains("{{") {
+        handlebars
+            .render_template(template, data)
+            .with_context(|| {
+                format!(
+                    "rendering the output path of template file `{}`",
+                    file.source
+                )
+            })?
+    } else {
+        template.to_string()
+    };
+    validate_output_path(&file.source, &rendered)?;
+    Ok(rendered)
+}
+
+/// Checks that a rendered output path stays inside the output directory: it
+/// is relative, non-empty, and has no empty, `.` or `..` segment.
+fn validate_output_path(source: &str, rendered: &str) -> Result<()> {
+    if rendered.is_empty() {
+        bail!("template file `{source}` renders to an empty output path");
+    }
+
+    let path = Path::new(rendered);
+    if path.has_root()
+        || path
+            .components()
+            .any(|component| matches!(component, Component::Prefix(_)))
+    {
+        bail!(
+            "template file `{source}` renders to the absolute output path `{rendered}`; \
+             output paths are relative to the output directory"
+        );
+    }
+
+    for segment in rendered.split(['/', std::path::MAIN_SEPARATOR]) {
+        match segment {
+            "" => bail!(
+                "template file `{source}` renders to the output path `{rendered}`, \
+                 which has an empty segment"
+            ),
+            "." | ".." => bail!(
+                "template file `{source}` renders to the output path `{rendered}`, \
+                 which has a `{segment}` segment; output paths stay inside the output directory"
+            ),
+            _ => {}
         }
-        std::fs::write(&output_path, rendered)?;
     }
 
     Ok(())
 }
 
-fn copy_static_files(static_files: &[(PathBuf, PathBuf)], output_dir: &Path) -> Result<()> {
-    for (src, relative) in static_files {
-        let dest_path = output_dir.join(relative);
-        if let Some(parent) = dest_path.parent() {
-            std::fs::create_dir_all(parent)?;
+/// Renders every file's output path, rejecting two files that render to the
+/// same path. The result is in output-path order.
+fn resolve_output_paths<'a>(
+    handlebars: &Handlebars<'_>,
+    files: &'a [TemplateFile],
+    data: &Value,
+) -> Result<BTreeMap<String, &'a TemplateFile>> {
+    let mut outputs = BTreeMap::new();
+    for file in files {
+        let output = render_output_path(handlebars, file, data)?;
+        if let Some(previous) = outputs.insert(output.clone(), file) {
+            bail!(
+                "template files `{}` and `{}` both render to the output path `{output}`",
+                previous.source,
+                file.source
+            );
         }
-        std::fs::copy(src, dest_path)?;
+    }
+    Ok(outputs)
+}
+
+/// Writes a template's files into the output directory: rendered files whose
+/// rendering is empty are skipped, static files are written verbatim.
+fn write_output(
+    handlebars: &Handlebars<'_>,
+    files: &[TemplateFile],
+    data: &Value,
+    output_dir: &Path,
+) -> Result<()> {
+    let outputs = resolve_output_paths(handlebars, files, data)?;
+
+    std::fs::create_dir_all(output_dir)
+        .with_context(|| format!("creating output dir {}", output_dir.display()))?;
+
+    for (output, file) in outputs {
+        let output_path = output_dir.join(&output);
+        let write = || -> Result<()> {
+            match &file.content {
+                Content::Rendered => {
+                    let rendered = handlebars
+                        .render(&file.source, data)
+                        .with_context(|| format!("rendering template {}", file.source))?;
+                    if rendered.is_empty() {
+                        return Ok(());
+                    }
+                    create_parent(&output_path)?;
+                    std::fs::write(&output_path, rendered)?;
+                }
+                Content::Text(content) => {
+                    create_parent(&output_path)?;
+                    std::fs::write(&output_path, content)?;
+                }
+                Content::Copy(src) => {
+                    create_parent(&output_path)?;
+                    std::fs::copy(src, &output_path)?;
+                }
+            }
+            Ok(())
+        };
+        write().with_context(|| format!("writing {}", output_path.display()))?;
     }
 
     Ok(())
 }
 
-fn create_output(output: &Path) -> Result<()> {
-    std::fs::create_dir_all(output)
-        .with_context(|| format!("creating output dir {}", output.display()))
+fn create_parent(path: &Path) -> Result<()> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    Ok(())
 }
 
 pub fn run(args: Args) -> Result<()> {
@@ -173,26 +319,11 @@ pub fn run(args: Args) -> Result<()> {
         "tii": tii,
     });
 
-    match resolve_template(&args.template)? {
-        TemplateSource::BuiltIn(files) => {
-            let static_files = register_built_in(&mut handlebars, files)?;
-            create_output(&args.output)?;
-            render_templates(&handlebars, &data, &args.output)?;
-            for (relative, content) in static_files {
-                let dest_path = args.output.join(relative);
-                if let Some(parent) = dest_path.parent() {
-                    std::fs::create_dir_all(parent)?;
-                }
-                std::fs::write(dest_path, content)?;
-            }
-        }
-        TemplateSource::Directory(template) => {
-            let static_files = register_templates(&mut handlebars, &template)?;
-            create_output(&args.output)?;
-            render_templates(&handlebars, &data, &args.output)?;
-            copy_static_files(&static_files, &args.output)?;
-        }
-    }
+    let files = match resolve_template(&args.template)? {
+        TemplateSource::BuiltIn(files) => load_built_in(&mut handlebars, files)?,
+        TemplateSource::Directory(template) => load_directory(&mut handlebars, &template)?,
+    };
+    write_output(&handlebars, &files, &data, &args.output)?;
 
     println!(
         "Generated code from {} into {}",
@@ -235,5 +366,160 @@ mod tests {
             resolved("./rust-client"),
             Err("template directory `./rust-client` does not exist".to_string())
         );
+    }
+
+    fn file(source: &str) -> TemplateFile {
+        TemplateFile {
+            source: source.to_string(),
+            content: Content::Text(""),
+        }
+    }
+
+    /// Renders the output paths of `sources` for the protocol `name`,
+    /// with every helper available, in output-path order.
+    fn output_paths(sources: &[&str], name: &str) -> std::result::Result<Vec<String>, String> {
+        let mut handlebars = Handlebars::new();
+        helpers::register(&mut handlebars);
+        let data = serde_json::json!({ "tii": { "protocol": { "name": name } } });
+        let files: Vec<TemplateFile> = sources.iter().map(|source| file(source)).collect();
+
+        resolve_output_paths(&handlebars, &files, &data)
+            .map(|outputs| outputs.into_keys().collect())
+            .map_err(|error| format!("{error:#}"))
+    }
+
+    #[test]
+    fn output_paths_render_with_the_template_helpers_and_data() {
+        assert_eq!(
+            output_paths(
+                &[
+                    "Sources/{{pascalCase tii.protocol.name}}Client/Types.swift.hbs",
+                    "src/main/java/{{snakeCase tii.protocol.name}}/Types.java.hbs",
+                    "{{tii.protocol.name}}/README.md",
+                ],
+                "my-protocol"
+            ),
+            Ok(vec![
+                "Sources/MyProtocolClient/Types.swift".to_string(),
+                "my-protocol/README.md".to_string(),
+                "src/main/java/my_protocol/Types.java".to_string(),
+            ])
+        );
+    }
+
+    #[test]
+    fn output_paths_without_expressions_render_unchanged() {
+        assert_eq!(
+            output_paths(&["README.md", "src/lib.rs.hbs", "a b/c.d.hbs"], "x"),
+            Ok(vec![
+                "README.md".to_string(),
+                "a b/c.d".to_string(),
+                "src/lib.rs".to_string(),
+            ])
+        );
+    }
+
+    #[test]
+    fn empty_output_paths_are_errors() {
+        assert_eq!(
+            output_paths(&["{{tii.protocol.missing}}"], "x"),
+            Err(
+                "template file `{{tii.protocol.missing}}` renders to an empty output path"
+                    .to_string()
+            )
+        );
+    }
+
+    #[test]
+    fn absolute_output_paths_are_errors() {
+        assert_eq!(
+            output_paths(&["/{{tii.protocol.name}}/lib.rs.hbs"], "x"),
+            Err(
+                "template file `/{{tii.protocol.name}}/lib.rs.hbs` renders to the absolute \
+                 output path `/x/lib.rs`; output paths are relative to the output directory"
+                    .to_string()
+            )
+        );
+    }
+
+    #[test]
+    fn output_paths_leaving_the_output_directory_are_errors() {
+        assert_eq!(
+            output_paths(&["../{{tii.protocol.name}}/lib.rs.hbs"], "x"),
+            Err(
+                "template file `../{{tii.protocol.name}}/lib.rs.hbs` renders to the output \
+                 path `../x/lib.rs`, which has a `..` segment; output paths stay inside the \
+                 output directory"
+                    .to_string()
+            )
+        );
+        assert_eq!(
+            output_paths(&["{{tii.protocol.name}}/lib.rs.hbs"], ".."),
+            Err(
+                "template file `{{tii.protocol.name}}/lib.rs.hbs` renders to the output \
+                 path `../lib.rs`, which has a `..` segment; output paths stay inside the \
+                 output directory"
+                    .to_string()
+            )
+        );
+        assert_eq!(
+            output_paths(&["./lib.rs.hbs"], "x"),
+            Err(
+                "template file `./lib.rs.hbs` renders to the output path `./lib.rs`, which \
+                 has a `.` segment; output paths stay inside the output directory"
+                    .to_string()
+            )
+        );
+    }
+
+    #[test]
+    fn empty_output_path_segments_are_errors() {
+        assert_eq!(
+            output_paths(&["src/{{tii.protocol.missing}}/lib.rs.hbs"], "x"),
+            Err(
+                "template file `src/{{tii.protocol.missing}}/lib.rs.hbs` renders to the \
+                 output path `src//lib.rs`, which has an empty segment"
+                    .to_string()
+            )
+        );
+        assert_eq!(
+            output_paths(&["{{tii.protocol.name}}/"], "x"),
+            Err(
+                "template file `{{tii.protocol.name}}/` renders to the output path `x/`, \
+                 which has an empty segment"
+                    .to_string()
+            )
+        );
+    }
+
+    #[test]
+    fn colliding_output_paths_are_errors() {
+        assert_eq!(
+            output_paths(
+                &[
+                    "{{lowerCase tii.protocol.name}}/lib.rs.hbs",
+                    "{{tii.protocol.name}}/lib.rs",
+                    "x/lib.rs.hbs",
+                ],
+                "x"
+            ),
+            Err(
+                "template files `{{lowerCase tii.protocol.name}}/lib.rs.hbs` and \
+                 `{{tii.protocol.name}}/lib.rs` both render to the output path `x/lib.rs`"
+                    .to_string()
+            )
+        );
+    }
+
+    #[test]
+    fn output_path_rendering_errors_name_the_template_file() {
+        let error = output_paths(&["{{pascalCase}}/lib.rs.hbs"], "x").unwrap_err();
+        assert!(
+            error.starts_with(
+                "rendering the output path of template file `{{pascalCase}}/lib.rs.hbs`: "
+            ),
+            "{error}"
+        );
+        assert!(error.contains("pascalCase: missing argument 0"), "{error}");
     }
 }
