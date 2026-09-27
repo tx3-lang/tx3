@@ -27,6 +27,13 @@ pub const BUILT_IN: &[(&str, &[File])] = &[
     template!("rust-client": "Cargo.toml.hbs", "README.md.hbs", "lib.rs.hbs"),
     template!("python-client": "README.md.hbs", "__init__.py.hbs", "requirements.txt.hbs"),
     template!("go-client": "README.md.hbs", "go.mod.hbs", "protocol.go.hbs"),
+    template!(
+        "swift-client":
+        "Package.swift.hbs",
+        "README.md.hbs",
+        "Sources/{{identifier tii.protocol.name 'swift' 'type'}}Client/Client.swift.hbs",
+        "Sources/{{identifier tii.protocol.name 'swift' 'type'}}Client/Types.swift.hbs",
+    ),
 ];
 
 /// The built-in template called `name`, if there is one.

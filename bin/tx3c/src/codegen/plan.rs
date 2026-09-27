@@ -3,9 +3,12 @@
 //! The planner walks parsed [`Shape`]s, asks the backend how to spell each
 //! type, allocates names for anonymous nested shapes, and rejects identifier
 //! collisions. Its output is a tree of [`Declaration`]s that the backend only
-//! has to print.
+//! has to print. Alongside each member's type it records the member's
+//! [`Encoding`], so a backend whose generated clients construct the SDK's
+//! canonical argument values statically can spell that conversion without
+//! looking at the schema again.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use anyhow::{Context, Result};
 use convert_case::Case;
@@ -35,7 +38,12 @@ pub enum DeclKind {
     Tuple(Vec<Member>),
     Variant(Vec<VariantCase>),
     /// A named declaration for a shape that is not a record, tuple, or variant.
-    Alias(String),
+    Alias {
+        /// Rendered type expression of the aliased shape.
+        target: String,
+        /// How a value of the aliased shape is converted.
+        encoding: Encoding,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -46,6 +54,34 @@ pub struct Member {
     pub name: String,
     /// Rendered type expression.
     pub ty: String,
+    /// How a value of this member becomes the SDK's canonical argument.
+    pub encoding: Encoding,
+}
+
+/// How a value of a shape is converted to the SDK's canonical argument value,
+/// mirroring the SDK's own type-directed encoder: scalars and builtins by
+/// their tag, declared records, tuples and variants by the declaration's own
+/// conversion, containers element by element.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Encoding {
+    Scalar(Scalar),
+    Builtin(Builtin),
+    /// A declared record, tuple or variant, named by its declaration.
+    Declared(String),
+    /// A reference to a top-level component by its declared name. Resolved to
+    /// [`Encoding::Declared`], or to the target encoding of an alias, once
+    /// every component is planned; only a params-only plan leaves it as is.
+    Component(String),
+    List(Box<Encoding>),
+    Map(Box<Encoding>),
+    /// The value already has the SDK's fallback type; it is passed through.
+    Fallback,
+}
+
+/// A rendered type expression together with its conversion.
+struct Typed {
+    ty: String,
+    encoding: Encoding,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -118,6 +154,7 @@ impl Planner {
             };
             declarations.push(plan().with_context(|| format!("component `{source}`"))?);
         }
+        resolve_components(&mut declarations);
         Ok(declarations)
     }
 
@@ -152,6 +189,7 @@ impl Planner {
         let mut declarations =
             self.components(tii.pointer("/components/schemas").unwrap_or(&Value::Null))?;
         declarations.extend(self.params(tii)?);
+        resolve_components(&mut declarations);
         Ok(declarations)
     }
 
@@ -159,7 +197,7 @@ impl Planner {
     /// derived from `hint` when the backend declares nested shapes; without a
     /// hint it uses the backend's undeclared spelling.
     pub fn type_of(&mut self, shape: &Shape, hint: Option<&str>) -> Result<String> {
-        self.type_expr(shape, hint, None)
+        Ok(self.type_expr(shape, hint, None)?.ty)
     }
 
     /// Prints planned declarations with the backend.
@@ -206,10 +244,12 @@ impl Planner {
                 let mut members = Vec::with_capacity(items.len());
                 for (index, item) in items.iter().enumerate() {
                     let hint = format!("{name}Item{index}");
+                    let typed = self.type_expr(item, Some(&hint), Some(&mut children))?;
                     members.push(Member {
                         source: format!("item{index}"),
                         name: format!("item{index}"),
-                        ty: self.type_expr(item, Some(&hint), Some(&mut children))?,
+                        ty: typed.ty,
+                        encoding: typed.encoding,
                     });
                 }
                 DeclKind::Tuple(members)
@@ -248,7 +288,13 @@ impl Planner {
                 }
                 DeclKind::Variant(planned)
             }
-            other => DeclKind::Alias(self.type_expr(other, Some(&name), Some(&mut children))?),
+            other => {
+                let typed = self.type_expr(other, Some(&name), Some(&mut children))?;
+                DeclKind::Alias {
+                    target: typed.ty,
+                    encoding: typed.encoding,
+                }
+            }
         };
 
         Ok(Declaration {
@@ -281,10 +327,12 @@ impl Planner {
                 "{prefix}{}",
                 identifier_in(self.backend, field.name, Case::Pascal)?
             );
+            let typed = self.type_expr(&field.shape, Some(&hint), Some(children))?;
             members.push(Member {
                 source: field.name.to_string(),
                 name,
-                ty: self.type_expr(&field.shape, Some(&hint), Some(children))?,
+                ty: typed.ty,
+                encoding: typed.encoding,
             });
         }
         Ok(members)
@@ -295,31 +343,52 @@ impl Planner {
         shape: &Shape,
         hint: Option<&str>,
         mut children: Option<&mut Children>,
-    ) -> Result<String> {
+    ) -> Result<Typed> {
         let backend = self.backend;
-        let ty = match shape {
+        let typed = match shape {
             Shape::Scalar(scalar) => {
                 self.usage.scalars.insert(*scalar);
-                backend.scalar(*scalar).to_string()
+                Typed {
+                    ty: backend.scalar(*scalar).to_string(),
+                    encoding: Encoding::Scalar(*scalar),
+                }
             }
             Shape::Builtin(builtin) => {
                 self.usage.builtins.insert(*builtin);
-                backend.builtin(*builtin).to_string()
+                Typed {
+                    ty: backend.builtin(*builtin).to_string(),
+                    encoding: Encoding::Builtin(*builtin),
+                }
             }
-            Shape::Component(source) => identifier(backend, source, Role::Type)?,
+            Shape::Component(source) => {
+                let name = identifier(backend, source, Role::Type)?;
+                Typed {
+                    encoding: Encoding::Component(name.clone()),
+                    ty: name,
+                }
+            }
             Shape::Unknown => {
                 self.usage.fallback = true;
-                backend.fallback().to_string()
+                Typed {
+                    ty: backend.fallback().to_string(),
+                    encoding: Encoding::Fallback,
+                }
             }
             Shape::List(item) => {
                 let hint = hint.map(|hint| format!("{hint}Element"));
                 let item = self.type_expr(item, hint.as_deref(), children.as_deref_mut())?;
-                backend.list(&item)
+                Typed {
+                    ty: backend.list(&item.ty),
+                    encoding: Encoding::List(Box::new(item.encoding)),
+                }
             }
             Shape::Map(value) => {
                 let hint = hint.map(|hint| format!("{hint}Value"));
                 let value = self.type_expr(value, hint.as_deref(), children.as_deref_mut())?;
-                backend.map(&value)
+                Typed {
+                    ty: backend.map(&value.ty),
+                    encoding: Encoding::Map(Box::new(value.encoding)),
+                }
             }
             Shape::Tuple(_) | Shape::Record(_) | Shape::Variant(_) => {
                 match (backend.placement(), hint) {
@@ -333,16 +402,83 @@ impl Planner {
                             let declaration = self.declaration(name.clone(), shape, None)?;
                             children.declarations.push(declaration);
                         }
-                        name
+                        Typed {
+                            encoding: Encoding::Declared(name.clone()),
+                            ty: name,
+                        }
                     }
                     _ => {
                         self.usage.fallback = true;
-                        backend.undeclared(shape)
+                        Typed {
+                            ty: backend.undeclared(shape),
+                            encoding: Encoding::Fallback,
+                        }
                     }
                 }
             }
         };
-        Ok(ty)
+        Ok(typed)
+    }
+}
+
+/// Resolves every [`Encoding::Component`] in `declarations` against the
+/// top-level declarations of the same plan: a component declared as a record,
+/// tuple or variant converts itself, while an alias converts as its target.
+fn resolve_components(declarations: &mut [Declaration]) {
+    let aliases: BTreeMap<String, Encoding> = declarations
+        .iter()
+        .filter_map(|declaration| match &declaration.kind {
+            DeclKind::Alias { encoding, .. } => Some((declaration.name.clone(), encoding.clone())),
+            _ => None,
+        })
+        .collect();
+
+    fn resolve(encoding: &mut Encoding, aliases: &BTreeMap<String, Encoding>) {
+        let mut visited = BTreeSet::new();
+        while let Encoding::Component(name) = encoding {
+            // An alias cycle cannot be declared in any language; the value is
+            // passed through rather than looping.
+            if !visited.insert(name.clone()) {
+                *encoding = Encoding::Fallback;
+                return;
+            }
+            *encoding = match aliases.get(name) {
+                Some(target) => target.clone(),
+                None => Encoding::Declared(name.clone()),
+            };
+        }
+        match encoding {
+            Encoding::List(item) | Encoding::Map(item) => resolve(item, aliases),
+            _ => {}
+        }
+    }
+
+    fn resolve_declaration(declaration: &mut Declaration, aliases: &BTreeMap<String, Encoding>) {
+        match &mut declaration.kind {
+            DeclKind::Record(members) | DeclKind::Tuple(members) => {
+                for member in members {
+                    resolve(&mut member.encoding, aliases);
+                }
+            }
+            DeclKind::Variant(cases) => {
+                for case in cases {
+                    for member in &mut case.fields {
+                        resolve(&mut member.encoding, aliases);
+                    }
+                    for nested in &mut case.nested {
+                        resolve_declaration(nested, aliases);
+                    }
+                }
+            }
+            DeclKind::Alias { encoding, .. } => resolve(encoding, aliases),
+        }
+        for nested in &mut declaration.nested {
+            resolve_declaration(nested, aliases);
+        }
+    }
+
+    for declaration in declarations {
+        resolve_declaration(declaration, &aliases);
     }
 }
 

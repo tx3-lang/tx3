@@ -97,7 +97,7 @@ impl Backend for Rust {
             (DeclKind::Variant(_), _) => format!(
                 "// TODO: tagged-union codegen pending the variant arg encoder\npub type {name} = serde_json::Value;\n"
             ),
-            (DeclKind::Tuple(_) | DeclKind::Alias(_), _) => {
+            (DeclKind::Tuple(_) | DeclKind::Alias { .. }, _) => {
                 format!("#[derive(Debug, Clone, Serialize)]\npub struct {name} {{\n}}\n")
             }
         }

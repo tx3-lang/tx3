@@ -155,7 +155,7 @@ fn render(declaration: &Declaration, depth: usize) -> String {
         DeclKind::Record(fields) => record(name, fields, None, &declaration.nested, depth),
         DeclKind::Tuple(items) => record(name, items, None, &declaration.nested, depth),
         // Java has no type aliases; an aliased shape keeps an empty record.
-        DeclKind::Alias(_) => record(name, &[], None, &[], depth),
+        DeclKind::Alias { .. } => record(name, &[], None, &[], depth),
         DeclKind::Variant(cases) => {
             let pad = indent(depth);
             let permits = cases

@@ -62,17 +62,21 @@ jobs:
 
   codegen:
     name: codegen compile (${{ matrix.template }})
-    runs-on: ubuntu-latest
+    # The Swift client builds with the SDK's own toolchain baseline: Xcode 16.4
+    # on the Apple Silicon macOS 15 runner, like tx3-lang/swift-sdk's CI.
+    runs-on: ${{ matrix.template == 'swift-client' && 'macos-15' || 'ubuntu-latest' }}
     strategy:
       fail-fast: false
       matrix:
-        template: [rust-client, ts-client, python-client, go-client]
+        template: [rust-client, ts-client, python-client, go-client, swift-client]
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@1.91
       - uses: Swatinem/rust-cache@v2
+      - if: matrix.template == 'swift-client'
+        run: sudo xcode-select --switch /Applications/Xcode_16.4.app
       - if: matrix.template == 'ts-client'
         uses: actions/setup-node@v4
         with:

@@ -83,7 +83,7 @@ impl Backend for TypeScript {
             DeclKind::Variant(_) => format!(
                 "// TODO: tagged-union codegen pending the variant arg encoder\nexport type {name} = unknown;\n"
             ),
-            DeclKind::Tuple(_) | DeclKind::Alias(_) => format!("export type {name} = {{\n}};\n"),
+            DeclKind::Tuple(_) | DeclKind::Alias { .. } => format!("export type {name} = {{\n}};\n"),
         }
     }
 }
