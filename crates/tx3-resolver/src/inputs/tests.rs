@@ -2,6 +2,7 @@
 //! (narrow → approximate → assign).
 
 use chainfuzz::utxos::UtxoBuilder;
+use tx3_tir::encoding::AnyTir;
 use tx3_tir::model::{assets::CanonicalAssets, core::UtxoSet, v1beta0 as tir};
 
 use crate::{
@@ -446,4 +447,153 @@ async fn test_cross_query_pool_doesnt_leak_wrong_address() {
     let result = job.resolve_queries(&store).await;
 
     assert!(result.is_err());
+}
+
+// ---------------------------------------------------------------------------
+// Collateral sizing
+// ---------------------------------------------------------------------------
+
+/// A TIR whose only input query is a collateral block declaring
+/// `min_amount: fees` — the shape every real `.tx3` collateral block lowers to.
+fn collateral_only_tir(address: &mock::KnownAddress, declared_min: i128) -> AnyTir {
+    let query = tir::InputQuery {
+        address: tir::Expression::Address(address.to_bytes()),
+        min_amount: tir::Expression::Assets(vec![tir::AssetExpr {
+            policy: tir::Expression::None,
+            asset_name: tir::Expression::None,
+            amount: tir::Expression::Number(declared_min),
+        }]),
+        r#ref: tir::Expression::None,
+        many: false,
+        collateral: true,
+    };
+
+    AnyTir::V1Beta0(tir::Tx {
+        fees: tir::Expression::Number(declared_min),
+        references: vec![],
+        inputs: vec![],
+        outputs: vec![],
+        validity: None,
+        mints: vec![],
+        burns: vec![],
+        adhoc: vec![],
+        collateral: vec![tir::Collateral {
+            utxos: tir::Expression::EvalParam(Box::new(tir::Param::ExpectInput(
+                "collateral".to_string(),
+                query,
+            ))),
+        }],
+        signers: None,
+        metadata: vec![],
+    })
+}
+
+/// Two naked UTxOs per address: one that covers the fee but not 150% of it, and
+/// one that covers both.
+fn store_with_tight_and_ample_utxos() -> mock::MockStore {
+    mock::seed_random_memory_store(
+        |_: &mock::FuzzTxoRef, x: &mock::KnownAddress, sequence: u64| {
+            if sequence.is_multiple_of(2) {
+                mock::utxo_with_random_amount(x, 2_500_000..2_500_001)
+            } else {
+                mock::utxo_with_random_amount(x, 4_000_000..4_000_001)
+            }
+        },
+        2..3,
+    )
+}
+
+async fn resolve_collateral(
+    store: &mock::MockStore,
+    address: &mock::KnownAddress,
+    fees: u64,
+    collateral_percentage: u64,
+) -> Result<UtxoSet, Error> {
+    let mut job = mock::stub_job_with_queries(Vec::new());
+    job.fees = fees;
+    job.collateral_percentage = collateral_percentage;
+
+    let tir = collateral_only_tir(address, fees as i128);
+    job.resolve_inputs(tir, store).await?;
+
+    Ok(job.to_input_map().remove("collateral").unwrap_or_default())
+}
+
+#[pollster::test]
+async fn test_collateral_sized_from_percentage_of_fee() {
+    let store = store_with_tight_and_ample_utxos();
+    let fees = 2_000_000;
+
+    for address in mock::KnownAddress::everyone() {
+        // The TIR only asks for `fees`, so a 2.5 ADA UTxO would satisfy it —
+        // and the ledger would then reject the tx for insufficient collateral.
+        let utxos = resolve_collateral(&store, &address, fees, 150)
+            .await
+            .expect("collateral should resolve");
+
+        assert_eq!(utxos.len(), 1);
+        assert!(
+            utxos.total_assets().naked_amount().unwrap() >= 3_000_000,
+            "selected collateral must cover 150% of the fee"
+        );
+    }
+}
+
+/// Every UTxO holds 2.5 ADA: enough for a 2 ADA fee at 100%, short of it at
+/// 150%.
+fn store_with_tight_utxos_only() -> mock::MockStore {
+    mock::seed_random_memory_store(
+        |_: &mock::FuzzTxoRef, x: &mock::KnownAddress, _: u64| {
+            mock::utxo_with_random_amount(x, 2_500_000..2_500_001)
+        },
+        2..3,
+    )
+}
+
+#[pollster::test]
+async fn test_collateral_percentage_is_configurable() {
+    let store = store_with_tight_utxos_only();
+    let fees = 2_000_000;
+
+    for address in mock::KnownAddress::everyone() {
+        // The same pool that fails at 150% resolves at 100%, so the floor
+        // really is driven by the option rather than hardcoded.
+        let utxos = resolve_collateral(&store, &address, fees, 100)
+            .await
+            .expect("collateral should resolve at 100%");
+
+        assert_eq!(utxos.len(), 1);
+        assert!(utxos.total_assets().naked_amount().unwrap() >= fees as i128);
+    }
+}
+
+#[pollster::test]
+async fn test_collateral_short_of_percentage_does_not_resolve() {
+    // Every candidate covers the fee but none covers 150% of it: resolution
+    // must fail loudly rather than emit a tx the ledger will reject.
+    let store = store_with_tight_utxos_only();
+
+    for address in mock::KnownAddress::everyone() {
+        let result = resolve_collateral(&store, &address, 2_000_000, 150).await;
+
+        assert!(
+            matches!(result, Err(Error::InputNotResolved(..))),
+            "expected InputNotResolved, got {result:?}"
+        );
+    }
+}
+
+#[pollster::test]
+async fn test_collateral_untouched_on_the_zero_fee_pass() {
+    // The first eval pass runs with fee 0; sizing must not narrow the query
+    // there, otherwise the loop never gets a fee to size against.
+    let store = store_with_tight_and_ample_utxos();
+
+    for address in mock::KnownAddress::everyone() {
+        let utxos = resolve_collateral(&store, &address, 0, 150)
+            .await
+            .expect("collateral should resolve on the zero-fee pass");
+
+        assert_eq!(utxos.len(), 1);
+    }
 }

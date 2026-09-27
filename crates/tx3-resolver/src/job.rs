@@ -13,6 +13,44 @@ use tx3_tir::Node as _;
 use crate::inputs::CanonicalQuery;
 use crate::{Error, InputNotResolvedError, UtxoStore};
 
+/// The Cardano ledger's `collateralPercentage` protocol parameter, unchanged on
+/// every network since Alonzo. Callers that read live protocol parameters
+/// should override it through [`ResolveOptions`].
+pub const DEFAULT_COLLATERAL_PERCENTAGE: u64 = 150;
+
+/// Knobs for a resolution run.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResolveOptions {
+    /// How many extra passes the fee/input fixpoint loop may take before
+    /// giving up on convergence. Floored at 3.
+    pub max_optimize_rounds: usize,
+
+    /// Percentage of the fee that the collateral inputs must cover.
+    pub collateral_percentage: u64,
+}
+
+impl Default for ResolveOptions {
+    fn default() -> Self {
+        Self {
+            max_optimize_rounds: 3,
+            collateral_percentage: DEFAULT_COLLATERAL_PERCENTAGE,
+        }
+    }
+}
+
+impl ResolveOptions {
+    pub fn with_max_optimize_rounds(max_optimize_rounds: usize) -> Self {
+        Self {
+            max_optimize_rounds,
+            ..Default::default()
+        }
+    }
+}
+
+fn default_collateral_percentage() -> u64 {
+    DEFAULT_COLLATERAL_PERCENTAGE
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ResolveLog {
     ArgsApplied(AnyTir),
@@ -42,6 +80,15 @@ pub struct ResolveJob {
     pub round: usize,
     pub last_eval: Option<CompiledTx>,
     pub converged: bool,
+
+    /// Fee the current pass is resolving against — 0 on the first pass, the
+    /// previous pass's fee afterwards. Collateral sizing reads it.
+    #[serde(default)]
+    pub fees: u64,
+
+    /// `collateralPercentage`, as supplied by the caller's protocol params.
+    #[serde(default = "default_collateral_percentage")]
+    pub collateral_percentage: u64,
 
     // Timeline of state changes across all rounds
     pub log: Vec<ResolveLogEntry>,
@@ -86,6 +133,8 @@ impl ResolveJob {
             round: 0,
             last_eval: None,
             converged: false,
+            fees: 0,
+            collateral_percentage: DEFAULT_COLLATERAL_PERCENTAGE,
             log: Vec::new(),
             input_queries: Vec::new(),
             input_pool: None,
@@ -165,6 +214,7 @@ impl ResolveJob {
     {
         let base_tir = self.resolved_tir().clone();
         let fees = self.last_eval.as_ref().map(|e| e.fee).unwrap_or(0);
+        self.fees = fees;
 
         let attempt = tx3_tir::reduce::apply_fees(base_tir, fees)?;
         self.record(ResolveLog::FeesApplied(attempt.clone()));
@@ -206,13 +256,14 @@ impl ResolveJob {
         &mut self,
         compiler: &mut C,
         utxos: &S,
-        max_optimize_rounds: usize,
+        options: &ResolveOptions,
     ) -> Result<CompiledTx, Error>
     where
         C: Compiler<Expression = tir::Expression, CompilerOp = tir::CompilerOp>,
         S: UtxoStore,
     {
-        let max_optimize_rounds = max_optimize_rounds.max(3);
+        let max_optimize_rounds = options.max_optimize_rounds.max(3);
+        self.collateral_percentage = options.collateral_percentage;
 
         self.compiler = match serde_json::to_value(&*compiler) {
             Ok(value) => value,
@@ -247,9 +298,24 @@ where
     C: Compiler<Expression = tir::Expression, CompilerOp = tir::CompilerOp>,
     S: UtxoStore,
 {
+    let options = ResolveOptions::with_max_optimize_rounds(max_optimize_rounds);
+    resolve_tx_with_options(tx, args, compiler, utxos, &options).await
+}
+
+pub async fn resolve_tx_with_options<C, S>(
+    tx: AnyTir,
+    args: &ArgMap,
+    compiler: &mut C,
+    utxos: &S,
+    options: &ResolveOptions,
+) -> Result<CompiledTx, Error>
+where
+    C: Compiler<Expression = tir::Expression, CompilerOp = tir::CompilerOp>,
+    S: UtxoStore,
+{
     let mut job = ResolveJob::new(tx, args.clone());
 
-    let result = job.execute(compiler, utxos, max_optimize_rounds).await;
+    let result = job.execute(compiler, utxos, options).await;
 
     if let Ok(dir) = std::env::var("TX3_DIAGNOSTIC_DUMP") {
         let _ = crate::dump::dump_to_dir(&job, Path::new(&dir));
