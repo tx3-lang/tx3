@@ -10,7 +10,7 @@ use serde_json::Value;
 use super::{
     backend,
     names::{identifier, Role},
-    plan::{params_type_name, Planner},
+    plan::{params_type_name, DeclKind, Planner},
     schema::Shape,
 };
 
@@ -62,6 +62,51 @@ fn imports(tii: &Value, language: &str) -> Result<String> {
     let mut planner = Planner::new(backend);
     planner.document(tii)?;
     Ok(backend.imports(planner.usage()))
+}
+
+/// `usesModule <tii> <language> <module>`: whether the import lines of
+/// `declarations` name `module`. Renders `true` or nothing, for `#if`.
+fn uses_module(tii: &Value, language: &str, module: &str) -> Result<String> {
+    let backend = backend::for_language(language)?;
+    let mut planner = Planner::new(backend);
+    planner.document(tii)?;
+    Ok(if backend.modules(planner.usage()).contains(&module) {
+        "true".to_string()
+    } else {
+        String::new()
+    })
+}
+
+/// `argValue <tii> <transaction> <param> <language> <params-expr>`: the SDK's
+/// canonical argument value for one transaction parameter, read from the
+/// params value `params-expr`. The expression is derived from the same plan
+/// as the params declaration, so it always matches the declared field types.
+fn arg_value(
+    tii: &Value,
+    transaction: &str,
+    param: &str,
+    language: &str,
+    params: &str,
+) -> Result<String> {
+    let backend = backend::for_language(language)?;
+    let mut planner = Planner::new(backend);
+    let declarations = planner.document(tii)?;
+    let declaration = declarations
+        .iter()
+        .find(|declaration| declaration.params_of.as_deref() == Some(transaction))
+        .ok_or_else(|| anyhow!("transaction `{transaction}` declares no params"))?;
+    let member = match &declaration.kind {
+        DeclKind::Record(members) => members.iter().find(|member| member.source == param),
+        _ => None,
+    }
+    .ok_or_else(|| anyhow!("transaction `{transaction}` has no `{param}` parameter"))?;
+    backend.argument(&member.encoding, &backend.member(params, &member.name))
+}
+
+/// `profile <profile> <language>`: the SDK's `Profile` value for one
+/// `tii.profiles` entry.
+fn profile(profile: &Value, language: &str) -> Result<String> {
+    backend::for_language(language)?.profile(profile)
 }
 
 /// `identifier <name> <language> <role>`: the escaped identifier the
@@ -136,6 +181,30 @@ pub fn register(handlebars: &mut Handlebars<'_>) {
         "json",
         Box::new(helper("json", |args| {
             Ok(serde_json::to_string(arg(args, 0)?)?)
+        })),
+    );
+    handlebars.register_helper(
+        "usesModule",
+        Box::new(helper("usesModule", |args| {
+            uses_module(arg(args, 0)?, str_arg(args, 1)?, str_arg(args, 2)?)
+        })),
+    );
+    handlebars.register_helper(
+        "argValue",
+        Box::new(helper("argValue", |args| {
+            arg_value(
+                arg(args, 0)?,
+                str_arg(args, 1)?,
+                str_arg(args, 2)?,
+                str_arg(args, 3)?,
+                str_arg(args, 4)?,
+            )
+        })),
+    );
+    handlebars.register_helper(
+        "profile",
+        Box::new(helper("profile", |args| {
+            profile(arg(args, 0)?, str_arg(args, 1)?)
         })),
     );
 
@@ -464,6 +533,283 @@ mod tests {
         assert_eq!(
             render("{{{swiftDeclarations tii}}}", json!({ "tii": opaque })).unwrap(),
             "public typealias Opaque = ArgValue"
+        );
+    }
+
+    #[test]
+    fn swift_arg_values_follow_the_params_declaration() {
+        let tii = json!({
+            "components": { "schemas": {
+                "Amounts": { "type": "array", "items": { "type": "integer" } },
+                "Asset": {
+                    "type": "object",
+                    "properties": { "policy": builtin("Bytes") },
+                    "required": ["policy"]
+                },
+                "Opaque": { "type": "object" }
+            } },
+            "transactions": { "place-order": { "params": {
+                "type": "object",
+                "properties": {
+                    "quantity": { "type": "integer" },
+                    "flag": { "type": "boolean" },
+                    "nothing": { "type": "null" },
+                    "memo": { "type": "string" },
+                    "ship-to": builtin("Address"),
+                    "source": builtin("UtxoRef"),
+                    "datum": builtin("Bytes"),
+                    "bag": builtin("AnyAsset"),
+                    "amounts": { "$ref": "#/components/schemas/Amounts" },
+                    "asset": { "$ref": "#/components/schemas/Asset" },
+                    "opaque": { "$ref": "#/components/schemas/Opaque" },
+                    "pair": {
+                        "type": "array",
+                        "prefixItems": [{ "type": "integer" }, { "type": "boolean" }],
+                        "items": false
+                    },
+                    "labels": { "type": "object", "additionalProperties": { "type": "integer" } },
+                    "matrix": {
+                        "type": "array",
+                        "items": { "type": "array", "items": { "type": "integer" } }
+                    }
+                },
+                "required": [
+                    "quantity", "flag", "nothing", "memo", "ship-to", "source", "datum", "bag",
+                    "amounts", "asset", "opaque", "pair", "labels", "matrix"
+                ]
+            } } }
+        });
+        let data = json!({ "tii": tii });
+        let cases = [
+            ("quantity", "ArgValue.integer(params.quantity)"),
+            ("flag", "ArgValue.boolean(params.flag)"),
+            ("nothing", "ArgValue.structure(constructor: 0, fields: [])"),
+            ("memo", "params.memo"),
+            ("ship-to", "ArgValue.address(params.shipTo)"),
+            ("source", "ArgValue.utxoRef(params.source)"),
+            ("datum", "ArgValue.bytes(params.datum)"),
+            ("bag", "params.bag"),
+            // A component alias converts as its target; a component record
+            // converts itself; an opaque component is already an `ArgValue`.
+            ("amounts", "ArgValue.list(params.amounts.map { ArgValue.integer($0) })"),
+            ("asset", "params.asset.argValue"),
+            ("opaque", "params.opaque"),
+            ("pair", "params.pair.argValue"),
+            (
+                "labels",
+                "ArgValue.mapPairs(params.labels.sorted { $0.key < $1.key }.map { \
+                 ArgMapEntry(key: ArgValue.string($0.key), value: ArgValue.integer($0.value)) })",
+            ),
+            (
+                "matrix",
+                "ArgValue.list(params.matrix.map { ArgValue.list($0.map { ArgValue.integer($0) }) })",
+            ),
+        ];
+        for (param, expected) in cases {
+            let template =
+                format!("{{{{argValue tii \"place-order\" \"{param}\" \"swift\" \"params\"}}}}");
+            assert_eq!(
+                render(&template, data.clone()).unwrap(),
+                expected,
+                "{param}"
+            );
+        }
+
+        let error = render(
+            "{{argValue tii \"place-order\" \"missing\" \"swift\" \"params\"}}",
+            data.clone(),
+        )
+        .unwrap_err();
+        assert!(
+            error.contains("transaction `place-order` has no `missing` parameter"),
+            "{error}"
+        );
+        let error = render(
+            "{{argValue tii \"transfer\" \"quantity\" \"swift\" \"params\"}}",
+            data.clone(),
+        )
+        .unwrap_err();
+        assert!(
+            error.contains("transaction `transfer` declares no params"),
+            "{error}"
+        );
+        let error = render(
+            "{{argValue tii \"place-order\" \"quantity\" \"go\" \"params\"}}",
+            data,
+        )
+        .unwrap_err();
+        assert!(
+            error.contains("Go clients do not construct argument values statically"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn alias_cycles_through_containers_pass_the_value_through() {
+        // `Loop` is a list of itself and `Twin` aliases `Loop`: neither can be
+        // declared, so their values pass through instead of resolving forever.
+        let tii = json!({
+            "components": { "schemas": {
+                "Loop": { "type": "array", "items": { "$ref": "#/components/schemas/Loop" } },
+                "Twin": { "$ref": "#/components/schemas/Loop" }
+            } },
+            "transactions": { "spin": { "params": {
+                "type": "object",
+                "properties": {
+                    "direct": { "$ref": "#/components/schemas/Loop" },
+                    "via": { "$ref": "#/components/schemas/Twin" },
+                    "nested": {
+                        "type": "object",
+                        "additionalProperties": { "$ref": "#/components/schemas/Loop" }
+                    }
+                },
+                "required": ["direct", "via", "nested"]
+            } } }
+        });
+        let data = json!({ "tii": tii });
+        let cases = [
+            ("direct", "ArgValue.list(params.direct.map { $0 })"),
+            ("via", "ArgValue.list(params.via.map { $0 })"),
+            (
+                "nested",
+                "ArgValue.mapPairs(params.nested.sorted { $0.key < $1.key }.map { \
+                 ArgMapEntry(key: ArgValue.string($0.key), value: ArgValue.list($0.value.map { $0 })) })",
+            ),
+        ];
+        for (param, expected) in cases {
+            let template =
+                format!("{{{{argValue tii \"spin\" \"{param}\" \"swift\" \"params\"}}}}");
+            assert_eq!(
+                render(&template, data.clone()).unwrap(),
+                expected,
+                "{param}"
+            );
+        }
+    }
+
+    #[test]
+    fn swift_declarations_convert_themselves() {
+        let schemas = json!({
+            "Side": { "oneOf": [
+                {
+                    "type": "object",
+                    "required": ["Buy"],
+                    "properties": { "Buy": { "type": "object", "properties": {} } }
+                },
+                {
+                    "type": "object",
+                    "required": ["Sell"],
+                    "properties": { "Sell": {
+                        "type": "object",
+                        "properties": { "price": { "type": "integer" } },
+                        "required": ["price"]
+                    } }
+                }
+            ] }
+        });
+        assert_eq!(
+            declarations("swift", schemas).unwrap(),
+            concat!(
+                "public enum Side: Sendable {\n",
+                "    case buy\n",
+                "    case sell(price: BigInt)\n",
+                "\n",
+                "    /// The canonical argument value of this variant.\n",
+                "    public var argValue: ArgValue {\n",
+                "        switch self {\n",
+                "        case .buy:\n",
+                "            return ArgValue.structure(constructor: 0, fields: [])\n",
+                "        case .sell(let price):\n",
+                "            return ArgValue.structure(\n",
+                "                constructor: 1,\n",
+                "                fields: [\n",
+                "                    ArgValue.integer(price),\n",
+                "                ]\n",
+                "            )\n",
+                "        }\n",
+                "    }\n",
+                "}",
+            )
+        );
+    }
+
+    #[test]
+    fn swift_profiles_are_sdk_values() {
+        let profile = json!({
+            "environment": {
+                "flags": [true, null],
+                "name": "pre\"prod",
+                "tax": 5000000
+            },
+            "parties": { "sender": "addr1" }
+        });
+        assert_eq!(
+            render(
+                "{{{profile profile \"swift\"}}}",
+                json!({ "profile": profile })
+            )
+            .unwrap(),
+            concat!(
+                "Tx3SDK.Profile(\n",
+                "    environment: [\n",
+                "        \"flags\": JSONValue.array([\n",
+                "            JSONValue.boolean(true),\n",
+                "            JSONValue.null,\n",
+                "        ]),\n",
+                "        \"name\": JSONValue.string(\"pre\\\"prod\"),\n",
+                "        \"tax\": JSONValue.number(5000000.0),\n",
+                "    ],\n",
+                "    parties: [\n",
+                "        \"sender\": \"addr1\",\n",
+                "    ]\n",
+                ")",
+            )
+        );
+        assert_eq!(
+            render(
+                "{{{profile profile \"swift\"}}}",
+                json!({ "profile": { "environment": {}, "parties": {} } })
+            )
+            .unwrap(),
+            "Tx3SDK.Profile(\n    environment: [:],\n    parties: [:]\n)"
+        );
+
+        let error = render(
+            "{{{profile profile \"swift\"}}}",
+            json!({ "profile": { "parties": { "sender": 1 } } }),
+        )
+        .unwrap_err();
+        assert!(
+            error.contains("party `sender` must map to an address string"),
+            "{error}"
+        );
+        let error = render("{{{profile profile \"rust\"}}}", json!({ "profile": {} })).unwrap_err();
+        assert!(
+            error.contains("Rust clients do not embed profiles as SDK values"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn uses_module_reports_the_planned_imports() {
+        let integers = json!({ "transactions": { "transfer": { "params": {
+            "type": "object",
+            "properties": { "quantity": { "type": "integer" } },
+            "required": ["quantity"]
+        } } } });
+        let template = "{{#if (usesModule tii \"swift\" \"BigInt\")}}big{{else}}small{{/if}}";
+        assert_eq!(render(template, json!({ "tii": integers })).unwrap(), "big");
+        assert_eq!(
+            render(template, json!({ "tii": { "transactions": {} } })).unwrap(),
+            "small"
+        );
+        assert_eq!(
+            render(
+                "{{usesModule tii \"swift\" \"Tx3SDK\"}}",
+                json!({ "tii": { "transactions": {} } })
+            )
+            .unwrap(),
+            "true"
         );
     }
 

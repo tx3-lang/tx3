@@ -89,7 +89,7 @@ impl Backend for Python {
             (DeclKind::Variant(_), _) => format!(
                 "# TODO: tagged-union codegen pending the variant arg encoder\n{name} = Any\n"
             ),
-            (DeclKind::Record(_) | DeclKind::Tuple(_) | DeclKind::Alias(_), _) => {
+            (DeclKind::Record(_) | DeclKind::Tuple(_) | DeclKind::Alias { .. }, _) => {
                 format!("@dataclass\nclass {name}:\n    pass\n")
             }
         }

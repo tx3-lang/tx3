@@ -9,10 +9,11 @@
 
 use anyhow::{bail, Result};
 use convert_case::Case;
+use serde_json::Value;
 
 use super::{
     names::Role,
-    plan::{Declaration, Usage},
+    plan::{Declaration, Encoding, Usage},
     schema::{Builtin, Scalar, Shape},
 };
 
@@ -86,6 +87,34 @@ pub trait Backend: Sync {
     /// Import lines needed by the planned declarations.
     fn imports(&self, _usage: &Usage) -> String {
         String::new()
+    }
+    /// Modules the planned declarations import, in the order [`imports`]
+    /// writes them.
+    ///
+    /// [`imports`]: Backend::imports
+    fn modules(&self, _usage: &Usage) -> Vec<&'static str> {
+        Vec::new()
+    }
+
+    /// Spells the expression that reads `member` from the value `receiver`.
+    fn member(&self, receiver: &str, member: &str) -> String {
+        format!("{receiver}.{member}")
+    }
+    /// Spells the SDK's canonical argument value for `value`, an expression
+    /// of the type the backend gives `encoding`. Only backends whose
+    /// generated clients construct arguments statically support this.
+    fn argument(&self, _encoding: &Encoding, _value: &str) -> Result<String> {
+        bail!(
+            "{} clients do not construct argument values statically",
+            self.display_name()
+        )
+    }
+    /// Spells the SDK's `Profile` value for one `tii.profiles` entry.
+    fn profile(&self, _profile: &Value) -> Result<String> {
+        bail!(
+            "{} clients do not embed profiles as SDK values",
+            self.display_name()
+        )
     }
 }
 

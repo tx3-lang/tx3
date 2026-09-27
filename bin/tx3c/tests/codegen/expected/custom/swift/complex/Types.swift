@@ -10,11 +10,37 @@ public struct AssetClass: Sendable {
         self.policy = policy
         self.name = name
     }
+
+    /// The canonical argument value of this record.
+    public var argValue: ArgValue {
+        ArgValue.structure(
+            constructor: 0,
+            fields: [
+                ArgValue.bytes(policy),
+                ArgValue.bytes(name),
+            ]
+        )
+    }
 }
 
 public enum Side: Sendable {
     case buy
     case sell(price: BigInt)
+
+    /// The canonical argument value of this variant.
+    public var argValue: ArgValue {
+        switch self {
+        case .buy:
+            return ArgValue.structure(constructor: 0, fields: [])
+        case .sell(let price):
+            return ArgValue.structure(
+                constructor: 1,
+                fields: [
+                    ArgValue.integer(price),
+                ]
+            )
+        }
+    }
 }
 
 public struct ComplexParamsPair: Sendable {
@@ -24,6 +50,14 @@ public struct ComplexParamsPair: Sendable {
     public init(item0: BigInt, item1: Data) {
         self.item0 = item0
         self.item1 = item1
+    }
+
+    /// The canonical argument value of this record.
+    public var argValue: ArgValue {
+        ArgValue.tuple([
+            ArgValue.integer(item0),
+            ArgValue.bytes(item1),
+        ])
     }
 }
 
@@ -52,5 +86,25 @@ public struct ComplexParams: Sendable {
         self.labels = labels
         self.asset = asset
         self.side = side
+    }
+
+    /// The canonical argument value of this record.
+    public var argValue: ArgValue {
+        ArgValue.structure(
+            constructor: 0,
+            fields: [
+                ArgValue.integer(quantity),
+                ArgValue.boolean(flag),
+                ArgValue.structure(constructor: 0, fields: []),
+                ArgValue.address(recipient),
+                ArgValue.utxoRef(source),
+                bag,
+                ArgValue.list(amounts.map { ArgValue.integer($0) }),
+                pair.argValue,
+                ArgValue.mapPairs(labels.sorted { $0.key < $1.key }.map { ArgMapEntry(key: ArgValue.string($0.key), value: ArgValue.integer($0.value)) }),
+                asset.argValue,
+                side.argValue,
+            ]
+        )
     }
 }
