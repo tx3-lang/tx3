@@ -9,7 +9,7 @@
 #
 # Usage: codegen-compile-check.sh <rust-client|ts-client|python-client|go-client|java-client|swift-client> [path/to/tx3c]
 # Needs the matching toolchain on PATH: cargo, node/npm, python3, go, a JDK
-# (java-client also needs git; Maven comes from the SDK checkout's wrapper), or swift.
+# with Maven (mvn), or swift.
 set -euo pipefail
 
 template="$1"
@@ -19,44 +19,6 @@ fixtures="$repo_root/bin/tx3c/tests/codegen/fixtures"
 template_dir="$repo_root/bin/tx3c/templates/$template"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
-
-# Until land.tx3:tx3-sdk:0.15.0 is on Maven Central, the Java client compiles
-# against the java-sdk repository at this commit, installed into the local
-# Maven repository as 0.15.0-SNAPSHOT and selected through the generated
-# project's tx3.sdk.version property. Once the release exists, drop this block
-# and the -Dtx3.sdk.version override so the check builds against the
-# published package like the other languages.
-java_sdk_repo="https://github.com/tx3-lang/java-sdk.git"
-java_sdk_pin="d7a6dc4da56f73a7a47fe2e77444ad056885cfe7"
-java_sdk_version="0.15.0-SNAPSHOT"
-mvn=""
-if [ "$template" = "java-client" ]; then
-  sdk="$work/java-sdk"
-  git clone --quiet "$java_sdk_repo" "$sdk"
-  git -C "$sdk" checkout --quiet "$java_sdk_pin"
-  mvn="$sdk/mvnw"
-  (
-    cd "$sdk"
-    "$mvn" -B -ntp -q versions:set -DnewVersion="$java_sdk_version" -DgenerateBackupPoms=false
-    "$mvn" -B -ntp -q -DskipTests install
-  )
-fi
-
-# The Swift client pins swift-sdk `from: "0.15.0"`, which has no tagged release
-# yet. Until it does, the check builds against the swift-sdk repository at this
-# commit: a clone tagged `0.15.0` locally stands in for the release through a
-# SwiftPM mirror, so the generated Package.swift is built exactly as rendered.
-# Once the tag exists, delete this block and the mirror step below so the
-# check resolves the published release directly.
-swift_sdk_url="https://github.com/tx3-lang/swift-sdk.git"
-swift_sdk_rev="02fa0f2cc70d38f2623141035b3eb18509854b9a"
-swift_sdk_tag="0.15.0"
-if [[ "$template" == "swift-client" ]]; then
-  swift_sdk="$work/swift-sdk"
-  git clone --quiet "$swift_sdk_url" "$swift_sdk"
-  git -C "$swift_sdk" checkout --quiet "$swift_sdk_rev"
-  git -C "$swift_sdk" tag "$swift_sdk_tag"
-fi
 
 # Only fixtures that model real protocols. `edge.tii` deliberately collides
 # names with SDK types and is covered by the golden tests instead.
@@ -106,14 +68,12 @@ PY
       # client runs without its source TII.
       mkdir -p "$gen/src/main/java/smoke"
       cp "$repo_root/.github/scripts/java-client-smoke/$fixture/Smoke.java" "$gen/src/main/java/smoke/"
-      "$mvn" -B -ntp -q -f "$gen/pom.xml" -Dtx3.sdk.version="$java_sdk_version" verify
-      "$mvn" -B -ntp -q -f "$gen/pom.xml" -Dtx3.sdk.version="$java_sdk_version" \
+      mvn -B -ntp -q -f "$gen/pom.xml" verify
+      mvn -B -ntp -q -f "$gen/pom.xml" \
         dependency:build-classpath -Dmdep.outputFile="$gen/classpath.txt"
       java -cp "$gen/target/classes:$(cat "$gen/classpath.txt")" smoke.Smoke
       ;;
     swift-client)
-      swift package --package-path "$gen" config set-mirror \
-        --original "$swift_sdk_url" --mirror "file://$swift_sdk"
       swift build --package-path "$gen"
       ;;
     *)
